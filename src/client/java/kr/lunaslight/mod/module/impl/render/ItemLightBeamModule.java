@@ -31,15 +31,16 @@ public class ItemLightBeamModule extends Module {
 			"beam_color", "빛기둥 색", "아이템 위 빛기둥의 색입니다. 안 건드리면 클라이언트 색을 따라갑니다.",
 			0xA0000000 | (LunaTheme.DEFAULT_ACCENT & 0x00FFFFFF)));
 
+	// 49-289차(사용자: "빛기둥은 최소블록을 1칸으로"): 높이와 표시 거리 모두 최소 1블록.
 	// 49-195차(사용자: "1.3블록 이런 식으로 세부 소수점 단위까지"): 정수 → 0.1블록 단위. 같은 id라 예전 값(3)이 그대로 3.0이 된다.
 	private final kr.lunaslight.mod.module.setting.FloatSetting height = register(new kr.lunaslight.mod.module.setting.FloatSetting(
-			"height", "높이", "빛기둥 높이(블록)입니다.", 3f, 0.5f, 16f, 0.1f).unit("블록"));
+			"height", "높이", "빛기둥 높이(블록)입니다.", 3f, 1f, 16f, 0.1f).unit("블록"));
 
 	private final IntSetting maxBeams = register(new IntSetting(
 			"max_beams", "최대 개수", "한 번에 그리는 최대 빛기둥 수입니다.", 64, 8, 256, 1));
 
 	private final IntSetting renderDistance = register(new IntSetting(
-			"render_distance", "표시 거리", "빛기둥을 그리는 최대 거리(블록)입니다.", 32, 8, 128, 1).unit("블록"));
+			"render_distance", "표시 거리", "빛기둥을 그리는 최대 거리(블록)입니다.", 32, 1, 128, 1).unit("블록"));
 
 	public ItemLightBeamModule() {
 		super("item_light_beam", "빛기둥", ModuleCategory.INVENTORY, "떨어진 아이템 위 빛기둥");

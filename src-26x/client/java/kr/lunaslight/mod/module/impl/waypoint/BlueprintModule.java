@@ -1016,9 +1016,11 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	// 이제 모서리를 잘게 나눠 조각마다 카메라에서 그 점까지 불투명 블록이 막는지 보고(DDA), 막힌 조각은 25% 진하기로만 그린다.
 	// 상자마다 결과를 담아 두고 카메라가 0.2블록 넘게 움직였거나 상자가 바뀌었거나 0.25초가 지나면 다시 본다.
 
-	private final double[][] selKey = new double[4][];
-	private final boolean[][] selSeen = new boolean[4][];
-	private final long[] selAt = new long[4];
+	private final double[][] selKey = new double[5][];
+	private final boolean[][] selSeen = new boolean[5][];
+	private final long[] selAt = new long[5];
+	/** 49-290차: selBox가 가려진 조각을 흐리게 대신 아예 안 그릴지. */
+	private boolean selHide;
 
 	private void selBox(GuiGraphicsExtractor ctx, LunaProjection proj, int key, double x0, double y0, double z0, double x1, double y1, double z1,
 			float width, int argb) {
@@ -1077,6 +1079,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 				int j = i;
 				while (j + 1 < pieces[e] && seen[n + j + 1] == v) {
 					j++;
+				}
+				if (!v && selHide) {
+					i = j + 1;
+					continue;
 				}
 				double t0 = (double) i / pieces[e], t1 = (double) (j + 1) / pieces[e];
 				proj.toView(a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0, a[2] + (b[2] - a[2]) * t0, va);
@@ -1262,7 +1268,9 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		for (int i = 0; i < n; i++) {
 			int idx = (int) (keyBuf[i] & 0x7FFFFF);
 			int y = idx / wl, rem = idx - y * wl, z = rem / bp.w, x = rem - z * bp.w;
+			visLoose = true;   // 49-290차: 후보 고르기는 가운데 한 점만(빠르게), 그릴 때 다섯 점으로 다시 본다
 			int mask = live ? 0x3F : faceVisMask(proj.camX, proj.camY, proj.camZ, ox + x, oy + y, oz + z);
+			visLoose = false;
 			if (mask != 0) {
 				faceMask[kept] = (byte) mask;
 				drawIdx[kept++] = idx;
@@ -1301,11 +1309,93 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			if (opaqueAt(tx + d[0], ty + d[1], tz + d[2])) {
 				continue;   // 진짜 블록에 붙은 면
 			}
-			if (clearRay(cx, cy, cz, px, py, pz, tx, ty, tz)) {
+			if (faceClear(cx, cy, cz, px, py, pz, d, tx, ty, tz)) {
 				mask |= 1 << f;
 			}
 		}
 		return mask;
+	}
+
+	/**
+	 * 49-290차(사용자: "설계도 홀로그램 블록 뒤에 가려지면 안 보이게"): 면 가운데만 보면 반쯤 가려진 면이 통째로 블록 위에 덧그려져
+	 * 벽 너머가 비쳤다. 가운데와 네 모서리(안쪽으로 0.05) 다섯 점이 모두 카메라에서 막힘 없이 보일 때만 그 면을 그린다.
+	 */
+	private boolean faceClear(double cx, double cy, double cz, double px, double py, double pz, int[] d, int tx, int ty, int tz) {
+		if (!clearRay(cx, cy, cz, px, py, pz, tx, ty, tz)) {
+			return false;
+		}
+		if (visLoose) {
+			return true;
+		}
+		double ux = d[0] == 0 ? 1 : 0, uy = d[0] != 0 ? 1 : 0, uz = 0;
+		double vx = 0, vy = d[2] != 0 ? 1 : 0, vz = d[2] == 0 ? 1 : 0;
+		for (int k = 0; k < 4; k++) {
+			double su = (k & 1) == 0 ? -0.45 : 0.45, sv = (k & 2) == 0 ? -0.45 : 0.45;
+			if (!clearRay(cx, cy, cz, px + ux * su + vx * sv, py + uy * su + vy * sv, pz + uz * su + vz * sv, tx, ty, tz)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// 49-290차: 칸마다 보이는 면 기억(drawIdx 순서). 카메라가 0.2블록 넘게 움직이거나 0.25초 지나면 세대를 올려 다시 본다.
+	private byte[] visMask = new byte[0];
+	private int[] visIdx = new int[0], visGen = new int[0];
+	private int visGeneration = 1;
+	private double visCamX = Double.NaN, visCamY, visCamZ;
+	private long visTime;
+	private static final int VIS_BUDGET = 350;
+	private boolean visLoose;
+
+	private void visPrepare(LunaProjection proj) {
+		if (visMask.length < drawIdx.length) {
+			visMask = new byte[drawIdx.length];
+			visIdx = new int[drawIdx.length];
+			visGen = new int[drawIdx.length];
+			java.util.Arrays.fill(visIdx, -1);
+		}
+		long now = System.nanoTime();
+		double dx = proj.camX - visCamX, dy = proj.camY - visCamY, dz = proj.camZ - visCamZ;
+		if (Double.isNaN(visCamX) || dx * dx + dy * dy + dz * dz > 0.04 || now - visTime > 250_000_000L) {
+			visGeneration++;
+			visCamX = proj.camX;
+			visCamY = proj.camY;
+			visCamZ = proj.camZ;
+			visTime = now;
+		}
+		// 가까운 칸부터 한 프레임에 VIS_BUDGET개까지 새로 본다(나머지는 다음 프레임에 - 그 사이엔 직전 값)
+		int budget = VIS_BUDGET;
+		for (int i = 0; i < drawN && budget > 0; i++) {
+			if (visIdx[i] == drawIdx[i] && visGen[i] == visGeneration) {
+				continue;
+			}
+			visCompute(proj, i);
+			budget--;
+		}
+	}
+
+	private int visOf(LunaProjection proj, int i) {
+		if (i >= visIdx.length) {
+			return 0x3F;
+		}
+		if (visIdx[i] != drawIdx[i]) {
+			visCompute(proj, i);   // 처음 보는 칸은 지금 바로
+		}
+		return visMask[i] & 0x3F;
+	}
+
+	private void visCompute(LunaProjection proj, int i) {
+		int idx = drawIdx[i];
+		int wl = bp.w * bp.l;
+		int y = idx / wl, rem = idx - y * wl, z = rem / bp.w, x = rem - z * bp.w;
+		rayHolo = worldDrawn.get(idx) && worldOk && System.nanoTime() - worldStamp < 250_000_000L;
+		try {
+			visMask[i] = (byte) faceVisMask(proj.camX, proj.camY, proj.camZ, origin.getX() + x, origin.getY() + y, origin.getZ() + z);
+		} finally {
+			rayHolo = false;
+		}
+		visIdx[i] = idx;
+		visGen[i] = visGeneration;
 	}
 
 	/** 3차원 격자 따라가기(DDA): 시작 칸과 목표 칸은 빼고, 지나가는 칸에 불투명 블록이 있으면 false. */
@@ -1433,7 +1523,13 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		}
 		// 바깥 테두리(보이는 층만)
 		int y0 = origin.getY() + layerMin - 1, y1 = origin.getY() + layerMax;
-		box(ctx, proj, origin.getX(), y0, origin.getZ(), origin.getX() + bp.w, y1, origin.getZ() + bp.l, 1f, 0x60FFFFFF);
+		// 49-290차: 바깥 테두리도 블록에 가려진 조각은 안 그린다
+		selHide = true;
+		try {
+			selBox(ctx, proj, 4, origin.getX(), y0, origin.getZ(), origin.getX() + bp.w, y1, origin.getZ() + bp.l, 1f, 0x60FFFFFF);
+		} finally {
+			selHide = false;
+		}
 		rebuildCandidates(proj);
 		if (drawN == 0) {
 			return;
@@ -1447,6 +1543,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		int miss = missC & 0xFFFFFF;
 		double limX = proj.tanHalf * proj.aspect * 1.05, limY = proj.tanHalf * 1.05;
 		int wl = bp.w * bp.l;
+		visPrepare(proj);
 		// 먼 것부터(가까운 게 위에)
 		for (int i = drawN - 1; i >= 0; i--) {
 			int idx = drawIdx[i];
@@ -1461,14 +1558,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			}
 			int y = idx / wl, rem = idx - y * wl, z = rem / bp.w, x = rem - z * bp.w;
 			// 화면 방식: 보이는 면만. 월드 그리기 중인데 모델이 없어 여기로 온 칸(상자 등)은 면 막힘을 지금 본다.
-			faceMaskNow = i < faceMask.length ? faceMask[i] & 0x3F : 0x3F;
-			if (inWorld && (faceMaskNow == 0x3F || edgeOnly)) {
-				rayHolo = edgeOnly;
-				faceMaskNow = faceVisMask(proj.camX, proj.camY, proj.camZ, origin.getX() + x, origin.getY() + y, origin.getZ() + z);
-				rayHolo = false;
-				if (faceMaskNow == 0) {
-					continue;
-				}
+			// 49-290차: 월드 방식이든 화면 방식이든 다섯 점 판정(기억해 둔 값)으로 - 가려진 면은 안 덧그린다
+			faceMaskNow = visOf(proj, i);
+			if (faceMaskNow == 0) {
+				continue;
 			}
 			int bx = origin.getX() + x, by = origin.getY() + y, bz = origin.getZ() + z;
 			// 화면 밖이면 건너뛴다(칸 반지름 0.87)

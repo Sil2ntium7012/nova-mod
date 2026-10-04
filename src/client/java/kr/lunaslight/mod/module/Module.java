@@ -451,6 +451,19 @@ public abstract class Module {
 		return shape;
 	}
 
+	/** 49-289차: UI 테마가 바뀌었을 때 - 이 기능이 테마 상자(크림/미드나잇/네온)를 골랐으면 [HUD 배경 따름]으로. 바꿨으면 true. */
+	public boolean hudShapeFollowTheme() {
+		if (hudBgShape == null) {
+			return false;
+		}
+		HudShape s = hudBgShape.get();
+		if (s == HudShape.CREAM || s == HudShape.MIDNIGHT || s == HudShape.NEON) {
+			hudBgShape.setValue(HudShape.FOLLOW);
+			return true;
+		}
+		return false;
+	}
+
 	/** 49-279차: 그 화면 스킨을 가졌나(런처 상점). */
 	public static boolean skinOwned(kr.lunaslight.mod.util.LunaTheme.Skin s) {
 		try {
