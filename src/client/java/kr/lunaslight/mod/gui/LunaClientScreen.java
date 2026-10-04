@@ -320,6 +320,9 @@ public class LunaClientScreen extends LunaScreenBase {
 		if (w <= 2 || h <= 2) {
 			return;
 		}
+		if (LunaDraw.skinCard(ctx, x, y, w, h, r, fill, border)) {
+			return;   // 49-279차: 미드나잇 / 네온
+		}
 		if (LIGHT) {
 			// 49-239차: 크림 = 더 둥글게 + 부드러운 그림자(아래 두께 없음)
 			r = Math.min(r + 3, Math.min(w, h) / 2);
@@ -347,6 +350,9 @@ public class LunaClientScreen extends LunaScreenBase {
 		if (w <= 4 || h <= 4) {
 			return;
 		}
+		if (LunaDraw.skinRow(ctx, x, y, w, h)) {
+			return;   // 49-279차
+		}
 		if (LIGHT) {
 			int r = Math.min(6, h / 2);
 			LunaDraw.roundRect(ctx, x, y + 1, w, h, r, 0x145A4630);
@@ -365,6 +371,14 @@ public class LunaClientScreen extends LunaScreenBase {
 
 	/** 49-226차: 입체 버튼(아래 두께 2px). on = 초록 그라데이션, 아니면 회색 카드. hov = 0~1. */
 	private void btn3d(DrawContext ctx, int x, int y, int w, int h, String label, boolean on, float hov) {
+		if (LunaDraw.skinButton(ctx, x, y, w, h, on, hov)) {
+			// 49-279차: 미드나잇 / 네온 - 켜짐 = 주 버튼, 꺼짐 = 일반 버튼
+			if (label != null && !label.isEmpty()) {
+				String t = LunaDraw.ellipsize(textRenderer, label, w - 6);
+				LunaDraw.textCentered(ctx, textRenderer, t, x + w / 2, LunaDraw.textY(y, h), LunaDraw.skinButtonText(on, hov));
+			}
+			return;
+		}
 		if (on && LIGHT) {
 			// 49-239차: 크림 - 둥근 초록 버튼 + 얇은 두께 + 부드러운 그림자(시안의 [강화하기])
 			int r = Math.min(7, h / 2);
@@ -428,7 +442,7 @@ public class LunaClientScreen extends LunaScreenBase {
 				iconColor = LunaDraw.lerpColor(LunaDraw.lerpColor(GRAY, tint[2], 0.5f), tint[2], on);
 			}
 		}
-		int ir = LIGHT ? Math.min(7, size / 3) : 4;   // 49-239차: 크림은 더 둥근 칩
+		int ir = LIGHT ? Math.min(7, size / 3) : LunaDraw.neon() ? 1 : LunaDraw.midnight() ? 5 : 4;   // 49-239차: 크림은 더 둥근 칩, 49-279차: 네온 각지게
 		LunaDraw.roundRect(ctx, x, y, size, size, ir, border);
 		LunaDraw.roundRect(ctx, x + 1, y + 1, size - 2, size - 2, ir - 1, fill);
 		if (size >= 18) {
@@ -468,6 +482,9 @@ public class LunaClientScreen extends LunaScreenBase {
 	private static void pxSwitch(DrawContext ctx, int x, int y, int w, int h, float t) {
 		t = Math.max(0f, Math.min(1f, t));
 		int in = h >= 12 ? 2 : 1;
+		if (LunaDraw.skinSwitch(ctx, x, y, w, h, t)) {
+			return;   // 49-279차
+		}
 		if (LIGHT) {
 			// 49-239차: 크림 - 시안의 하늘색 알약 스위치 + 흰 노브
 			LunaDraw.pill(ctx, x, y, w, h, LunaDraw.lerpColor(SW_OFF, 0xFF62ACE6, t));
@@ -540,6 +557,18 @@ public class LunaClientScreen extends LunaScreenBase {
 		MODAL_BG = 0xF2000000 | (LunaTheme.mix(bg1, bg2, 0.3f) & 0x00FFFFFF);
 		NUMBOX_BG = 0xF0000000 | (bg0 & 0x00FFFFFF);
 		INK = 0xFFFFFF;
+		// 49-279차: 미드나잇 / 네온 - 선과 꺼진 스위치를 스킨 색으로(팔레트 섞기만으로는 회색에 가깝다)
+		if (LunaDraw.midnight()) {
+			LINE = LunaTheme.mix(BG, LunaDraw.MID_BORDER, 0.30f);
+			LINE_HOV = LunaTheme.mix(BG, LunaDraw.MID_BORDER, 0.55f);
+			SW_OFF = 0xFF2C2648;
+			KNOB_OFF = 0xFF8A82B0;
+		} else if (LunaDraw.neon()) {
+			LINE = LunaTheme.mix(BG, LunaDraw.NEON_CYAN, 0.28f);
+			LINE_HOV = LunaTheme.mix(BG, LunaDraw.NEON_CYAN, 0.6f);
+			SW_OFF = 0xFF1A1A26;
+			KNOB_OFF = 0xFF55556A;
+		}
 	}
 
 	/** 공용 색을 테마 원래 값으로(라이트에서 바꿔 둔 것 되돌림). 테마가 프레임 중에 바뀌어도 최신 값으로 돌아간다. */
@@ -1732,6 +1761,8 @@ public class LunaClientScreen extends LunaScreenBase {
 			LunaDraw.roundRect(ctx, panX - 1, panY + 1, panW + 2, panH + 2, 12, 0x1E5A4630);
 			LunaDraw.roundRect(ctx, panX, panY, panW, panH, 11, 0xFFE3D0AE);
 			LunaDraw.roundRect(ctx, panX + 1, panY + 1, panW - 2, panH - 2, 10, BG);
+		} else if (LunaDraw.skinPanel(ctx, panX, panY, panW, panH, 7)) {
+			// 49-279차: 미드나잇(보라 빛 번짐 + 세로 그라데이션) / 네온(시안 2px 테두리 + 빛 + 잘린 모서리)
 		} else {
 			LunaDraw.roundRect(ctx, panX - 2, panY, panW + 4, panH + 7, 8, 0x38000000);
 			LunaDraw.roundRect(ctx, panX, panY + 3, panW, panH, 7, edgeColor());

@@ -74,10 +74,15 @@ public class BlueprintScreen extends LunaScreenBase {
 	// ==================== 배치 ====================
 
 	private static final int PANEL_W = 520;
-	private static final int PANEL_H = 320;
+	private static final int PANEL_H = 366;   // 49-280차: 돌리기/뒤집기 두 줄만큼 키움(320 → 366)
 	private static final int PAD = 14;
 	private static final int ROW = 22;
 	private static final String[] TABS = {"저장", "목록", "불러온 설계도"};
+	// 49-280차: [불러온 설계도] 돌리기/뒤집기 버튼(위에서 볼 때 기준)
+	private static final String[] XF_LABELS = {"돌리기", "뒤집기"};
+	private static final String[][] XF_NAMES = {{"왼쪽 90", "오른쪽 90", "반 바퀴"}, {"좌우", "앞뒤", "위아래"}};
+	private static final char[][] XF_OPS = {{Blueprint.ROT_CCW, Blueprint.ROT_CW, 'H'}, {Blueprint.MIRROR_X, Blueprint.MIRROR_Z, Blueprint.FLIP_Y}};
+	private static final int XF_W = 50;
 
 	private final Screen parent;
 	private int tab;
@@ -302,6 +307,19 @@ public class BlueprintScreen extends LunaScreenBase {
 			boolean h = LunaDraw.in(mx, my, bx, y, bw, ROW - 2);
 			LunaDraw.button3d(ctx, font, bx, y, bw, ROW - 2, a, "해제".equals(a) ? LunaDraw.B_DANGER : LunaDraw.B_NEUTRAL, h ? 1f : 0f);
 			bx += bw + 6;
+		}
+		// 49-280차: 돌리기 / 뒤집기
+		y += ROW;
+		for (int row = 0; row < 2; row++) {
+			LunaDraw.text(ctx, font, XF_LABELS[row], x, LunaDraw.textY(y, ROW), LunaDraw.TEXT_SUB);
+			int tx = x + 70;
+			for (int i = 0; i < 3; i++) {
+				String a = XF_NAMES[row][i];
+				boolean h = LunaDraw.in(mx, my, tx, y, XF_W, ROW - 2);
+				LunaDraw.button3d(ctx, font, tx, y, XF_W, ROW - 2, a, LunaDraw.B_NEUTRAL, h ? 1f : 0f);
+				tx += XF_W + 4;
+			}
+			y += ROW;
 		}
 		// 오른쪽: 필요한 블록
 		int rx = px + PAD + colW + 16, rw = PANEL_W - (rx - px) - PAD;
@@ -532,6 +550,19 @@ public class BlueprintScreen extends LunaScreenBase {
 				return true;
 			}
 			ax += bw + 6;
+		}
+		// 49-280차: 돌리기 / 뒤집기
+		y += ROW;
+		for (int row = 0; row < 2; row++) {
+			int tx = x + 70;
+			for (int i = 0; i < 3; i++) {
+				if (LunaDraw.in(mx, my, tx, y, XF_W, ROW - 2)) {
+					say(m.transform(XF_OPS[row][i]));
+					return true;
+				}
+				tx += XF_W + 4;
+			}
+			y += ROW;
 		}
 		return true;
 	}

@@ -48,11 +48,13 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	private final StringSetting tool = register(new StringSetting(
 			"tool", "도구", "지점을 찍을 아이템입니다. 좌클릭 = 지점 1, 우클릭 = 지점 2. id(wooden_axe)나 이름 아무거나 됩니다.", "wooden_axe"));
 	private final KeybindSetting openKey = register(new KeybindSetting(
-			"open_key", "설계도 창 키", "설계도 창을 엽니다.", 79));   // O
+			"open_key", "설계도 창 키", "설계도 창을 엽니다.", com.mojang.blaze3d.platform.InputConstants.KEY_O).legacyRaw(79));   // O
+	// 49-278차(사용자: "설계도 키가 오른쪽 화살표로 돼 있어"): 기본값을 GLFW 숫자(79)로 적어 26.3(SDL 스캔코드)에서 79 = 오른쪽 화살표가 됐다.
+	// 이 판(26.x 트리)은 InputConstants 상수로 - 26.2까지는 GLFW, 26.3은 SDL 값이 알아서 들어간다. legacyRaw = 예전에 잘못 저장된 값 되돌리기.
 	private final KeybindSetting layerUp = register(new KeybindSetting(
-			"layer_up", "최대 층 올리기", "불러온 설계도에서 보이는 맨 위 층을 한 칸 올립니다.", 266));   // Page Up
+			"layer_up", "최대 층 올리기", "불러온 설계도에서 보이는 맨 위 층을 한 칸 올립니다.", com.mojang.blaze3d.platform.InputConstants.KEY_PAGEUP).legacyRaw(266));   // Page Up
 	private final KeybindSetting layerDown = register(new KeybindSetting(
-			"layer_down", "최대 층 내리기", "보이는 맨 위 층을 한 칸 내립니다.", 267));   // Page Down
+			"layer_down", "최대 층 내리기", "보이는 맨 위 층을 한 칸 내립니다.", com.mojang.blaze3d.platform.InputConstants.KEY_PAGEDOWN).legacyRaw(267));   // Page Down
 	private final KeybindSetting minUp = register(new KeybindSetting(
 			"min_up", "최소 층 올리기", "보이는 맨 아래 층을 한 칸 올립니다.", -1));
 	private final KeybindSetting minDown = register(new KeybindSetting(
@@ -328,6 +330,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		try {
 			Blueprint b = Blueprint.load(name);
 			BlockPos me = playerBlock();
+			xform = "";   // 49-280차: 새로 불러오면 돌리기/뒤집기 없음
 			place(b, new BlockPos(me.getX() - b.rx, me.getY() - b.ry, me.getZ() - b.rz));
 			return "§a불러왔습니다: " + name;
 		} catch (Throwable t) {
@@ -390,7 +393,49 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		saveState();   // 이 월드의 기록에서 뺀다
 	}
 
+	// ==================== 49-280차: 돌리기 / 뒤집기 ====================
+
+	/** 지금 설계도에 적용한 돌리기/뒤집기(Blueprint.composeOps로 줄인 꼴). 다시 들어오면 이대로 다시 적용. */
+	private String xform = "";
+
+	public String xform() {
+		return xform;
+	}
+
+	/**
+	 * 불러온 설계도를 돌리거나 뒤집는다(op = Blueprint.ROT_CW / ROT_CCW / MIRROR_X / MIRROR_Z / FLIP_Y). 기준 위치(불러올 때 서 있던 칸)는
+	 * 월드에서 그대로 두고 그 둘레로 돈다. 층 범위는 같은 층을 가리키게 맞춘다(위아래 뒤집기면 층 번호도 뒤집힌다).
+	 */
+	public String transform(char op) {
+		if (bp == null || origin == null) {
+			return "불러온 설계도가 없습니다";
+		}
+		if (op == 'H') {
+			transform(Blueprint.ROT_CW);
+			transform(Blueprint.ROT_CW);
+			return "§a반 바퀴(180도) 돌렸습니다";
+		}
+		Blueprint nb = bp.transformed(op);
+		int wx = origin.getX() + bp.rx, wy = origin.getY() + bp.ry, wz = origin.getZ() + bp.rz;
+		int lmin = layerMin, lmax = layerMax, hh = bp.h;
+		xform = Blueprint.composeOps(xform + op);
+		place(nb, new BlockPos(wx - nb.rx, wy - nb.ry, wz - nb.rz));
+		if (op == Blueprint.FLIP_Y) {
+			setLayers(hh - lmax + 1, hh - lmin + 1);
+		} else {
+			setLayers(lmin, lmax);
+		}
+		return switch (op) {
+			case Blueprint.ROT_CW -> "§a오른쪽으로 90도 돌렸습니다";
+			case Blueprint.ROT_CCW -> "§a왼쪽으로 90도 돌렸습니다";
+			case Blueprint.MIRROR_X -> "§a좌우(동서)로 뒤집었습니다";
+			case Blueprint.MIRROR_Z -> "§a앞뒤(남북)로 뒤집었습니다";
+			default -> "§a위아래로 뒤집었습니다";
+		};
+	}
+
 	private void clearMemory() {
+		xform = "";
 		bp = null;
 		origin = null;
 		status = new byte[0];
@@ -462,6 +507,9 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 					o.add("origin", posJson(origin));
 					o.addProperty("layerMin", layerMin);
 					o.addProperty("layerMax", layerMax);
+					if (!xform.isEmpty()) {
+						o.addProperty("xform", xform);   // 49-280차
+					}
 				}
 				if (pos1 != null) {
 					o.add("pos1", posJson(pos1));
@@ -524,6 +572,12 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			BlockPos org = posOf(o, "origin");
 			if (o.has("name") && org != null) {
 				Blueprint b = Blueprint.load(o.get("name").getAsString());
+				// 49-280차: 돌리거나 뒤집어 둔 것도 그대로
+				String xf = o.has("xform") ? Blueprint.composeOps(o.get("xform").getAsString()) : "";
+				for (char c : xf.toCharArray()) {
+					b = b.transformed(c);
+				}
+				xform = xf;
 				place(b, org);
 				setLayers(o.has("layerMin") ? o.get("layerMin").getAsInt() : 1, o.has("layerMax") ? o.get("layerMax").getAsInt() : b.h);
 				LunaCompat.sendActionBar(client, "§b설계도 §f" + b.name + " §7이어서 불러왔습니다");
@@ -552,6 +606,25 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 
 	public int statusOf(int cellIndex) {
 		return cellIndex < 0 || cellIndex >= status.length ? Blueprint.UNKNOWN : status[cellIndex];
+	}
+
+	/**
+	 * 49-277차(사용자: "최신 버전 O에 뭐 있어? 왜 설계도가 안 열려?"): 26.3부터 바닐라에 [친구] 키가 생겼고 기본이 O다.
+	 * 이 키는 틱이 아니라 키를 누르는 순간(Minecraft#handleGlobalKeyPress) 친구 창을 열어서, 틱 끝에 보는 우리 키 검사 때는
+	 * 이미 화면이 떠 있어 설계도 창이 안 열렸다. 게임 화면에서 설계도 창 키와 같은 키가 오면 BlueprintKeyMixin이 바닐라 처리를
+	 * 건너뛰게 한다(친구 창은 바닐라 키 설정에서 다른 키로 옮기면 그대로 쓸 수 있다).
+	 */
+	public static boolean ownsGlobalKey(com.mojang.blaze3d.platform.InputConstants.Key key) {
+		BlueprintModule m = instance;
+		if (m == null || key == null || !m.isEnabled() || m.client == null || m.client.player == null
+				|| LunaCompat.screenOf(m.client) != null || !m.openKey.isBound() || m.openKey.isMouse()) {
+			return false;
+		}
+		try {
+			return key.equals(kr.lunaslight.mod.util.LunaInput.keyboardKey(m.openKey.getBaseKey()));
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	// ==================== 매 틱 ====================

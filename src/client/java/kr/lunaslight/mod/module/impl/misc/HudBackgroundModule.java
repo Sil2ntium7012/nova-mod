@@ -31,6 +31,8 @@ public class HudBackgroundModule extends Module {
 		ROUND("둥근"),
 		SQUARE("네모난"),
 		CREAM("크림"),   // 49-257차: 크림 UI를 가졌을 때만(없으면 둥근으로 보인다)
+		MIDNIGHT("미드나잇"),   // 49-279차: 미드나잇 UI를 가졌을 때만
+		NEON("네온"),           // 49-279차: 네온 사이버 UI를 가졌을 때만
 		NONE("없음");
 
 		private final String label;
@@ -79,6 +81,8 @@ public class HudBackgroundModule extends Module {
 			case SQUARE -> Module.HUD_BOX_SHAPE = Module.HUD_BOX_SQUARE;
 			case NONE -> Module.HUD_BOX_SHAPE = Module.HUD_BOX_NONE;
 			case CREAM -> Module.HUD_BOX_SHAPE = Module.HUD_BOX_CREAM;
+			case MIDNIGHT -> Module.HUD_BOX_SHAPE = Module.HUD_BOX_MIDNIGHT;
+			case NEON -> Module.HUD_BOX_SHAPE = Module.HUD_BOX_NEON;
 			default -> Module.HUD_BOX_SHAPE = Module.HUD_BOX_ROUND;
 		}
 	}

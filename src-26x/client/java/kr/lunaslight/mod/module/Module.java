@@ -204,6 +204,8 @@ public abstract class Module {
 		ROUND("둥근"),
 		SQUARE("네모난"),
 		CREAM("크림"),        // 49-257차: 크림 UI를 가졌으면 HUD도 크림 상자로(없으면 둥근으로 보인다)
+		MIDNIGHT("미드나잇"), // 49-279차: 미드나잇 UI를 가졌을 때(없으면 둥근)
+		NEON("네온"),         // 49-279차: 네온 사이버 UI를 가졌을 때(없으면 둥근)
 		PIXEL("직접 그림"),   // 49-170차: 픽셀 편집기로 그린 배경(9분할 반복)
 		NONE("없음");
 
@@ -372,6 +374,12 @@ public abstract class Module {
 			}
 			return;
 		}
+		if (shape == HUD_BOX_MIDNIGHT || shape == HUD_BOX_NEON) {
+			if (hudBg.get()) {
+				skinHudBox(context, bx, by, bw, bh, alpha, shape == HUD_BOX_NEON, (getId().hashCode() & 1) == 1);
+			}
+			return;   // 49-279차
+		}
 		if (shape == HUD_BOX_PIXEL) {
 			// 49-170차: 직접 그린 배경(9분할 반복). 그림이 없으면 둥근 상자로.
 			kr.lunaslight.mod.util.PixelArt art = hudPixelArt();
@@ -408,8 +416,8 @@ public abstract class Module {
 			return;
 		}
 		int shape = hudShapeNow();
-		if (shape == HUD_BOX_NONE || shape == HUD_BOX_CREAM) {
-			return;   // 크림 상자는 제 그림자를 같이 그린다
+		if (shape == HUD_BOX_NONE || shape == HUD_BOX_CREAM || shape == HUD_BOX_MIDNIGHT || shape == HUD_BOX_NEON) {
+			return;   // 크림 상자는 제 그림자를 같이 그린다(49-279차: 미드나잇, 네온도 제 빛/테두리)
 		}
 		kr.lunaslight.mod.gui.LunaDraw.shadow(context, x, y, w, h, shape == HUD_BOX_SQUARE ? 0 : 4);
 	}
@@ -429,6 +437,8 @@ public abstract class Module {
 				case NONE -> shape = HUD_BOX_NONE;
 				case PIXEL -> shape = HUD_BOX_PIXEL;
 				case CREAM -> shape = HUD_BOX_CREAM;
+				case MIDNIGHT -> shape = HUD_BOX_MIDNIGHT;
+				case NEON -> shape = HUD_BOX_NEON;
 				default -> {
 				}
 			}
@@ -436,7 +446,20 @@ public abstract class Module {
 		if (shape == HUD_BOX_CREAM && !creamOwned()) {
 			shape = HUD_BOX_ROUND;
 		}
+		if (shape == HUD_BOX_MIDNIGHT && !skinOwned(kr.lunaslight.mod.util.LunaTheme.Skin.MIDNIGHT)
+				|| shape == HUD_BOX_NEON && !skinOwned(kr.lunaslight.mod.util.LunaTheme.Skin.NEON)) {
+			shape = HUD_BOX_ROUND;   // 49-279차
+		}
 		return shape;
+	}
+
+	/** 49-279차: 그 화면 스킨을 가졌나(런처 상점). */
+	public static boolean skinOwned(kr.lunaslight.mod.util.LunaTheme.Skin s) {
+		try {
+			return kr.lunaslight.mod.util.LunaTheme.skinOwned(s);
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** 크림 화면 스킨을 가졌나(런처 상점). */
@@ -460,6 +483,27 @@ public abstract class Module {
 		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by + 1, bw, bh, r, mulAlpha(0x2E5A4630, alpha));
 		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by, bw, bh, r, mulAlpha(0xF5DCC8A4, alpha));
 		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx + 1, by + 1, bw - 2, bh - 2, r - 1, mulAlpha(0xF2FFFAF0, alpha));
+	}
+
+	/**
+	 * 49-279차: 미드나잇 HUD = 짙은 남보라 90% + 보라 테두리 40%(둥근 5), 네온 HUD = 검정 85% + 시안(기능마다 하나 걸러 분홍)
+	 * 1px 테두리 + 빛(각진 1). 글자는 밝은 색 그대로.
+	 */
+	private static void skinHudBox(GuiGraphicsExtractor context, int bx, int by, int bw, int bh, float alpha, boolean neon, boolean pink) {
+		if (!neon) {
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by + 1, bw, bh, 5, mulAlpha(0x26000000, alpha));
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by, bw, bh, 5, mulAlpha(0x669670FF, alpha));
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx + 1, by + 1, bw - 2, bh - 2, 4, mulAlpha(0xE6100C22, alpha));
+			return;
+		}
+		int rgb = pink ? 0xFF3CC8 : 0x20F0FF;
+		for (int i = 3; i >= 1; i--) {
+			float k = 1f - (i - 0.5f) / 3f;
+			kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(context, bx - i, by - i, bw + 2 * i, bh + 2 * i, 1 + i,
+				mulAlpha((Math.round(0x50 * k * k) << 24) | rgb, alpha));
+		}
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by, bw, bh, 1, mulAlpha(0xFF000000 | rgb, alpha));
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx + 1, by + 1, bw - 2, bh - 2, 0, mulAlpha(0xD9000000, alpha));
 	}
 
 	/** 49-179차: 0이 아니면 다음 drawHudBox의 윤곽선을 이 색으로(모양과 둥글기는 이 기능의 배경 설정 그대로). */
@@ -491,6 +535,7 @@ public abstract class Module {
 	public static final int HUD_BOX_SQUARE = 1;
 	public static final int HUD_BOX_NONE = 2;
 	public static final int HUD_BOX_CREAM = 4;   // 49-257차
+	public static final int HUD_BOX_MIDNIGHT = 5, HUD_BOX_NEON = 6;   // 49-279차
 	/** 지금 쓰는 모양. 매 프레임 여러 번 읽히는 값이라 필드 하나로 둔다(설정 조회 비용 0). */
 	public static volatile int HUD_BOX_SHAPE = HUD_BOX_ROUND;
 

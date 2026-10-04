@@ -76,6 +76,240 @@ public final class Blueprint {
 		return cell <= 0 || cell > palette.size() ? null : palette.get(cell - 1);
 	}
 
+	// ==================== 49-280차: 돌리기 / 뒤집기 ====================
+	// 사용자: "설계도 불러온 거 여러 방향으로 뒤집거나 각도를 바꾸거나 하는 기능". 칸 배열과 기준 위치를 옮기고, 블록 상태(방향,
+	// 축, 회전, 위아래, 계단 모양, 문 경첩, 상자 좌우, 레일, 울타리 연결 …)와 모양 상자도 같이 바꾼다 - 그래야 맞음/틀림 판정과
+	// 진짜 블록 홀로그램이 돌린 모양 그대로 나온다. 위에서 볼 때 R = 오른쪽(시계 방향) 90도, L = 왼쪽 90도, X = 좌우(동서) 뒤집기,
+	// Z = 앞뒤(남북) 뒤집기, Y = 위아래 뒤집기.
+
+	public static final char ROT_CW = 'R', ROT_CCW = 'L', MIRROR_X = 'X', MIRROR_Z = 'Z', FLIP_Y = 'Y';
+
+	/** 돌리거나 뒤집은 새 설계도(이름, 만든 때는 그대로). 기준 위치(rx, ry, rz)도 같이 옮긴다. */
+	public Blueprint transformed(char op) {
+		Blueprint b = new Blueprint();
+		b.name = name;
+		b.created = created;
+		boolean rot = op == ROT_CW || op == ROT_CCW;
+		b.w = rot ? l : w;
+		b.h = h;
+		b.l = rot ? w : l;
+		b.cells = new int[cells.length];
+		for (int y = 0; y < h; y++) {
+			for (int z = 0; z < l; z++) {
+				for (int x = 0; x < w; x++) {
+					int c = cells[index(x, y, z)];
+					if (c != AIR) {
+						int[] p = mapPos(op, x, y, z);
+						b.cells[b.index(p[0], p[1], p[2])] = c;
+					}
+				}
+			}
+		}
+		int[] r = mapPos(op, rx, ry, rz);
+		b.rx = r[0];
+		b.ry = r[1];
+		b.rz = r[2];
+		b.solid = solid;
+		for (Entry e : palette) {
+			b.palette.add(transformEntry(e, op));
+		}
+		return b;
+	}
+
+	private int[] mapPos(char op, int x, int y, int z) {
+		return switch (op) {
+			case ROT_CW -> new int[]{l - 1 - z, y, x};
+			case ROT_CCW -> new int[]{z, y, w - 1 - x};
+			case MIRROR_X -> new int[]{w - 1 - x, y, z};
+			case MIRROR_Z -> new int[]{x, y, l - 1 - z};
+			case FLIP_Y -> new int[]{x, h - 1 - y, z};
+			default -> new int[]{x, y, z};
+		};
+	}
+
+	private static final String[] HORIZ = {"north", "east", "south", "west"};
+
+	/** 방향 이름 하나를 op대로. 방향이 아니면 그대로. */
+	public static String dirOp(char op, String d) {
+		if (d == null) {
+			return null;
+		}
+		int i = java.util.Arrays.asList(HORIZ).indexOf(d);
+		switch (op) {
+			case ROT_CW:
+				return i >= 0 ? HORIZ[(i + 1) & 3] : d;
+			case ROT_CCW:
+				return i >= 0 ? HORIZ[(i + 3) & 3] : d;
+			case MIRROR_X:
+				return "east".equals(d) ? "west" : "west".equals(d) ? "east" : d;
+			case MIRROR_Z:
+				return "north".equals(d) ? "south" : "south".equals(d) ? "north" : d;
+			case FLIP_Y:
+				return "up".equals(d) ? "down" : "down".equals(d) ? "up" : d;
+			default:
+				return d;
+		}
+	}
+
+	private static String swap(String v, String a, String b) {
+		return a.equals(v) ? b : b.equals(v) ? a : v;
+	}
+
+	private static Entry transformEntry(Entry e, char op) {
+		Entry n = new Entry();
+		n.id = e.id;
+		n.item = e.item;
+		n.name = e.name;
+		boolean rot = op == ROT_CW || op == ROT_CCW;
+		boolean mirror = op == MIRROR_X || op == MIRROR_Z;
+		Map<String, String> q = new LinkedHashMap<>();
+		for (Map.Entry<String, String> kv : parseProps(e.props).entrySet()) {
+			String k = kv.getKey(), v = kv.getValue(), nk = k, nv = v;
+			if (LINKS.contains(k)) {
+				nk = dirOp(op, k);   // 울타리, 벽, 판유리, 레드스톤 가루, 덩굴, 버섯 블록의 연결 방향
+			}
+			switch (k) {
+				case "facing", "vertical_direction" -> nv = dirOp(op, v);
+				case "axis" -> nv = rot ? swap(v, "x", "z") : v;
+				case "rotation" -> {
+					try {
+						int r = Integer.parseInt(v);
+						r = switch (op) {
+							case ROT_CW -> r + 4;
+							case ROT_CCW -> r + 12;
+							case MIRROR_X -> 16 - r;
+							case MIRROR_Z -> 24 - r;
+							default -> r;
+						};
+						nv = String.valueOf(((r % 16) + 16) % 16);
+					} catch (NumberFormatException ignored) {
+					}
+				}
+				case "half" -> nv = op == FLIP_Y ? swap(swap(v, "top", "bottom"), "upper", "lower") : v;
+				case "type" -> nv = op == FLIP_Y ? swap(v, "top", "bottom") : mirror ? swap(v, "left", "right") : v;
+				case "hinge" -> nv = mirror ? swap(v, "left", "right") : v;
+				case "face", "attachment" -> nv = op == FLIP_Y ? swap(v, "floor", "ceiling") : v;
+				case "orientation" -> {
+					String[] parts = v.split("_");
+					for (int i = 0; i < parts.length; i++) {
+						parts[i] = dirOp(op, parts[i]);
+					}
+					nv = String.join("_", parts);
+				}
+				case "shape" -> nv = shapeOp(op, v, mirror);
+				default -> {
+				}
+			}
+			q.put(nk, nv);
+		}
+		StringBuilder sb = new StringBuilder();
+		for (Map.Entry<String, String> kv : q.entrySet()) {
+			if (sb.length() > 0) {
+				sb.append(',');
+			}
+			sb.append(kv.getKey()).append('=').append(kv.getValue());
+		}
+		n.props = sb.toString();
+		n.state = "Block{" + n.id + "}" + (n.props.isEmpty() ? "" : "[" + n.props + "]");
+		n.shape = shapeBoxesOp(e.shape, op);
+		return n;
+	}
+
+	/** 계단 모양(왼쪽/오른쪽)과 레일 모양(방향 둘). */
+	private static String shapeOp(char op, String v, boolean mirror) {
+		if (v.startsWith("inner_") || v.startsWith("outer_")) {
+			return mirror ? swap(swap(v, "inner_left", "inner_right"), "outer_left", "outer_right") : v;
+		}
+		if (v.startsWith("ascending_")) {
+			return "ascending_" + dirOp(op, v.substring("ascending_".length()));
+		}
+		String[] p = v.split("_");
+		if (p.length != 2 || java.util.Arrays.asList(HORIZ).indexOf(p[0]) < 0 || java.util.Arrays.asList(HORIZ).indexOf(p[1]) < 0) {
+			return v;
+		}
+		String a = dirOp(op, p[0]), b = dirOp(op, p[1]);
+		java.util.Set<String> s = new java.util.HashSet<>(java.util.Arrays.asList(a, b));
+		if (s.contains("north") && s.contains("south")) {
+			return "north_south";
+		}
+		if (s.contains("east") && s.contains("west")) {
+			return "east_west";
+		}
+		String ns = s.contains("north") ? "north" : "south", ew = s.contains("east") ? "east" : "west";
+		return ns + "_" + ew;
+	}
+
+	/** 모양 상자 열쇠(칸 안 0~1)를 op대로. 형식은 shapeKey와 같게("[x, y, z] -> [X, Y, Z]"를 정렬해 ;로). */
+	private static String shapeBoxesOp(String shape, char op) {
+		if (shape == null || shape.isEmpty()) {
+			return shape == null ? "" : shape;
+		}
+		List<String> out = new ArrayList<>();
+		for (String part : shape.split(";")) {
+			java.util.regex.Matcher m = NUM.matcher(part);
+			double[] b = new double[6];
+			int k = 0;
+			while (k < 6 && m.find()) {
+				b[k++] = Double.parseDouble(m.group());
+			}
+			if (k < 6) {
+				return shape;   // 못 읽는 모양 - 그대로 둔다
+			}
+			double x0 = b[0], y0 = b[1], z0 = b[2], x1 = b[3], y1 = b[4], z1 = b[5];
+			double[] r = switch (op) {
+				case ROT_CW -> new double[]{1 - z1, y0, x0, 1 - z0, y1, x1};
+				case ROT_CCW -> new double[]{z0, y0, 1 - x1, z1, y1, 1 - x0};
+				case MIRROR_X -> new double[]{1 - x1, y0, z0, 1 - x0, y1, z1};
+				case MIRROR_Z -> new double[]{x0, y0, 1 - z1, x1, y1, 1 - z0};
+				case FLIP_Y -> new double[]{x0, 1 - y1, z0, x1, 1 - y0, z1};
+				default -> b;
+			};
+			for (int i = 0; i < 6; i++) {
+				r[i] = Math.round(r[i] * 1e6) / 1e6 + 0.0;   // 0.30000000000000004 같은 꼬리와 -0.0 정리
+			}
+			out.add("[" + r[0] + ", " + r[1] + ", " + r[2] + "] -> [" + r[3] + ", " + r[4] + ", " + r[5] + "]");
+		}
+		java.util.Collections.sort(out);
+		return String.join(";", out);
+	}
+
+	/**
+	 * 돌리기/뒤집기 기록을 가장 짧게: 결과가 같은 것끼리 합친다. 위아래(Y)는 따로, 가로는 "좌우 뒤집기 한 번(X) 다음 오른쪽 90도 k번"
+	 * 꼴로(앞뒤 뒤집기 Z = X 다음 R 두 번). 다시 불러올 때 이 순서대로 다시 적용한다.
+	 */
+	public static String composeOps(String ops) {
+		boolean f = false, mx = false;
+		int k = 0;
+		for (char c : ops.toCharArray()) {
+			switch (c) {
+				case ROT_CW -> k = (k + 1) & 3;
+				case ROT_CCW -> k = (k + 3) & 3;
+				case MIRROR_X -> {
+					mx = !mx;
+					k = (4 - k) & 3;
+				}
+				case MIRROR_Z -> {
+					mx = !mx;
+					k = (6 - k) & 3;
+				}
+				case FLIP_Y -> f = !f;
+				default -> {
+				}
+			}
+		}
+		StringBuilder sb = new StringBuilder();
+		if (f) {
+			sb.append(FLIP_Y);
+		}
+		if (mx) {
+			sb.append(MIRROR_X);
+		}
+		for (int i = 0; i < k; i++) {
+			sb.append(ROT_CW);
+		}
+		return sb.toString();
+	}
+
 	// ==================== 파일 ====================
 
 	public static Path folder() {

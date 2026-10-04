@@ -204,7 +204,9 @@ public final class LunaTheme {
 
 	public enum Skin {
 		DEFAULT("기본"),
-		CREAM("크림");
+		CREAM("크림"),
+		MIDNIGHT("미드나잇"),   // 49-279차: 런처 상점 ui-midnight (claude/nova-mod-ui-skins-midnight-neon.md)
+		NEON("네온 사이버");    // 49-279차: 런처 상점 ui-neon
 
 		private final String label;
 
@@ -221,6 +223,26 @@ public final class LunaTheme {
 	/** 크림 스킨 팔레트(bg0 판, bg1 카드, bg2 카드 호버, bg3 트랙, 테두리, 글자 셋, 주 버튼 초록). */
 	public static final Palette CREAM_PALETTE = new Palette(0xF7EEDC, 0xFFFBF2, 0xFBF1DE, 0xEADCC2, 0xD9C6A2,
 		0x3B2C1D, 0x7D6648, 0xB09C7E, 0xFF5B9B3C);
+
+	/** 49-279차: 미드나잇 - 짙은 남보라 판, 보라 테두리와 빛, 연보라 글자, 주 버튼 보라(#8a5cff). */
+	public static final Palette MIDNIGHT_PALETTE = new Palette(0x16112F, 0x211A44, 0x2A2152, 0x2C2648, 0x9670FF,
+		0xF0EAFF, 0xC9BDF0, 0x8A82B0, 0xFF8A5CFF);
+	/** 49-279차: 네온 사이버 - 거의 검정 판, 시안 테두리와 빛, 분홍 보조, 주 버튼 시안(#20f0ff). */
+	public static final Palette NEON_PALETTE = new Palette(0x060609, 0x0C0C14, 0x14141F, 0x1A1A26, 0x20F0FF,
+		0xEAFDFF, 0xA8C9CF, 0x6A6A80, 0xFF20F0FF);
+
+	/** 스킨의 팔레트(기본 스킨이면 null - 배경 테마를 따른다). */
+	public static Palette skinPalette(Skin s) {
+		if (s == null) {
+			return null;
+		}
+		return switch (s) {
+			case CREAM -> CREAM_PALETTE;
+			case MIDNIGHT -> MIDNIGHT_PALETTE;
+			case NEON -> NEON_PALETTE;
+			default -> null;
+		};
+	}
 
 	private static Skin skin = Skin.DEFAULT;
 	private static java.util.function.Predicate<Skin> skinOwned = s -> true;
@@ -260,10 +282,10 @@ public final class LunaTheme {
 	/** 지금 쓸 색·배경을 정해서 팔레트 전체에 반영. */
 	public static void refresh() {
 		Base b = effectiveBase();
-		boolean cream = skin() == Skin.CREAM;
-		Palette pal = cream ? CREAM_PALETTE : b.palette;
+		Palette sp = skinPalette(skin());
+		Palette pal = sp != null ? sp : b.palette;
 		int accent = switch (preset) {
-			case AUTO -> cream ? CREAM_PALETTE.accent() : launcherAccent != 0 ? launcherAccent
+			case AUTO -> sp != null ? sp.accent() : launcherAccent != 0 ? launcherAccent
 				: (launcherBase != null && launcherBase != Base.NEUTRAL ? pal.accent() : DEFAULT_ACCENT);
 			case CUSTOM -> customColor;
 			default -> preset.color;

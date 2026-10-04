@@ -328,6 +328,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		try {
 			Blueprint b = Blueprint.load(name);
 			BlockPos me = playerBlock();
+			xform = "";   // 49-280차: 새로 불러오면 돌리기/뒤집기 없음
 			place(b, new BlockPos(me.getX() - b.rx, me.getY() - b.ry, me.getZ() - b.rz));
 			return "§a불러왔습니다: " + name;
 		} catch (Throwable t) {
@@ -390,7 +391,49 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		saveState();   // 이 월드의 기록에서 뺀다
 	}
 
+	// ==================== 49-280차: 돌리기 / 뒤집기 ====================
+
+	/** 지금 설계도에 적용한 돌리기/뒤집기(Blueprint.composeOps로 줄인 꼴). 다시 들어오면 이대로 다시 적용. */
+	private String xform = "";
+
+	public String xform() {
+		return xform;
+	}
+
+	/**
+	 * 불러온 설계도를 돌리거나 뒤집는다(op = Blueprint.ROT_CW / ROT_CCW / MIRROR_X / MIRROR_Z / FLIP_Y). 기준 위치(불러올 때 서 있던 칸)는
+	 * 월드에서 그대로 두고 그 둘레로 돈다. 층 범위는 같은 층을 가리키게 맞춘다(위아래 뒤집기면 층 번호도 뒤집힌다).
+	 */
+	public String transform(char op) {
+		if (bp == null || origin == null) {
+			return "불러온 설계도가 없습니다";
+		}
+		if (op == 'H') {
+			transform(Blueprint.ROT_CW);
+			transform(Blueprint.ROT_CW);
+			return "§a반 바퀴(180도) 돌렸습니다";
+		}
+		Blueprint nb = bp.transformed(op);
+		int wx = origin.getX() + bp.rx, wy = origin.getY() + bp.ry, wz = origin.getZ() + bp.rz;
+		int lmin = layerMin, lmax = layerMax, hh = bp.h;
+		xform = Blueprint.composeOps(xform + op);
+		place(nb, new BlockPos(wx - nb.rx, wy - nb.ry, wz - nb.rz));
+		if (op == Blueprint.FLIP_Y) {
+			setLayers(hh - lmax + 1, hh - lmin + 1);
+		} else {
+			setLayers(lmin, lmax);
+		}
+		return switch (op) {
+			case Blueprint.ROT_CW -> "§a오른쪽으로 90도 돌렸습니다";
+			case Blueprint.ROT_CCW -> "§a왼쪽으로 90도 돌렸습니다";
+			case Blueprint.MIRROR_X -> "§a좌우(동서)로 뒤집었습니다";
+			case Blueprint.MIRROR_Z -> "§a앞뒤(남북)로 뒤집었습니다";
+			default -> "§a위아래로 뒤집었습니다";
+		};
+	}
+
 	private void clearMemory() {
+		xform = "";
 		bp = null;
 		origin = null;
 		status = new byte[0];
@@ -462,6 +505,9 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 					o.add("origin", posJson(origin));
 					o.addProperty("layerMin", layerMin);
 					o.addProperty("layerMax", layerMax);
+					if (!xform.isEmpty()) {
+						o.addProperty("xform", xform);   // 49-280차
+					}
 				}
 				if (pos1 != null) {
 					o.add("pos1", posJson(pos1));
@@ -524,6 +570,12 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			BlockPos org = posOf(o, "origin");
 			if (o.has("name") && org != null) {
 				Blueprint b = Blueprint.load(o.get("name").getAsString());
+				// 49-280차: 돌리거나 뒤집어 둔 것도 그대로
+				String xf = o.has("xform") ? Blueprint.composeOps(o.get("xform").getAsString()) : "";
+				for (char c : xf.toCharArray()) {
+					b = b.transformed(c);
+				}
+				xform = xf;
 				place(b, org);
 				setLayers(o.has("layerMin") ? o.get("layerMin").getAsInt() : 1, o.has("layerMax") ? o.get("layerMax").getAsInt() : b.h);
 				LunaCompat.sendActionBar(client, "§b설계도 §f" + b.name + " §7이어서 불러왔습니다");

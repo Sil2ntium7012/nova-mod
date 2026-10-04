@@ -502,6 +502,9 @@ public final class LunaDraw {
 	public static void toggle(DrawContext ctx, int x, int y, int w, int h, float t, boolean enabledLook) {
 		t = Math.max(0f, Math.min(1f, t));
 		int on = enabledLook ? TOGGLE_ON_TRACK : ACCENT_DIM; // 켜짐 = 고정 초록 트랙 + 밝은 초록 노브(테마색 안 따라감)
+		if (enabledLook && skinSwitch(ctx, x, y, w, h, t)) {
+			return;   // 49-279차
+		}
 		if (soft()) {
 			// 크림: 시안처럼 하늘색 알약 + 흰 노브
 			pill(ctx, x, y, w, h, lerpColor(0xFFE6D8BE, enabledLook ? 0xFF62ACE6 : 0xFFB9C9D6, t));
@@ -585,6 +588,230 @@ public final class LunaDraw {
 		return lightTheme();
 	}
 
+	// ==================== 49-279차: 미드나잇 / 네온 사이버 화면 스킨 ====================
+	// 런처 상점 인게임 UI 2종(claude/nova-mod-ui-skins-midnight-neon.md). 색은 LunaTheme 팔레트가 바꾸고, 여기서는 모양(빛 번짐,
+	// 네온의 잘린 모서리, 버튼, 스위치)만 바꾼다. 크림처럼 Nova 화면 공용 부품(panel3d, card3d, button3d, toggle)과
+	// LunaClientScreen의 판, 카드, 줄, 켜짐 버튼, 스위치가 이 함수들을 먼저 물어본다.
+
+	public static boolean midnight() {
+		try {
+			return LunaTheme.skin() == LunaTheme.Skin.MIDNIGHT;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	public static boolean neon() {
+		try {
+			return LunaTheme.skin() == LunaTheme.Skin.NEON;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	public static final int MID_BORDER = 0xFF9670FF, MID_GLOW = 0x8C50FF, NEON_CYAN = 0xFF20F0FF, NEON_PINK = 0xFFFF3CC8;
+
+	/** 상자 바깥으로 번지는 빛(1px 고리를 바깥으로 갈수록 옅게 - 속은 안 칠해서 반투명 판이 물들지 않는다). */
+	public static void glow(DrawContext ctx, int x, int y, int w, int h, int r, int rgb, int a0, int spread) {
+		for (int i = spread; i >= 1; i--) {
+			float k = 1f - (i - 0.5f) / spread;
+			int a = Math.round(a0 * k * k);
+			if (a > 0) {
+				roundRectOutline(ctx, x - i, y - i, w + 2 * i, h + 2 * i, r + i, (a << 24) | (rgb & 0xFFFFFF));
+			}
+		}
+	}
+
+	/** 네온 모양(오른쪽 위, 왼쪽 아래를 cut만큼 대각선으로 잘라냄) 채우기. */
+	public static void neonFill(DrawContext ctx, int x, int y, int w, int h, int cut, int color) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		cut = Math.max(0, Math.min(cut, Math.min(w, h) / 2));
+		color = applyAlpha(color);
+		for (int j = 0; j < cut; j++) {
+			ctx.fill(x, y + j, x + w - (cut - j), y + j + 1, color);
+		}
+		if (h - 2 * cut > 0) {
+			ctx.fill(x, y + cut, x + w, y + h - cut, color);
+		}
+		for (int j = 0; j < cut; j++) {
+			ctx.fill(x + j + 1, y + h - cut + j, x + w, y + h - cut + j + 1, color);
+		}
+	}
+
+	/** 네온 모양 테두리(두께 t). 속은 안 칠한다. */
+	public static void neonFrame(DrawContext ctx, int x, int y, int w, int h, int cut, int t, int color) {
+		if (w <= 2 * t || h <= 2 * t) {
+			neonFill(ctx, x, y, w, h, cut, color);
+			return;
+		}
+		cut = Math.max(0, Math.min(cut, Math.min(w, h) / 2));
+		color = applyAlpha(color);
+		int iw = w - 2 * t, ih = h - 2 * t, icut = Math.max(0, Math.min(cut, Math.min(iw, ih) / 2));
+		int band = cut + t;
+		for (int j = 0; j < h; j++) {
+			if (j == band && h - band > band) {
+				// 가운데 곧은 구간: 양옆 띠만 한 번에
+				ctx.fill(x, y + band, x + t, y + h - band, color);
+				ctx.fill(x + w - t, y + band, x + w, y + h - band, color);
+				j = h - band - 1;
+				continue;
+			}
+			int ox0 = x + (j >= h - cut ? j - (h - cut) + 1 : 0);
+			int ox1 = x + w - (j < cut ? cut - j : 0);
+			if (j < t || j >= h - t) {
+				ctx.fill(ox0, y + j, ox1, y + j + 1, color);
+				continue;
+			}
+			int jj = j - t;
+			int ix0 = x + t + (jj >= ih - icut ? jj - (ih - icut) + 1 : 0);
+			int ix1 = x + t + iw - (jj < icut ? icut - jj : 0);
+			if (ix0 > ox0) {
+				ctx.fill(ox0, y + j, Math.min(ix0, ox1), y + j + 1, color);
+			}
+			if (ox1 > ix1) {
+				ctx.fill(Math.max(ix1, ox0), y + j, ox1, y + j + 1, color);
+			}
+		}
+	}
+
+	/** 큰 판(창). 미드나잇/네온이면 그리고 true. */
+	public static boolean skinPanel(DrawContext ctx, int x, int y, int w, int h, int r) {
+		if (midnight()) {
+			r += 3;
+			glow(ctx, x, y, w, h, r, MID_GLOW, 0x5A, 9);
+			roundRect(ctx, x, y, w, h, r, LunaTheme.mix(0xFF16112F, 0xFFA06EFF, 0.45f));
+			roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), 0xF01D1740, 0xF0100C22);
+			ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(0x14FFFFFF));
+			return true;
+		}
+		if (neon()) {
+			int cut = Math.max(6, Math.min(14, Math.min(w, h) / 10));
+			for (int i = 7; i >= 1; i--) {
+				float k = 1f - (i - 0.5f) / 7f;
+				neonFrame(ctx, x - i, y - i, w + 2 * i, h + 2 * i, cut + i / 2, 1, (Math.round(0x70 * k * k) << 24) | (NEON_CYAN & 0xFFFFFF));
+			}
+			neonFill(ctx, x + 2, y + 2, w - 4, h - 4, cut, 0xEE060609);
+			neonFrame(ctx, x + 2, y + 2, w - 4, h - 4, cut, 1, 0x2A20F0FF);   // 안쪽 은은한 빛
+			neonFrame(ctx, x + 3, y + 3, w - 6, h - 6, cut, 1, 0x1220F0FF);
+			neonFrame(ctx, x, y, w, h, cut, 2, NEON_CYAN);
+			return true;
+		}
+		return false;
+	}
+
+	/** 카드(기능 칸, 묶음, 작은 판). 미드나잇/네온이면 그리고 true. */
+	public static boolean skinCard(DrawContext ctx, int x, int y, int w, int h, int r, int fill, int border) {
+		if (midnight()) {
+			r = Math.min(r + 2, Math.min(w, h) / 2);
+			roundRect(ctx, x, y + 1, w, h, r, 0x30000000);
+			roundRect(ctx, x, y, w, h, r, border);
+			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
+			return true;
+		}
+		if (neon()) {
+			r = Math.min(2, Math.min(w, h) / 2);
+			roundRect(ctx, x, y, w, h, r, border);
+			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * 버튼 몸통. 미드나잇: 일반 = 짙은 보라 그라데이션 + 보라 테두리, 주 = 밝은 보라 그라데이션 + 빛.
+	 * 네온: 일반 = 투명 + 분홍 테두리, 주 = 옅은 시안 + 시안 테두리 + 빛. 그리면 true.
+	 */
+	public static boolean skinButton(DrawContext ctx, int x, int y, int w, int h, boolean primary, float hov) {
+		if (midnight()) {
+			int r = Math.min(5, h / 2);
+			if (primary) {
+				glow(ctx, x, y, w, h, r, 0x8C5AFF, Math.round(0x50 + 0x30 * hov), 4);
+				roundRect(ctx, x, y, w, h, r, 0xFFB597FF);
+				roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1),
+					lighten(0xFF8A5CFF, 0.10f * hov), lighten(0xFF6A3DF0, 0.10f * hov));
+			} else {
+				roundRect(ctx, x, y, w, h, r, LunaTheme.mix(0xFF1C1638, MID_BORDER, 0.35f + 0.25f * hov));
+				roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1),
+					lighten(0xFF2A2150, 0.08f * hov), lighten(0xFF1C1638, 0.08f * hov));
+			}
+			if (w > 2 * r + 2) {
+				ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(primary ? 0x40FFFFFF : 0x14FFFFFF));
+			}
+			return true;
+		}
+		if (neon()) {
+			if (primary) {
+				glow(ctx, x, y, w, h, 1, 0x20F0FF, Math.round(0x48 + 0x30 * hov), 4);
+				roundRect(ctx, x, y, w, h, 1, NEON_CYAN);
+				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, 0xFF060609);
+				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, Math.round(0x24 + 0x20 * hov) << 24 | 0x20F0FF);
+			} else {
+				if (hov > 0.01f) {
+					glow(ctx, x, y, w, h, 1, 0xFF3CC8, Math.round(0x40 * hov), 3);
+				}
+				roundRect(ctx, x, y, w, h, 1, LunaTheme.mix(0xFF060609, NEON_PINK, 0.75f + 0.25f * hov));
+				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, 0xFF060609);
+				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, Math.round(0x10 * hov) << 24 | 0xFF3CC8);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	/** 스킨 버튼 글자색(0 = 스킨 아님). */
+	public static int skinButtonText(boolean primary, float hov) {
+		if (midnight()) {
+			return primary ? 0xFFFFFFFF : lerpColor(0xFFDDD3FF, 0xFFFFFFFF, 0.5f * hov);
+		}
+		if (neon()) {
+			return primary ? 0xFFBFFCFF : lerpColor(0xFFFF9CE6, 0xFFFFD3F3, hov);
+		}
+		return 0;
+	}
+
+	/** 켜기/끄기 스위치. 미드나잇 = 보라 알약(켜면 빛) + 흰 노브, 네온 = 시안 테두리 네모 + 네모 노브. 그리면 true. */
+	public static boolean skinSwitch(DrawContext ctx, int x, int y, int w, int h, float t) {
+		t = Math.max(0f, Math.min(1f, t));
+		if (midnight()) {
+			if (t > 0.01f) {
+				glow(ctx, x, y, w, h, h / 2, 0x6A3DF0, Math.round(0x60 * t), 3);
+			}
+			pill(ctx, x, y, w, h, lerpColor(0xFF2C2648, 0xFF6A3DF0, t));
+			int ks = h - 4;
+			circle(ctx, Math.round(x + 2 + (w - ks - 4) * t), y + 2, ks, lerpColor(0xFF8A82B0, 0xFFFFFFFF, t));
+			return true;
+		}
+		if (neon()) {
+			int edge = lerpColor(0xFF55556A, NEON_CYAN, t);
+			roundRect(ctx, x, y, w, h, 1, edge);
+			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, 0xFF08080D);
+			int ks = h - 4;
+			int kx = Math.round(x + 2 + (w - ks - 4) * t);
+			if (t > 0.01f) {
+				glow(ctx, kx, y + 2, ks, ks, 0, 0x20F0FF, Math.round(0x70 * t), 3);
+			}
+			ctx.fill(kx, y + 2, kx + ks, y + 2 + ks, applyAlpha(edge));
+			return true;
+		}
+		return false;
+	}
+
+	/** 설정 줄 바탕. 미드나잇 = 흰색 4%, 네온 = 분홍 6% + 왼쪽 2px 분홍 띠. 그리면 true. */
+	public static boolean skinRow(DrawContext ctx, int x, int y, int w, int h) {
+		if (midnight()) {
+			roundRect(ctx, x, y, w, h, Math.min(5, h / 2), 0x0BFFFFFF);
+			return true;
+		}
+		if (neon()) {
+			ctx.fill(x, y, x + w, y + h, applyAlpha(0x0FFF3CC8));
+			ctx.fill(x, y, x + 2, y + h, applyAlpha(NEON_PINK));
+			return true;
+		}
+		return false;
+	}
+
 	/** 크림 스킨의 부드러운 그림자(상자 바로 아래 1~2px로 번짐). */
 	public static void softShadow(DrawContext ctx, int x, int y, int w, int h, int r) {
 		roundRect(ctx, x - 1, y + 1, w + 2, h + 2, r + 1, 0x0F5A4630);
@@ -592,6 +819,9 @@ public final class LunaDraw {
 	}
 
 	public static void panel3d(DrawContext ctx, int x, int y, int w, int h, int r) {
+		if (skinPanel(ctx, x, y, w, h, r)) {
+			return;   // 49-279차
+		}
 		if (soft()) {
 			r += 4;
 			roundRect(ctx, x - 3, y - 1, w + 6, h + 8, r + 3, 0x125A4630);
@@ -610,6 +840,9 @@ public final class LunaDraw {
 	public static void card3d(DrawContext ctx, int x, int y, int w, int h, int r, int fill, int border) {
 		if (w <= 2 || h <= 2) {
 			return;
+		}
+		if (skinCard(ctx, x, y, w, h, r, fill == 0 ? surfaceCard() : fill, border == 0 ? surfaceLine() : border)) {
+			return;   // 49-279차
 		}
 		if (soft()) {
 			r = Math.min(r + 3, Math.min(w, h) / 2);
@@ -665,6 +898,9 @@ public final class LunaDraw {
 		if (w <= 2 || h <= 2) {
 			return;
 		}
+		if ((kind == B_NEUTRAL || kind == B_PRIMARY) && skinButton(ctx, x, y, w, h, kind == B_PRIMARY, hov)) {
+			return;   // 49-279차
+		}
 		int base = buttonBase(kind);
 		if (hov > 0f) {
 			base = kind == B_NEUTRAL && lightTheme() ? darken(base, 1f - 0.04f * hov) : lighten(base, 0.10f * hov);
@@ -714,6 +950,12 @@ public final class LunaDraw {
 
 	/** 버튼 글자색. */
 	public static int buttonText(int kind, float hov) {
+		if (kind == B_NEUTRAL || kind == B_PRIMARY) {
+			int sk = skinButtonText(kind == B_PRIMARY, hov);   // 49-279차
+			if (sk != 0) {
+				return sk;
+			}
+		}
 		return switch (kind) {
 			case B_PRIMARY -> LunaTheme.ON_ACCENT;
 			case B_GOOD, B_DANGER -> 0xFFF7FAF4;

@@ -68,12 +68,15 @@ public final class LunaClientConfig {
 	// 마인크래프트 번들 Gson 버전에서 안전하게 동작 - claude/nova-mod-todo.md 35차).
 	/** 49-215차: 저장된 키 값의 방식(26.2까지 GLFW 키 코드, 26.3은 SDL 스캔코드). 다르면 읽을 때 옮긴다. */
 	private static final String INPUT_KEY = "_input_scheme";
+	/** 49-278차: 26.3에서 GLFW 숫자 기본값이 그대로 저장된 키를 한 번 고쳤다는 표시. */
+	private static final String INPUT_FIX_KEY = "_input_fix";
 
 	public static void load() {
 		try {
 			loadInner();
 		} finally {
 			kr.lunaslight.mod.module.setting.KeybindSetting.migrateFrom(null);
+			kr.lunaslight.mod.module.setting.KeybindSetting.legacyFix(false);
 		}
 	}
 
@@ -87,6 +90,7 @@ public final class LunaClientConfig {
 			JsonObject root = new JsonParser().parse(reader).getAsJsonObject();
 			kr.lunaslight.mod.module.setting.KeybindSetting.migrateFrom(
 					root.has(INPUT_KEY) ? root.get(INPUT_KEY).getAsString() : "glfw");
+			kr.lunaslight.mod.module.setting.KeybindSetting.legacyFix(!root.has(INPUT_FIX_KEY));   // 49-278차
 			for (Module module : ModuleManager.get().all()) {
 				if (!root.has(module.getId())) {
 					continue;
@@ -288,6 +292,7 @@ public final class LunaClientConfig {
 		root.addProperty(KEY_KEY, KEY_VERSION);
 		root.addProperty(DEFAULTS_KEY, DEFAULTS_VERSION);
 		root.addProperty(INPUT_KEY, kr.lunaslight.mod.util.LunaInput.SDL ? "sdl" : "glfw");
+		root.addProperty(INPUT_FIX_KEY, 1);
 		for (Module module : ModuleManager.get().all()) {
 			JsonObject moduleObj = new JsonObject();
 			moduleObj.addProperty("enabled", module.isEnabled());
