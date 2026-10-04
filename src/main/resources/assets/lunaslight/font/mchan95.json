@@ -1,0 +1,19 @@
+{
+ "providers": [
+  {
+   "type": "ttf",
+   "file": "lunaslight:hangul9.ttf",
+   "size": 10.0,
+   "oversample": 5.0,
+   "shift": [
+    0,
+    2.0
+   ],
+   "skip": ""
+  },
+  {
+   "type": "reference",
+   "id": "minecraft:default"
+  }
+ ]
+}

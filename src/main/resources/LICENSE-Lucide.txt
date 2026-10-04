@@ -1,0 +1,3 @@
+Luna's Light icon font = subset of "Lucide" icons (https://lucide.dev, lucide-static 1.39.0).
+ISC License - Copyright (c) Lucide Contributors 2024 (portions Copyright (c) 2013-2022 Cole Bemis / Feather).
+Bundled with the Luna's Light mod for its settings UI icons.

@@ -1,0 +1,4 @@
+Luna's Light UI font = subset of "Pretendard" (https://github.com/orioncactus/pretendard)
+Copyright (c) 2021 Kil Hyung-jin, with Reserved Font Name Pretendard.
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org).
+This subset (Latin + KS X 1001 Hangul + symbols) is bundled with the Luna's Light mod for its settings UI.

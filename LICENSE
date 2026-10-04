@@ -1,0 +1,5 @@
+All Rights Reserved.
+
+이 코드는 Nova Client 런처가 배포하는 게임 인스턴스에 내장되는 전용 모드입니다.
+독립 재배포/공개 소스 취급을 원하면 이 파일을 원하는 라이선스(MIT 등)로 바꾸고
+build.gradle / fabric.mod.json의 "license" 필드도 함께 바꿔주세요.

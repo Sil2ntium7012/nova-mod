@@ -1,0 +1,23 @@
+// 18차부터 루트 프로젝트 자체는 아무것도 빌드하지 않습니다(진짜 Loom 프로젝트는
+// versions/<버전> 서브프로젝트들 - settings.gradle 참고). 실제 자바 소스(src/)는 여기
+// 루트에 그대로 있고, 각 서브프로젝트가 loom-common.gradle을 통해 그 소스를 공유해서
+// 버전별로 컴파일합니다.
+//
+// './gradlew build' 를 루트에서 실행하면 Gradle 기본 동작으로 모든 서브프로젝트의 build가
+// 전부 실행됩니다(따로 뭘 설정 안 해도 됨). 특정 버전 하나만 빌드/실행하고 싶으면:
+//   ./gradlew :v1_21_11:build
+//   ./gradlew :v1_21_11:runClient
+// 처럼 서브프로젝트 이름을 지정하면 됩니다(이름은 settings.gradle에서 "v" + 버전에서
+// 점을 밑줄로 바꾼 형태 - 예: 1.21.11 -> v1_21_11).
+
+// ⚠️ 여기서 subprojects의 'build' 태스크를 곧바로 tasks.named('build')로 참조하면 실패합니다
+// ("Task with name 'build' not found in project ':v1_20_1'") - 루트 build.gradle이 평가되는
+// 시점엔 아직 각 versions/<버전> 서브프로젝트가 평가되기 전이라(그 안에서 fabric-loom을
+// 적용해야 'build' 태스크가 비로소 생김) 이 시점엔 그 태스크가 존재하지 않기 때문입니다.
+// 대신 태스크 "경로 문자열"로 넘기면 Gradle이 전체 프로젝트 설정이 다 끝난 뒤(태스크
+// 그래프를 짤 때) 늦게 찾아서 문제없이 연결됩니다.
+task buildAllVersions {
+	group = "lunaslight"
+	description = "지원하는 모든 마인크래프트 버전용 jar를 한 번에 빌드 (버전별 jar는 각자 versions/<버전>/build/libs/ 밑에 생김)"
+	dependsOn subprojects.collect { "${it.path}:build" }
+}

@@ -1,0 +1,15 @@
+{
+ "providers": [
+  {
+   "type": "ttf",
+   "file": "lunaslight:title.ttf",
+   "size": 10.0,
+   "oversample": 10.0,
+   "shift": [
+    0,
+    1.0
+   ],
+   "skip": ""
+  }
+ ]
+}

@@ -1,0 +1,145 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = "Fabric"
+			url = "https://maven.fabricmc.net/"
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = "lunaslight"
+
+// ===================================================================
+// 18차(2026-08-26) 멀티버전 지원 - "런처에서 설치 가능한 버전이면 뭐든 이 모드도 같이
+// 켜져야 한다"는 요청 반영.
+//
+// 마인크래프트/Fabric 모드는 버전이 바뀔 때마다 mixin이 참조하는 내부(intermediary) 이름이
+// 새로 생성되기 때문에, 소스 하나로 여러 버전을 동시에 컴파일할 수는 없습니다(Sodium/Iris
+// 같은 유명 모드들도 버전별로 jar를 따로 냄) - 그래서 아래처럼 버전 수만큼 "서브프로젝트"를
+// 만들어서 버전별로 각각 컴파일하되, 실제 자바 소스(src/)는 root의 것 딱 하나만 공유합니다
+// (코드 중복 없음 - loom-common.gradle 참고). 버전마다 정말 안 되는 기능이 있으면 그 모듈
+// 클래스 생성자에서 Module.supportedVersions(...)를 걸어서 그 버전에서만 자동으로
+// 잠기게(페더 클라이언트처럼 인게임에서 껐다 켰다) 만들면 됩니다.
+//
+// ⚠️ 버전을 늘리는 법 (이게 전부입니다):
+//   1. 아래 supportedVersions 리스트에 버전 문자열 한 줄 추가
+//   2. versions/<그 버전>/ 폴더를 기존 버전 폴더 하나 복사해서 새로 만들고,
+//      gradle.properties 안의 minecraft_version/yarn_mappings/loader_version/fabric_version/
+//      modmenu_version 값만 그 버전에 맞게 교체 (build.gradle은 그대로 복사만 하면 됨 - 전부
+//      공통 loom-common.gradle을 적용하는 한 줄짜리 파일)
+//   3. Gradle sync (그 버전의 마인크래프트/매핑을 실제로 새로 받아옴 - 인터넷 필요)
+//
+// 23차(2026-08-27): "우리 클라이언트 버전들 하나씩 다 있긴 해야지" 요청 반영 - Luna Client
+// 런처의 "프로필 만들기" 화면이 실제로 보여주는 버전 목록(main.js fetchFabricSupportedVersions,
+// meta.fabricmc.net/v2/versions/game에서 stable만 최신 40개)과 맞추는 작업. 이번 라운드에서는
+// 그 40개 중 1.20~1.21.11 범위(1.15.2까지 내려가는 나머지 구버전들과, 그 위로 새로 나온
+// 26.x 버전대는 API가 완전히 다른 별도 시대라 다음 라운드로 분리) 14개를 추가함 - 아래
+// gradle.properties 값은 전부 meta.fabricmc.net/Modrinth API로 실제 조회해서 검증한 값
+// (claude/nova-mod-todo.md 23차 조사 섹션에 근거 기록).
+//
+// 28차(2026-08-28): 1.16~1.19.4(구세대, 16개) 스캐폴딩 시도. DrawContext/RenderTickCounter
+// 클래스 자체가 마인크래프트에 없어서(1.20에서 신설) gradle.properties 값만 바꿔서 될 문제가
+// 아니었고, `legacy_compat_dir=compat/legacy-era1`(shim 소스 추가 + gui/ 패키지 컴파일 제외)로
+// 대응했습니다.
+//
+// 32~33차(2026-08-28): 실제로 컴파일까지 돌려보니 DrawContext 말고도 버전마다 API가 다른 지점이
+// 훨씬 많았습니다 - 레지스트리 접근 클래스(1.19.2까지 net.minecraft.util.registry.Registry,
+// 1.19.3부터 net.minecraft.registry.Registries로 개명), slf4j 로거(1.18.2부터 생김, 그 전엔
+// log4j만 있음), KeyBinding/Perspective 패키지(net.minecraft.client.options → 1.17부터
+// net.minecraft.client.option으로 개명), 그리고 결정적으로 채팅 메시지 수신 이벤트
+// (ClientReceiveMessageEvents)는 1.19.3 이전 Fabric API엔 아예 없어서(mixin 없인 대체 불가)
+// 채팅강화/메시지컬러라이저/TPS 3개 모듈 자체가 컴파일이 안 됨. 일단 1.19.3/1.19.4만 먼저
+// 마무리하고 나머지 14개는 33차에서 다음 라운드로 분리했었습니다.
+//
+// 35차(2026-08-28): 그 14개(1.16~1.19.2)를 마저 진행 - 레지스트리/RegistryEntry/아이템ID 조회는
+// shim 클래스 대신 LunaCompat에 리플렉션 헬퍼(getItemId/getBiomeName)를 새로 만들어 흡수(공유
+// 소스 자체에서 net.minecraft.registry.* import를 아예 없앰 - 5개 파일 수정, 전 버전 공통 적용).
+// KeyBinding/Perspective도 마찬가지로 LunaCompat을 통한 완전 리플렉션 방식으로 바꿔서 option/
+// options 패키지 문제를 코드 레벨에서 해소(LunaClientMod.java/FreeLookModule.java 수정).
+// slf4j만은 진짜로 없는 버전(1.18.1 이하)이 있어서 compat/legacy-no-slf4j/ shim(내부적으로
+// log4j에 위임)을 신설 - gradle.properties의 `legacy_no_slf4j` 키가 있는 서브프로젝트에만 얹힘.
+// 채팅 메시지 이벤트는 진짜로 대체 불가라 `no_message_events` 키가 있는 서브프로젝트에서
+// ChatEnhancementsModule/MessageColorizerModule/TpsHudModule 3개 파일만 컴파일 제외하고,
+// ModuleManager.java의 등록부도 리플렉션 방식으로 바꿔서(gui/ 패키지와 동일 패턴) 그 3개
+// 모듈이 없는 버전에서도 나머지는 그대로 컴파일되게 함. 1.16/1.16.1/1.16.2/1.16.3/1.16.4는
+// fabric_version도 ClientTickEvents 등이 포함된 0.42.0+1.16으로 올림(35차 조사, claude/
+// nova-mod-todo.md 참고). 1.15.2(더 오래된 별도 API 시대)와 26.x(Yarn 자체가 없어진 신세대,
+// 27차)는 여전히 다음 라운드로 분리된 상태입니다.
+//
+// ⚠️ 버전을 늘리는 법 (이게 전부입니다, 단 1.20 미만 버전은 위 legacy_compat_dir 관련 설명도 참고):
+//   1. 아래 supportedVersions 리스트에 버전 문자열 한 줄 추가
+//   2. versions/<그 버전>/ 폴더를 기존 버전 폴더 하나 복사해서 새로 만들고,
+//      gradle.properties 안의 minecraft_version/yarn_mappings/loader_version/fabric_version/
+//      modmenu_version 값만 그 버전에 맞게 교체 (build.gradle은 그대로 복사만 하면 됨 - 전부
+//      공통 loom-common.gradle을 적용하는 한 줄짜리 파일)
+//   3. Gradle sync (그 버전의 마인크래프트/매핑을 실제로 새로 받아옴 - 인터넷 필요)
+// 37차(2026-08-29): 35개(1.16~1.21.11) 전부 BUILD SUCCESSFUL 확정 후, 남은 5개(1.15.2 + 26.x
+// 4개) 중 1.15.2를 먼저 추가. "Era 0"이 MatrixStack 자체가 없는 시대라던 28차 추정은 실측(Fabric
+// 공식 Yarn 원본 매핑 대조)으로 틀렸음이 확인됨 - MatrixStack 클래스는 1.15.2에도 존재하지만
+// DrawableHelper.fill/drawTextWithShadow가 아직 그걸 받는 형태로 안 바뀌었을 뿐이라, legacy-era1과
+// 별도의 compat/legacy-era0/ shim(내부 위임 방식만 다름)으로 대응. Fabric API는 0.28.5+1.15가
+// 1.15.2용 마지막/유일 릴리스(2021년) - ClientReceiveMessageEvents가 없어 no_message_events 필요,
+// ModMenu는 Modrinth에 1.15.2용 릴리스가 없어 modmenu_version 자체를 생략(1.16/1.16.2/1.16.3과 동일
+// 패턴). 자세한 내용은 claude/nova-mod-todo.md 37차 참고. 26.x 4개(26.1/26.1.1/26.1.2/26.2)는
+// Yarn 매핑 자체가 없는 완전히 다른 세대라 별도 라운드로 분리된 상태(27차/37차 리서치 참고).
+//
+def supportedVersions = [
+	"1.21.11", // Luna Client 런처가 지금 실제 서비스 중인 라이브 버전 (main.js CONFIG.SERVERS 기준, 2026-08-26)
+	"1.21.10",
+	"1.21.9",
+	"1.21.8",
+	"1.21.7",
+	"1.21.6",
+	"1.21.5",
+	"1.21.4",
+	"1.21.3",
+	"1.21.2",
+	"1.21.1", // 이 모드가 최초로 작성된 기준 버전
+	"1.21",
+	"1.20.6",
+	"1.20.5",
+	"1.20.4",
+	"1.20.3",
+	"1.20.2",
+	"1.20.1", // 서버 생태계에서 특히 인구가 많은 구버전(모드/플러그인 호환성 때문에 오래 버티는 버전)
+	"1.20",
+	"1.19.4", // 28차부터: DrawContext 없음, gui/ 컴파일 제외(설정 메뉴 미지원) - 위 설명 참고
+	"1.19.3",
+	"1.19.2", // 35차부터 재개: no_message_events(채팅 3개 모듈 제외) 추가
+	"1.19.1",
+	"1.19",
+	"1.18.2",
+	"1.18.1", // 35차부터: legacy_no_slf4j(org.slf4j 없음, log4j로 위임) 추가
+	"1.18",
+	"1.17.1",
+	"1.17",
+	"1.16.5",
+	"1.16.4",
+	"1.16.3", // ModMenu 릴리스 자체가 없던 버전(gradle.properties에 modmenu_version 키 없음)
+	"1.16.2", // ModMenu 릴리스 자체가 없던 버전(gradle.properties에 modmenu_version 키 없음)
+	"1.16.1",
+	"1.16", // ModMenu 릴리스 자체가 없던 버전(gradle.properties에 modmenu_version 키 없음)
+	"1.15.2", // 37차: Fabric API 0.28.5+1.15가 마지막 릴리스, ModMenu Modrinth 릴리스 없음
+	"1.14.4", // 49-158차: Fabric API 0.28.5+1.14(FabricMC/fabric 1.14 브랜치), MatrixStack 없음(legacy_no_matrix)
+
+	// 40차(2026-08-29): 26.x 4개 - 사용자가 JDK 25 설치를 완료(AskUserQuestion 응답)해서 등록.
+	// 이 4개는 비난독화 신세대라 Yarn 매핑이 없고, versions/26.*/build.gradle이 loom-common.gradle이
+	// 아니라 완전히 별도인 loom-common-modern.gradle을 적용합니다(plugin id도 'fabric-loom'이 아니라
+	// 'net.fabricmc.fabric-loom', Java 25 컴파일 타겟, mappings 블록 자체 없음 - 자세한 내용은
+	// claude/nova-mod-todo.md 38차 참고). 아래 목록에 추가하는 것 자체는 기존 36개와 동일한 방식
+	// (versions/26.x/ 폴더는 38차에 이미 준비됨) - 다만 Gradle JVM 자체가 Java 25 이상이어야
+	// 이 4개뿐 아니라 기존 36개를 포함한 전체 빌드가 정상 동작합니다.
+	"26.1",
+	"26.1.1",
+	"26.1.2",
+	"26.2",
+	"26.3", // 49-215차: GLFW → SDL(입력/창), 렌더 클래스 com.mojang.renderpearl - 26.x 트리 공유
+]
+
+supportedVersions.each { v ->
+	def safeName = "v" + v.replace(".", "_")
+	include ":${safeName}"
+	project(":${safeName}").projectDir = file("versions/${v}")
+}

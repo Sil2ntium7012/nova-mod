@@ -1,0 +1,280 @@
+// ===================================================================
+// 37차(2026-08-29): 26.x(26.1/26.1.1/26.1.2/26.2) 전용 - 기존 loom-common.gradle과 별도 파일.
+//
+// 마인크래프트가 26.1부터 비난독화(unobfuscated)로 전환되면서(Fabric 공식 발표
+// fabricmc.net/2026/03/14/261.html, fabricmc.net/2026/06/15/262.html 확인) 빌드 구조 자체가
+// 근본적으로 다릅니다 - 기존 35+1개(1.16~1.21.11 + 1.15.2) 서브프로젝트와 이 4개를 같은
+// loom-common.gradle 안에서 조건부로 처리하면 그쪽 코드가 훨씬 복잡해지고 실수로 기존 36개를
+// 건드릴 위험이 커서, 완전히 분리된 이 파일로 뺐습니다.
+//
+// 기존과 다른 점 (전부 FabricMC/fabric-example-mod의 26.2 브랜치 build.gradle/gradle.properties
+// 원본을 직접 대조해서 확인한 값 - claude/nova-mod-todo.md 37차 참고):
+//  - 플러그인 id 자체가 다름: "fabric-loom"이 아니라 정식 id "net.fabricmc.fabric-loom" 사용
+//    (maven.fabricmc.net에서 이 정식 id로도 우리가 기존 36개에 이미 쓰고 있는 것과 동일한
+//    안정 버전 1.17.20이 퍼블리시돼 있는 걸 확인 - 공식 예제가 쓰는 1.17-SNAPSHOT 대신 이미
+//    검증된 안정 버전을 그대로 재사용).
+//  - Yarn 매핑 의존성 자체가 없음(mappings 블록 통째로 생략) - 애초에 난독화가 안 됐으니
+//    디매핑할 이름이 없음.
+//  - fabric-loader/fabric-api를 modImplementation이 아니라 그냥 implementation으로 선언
+//    (리매핑이 없어지면서 "mod 의존성" 특수 처리 자체가 의미가 없어짐 - 공식 예제 그대로).
+//  - 컴파일 타겟이 Java 21이 아니라 Java 25(마인크래프트 26.x 자체 요구사항 - 공식 예제
+//    build.gradle에도 release=25, sourceCompatibility/targetCompatibility=VERSION_25로 명시).
+//
+// ⚠️⚠️ 가장 중요한 차이점: Gradle을 실행하는 JVM 프로세스 자체가 Java 25 이상이어야 합니다
+// (컴파일 타겟만의 문제가 아니라 Fabric 공식 발표에 "Java 25 minimum for the Gradle JVM"이라고
+// 명시). 이 프로젝트는 서브프로젝트 39개(36개+26.x 4개)를 전부 한 Gradle 데몬으로 묶어서
+// './gradlew build' 한 번에 빌드하는 구조라, 26.x를 settings.gradle에 등록하는 순간 JDK 25가
+// 없으면 기존에 잘 되던 36개까지 전부 한 번에 빌드가 안 될 수 있습니다. 그래서 이 파일과
+// versions/26.*/ 폴더는 준비만 해두고, 사용자가 JDK 25 설치를 완료했다고 확인해줄 때까지
+// settings.gradle의 supportedVersions 리스트에는 아직 추가하지 않았습니다.
+//
+// 실제 자바 소스는 기존 36개와 동일하게 rootProject의 src/를 그대로 공유합니다 - 26.x는
+// 1.21.11보다도 최신이라 legacy_compat_dir 같은 별도 shim이 전혀 필요 없을 가능성이 높습니다
+// (공유 소스 자체가 "최신 API 기준"으로 작성돼 있고, 그보다 오래된 버전만 LunaCompat/shim으로
+// 흡수하는 구조라서 - 다만 재빌드해서 실제로 확인하기 전까지는 100% 장담 못함).
+// ===================================================================
+
+version = "${rootProject.mod_version}+mc${project.minecraft_version}"
+group = rootProject.maven_group
+
+base {
+	archivesName = "${rootProject.archives_base_name}-${project.minecraft_version}"
+}
+
+repositories {
+	maven { url = "https://maven.terraformersmc.com/releases/" } // Mod Menu
+	maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"lunaslight" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+// 44차(2026-08-31): src/client/java는 Yarn 이름 기준이라 26.x(Mojang 공식 이름 필요)와는 더 이상
+// 공유할 수 없음이 실제로 확인됨(migrateMappings로 강제 변환 시도했다가 기존 36개용 원본을
+// 덮어써버린 사고 이후, migrateMappings를 역방향으로 한 번 더 돌려 원본 Yarn 소스를 복구하고
+// 그 결과물인 Mojang 매핑본은 이 26.x 전용 트리(src-26x/client/java)로 분리함 - 자세한 경위는
+// claude/nova-mod-todo.md 44차 참고). main 쪽은 애초에 java 소스 자체가 없는(리소스만 있는)
+// 100% 클라이언트 전용 모드라 이 분리와 무관 - 계속 공유 그대로 둠.
+sourceSets {
+	main {
+		java { srcDirs = [rootProject.file('src/main/java')] }
+		resources {
+			srcDirs = [rootProject.file('src/main/resources')]
+			// 49-33차: 공유 믹스인 목록(18개)은 26.x에선 안 쓴다 - 아래 writeModernMixinJson이
+			// 만든 "실제로 있는 것만" 목록으로 갈아 끼운다. 제외를 processResources 쪽에 걸면
+			// 새로 넣는 파일까지 같이 걸러져서(태스크 전체 CopySpec에 적용) jar에 mixins.json이
+			// 통째로 빠진다 - 그래서 여기 소스셋에서만 뺀다.
+			exclude 'lunaslight.mixins.json'
+			// 49-39차: 26.x는 FreeType 시대 - stb용 폰트 JSON은 뺀다(loom-common.gradle 참고)
+			exclude 'assets/lunaslight/font/*_stb?.json'
+			// 49-82차: 채팅 얼굴 띄우개 비트맵 글꼴은 1.16~1.19.4용 - 26.x는 "space" 쪽(chatface.json)만 쓴다
+			exclude 'assets/lunaslight/font/chatface_bmp.json'
+			// 49-170차 색 보정 셰이더: 26.x는 UBO 포맷(post_effect/grade.json + shaders/post/grade.fsh)만 - 나머지 두 벌은 뺀다
+			exclude 'assets/lunaslight/post_effect/grade_uni.json'
+			exclude 'assets/lunaslight/shaders/post/grade_uni.fsh'
+			exclude 'assets/lunaslight/shaders/post/grade_legacy.json'
+			exclude 'assets/minecraft/shaders/program/luna_grade.json'
+			exclude 'assets/minecraft/shaders/program/luna_grade.fsh'
+		}
+	}
+	client {
+		java { srcDirs = [rootProject.file('src-26x/client/java')] }
+		// 49-98차(사용자 로그: "[Luna] lunaslight/yarnmap.txt 리소스가 없음"): 26.x 트리의 yarnmap.txt(Yarn→Mojang
+		// 이름 표)를 jar에 넣는다. 이게 빠져 있으면 LunaCompat의 리플렉션 이름 해석이 전부 실패해서
+		// Identifier 생성·폰트(styledText)·HUD 콜백 등 리플렉션 기반 기능이 통째로 죽는다(아이콘 안 뜸,
+		// UI 글꼴이 바닐라로 커짐). apply-26x.cmd가 src-26x.zip에서 client/resources/lunaslight/yarnmap.txt로 풀어 둔다.
+		resources { srcDirs = [rootProject.file('src-26x/client/resources')] }
+	}
+}
+
+// 49-50차: Simple Voice Chat 애드온은 libs/voicechat-api-*.jar가 있을 때만 컴파일(loom-common.gradle과 동일).
+def lunaSvcApi26 = rootProject.fileTree(dir: 'libs', include: 'voicechat-api-*.jar')
+if (lunaSvcApi26.isEmpty()) {
+	sourceSets.client.java.exclude 'kr/lunaslight/mod/integration/**'
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// ⚠️ mappings 의존성 없음 - 26.x는 비난독화라 디매핑이 필요 없음(위 설명 참고, 공식
+	// fabric-example-mod 26.2 브랜치 build.gradle에도 mappings 줄 자체가 없음을 직접 확인).
+
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	// 49-50차: SVC 애드온 API. 마인크래프트를 전혀 참조하지 않는 순수 인터페이스 묶음이라 26.x에서도
+	// 같은 jar를 그대로 쓴다(리맵 불필요). compileOnly라 우리 jar에는 안 들어간다.
+	if (!lunaSvcApi26.isEmpty()) {
+		compileOnly lunaSvcApi26
+		clientCompileOnly lunaSvcApi26
+	}
+
+	// ModMenu는 "라이브러리" 배지 표시용(있으면 badge 적용, 없으면 optional 취급) - 리매핑이
+	// 없어져서 기존의 modCompileOnly 대신 그냥 compileOnly로 충분할 것으로 판단(모두 공식 예제의
+	// implementation 패턴과 일관되게 "mod" 접두사 붙은 Loom 전용 설정을 안 씀).
+	if (project.hasProperty('modmenu_version')) {
+		compileOnly("maven.modrinth:modmenu:${project.modmenu_version}") {
+			transitive = false
+		}
+	}
+}
+
+// ===================================================================
+// 49-33차: 26.x 전용 믹스인 목록
+//
+// 공유 lunaslight.mixins.json은 믹스인 18개를 적고 있는데 src-26x 트리로 옮겨진 건 5개뿐이라,
+// 26.x jar를 켤 때마다 "없는 믹스인 클래스" 오류가 14줄씩 났다(required=false라 게임이 죽진
+// 않지만 로그가 지저분하고, 진짜 문제인 것처럼 보임). 그래서 26.x 빌드는 **실제로 존재하는
+// 파일만** 적은 json을 새로 만들어 쓴다 - 믹스인을 하나 옮길 때마다 목록이 자동으로 늘어난다.
+// (구버전 36개는 공유 json을 그대로 쓴다 - 그쪽은 18개가 전부 있음)
+// ===================================================================
+def lunaModernMixinDir = rootProject.file('src-26x/client/java/kr/lunaslight/mod/mixin')
+def lunaModernMixins = lunaModernMixinDir.isDirectory()
+	? lunaModernMixinDir.listFiles()
+		.findAll { it.isFile() && it.name.endsWith('Mixin.java') }
+		.collect { it.name.replace('.java', '') }
+		.sort()
+	: []
+def lunaModernMixinJson = layout.buildDirectory.file('generated/lunaslight.mixins.json')
+
+def lunaWriteMixinJson = tasks.register('writeModernMixinJson') {
+	group = 'lunaslight'
+	description = '26.x 트리에 실제로 있는 믹스인만 적은 lunaslight.mixins.json 생성'
+	inputs.property 'mixins', lunaModernMixins.join(',')
+	outputs.file lunaModernMixinJson
+	doLast {
+		def f = lunaModernMixinJson.get().asFile
+		f.parentFile.mkdirs()
+		f.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+			required          : false,
+			'package'         : 'kr.lunaslight.mod.mixin',
+			compatibilityLevel: 'JAVA_25',
+			client            : lunaModernMixins,
+			injectors         : [defaultRequire: 1]
+		]))
+	}
+}
+
+processResources {
+	inputs.property "version", project.version
+	inputs.property "minecraft_version", project.minecraft_version
+	inputs.property "java_version", 25
+	// 49-31차 후속: filter/expand 안에서 쓰는 값은 Gradle이 입력으로 추적하지 못한다.
+	// (믹스인 레벨만 바꾼 빌드에서 processResources가 UP-TO-DATE로 건너뛰어져
+	//  jar 안 lunaslight.mixins.json이 예전 JAVA_21 그대로 남아 게임이 안 켜졌음)
+	// 아래처럼 실제로 박아 넣는 값을 입력으로 선언해야 값이 바뀔 때 다시 돈다.
+	inputs.property "mixin_compat", "JAVA_25"
+	inputs.property "modern_mixins", lunaModernMixins.join(',')
+	filteringCharset "UTF-8"
+
+	filesMatching("fabric.mod.json") {
+		// 49-31차: fabric.mod.json의 java 요구 버전도 같이 채웁니다(26.x는 자바 25).
+		// 49-173차: fabric_api_id(49-171차, 옛 버전용) - 26.x는 늘 fabric-api.
+		expand "version": project.version, "minecraft_version": project.minecraft_version,
+			"java_version": 25, "fabric_api_id": "fabric-api"
+	}
+
+	// 위에서 만든 26.x 전용 목록을 넣는다(공유 목록은 소스셋에서 이미 빠져 있음).
+	dependsOn lunaWriteMixinJson
+	from(lunaModernMixinJson)
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+// 40차(2026-08-29): 첫 실제 빌드에서 "error: release version 25 not supported"로 4개 전부
+// compileClientJava에서 실패 - release=25만 지정해서는 부족했음. 이 프로젝트는 39개(이제 40개)
+// 서브프로젝트를 전부 "하나의" Gradle 데몬(= 하나의 JVM 프로세스)으로 묶어서 './gradlew build'
+// 한 번에 빌드하는 구조라, 사용자가 JDK 25를 설치했어도 gradlew를 실행하는 기본 JAVA_HOME이
+// 여전히 기존 36개가 쓰던 더 낮은 버전(예: 21)이면 그 JVM에 내장된 javac 자체가 --release 25를
+// 지원 못 해서(javac는 자기 자신의 메이저 버전보다 높은 release는 원천적으로 지원 불가) 이
+// 에러가 남 - "설치는 했지만 이 Gradle 실행에는 아직 안 쓰이고 있다"는 뜻.
+// 전체 데몬을 통째로 Java 25로 바꾸는 대신(org.gradle.java.home을 루트 gradle.properties에
+// 강제하면 기존 36개의 release=21 컴파일까지 전부 그 하나의 JVM에 의존하게 돼 더 위험함),
+// Gradle의 "툴체인" 기능으로 이 4개 서브프로젝트의 컴파일 태스크만 별도로 JDK 25를 찾아서 쓰게
+// 함 - Gradle이 기기에 설치된 JDK들을 자동으로 탐지(자동 감지 대상: 표준 설치 경로, IDE가 관리하는
+// JDK, jabba/SDKMAN/asdf 등)해서 조건에 맞는 걸 골라 쓰므로, 데몬 자체의 JVM 버전과 무관하게
+// 동작함(기존 36개는 그대로 release=21 + 데몬 JVM으로 컴파일, 이 4개만 별도로 JDK 25 사용).
+// 이게 안 먹히면(자동 감지가 이 컴퓨터의 JDK 25 설치 위치를 못 찾으면) "No compatible toolchains
+// found"처럼 훨씬 명확한 에러가 나므로 다음 라운드에서 바로 원인 파악 가능.
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+jar {
+	from(rootProject.file("LICENSE")) {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}
+
+// ===================================================================
+// 49-31차: 빌드가 끝나면 런처가 실제로 주입하는 폴더(Nova-Client/novamod)로 jar를 바로 복사.
+// 예전에는 손으로 복사해야 해서 "빌드했는데 인게임은 그대로"인 상태가 자주 생겼습니다.
+// 폴더가 없으면 조용히 건너뜁니다. 다른 경로에 두었으면
+//   .\gradlew :v1_20_1:build -Pluna_launcher_mods=D:\어딘가\novamod
+// 처럼 넘기면 됩니다.
+// ===================================================================
+def lunaLauncherMods = project.findProperty('luna_launcher_mods')
+	? rootProject.file(project.findProperty('luna_launcher_mods'))
+	: new File(rootProject.projectDir.parentFile, 'Nova-Client/novamod')
+
+tasks.register('deployToLauncher', Copy) {
+	group = 'lunaslight'
+	description = '빌드한 jar를 런처 novamod 폴더로 복사(런처가 게임에 넣어주는 실물)'
+	// 49-33차: 26.x는 비난독화라 mappings 의존성이 없고, 그래서 Loom이 remapJar를 아예 만들지 않는다
+	// (구버전 트리의 loom-common.gradle과 달라지는 지점 - 여기서 remapJar를 고정으로 부르면
+	//  ":v26_2:build"가 "Task with name 'remapJar' not found"로 죽는다). 없으면 그냥 jar를 쓴다 -
+	// 이름을 안 바꿔도 되는 버전이라 jar 자체가 이미 실물 모드 jar다.
+	def lunaJar = project.tasks.findByName('remapJar') ?: project.tasks.getByName('jar')
+	dependsOn lunaJar
+	from lunaJar
+	into lunaLauncherMods
+	onlyIf { lunaLauncherMods.isDirectory() }
+}
+
+// 49-38차: 설치판 런처가 읽는 %APPDATA%/NovaClient/novamod 에도 복사(loom-common.gradle과 동일).
+def lunaLauncherAppData = new File(System.getenv('APPDATA') ?: '', 'NovaClient/novamod')
+tasks.register('deployToLauncherAppData', Copy) {
+	group = 'lunaslight'
+	description = '빌드한 jar를 설치판 런처가 읽는 %APPDATA%/NovaClient/novamod 로 복사'
+	def lunaJar2 = project.tasks.findByName('remapJar') ?: project.tasks.getByName('jar')
+	dependsOn lunaJar2
+	from lunaJar2
+	into lunaLauncherAppData
+	// 49-231차(사용자: "설정이랑 UI가 전혀 안 바뀌었는데"): 런처 폴더 이름이 LunaClient → NovaClient로 바뀐 뒤로 이 검사가 늘 거짓이라
+	// 복사가 SKIPPED 됐다 - 런처가 읽는 %APPDATA%/NovaClient/novamod 에 새 jar가 안 들어가 게임은 옛 jar로 돌았다. 둘 다 본다.
+	onlyIf { System.getenv('APPDATA') != null && (new File(System.getenv('APPDATA'), 'NovaClient').isDirectory()
+		|| new File(System.getenv('APPDATA'), 'LunaClient').isDirectory()) }
+	doFirst { lunaLauncherAppData.mkdirs() }
+	// 49-203차: 개발 PC 표시 - 런처가 이 PC에서 빌드한 jar를 저장소(GitHub novamod/)의 옛 jar로 덮지 않게 한다(main.js isLocalLunaModBuild).
+	doLast { new File(lunaLauncherAppData, '.local-build').text = 'Nova-Mod dev build marker (deployToLauncherAppData)\n' }
+}
+
+// 49-38차: 설치판 런처(resources/novamod)에도 직접 복사 - 런처를 다시 패키징하지 않아도 "빌드 → 실행"에 새 모드가 들어간다.
+// (설치 경로가 없으면 조용히 건너뜀. 개발용 지름길이라 배포 사용자 PC에는 해당 없음.)
+def lunaLauncherInstalled = new File(System.getenv('LOCALAPPDATA') ?: '', 'Programs/Nova Client/resources/novamod')
+tasks.register('deployToLauncherInstalled', Copy) {
+	group = 'lunaslight'
+	description = '빌드한 jar를 설치된 런처의 resources/novamod 로 복사(재패키징 없이 바로 반영)'
+	dependsOn (project.tasks.findByName('remapJar') ?: project.tasks.getByName('jar'))
+	from (project.tasks.findByName('remapJar') ?: project.tasks.getByName('jar'))
+	into lunaLauncherInstalled
+	onlyIf { lunaLauncherInstalled.isDirectory() }
+}
+
+tasks.named('build') {
+	finalizedBy tasks.named('deployToLauncher'), tasks.named('deployToLauncherAppData'), tasks.named('deployToLauncherInstalled')
+}

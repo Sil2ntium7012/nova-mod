@@ -1,0 +1,9 @@
+{
+    "pack": {
+        "description": "Nova Client resources",
+        "pack_format": 34,
+        "supported_formats": [15, 2147483647],
+        "min_format": [15, 0],
+        "max_format": 2147483647
+    }
+}

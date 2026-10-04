@@ -1,0 +1,13 @@
+// plugins {} 블록은 Gradle 제약상 apply from:으로 끌어오는 스크립트(loom-common.gradle)
+// 안에는 못 써서, 여기 "진짜" 프로젝트 build.gradle 쪽에 둡니다. 나머지 공통 설정은 전부
+// loom-common.gradle에 있습니다. 새 버전을 추가할 때 이 파일은 그대로 복사만 하면 됩니다.
+// ⚠️ 실제로 sync해보고 고친 것: 원래 loom 1.7-SNAPSHOT(2024년산)이었는데 1.21.11에서
+// "Unsupported unpick version" 에러가 남 - 오래된 Loom이 최신 마인크래프트의 unpick 포맷을
+// 몰라서 생김. 최신 마인크래프트를 지원하는 최신 안정 버전(1.17.20)으로 5개 버전 전부
+// 통일함(Loom은 마인크래프트 버전에 크게 안 묶이는 범용 툴이라 구버전들도 문제없이 그대로 됨).
+plugins {
+	id 'fabric-loom' version '1.17.20'
+	id 'maven-publish'
+}
+
+apply from: rootProject.file('loom-common.gradle')

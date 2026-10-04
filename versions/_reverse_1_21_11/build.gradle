@@ -1,0 +1,72 @@
+// 임시 서브프로젝트: 지금 src/client/java에 잘못 들어있는 Mojang(official) 이름 소스를
+// migrateMappings로 원래 Yarn(net.fabricmc:yarn:1.21.11+build.6) 이름으로 "역방향" 변환하기
+// 위한 것. 이 프로젝트 자체는 "named"=Mojang official로 설정되어 있어서, 지금 소스 내용과
+// 매핑이 일치함(정상적으로 클래스/심볼을 찾을 수 있음) - 그 상태에서 migrateMappings의
+// --mappings로 yarn 좌표를 주면 named(official) -> yarn으로 역매핑된 결과를 --output에 씀.
+// 절대로 --overrideInputsIHaveABackup을 쓰지 않습니다 (그러면 --input이 삭제됨) - --output만
+// 확인하고 수동으로 복사합니다.
+//
+// 작업 끝나면 settings.gradle에서 이 서브프로젝트 등록 줄을 지우고, 이 폴더도 삭제해도 됩니다.
+plugins {
+	id 'fabric-loom' version '1.17.20'
+	id 'maven-publish'
+}
+
+version = "${rootProject.mod_version}+mc${project.minecraft_version}-reverse"
+group = rootProject.maven_group
+
+base {
+	archivesName = "${rootProject.archives_base_name}-${project.minecraft_version}-reverse"
+}
+
+repositories {
+	maven { url = "https://maven.terraformersmc.com/releases/" }
+	maven { url = "https://api.modrinth.com/maven" }
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"lunaslight" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+// 실제 자바 소스는 기존과 동일하게 rootProject의 src/를 그대로 공유 (읽기만 함 - 이 서브프로젝트
+// 자체를 컴파일할 일은 없고, migrateMappings 태스크의 --input 경로 지정용으로만 필요).
+sourceSets {
+	main {
+		java { srcDirs = [rootProject.file('src/main/java')] }
+		resources { srcDirs = [rootProject.file('src/main/resources')] }
+	}
+	client {
+		java { srcDirs = [rootProject.file('src/client/java')] }
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// ⚠️ 핵심: Yarn이 아니라 Mojang 공식 매핑을 "현재 소스가 이미 이 이름 체계로 쓰여있다"는
+	// 뜻으로 사용. 지금 src/client/java 내용이 실제로 Mojang 이름이라 이래야 심볼이 맞음.
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	if (project.hasProperty('modmenu_version')) {
+		modCompileOnly("maven.modrinth:modmenu:${project.modmenu_version}") {
+			transitive = false
+		}
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}

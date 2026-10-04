@@ -1,0 +1,52 @@
+# 49-147차: 빌드할 때(build.cmd) 자동으로 지워지는 안 쓰는 파일 목록
+# 한 줄에 하나, Nova-Mod 폴더 기준 경로. # 뒤는 설명. 이미 없으면 넘어간다.
+
+# 49-145차에 잘못 만든 크리에이티브 페이지 기능(49-146차에 등록 해제)
+src/client/java/kr/novaclient/mod/module/impl/inventory/CreativePagerModule.java
+src-26x/client/java/kr/novaclient/mod/module/impl/inventory/CreativePagerModule.java
+
+# 49-153차: 1.15.2~1.19.4에서 게임이 켜지자마자 꺼지던 원인. 옛 시대 shim이라 "진짜 게임에는 없다"고 적어 뒀지만
+# 실제로는 1.14부터 있는 클래스(intermediary class_317)라, 빌드할 때 이름이 class_317로 바뀌어 jar에 들어가
+# 진짜 RenderTickCounter를 덮어썼다 → NoSuchMethodError class_317.method_1658(long). 공유 소스는 이 타입을
+# 인자로만 주고받으므로(1.20.x도 shim 없이 진짜 옛 클래스로 컴파일된다) shim을 지운다.
+compat/legacy-era0/net/minecraft/client/render/RenderTickCounter.java
+compat/legacy-era1/net/minecraft/client/render/RenderTickCounter.java
+
+# 49-157차: 겹치는 기능 합치기 - [일반 > 유저 차단]은 [기능 > 채팅 > 차단]으로, (49-179차에 손 아이템 개수는 다시 따로 된 기능으로 되살림)
+src/client/java/kr/novaclient/mod/module/impl/chat/PlayerBlockModule.java
+src-26x/client/java/kr/novaclient/mod/module/impl/chat/PlayerBlockModule.java
+
+# 49-170차(사용자: "빠진 기능 없는지 싹 다 체크"): 등록 해제된 지 오래된 빈 껍데기/대체된 모듈. ModuleManager에 없고 아무 데서도 안 쓴다.
+src/client/java/kr/novaclient/mod/module/impl/render/GuiBlurModule.java              # 49-22차 삭제(메뉴 흐림)
+src-26x/client/java/kr/novaclient/mod/module/impl/render/GuiBlurModule.java
+src/client/java/kr/novaclient/mod/module/impl/misc/YoutubeWindowModule.java         # 49-102차 PIP 삭제
+src-26x/client/java/kr/novaclient/mod/module/impl/misc/YoutubeWindowModule.java
+src/client/java/kr/novaclient/mod/module/impl/misc/CustomKeybindsModule.java        # 49-89차 [단축키]로 합침
+src/client/java/kr/novaclient/mod/module/impl/misc/UserKeybindsModule.java          # 49-89차 [단축키]로 합침
+
+# 49-202차(너굴마을 운영진이 핵 기능 이름과 혼동): 이름만 바꿈 - MoveRateHudModule, AimDistanceHudModule
+src/client/java/kr/novaclient/mod/module/impl/hud/SpeedometerHudModule.java
+src-26x/client/java/kr/novaclient/mod/module/impl/hud/SpeedometerHudModule.java
+src/client/java/kr/novaclient/mod/module/impl/hud/ReachDistanceHudModule.java
+src-26x/client/java/kr/novaclient/mod/module/impl/hud/ReachDistanceHudModule.java
+
+# 49-207차: 모드 내부 이름을 Nova → Luna's Light(lunaslight)로 전부 옮김. 옛 경로 통째로 삭제.
+src/client/java/kr/novaclient
+src-26x/client/java/kr/novaclient
+src-26x/client/resources/novaclient
+src/main/resources/assets/novaclient
+src/main/resources/nova_modern
+src/main/resources/novaclient.mixins.json
+src/main/resources/assets/minecraft/shaders/program/nova_grade.fsh
+src/main/resources/assets/minecraft/shaders/program/nova_grade.json
+compat/chatface-legacy/kr/novaclient
+compat/chatface-legacy16/kr/novaclient
+compat/screen-input-legacy0/kr/novaclient
+compat/screen-input-legacy1/kr/novaclient
+compat/screen-input-legacy1b/kr/novaclient
+compat/screen-input-legacy2/kr/novaclient
+compat/screen-input-legacy3/kr/novaclient
+compat/screen-input-legacy4/kr/novaclient
+compat/screen-input-modern/kr/novaclient
+compat/window-legacy14/kr/novaclient
+compat/window-modern/kr/novaclient

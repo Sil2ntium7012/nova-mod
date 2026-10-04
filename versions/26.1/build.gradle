@@ -1,0 +1,11 @@
+// plugins {} 블록은 Gradle 제약상 apply from:으로 끌어오는 스크립트(loom-common-modern.gradle)
+// 안에는 못 써서, 여기 "진짜" 프로젝트 build.gradle 쪽에 둡니다.
+//
+// 37차: 26.x는 기존 36개와 플러그인 id 자체가 다릅니다("fabric-loom"이 아니라 정식 id
+// "net.fabricmc.fabric-loom") - 자세한 이유는 loom-common-modern.gradle 상단 주석 참고.
+plugins {
+	id 'net.fabricmc.fabric-loom' version '1.17.20'
+	id 'maven-publish'
+}
+
+apply from: rootProject.file('loom-common-modern.gradle')

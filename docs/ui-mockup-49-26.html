@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Nova Client · 모드 적용 화면 (49-26차)</title>
+<style>
+  :root{
+    --accent:#A9D973;
+    --panel:#090A0C;
+    --card:#0F1114;
+    --card-hover:#171A1E;
+    --border:rgba(255,255,255,.09);
+    --text:#ECECF1;
+    --sub:#A0A0B0;
+    --dim:#5A5866;
+    --danger:#CF7B74;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:#07080A;color:#ECECF1;
+    font-family:"Pretendard","Pretendard Variable",-apple-system,"Segoe UI",system-ui,"Malgun Gothic",sans-serif;
+    padding:28px 20px 60px;
+  }
+  h1{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:0 0 4px}
+  .lede{color:var(--sub);font-size:13px;margin:0 0 26px;line-height:1.6}
+  h2{font-size:15px;font-weight:700;margin:34px 0 6px;display:flex;align-items:center;gap:8px}
+  h2::before{content:"";width:3px;height:14px;background:var(--accent);border-radius:2px}
+  .note{color:var(--sub);font-size:12px;margin:0 0 12px;line-height:1.6}
+  .stage{width:1200px;max-width:100%;overflow:auto;border-radius:10px;border:1px solid var(--border);background:#000}
+  .screen{width:800px;height:450px;position:relative;transform:scale(1.5);transform-origin:top left;
+          font-size:10px;line-height:1;overflow:hidden}
+  .stage.s{height:675px}
+  .stage.half{height:420px}
+  .screen.small{height:280px}
+  .stage.half .screen{height:280px}
+
+  /* ---------- 공통 조각 ---------- */
+  .rr{border-radius:4px}
+  .chip{position:absolute;height:22px;display:flex;align-items:center;gap:6px;padding:0 10px;
+        background:rgba(13,14,17,.87);border:1px solid rgba(255,255,255,.06);border-radius:4px;
+        background-image:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 55%)}
+  .face{width:14px;height:14px;border-radius:1px;background:#8b6b4a;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,.1)}
+  .face::before,.face::after{content:"";position:absolute;top:5px;width:3px;height:3px;background:#2b4a7a}
+  .face::before{left:2px}.face::after{right:2px}
+  .dot{width:5px;height:5px;border-radius:50%;background:#5AD86E}
+  .btn{width:150px;height:24px;display:flex;align-items:center;justify-content:center;gap:7px;
+       background:rgba(13,14,17,.87);border:1px solid rgba(255,255,255,.07);border-radius:4px;color:#C7CBD0;
+       background-image:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 60%);
+       font-weight:700;position:relative}
+  .btn .ic{color:#878D95;font-size:10px}
+  .btn.pri{background:rgba(15,18,12,.93);border-color:rgba(169,217,115,.22);color:#F2F4F6}
+  .btn.pri .ic{color:var(--accent)}
+  .btn.pri::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;background:var(--accent);border-radius:1px}
+  .btn.dgr{color:var(--danger)} .btn.dgr .ic{color:var(--danger)}
+  .btn.hov{background:rgba(26,29,34,.94);border-color:rgba(255,255,255,.19);color:#fff}
+
+  /* ---------- ① 타이틀 ---------- */
+  .title-bg{position:absolute;inset:0;background:
+      radial-gradient(120% 80% at 50% 0%,#1b2740 0%,#0d1119 55%,#070a0e 100%)}
+  .title-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.45))}
+  .brand{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:11px}
+  .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(150deg,#c9ef94,#7fae4f);
+        display:flex;align-items:center;justify-content:center;color:#0d1408;font-weight:900;font-size:17px}
+  .word{font-size:20px;font-weight:900;letter-spacing:.02em}
+  .word span{color:#8E959D;font-weight:800}
+  .foot{position:absolute;bottom:5px;font-size:9px;color:rgba(255,255,255,.5)}
+
+  /* ---------- ② 인게임 ---------- */
+  .game{position:absolute;inset:0;background:
+    linear-gradient(180deg,#7fb6e8 0%,#a9d3f0 38%,#6f9448 38%,#547235 62%,#5f5f5f 62%,#3f3f3f 100%)}
+  .cloud{position:absolute;background:rgba(255,255,255,.75);border-radius:2px}
+  .hudline{display:inline-flex;align-items:center;height:12px;padding:0 4px;border-radius:3px;
+           background:rgba(9,10,12,.42);color:#fff;font-size:9px;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+  .stack{position:absolute;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .hotbar{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);display:flex;gap:0}
+  .slot{width:20px;height:20px;background:#8B8B8B;box-shadow:inset 1px 1px 0 #373737,inset -1px -1px 0 #fff;
+        display:flex;align-items:center;justify-content:center}
+  .slot.sel{outline:2px solid #fff;outline-offset:-1px;z-index:2}
+  .item{width:14px;height:14px;border-radius:2px}
+  .i-sword{background:linear-gradient(140deg,#8ee6ff,#3aa9d6 60%,#6b4a2a 60%)}
+  .i-pick{background:linear-gradient(140deg,#3a2f2a,#6b5a4a 55%,#8a6a45 55%)}
+  .i-steak{background:linear-gradient(140deg,#c1743f,#8a4b26)}
+  .i-ender{background:linear-gradient(140deg,#2e6f5e,#123b31)}
+  .i-torch{background:linear-gradient(180deg,#ffd76a 0 35%,#8a6a45 35%)}
+  .i-block{background:linear-gradient(140deg,#7fa04e,#5e7d3a)}
+  .hearts,.foods{position:absolute;display:flex;gap:0}
+  .heart,.food{width:9px;height:9px;position:relative;font-size:9px;line-height:9px;text-align:center}
+  .heart::before{content:"♥";color:#e33;text-shadow:0 0 1px #000,1px 1px 0 #300}
+  .food::before{content:"●";color:#b8703c;text-shadow:0 0 1px #000}
+  .food.sat::after{content:"";position:absolute;inset:0;border:1.5px solid #FFD24A;border-radius:50%}
+  .food.pulse::before{color:#fff}
+  .xp{position:absolute;left:50%;transform:translateX(-50%);width:182px;height:5px;background:#1b1b1b;border-radius:1px}
+  .xp i{display:block;height:100%;width:62%;background:#7bd44a;border-radius:1px}
+  .cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:9px;height:9px}
+  .cross::before,.cross::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.55)}
+  .cross::before{left:4px;top:0;width:1px;height:9px}
+  .cross::after{top:4px;left:0;height:1px;width:9px}
+  .keys{position:absolute;display:grid;grid-template-columns:repeat(3,16px);gap:2px}
+  .key{height:16px;background:rgba(9,10,12,.45);border-radius:2px;display:flex;align-items:center;justify-content:center;
+       color:#dfe3e8;font-size:8px;font-weight:700}
+  .key.on{background:rgba(169,217,115,.85);color:#0d1408}
+  .key.wide{grid-column:1/4;height:10px}
+  .compass{position:absolute;left:50%;top:6px;transform:translateX(-50%);width:180px;height:14px;
+           background:rgba(9,10,12,.42);border-radius:3px;overflow:hidden}
+  .compass i{position:absolute;top:9px;width:1px;height:3px;background:rgba(255,255,255,.45)}
+  .compass b{position:absolute;top:3px;font-size:8px;color:#fff;font-weight:600;transform:translateX(-50%)}
+  .compass .cur{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;
+                border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--accent)}
+  .sboard{position:absolute;right:0;top:50%;transform:translateY(-50%);width:104px;border-radius:4px;overflow:hidden;
+          background:rgba(9,10,12,.42)}
+  .sboard .h{background:rgba(9,10,12,.5);padding:2px 5px;font-size:9px;color:#fff;text-align:center;font-weight:700}
+  .sboard .r{display:flex;justify-content:space-between;padding:1px 5px;font-size:9px;color:#dfe3e8}
+  .sboard .r b{color:#e0574f;font-weight:600}
+  .toast{position:absolute;display:flex;align-items:center;gap:5px;height:20px;padding:0 8px 0 4px;border-radius:4px;
+         background:linear-gradient(90deg,rgba(169,217,115,.16),rgba(9,10,12,.72) 60%);border-left:2px solid var(--accent)}
+  .dia{width:14px;height:14px;transform:rotate(45deg);border:1px solid rgba(169,217,115,.6);border-radius:2px;
+       display:flex;align-items:center;justify-content:center}
+  .dia>span{transform:rotate(-45deg);font-size:9px}
+  .effects{position:absolute;display:flex;flex-direction:column;gap:2px;align-items:flex-end}
+  .eff{display:flex;align-items:center;gap:4px;height:12px;padding:0 4px;border-radius:3px;background:rgba(9,10,12,.42);font-size:9px}
+  .eff .sw{width:8px;height:8px;border-radius:2px}
+  .armor{position:absolute;display:flex;gap:2px}
+  .armor .p{width:16px;height:18px;background:rgba(9,10,12,.42);border-radius:3px;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;gap:2px}
+  .armor .p em{width:10px;height:9px;border-radius:2px;display:block}
+  .armor .p u{width:11px;height:2px;border-radius:1px;background:#3a3a3a;display:block;overflow:hidden}
+  .armor .p u i{display:block;height:2px;background:#7bd44a}
+  .entity{position:absolute;width:124px;border-radius:4px;background:rgba(9,10,12,.5);padding:4px 5px 5px}
+  .entity .n{display:flex;justify-content:space-between;font-size:9px;color:#fff}
+  .entity .bar{margin-top:2px;height:3px;background:#3a1414;border-radius:2px;overflow:hidden}
+  .entity .bar i{display:block;height:100%;width:64%;background:#e0574f}
+
+  /* ---------- ③④ 설정 패널 ---------- */
+  .dim-bg{position:absolute;inset:0;background:
+    linear-gradient(180deg,#7fb6e8 0%,#a9d3f0 38%,#6f9448 38%,#547235 62%,#5f5f5f 62%,#3f3f3f 100%);filter:blur(3px)}
+  .dim-bg::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.55)}
+  .panel{position:absolute;left:50px;top:25px;width:700px;height:400px;background:var(--panel);
+         border:1px solid rgba(255,255,255,.10);border-radius:6px;overflow:hidden;
+         box-shadow:0 6px 22px rgba(0,0,0,.55)}
+  .tabbar{height:32px;display:flex;align-items:center;padding:0 6px;gap:4px;position:relative}
+  .tab{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+       color:#5A5866;font-size:11px;position:relative}
+  .tab.sel{background:rgba(169,217,115,.10);border:1px solid rgba(169,217,115,.42);color:var(--accent)}
+  .tab.sel::after{content:"";position:absolute;left:5px;right:5px;bottom:-4px;height:2px;background:var(--accent);border-radius:1px}
+  .tabsep{width:1px;height:14px;background:rgba(255,255,255,.10);margin:0 2px}
+  .tabline{position:absolute;left:1px;right:1px;bottom:0;height:1px;
+           background:linear-gradient(90deg,rgba(169,217,115,.24),rgba(255,255,255,.08) 50%,rgba(255,255,255,.02))}
+  .search{margin-left:auto;width:110px;height:22px;border-radius:4px;background:var(--card);border:1px solid var(--border);
+          display:flex;align-items:center;gap:6px;padding:0 6px;color:var(--dim);font-size:10px}
+  .xbtn{width:22px;height:22px;margin-left:6px;border-radius:4px;background:rgba(207,123,116,.12);
+        border:1px solid rgba(207,123,116,.24);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:10px}
+  .descbar{height:22px;background:rgba(0,0,0,.35);display:flex;align-items:center;padding:0 10px;gap:8px;font-size:10px;color:var(--sub)}
+  .abtn{display:flex;align-items:center;gap:5px;height:16px;padding:0 7px;border-radius:4px;background:var(--card);
+        border:1px solid var(--border);color:var(--sub);font-size:9px}
+  .abtn.accent{background:rgba(169,217,115,.14);border-color:rgba(169,217,115,.42);color:var(--accent)}
+  .content{position:absolute;left:10px;right:10px;top:64px;bottom:10px}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .cardx{height:80px;border-radius:4px;background:var(--card);border:1px solid var(--border);position:relative;
+         display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:14px;
+         background-image:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0) 55%)}
+  .cardx .gi{font-size:17px;color:var(--sub);margin-bottom:10px}
+  .cardx .nm{font-size:10px;color:var(--text)}
+  .cardx .st{font-size:9px;color:var(--dim);margin-top:5px}
+  .cardx .sw{position:absolute;right:7px;top:7px;width:20px;height:10px;border-radius:5px;background:#1D2024}
+  .cardx .sw i{display:block;width:6px;height:6px;border-radius:50%;background:#8A8A94;margin:2px}
+  .cardx.on{border-color:rgba(169,217,115,.70)}
+  .cardx.on::before{content:"";position:absolute;left:2px;right:2px;top:2px;height:38px;border-radius:3px;
+                    background:linear-gradient(180deg,rgba(169,217,115,.11),rgba(169,217,115,0))}
+  .cardx.on .gi{color:var(--accent);position:relative}
+  .cardx.on .gi::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+                       width:24px;height:24px;border-radius:50%;background:rgba(169,217,115,.07)}
+  .cardx.on .st{color:rgba(169,217,115,.85)}
+  .cardx.on .led{position:absolute;left:8px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+  .cardx.on .sw{background:#333D28}
+  .cardx.on .sw i{background:#B9E387;margin-left:12px}
+  .cardx.hov{background:var(--card-hover);transform:translateY(-2px);box-shadow:0 3px 8px rgba(0,0,0,.35)}
+
+  .master{height:38px;border-radius:4px;background:var(--card);border:1px solid rgba(169,217,115,.55);
+          position:relative;padding:7px 8px 0 23px;background-image:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 60%)}
+  .master::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--accent);border-radius:1px}
+  .master .t{font-size:10px;color:var(--text)}
+  .master .d{font-size:9px;color:var(--dim);margin-top:5px}
+  .master .sw{position:absolute;right:8px;top:13px;width:26px;height:12px;border-radius:6px;background:#333D28}
+  .master .sw i{display:block;width:8px;height:8px;border-radius:50%;background:#B9E387;margin:2px 2px 2px 16px}
+  .master .lbl{position:absolute;right:42px;top:14px;font-size:9px;color:var(--dim)}
+  .master .gi{position:absolute;left:8px;top:13px;font-size:11px;color:var(--accent)}
+  .group{margin-top:8px;border-radius:4px;background:var(--card);border:1px solid var(--border);
+         background-image:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0) 30%)}
+  .ghead{height:20px;display:flex;align-items:center;gap:8px;padding:0 9px;font-size:10px;color:var(--sub)}
+  .ghead .line{flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.01))}
+  .row{height:24px;display:flex;align-items:center;padding:0 10px;gap:8px;font-size:10px;color:var(--text)}
+  .row .sub{color:var(--dim);font-size:9px}
+  .row .right{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .sw2{width:26px;height:12px;border-radius:6px;background:#1D2024;position:relative}
+  .sw2 i{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#8A8A94}
+  .sw2.on{background:#333D28}.sw2.on i{left:16px;background:#B9E387}
+  .swatch{width:26px;height:12px;border-radius:4px;border:1px solid rgba(255,255,255,.25)}
+  .keycap{height:14px;padding:0 7px;border-radius:4px;background:#1D2024;border:1px solid var(--border);
+          display:flex;align-items:center;font-size:9px;color:var(--sub)}
+  .slider{width:96px;height:4px;border-radius:2px;background:#1D2024;position:relative}
+  .slider i{position:absolute;left:0;top:0;height:4px;width:58%;background:var(--accent);border-radius:2px}
+  .slider b{position:absolute;left:58%;top:-3px;width:8px;height:8px;border-radius:50%;background:#F4F4F8;transform:translateX(-50%)}
+  .numbox{width:34px;height:14px;border-radius:4px;background:#0A0C0E;border:1px solid var(--border);
+          font-size:9px;color:var(--text);display:flex;align-items:center;justify-content:center}
+
+  .preview{position:absolute;right:0;top:0;width:170px;bottom:12px;border-radius:4px;background:#10141A;
+           border:1px solid var(--border);overflow:hidden}
+  .preview .pv{position:absolute;inset:1px;bottom:19px;background:
+      linear-gradient(180deg,#8FC2E8 0%,#B7D9EF 42%,#7FA04E 42%,#5E7D3A 66%,#6B6B6B 66%,#4E4E4E 100%)}
+  .preview .vign{position:absolute;left:1px;right:1px;top:1px;height:24px;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent)}
+  .preview .tag{position:absolute;left:6px;top:6px;height:13px;padding:0 6px;border-radius:4px;background:rgba(0,0,0,.6);
+                display:flex;align-items:center;font-size:9px;color:#E6E8EA}
+  .preview .bar{position:absolute;left:1px;right:1px;bottom:0;height:18px;border-top:1px solid rgba(255,255,255,.10);
+                display:flex;align-items:center;justify-content:center;gap:6px;font-size:9px;color:var(--sub)}
+  .preview .bar span{color:var(--dim)}
+
+  /* ---------- ⑤ 툴팁 ---------- */
+  .tipscale{width:800px;transform:scale(1.5);transform-origin:top left}
+  .tips{display:flex;gap:18px;padding:16px;background:
+        linear-gradient(180deg,#26313f,#161c25);flex-wrap:wrap;font-size:10px;line-height:1}
+  .tip{position:relative;padding:5px 7px;border-radius:3px;font-size:10px;color:#cfd4da;min-width:150px;
+       background:linear-gradient(180deg,#151A22,#0B0E13);box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .tip.common{border:1px solid #B4BCC6}
+  .tip.rare{border:1px solid #62D9FF}
+  .tip.epic{border:1px solid #D48CFF}
+  .tip .nm{color:#fff;font-weight:700;margin-bottom:4px}
+  .tip .sep{height:1px;margin:0 -3px 5px;background:linear-gradient(90deg,currentColor,rgba(255,255,255,.03))}
+  .tip.rare .sep{color:rgba(98,217,255,.6)}
+  .tip.epic .sep{color:rgba(212,140,255,.6)}
+  .tip.common .sep{color:rgba(180,188,198,.5)}
+  .tip .l{margin:2px 0;color:#9aa3ad}
+  .tip .l b{color:#fff;font-weight:600}
+  .tip .l .g{color:#8ee08a}
+  .tip .l .d{color:#6b7178}
+  .tip .ench{color:#b9a7f0}
+  .tip .foodrow{display:flex;gap:1px;margin:3px 0}
+  .tip .fi{width:9px;height:9px;font-size:9px;line-height:9px;text-align:center;position:relative}
+  .tip .fi::before{content:"●";color:#b8703c;text-shadow:0 0 1px #000}
+  .tip .fi.sat::before{color:transparent}
+  .tip .fi.sat::after{content:"";position:absolute;inset:0;border:1.5px solid #FFD24A;border-radius:50%}
+  .cap{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.7}
+  .cap b{color:var(--text);font-weight:600}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+  .legend div{font-size:11px;color:var(--sub);display:flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;border-radius:2px;background:var(--accent);display:inline-block}
+
+  /* ---------- ⑥ 소셜 서랍 ---------- */
+  .drawer{position:absolute;right:8px;top:8px;bottom:8px;width:250px;border-radius:6px;background:#0D0F12;
+          border:1px solid rgba(255,255,255,.11);box-shadow:0 6px 20px rgba(0,0,0,.6);overflow:hidden}
+  .drawer .hd{height:44px;display:flex;align-items:center;gap:8px;padding:12px 12px 0}
+  .drawer .hd .t{font-weight:800;font-size:11px}
+  .drawer .hd .s{color:var(--dim);font-size:9px;margin-left:auto;margin-right:22px}
+  .drawer .hline{height:1px;margin:0 12px;background:linear-gradient(90deg,rgba(169,217,115,.38),rgba(169,217,115,.03))}
+  .drawer .sec{padding:8px 12px 4px;font-size:10px;color:var(--sub);display:flex;align-items:center}
+  .frow{margin:0 12px 3px;height:23px;border-radius:4px;background:var(--card);border:1px solid var(--border);
+        display:flex;align-items:center;gap:8px;padding:0 8px;font-size:10px;
+        background-image:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 60%)}
+  .frow .r{margin-left:auto;color:var(--dim);font-size:9px}
+  .frow .off{color:var(--sub)}
+  .badge{position:absolute;right:12px;top:12px;width:20px;height:20px;border-radius:4px;background:var(--card);
+         border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:10px}
+</style>
+</head>
+<body>
+
+<h1>Nova Client · 모드 입힌 화면 (49-26차 기준)</h1>
+<p class="lede">실제 코드의 색·치수·문구를 그대로 옮겨 그린 목업입니다. 픽셀 단위(마인크래프트 GUI 좌표)로 그린 뒤 1.5배로 키웠고,
+아이템·블록 그림만 대략적인 도형으로 대체했습니다.</p>
+
+<h2>① 메인 화면</h2>
+<p class="note">버튼 150×24로 줄여 가운데로 모음 · 굵은 글씨(Pretendard ExtraBold) · 왼쪽 위 내 얼굴 + 닉네임 · 오른쪽 위 소셜(노바 계정 로그인 시 초록 점)</p>
+<div class="stage s">
+ <div class="screen">
+  <div class="title-bg"></div>
+  <div class="chip" style="left:8px;top:8px"><span class="face"></span><span style="color:#C7CBD0">Sil2tium</span></div>
+  <div class="chip" style="right:8px;top:8px"><span style="color:#A9D973">◍</span><span style="color:#C7CBD0">소셜</span>
+    <span class="dot" style="position:absolute;right:-2px;top:-2px"></span></div>
+
+  <div class="brand" style="top:96px">
+    <div class="logo">✦</div>
+    <div class="word">N✦VA <span>CLIENT</span></div>
+  </div>
+
+  <div style="position:absolute;left:50%;top:152px;transform:translateX(-50%);display:flex;flex-direction:column;gap:5px">
+    <div class="btn"><span class="ic">☺</span>싱글플레이어</div>
+    <div class="btn hov"><span class="ic">☷</span>멀티플레이어</div>
+    <div class="btn pri"><span class="ic">≡</span>Nova 설정</div>
+    <div class="btn"><span class="ic">⚙</span>마인크래프트 설정</div>
+    <div style="height:11px;display:flex;align-items:center"><div style="height:1px;flex:1;background:rgba(255,255,255,.10);margin:0 2px"></div></div>
+    <div class="btn dgr"><span class="ic">⏻</span>게임 종료</div>
+  </div>
+
+  <div class="foot" style="left:8px">Nova Client</div>
+  <div class="foot" style="right:8px">마인크래프트 1.21.4 · 패브릭</div>
+ </div>
+</div>
+<p class="cap"><b>바뀐 점</b> · 예전 190×28 버튼이 화면을 세로로 꽉 채우던 것을 150×24로 줄이고 간격도 7→5로 좁혀 가운데에 모았습니다.
+아이콘과 글씨를 버튼 안에서 가운데 정렬하고, 글꼴은 굵은 판(모던 글꼴일 때)이 자동으로 쓰입니다.</p>
+
+<h2>② 인게임 — 모드 입힌 화면</h2>
+<p class="note">HUD는 전부 개별 기능이고 위치·크기·색을 각자 바꿀 수 있습니다. 아래는 자주 쓰는 조합을 한 화면에 켠 모습입니다.</p>
+<div class="stage s">
+ <div class="screen">
+  <div class="game"></div>
+  <div class="cloud" style="left:90px;top:26px;width:70px;height:9px"></div>
+  <div class="cloud" style="left:520px;top:40px;width:96px;height:10px"></div>
+
+  <!-- 상단 나침반 -->
+  <div class="compass">
+    <i style="left:15px"></i><i style="left:45px"></i><i style="left:75px"></i><i style="left:105px"></i><i style="left:135px"></i><i style="left:165px"></i>
+    <b style="left:30px">서</b><b style="left:90px">북</b><b style="left:150px">동</b>
+    <div class="cur"></div>
+  </div>
+
+  <!-- 좌상단 정보 스택 -->
+  <div class="stack" style="left:4px;top:4px">
+    <span class="hudline">FPS 312</span>
+    <span class="hudline">X: 128 Y: 71 Z: -240&nbsp;&nbsp;평원</span>
+    <span class="hudline">남 · 174° / -3°</span>
+    <span class="hudline">4.32 블록/초</span>
+    <span class="hudline">핑 42ms</span>
+  </div>
+
+  <!-- 우상단 포션 효과 -->
+  <div class="effects" style="right:4px;top:24px">
+    <span class="eff"><i class="sw" style="background:#7fd4ff"></i>신속 II · 2:14</span>
+    <span class="eff"><i class="sw" style="background:#ffd76a"></i>화염 저항 · 0:42</span>
+  </div>
+
+  <!-- 스코어보드 -->
+  <div class="sboard">
+    <div class="h">노바 서버</div>
+    <div class="r"><span>킬</span><b>12</b></div>
+    <div class="r"><span>데스</span><b>3</b></div>
+    <div class="r"><span>코인</span><b>1,480</b></div>
+  </div>
+
+  <!-- 엔티티 정보 -->
+  <div class="entity" style="left:50%;top:150px;transform:translateX(-50%)">
+    <div class="n"><span>좀비</span><span style="color:#dfe3e8">13.0 / 20</span></div>
+    <div class="bar"><i></i></div>
+    <div class="n" style="margin-top:4px;font-size:8px;color:#9aa3ad"><span>방어 2 · 화염 저항</span><span>썩은 살점</span></div>
+  </div>
+
+  <!-- 키스트로크 -->
+  <div class="keys" style="left:4px;bottom:34px">
+    <div></div><div class="key on">W</div><div></div>
+    <div class="key">A</div><div class="key">S</div><div class="key">D</div>
+    <div class="key wide"></div>
+  </div>
+
+  <!-- 갑옷 HUD -->
+  <div class="armor" style="left:4px;bottom:4px">
+    <div class="p"><em style="background:linear-gradient(140deg,#8ee6ff,#3aa9d6)"></em><u><i style="width:80%"></i></u></div>
+    <div class="p"><em style="background:linear-gradient(140deg,#8ee6ff,#3aa9d6)"></em><u><i style="width:62%"></i></u></div>
+    <div class="p"><em style="background:linear-gradient(140deg,#c9c9d2,#8b8b96)"></em><u><i style="width:45%;background:#e0c14a"></i></u></div>
+    <div class="p"><em style="background:linear-gradient(140deg,#c9c9d2,#8b8b96)"></em><u><i style="width:20%;background:#e0574f"></i></u></div>
+  </div>
+
+  <!-- 아이템 획득 토스트 -->
+  <div class="toast" style="right:6px;bottom:34px">
+    <span class="dia"><span>◆</span></span>
+    <span style="font-size:9px;color:#fff">+3 다이아몬드</span>
+    <span style="font-size:9px;color:#A9D973">17</span>
+  </div>
+
+  <!-- 체력 · 배고픔 · 경험치 · 핫바 -->
+  <div class="hearts" style="left:50%;bottom:30px;transform:translateX(-91px)">
+    <span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span>
+    <span class="heart"></span><span class="heart"></span><span class="heart" style="opacity:.35"></span><span class="heart" style="opacity:.2"></span><span class="heart" style="opacity:.2"></span>
+  </div>
+  <div class="foods" style="left:50%;bottom:30px;transform:translateX(11px)">
+    <span class="food sat"></span><span class="food sat"></span><span class="food sat"></span><span class="food"></span><span class="food"></span>
+    <span class="food"></span><span class="food"></span><span class="food pulse"></span><span class="food" style="opacity:.3"></span><span class="food" style="opacity:.3"></span>
+  </div>
+  <div class="xp" style="bottom:25px"><i></i></div>
+  <div class="hotbar">
+    <div class="slot sel"><span class="item i-sword"></span></div>
+    <div class="slot"><span class="item i-pick"></span></div>
+    <div class="slot"><span class="item i-steak"></span></div>
+    <div class="slot"><span class="item i-block"></span></div>
+    <div class="slot"><span class="item i-torch"></span></div>
+    <div class="slot"><span class="item i-ender"></span></div>
+    <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+  </div>
+  <div class="cross"></div>
+ </div>
+</div>
+<div class="legend">
+  <div><i></i>포만감은 고기 아이콘 <b style="color:#FFD24A">금색 테두리</b>로 (숫자 표시는 전부 삭제)</div>
+  <div><i></i>손에 음식을 들면 채워질 칸이 흰색으로 깜빡임</div>
+  <div><i></i>주운 아이템은 마름모 틀 + 총 개수</div>
+</div>
+
+<h2>③ Nova 설정 — 기능 고르기</h2>
+<p class="note">탭은 아이콘만(모드 / HUD / 성능 / 렌더링 / 시점 / 전투 / 인벤토리 / 탐색 / 채팅 / 화면), 선택된 탭 아래에 강조 밑줄. 켜진 카드는 위쪽에 옅은 강조 그라데이션이 깔립니다.</p>
+<div class="stage s">
+ <div class="screen">
+  <div class="dim-bg"></div>
+  <div class="panel">
+    <div class="tabbar">
+      <div class="tab">▤</div><div class="tabsep"></div>
+      <div class="tab sel">◫</div><div class="tab">⚡</div><div class="tab">◈</div><div class="tab">◉</div>
+      <div class="tab">⚔</div><div class="tab">▦</div><div class="tab">✧</div><div class="tab">✉</div><div class="tab">▭</div>
+      <div class="search">🔍 검색</div><div class="xbtn">✕</div>
+      <div class="tabline"></div>
+    </div>
+    <div class="descbar">
+      <span style="color:var(--accent)">◫</span><span style="color:var(--text)">HUD</span>
+      <span style="color:var(--dim)">화면에 겹쳐 보여 주는 정보들 · 12개</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+        <span class="abtn accent">✥ HUD 편집기</span><span class="abtn">⌨ 키 설정</span><span class="abtn">↺ 초기화</span>
+      </span>
+    </div>
+    <div class="content">
+      <div class="grid">
+        <div class="cardx on"><span class="led"></span><span class="sw"><i></i></span><span class="gi">◷</span><span class="nm">FPS</span><span class="st">켜짐</span></div>
+        <div class="cardx on"><span class="led"></span><span class="sw"><i></i></span><span class="gi">◎</span><span class="nm">좌표</span><span class="st">켜짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">◔</span><span class="nm">시계</span><span class="st">꺼짐</span></div>
+        <div class="cardx on"><span class="led"></span><span class="sw"><i></i></span><span class="gi">♥</span><span class="nm">포만감</span><span class="st">켜짐</span></div>
+        <div class="cardx hov"><span class="sw"><i></i></span><span class="gi">⌨</span><span class="nm">키스트로크</span><span class="st">꺼짐</span></div>
+
+        <div class="cardx on"><span class="led"></span><span class="sw"><i></i></span><span class="gi">▤</span><span class="nm">스코어보드</span><span class="st">켜짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">➜</span><span class="nm">방향</span><span class="st">꺼짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">◑</span><span class="nm">속도</span><span class="st">꺼짐</span></div>
+        <div class="cardx on"><span class="led"></span><span class="sw"><i></i></span><span class="gi">♨</span><span class="nm">효과</span><span class="st">켜짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">☰</span><span class="nm">CPS</span><span class="st">꺼짐</span></div>
+
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">✥</span><span class="nm">거리</span><span class="st">꺼짐</span></div>
+        <div class="cardx on"><span class="led"></span><span class="sw"><i></i></span><span class="gi">❤</span><span class="nm">체력</span><span class="st">켜짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">⛏</span><span class="nm">초당 블록</span><span class="st">꺼짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">◐</span><span class="nm">메모리</span><span class="st">꺼짐</span></div>
+        <div class="cardx"><span class="sw"><i></i></span><span class="gi">◇</span><span class="nm">가동 시간</span><span class="st">꺼짐</span></div>
+      </div>
+    </div>
+  </div>
+ </div>
+</div>
+
+<h2>④ Nova 설정 — 기능 하나 열었을 때 (미리보기 포함)</h2>
+<p class="note">오른쪽이 이번에 손본 <b>미리보기</b>입니다. 게임 밖(타이틀 화면)에서도 예시 값으로 그려 주고, 아래 [HUD 편집기에서 옮기기]를 누르면 바로 그 요소를 잡아 끌 수 있습니다.</p>
+<div class="stage s">
+ <div class="screen">
+  <div class="dim-bg"></div>
+  <div class="panel">
+    <div class="tabbar">
+      <div class="tab">▤</div><div class="tabsep"></div>
+      <div class="tab sel">◫</div><div class="tab">⚡</div><div class="tab">◈</div><div class="tab">◉</div>
+      <div class="tab">⚔</div><div class="tab">▦</div><div class="tab">✧</div><div class="tab">✉</div><div class="tab">▭</div>
+      <div class="search">🔍 검색</div><div class="xbtn">✕</div>
+      <div class="tabline"></div>
+    </div>
+    <div class="descbar">
+      <span class="abtn">‹ 뒤로</span>
+      <span style="color:var(--text)">포만감</span>
+      <span style="color:var(--dim)">포만감 테두리와 음식 · 체력 회복 미리보기</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="abtn accent">✥ HUD 편집기</span><span class="abtn">↺ 기본값</span></span>
+    </div>
+    <div class="content">
+      <div style="position:absolute;left:0;right:180px;top:0;bottom:0">
+        <div class="master">
+          <span class="gi">♥</span>
+          <div class="t">포만감</div>
+          <div class="d">포만감 테두리와 음식 · 체력 회복 미리보기</div>
+          <span class="lbl">켜기</span><span class="sw"><i></i></span>
+        </div>
+
+        <div class="group">
+          <div class="ghead">⌄ 기능<div class="line"></div></div>
+          <div class="row">포만감 테두리<span class="right"><span class="swatch" style="background:#FFD24A"></span><span class="sw2 on"><i></i></span></span></div>
+          <div class="row">음식 미리보기<span class="right"><span class="swatch" style="background:#FFFFFF"></span><span class="sw2 on"><i></i></span></span></div>
+          <div class="row">체력 회복 미리보기<span class="right"><span class="swatch" style="background:#FF5C5C"></span><span class="sw2 on"><i></i></span></span></div>
+          <div style="height:6px"></div>
+        </div>
+
+        <div class="group">
+          <div class="ghead">⌄ 스타일<div class="line"></div></div>
+          <div class="row">배경<span class="right"><span class="swatch" style="background:#1b1e24"></span><span class="sw2"><i></i></span></span></div>
+          <div class="row">윤곽선<span class="right"><span class="swatch" style="background:#A9D973"></span><span class="sw2"><i></i></span></span></div>
+          <div class="row">크기<span class="right"><span class="slider"><i></i><b></b></span><span class="numbox">1.0</span></span></div>
+          <div style="height:6px"></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="pv"></div>
+        <div class="vign"></div>
+        <div class="tag">미리보기</div>
+        <!-- 미리보기 안의 실제 HUD 예시 -->
+        <div style="position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);display:flex;flex-direction:column;gap:6px;align-items:center">
+          <div style="display:flex;gap:0">
+            <span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span>
+            <span class="heart" style="opacity:.35"></span><span class="heart" style="opacity:.2"></span>
+          </div>
+          <div style="display:flex;gap:0">
+            <span class="food sat"></span><span class="food sat"></span><span class="food sat"></span><span class="food pulse"></span><span class="food"></span>
+            <span class="food"></span><span class="food" style="opacity:.3"></span>
+          </div>
+        </div>
+        <div class="bar"><span>✥</span>HUD 편집기에서 옮기기</div>
+      </div>
+    </div>
+  </div>
+ </div>
+</div>
+<p class="cap"><b>미리보기에서 고친 것</b> · 게임 밖에서는 아무것도 안 보이던 항목들(좌표·방향·속도·키스트로크)에 예시 값을 넣었고,
+그래도 그려지지 않는 기능은 빈 칸 대신 “게임에 들어가면 표시됩니다” 한 줄을 띄웁니다. 위아래에 옅은 그림자를 깔아 흰 글씨가 하늘색 배경에 묻히지 않게 했습니다.</p>
+
+<h2>⑤ 아이템 설명(툴팁)</h2>
+<p class="note">바닐라의 “주로 사용하는 손에 있을 때 / 공격 피해 / 공격 속도” 줄을 지우고 필요한 정보만 짧게. 음식은 글자 대신 마인크래프트 고기 아이콘으로 표시합니다.</p>
+<div class="stage" style="height:300px">
+ <div class="tipscale"><div class="tips">
+   <div class="tip epic">
+     <div class="nm">다이아몬드 검</div><div class="sep"></div>
+     <div class="l ench">날카로움 5</div>
+     <div class="l ench">강타 3</div>
+     <div class="l">공격 피해 <b>7</b> <span class="d">(기본 7)</span></div>
+     <div class="l">공격 속도 <b>1.6</b></div>
+     <div class="l">초당 피해 <b>16</b> <span class="d">(기본 11.2)</span></div>
+     <div class="l">날카로움 피해 <span class="g">+3</span></div>
+     <div class="l">강타 피해 <span class="g">+7.5</span> <span class="d">언데드</span></div>
+     <div class="l">내구도 <span style="color:#8ee08a">1421</span><span class="d">/1561</span></div>
+   </div>
+
+   <div class="tip rare">
+     <div class="nm">네더라이트 곡괭이</div><div class="sep"></div>
+     <div class="l ench">효율 4</div>
+     <div class="l">채굴 등급 <b>네더라이트</b> <span class="d">· 흑요석까지</span></div>
+     <div class="l">채굴 속도 <b>26</b> <span class="d">(기본 9)</span></div>
+     <div class="l">내구도 <span style="color:#8ee08a">2019</span><span class="d">/2031</span></div>
+   </div>
+
+   <div class="tip common">
+     <div class="nm">구운 소고기</div><div class="sep"></div>
+     <div class="foodrow">
+       <span class="fi"></span><span class="fi"></span><span class="fi"></span><span class="fi"></span>
+     </div>
+     <div class="foodrow">
+       <span class="fi sat"></span><span class="fi sat"></span><span class="fi sat"></span><span class="fi sat"></span><span class="fi sat"></span><span class="fi sat"></span>
+     </div>
+     <div class="l" style="font-size:9px;color:#6b7178">윗줄 = 배고픔 8 · 아랫줄 = 포만감 12.8</div>
+   </div>
+
+   <div class="tip common">
+     <div class="nm">셜커 상자</div><div class="sep"></div>
+     <div style="display:grid;grid-template-columns:repeat(9,18px);gap:0;background:#a08bb5;padding:4px;border-radius:2px;
+                 box-shadow:inset 1px 1px 0 rgba(255,255,255,.45),inset -1px -1px 0 rgba(0,0,0,.35)">
+       <div class="slot" style="width:18px;height:18px"><span class="item i-sword" style="width:12px;height:12px"></span></div>
+       <div class="slot" style="width:18px;height:18px"><span class="item i-steak" style="width:12px;height:12px"></span></div>
+       <div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"><span class="item i-block" style="width:12px;height:12px"></span></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"><span class="item i-torch" style="width:12px;height:12px"></span></div>
+       <div class="slot" style="width:18px;height:18px"><span class="item i-ender" style="width:12px;height:12px"></span></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"><span class="item i-pick" style="width:12px;height:12px"></span></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+       <div class="slot" style="width:18px;height:18px"></div><div class="slot" style="width:18px;height:18px"></div>
+     </div>
+   </div>
+ </div></div>
+</div>
+
+<h2>⑥ 소셜 서랍 (오른쪽에서 열림)</h2>
+<p class="note">가운데 창이 아니라 오른쪽에 붙어 열리고, 뒤 타이틀 화면은 그대로 보입니다. 왼쪽 위 얼굴을 누르면 같은 모양의 프로필 서랍이 왼쪽에서 열립니다(계정 전환).</p>
+<div class="stage half">
+ <div class="screen small">
+  <div class="title-bg"></div>
+  <div class="chip" style="left:8px;top:8px"><span class="face"></span><span style="color:#C7CBD0">Sil2tium</span></div>
+  <div class="brand" style="top:52px;opacity:.5"><div class="logo" style="width:26px;height:26px;font-size:13px">✦</div><div class="word" style="font-size:15px">N✦VA <span>CLIENT</span></div></div>
+  <div style="position:absolute;left:50%;top:96px;transform:translateX(-50%);display:flex;flex-direction:column;gap:5px;opacity:.5">
+    <div class="btn"><span class="ic">☺</span>싱글플레이어</div>
+    <div class="btn"><span class="ic">☷</span>멀티플레이어</div>
+    <div class="btn pri"><span class="ic">≡</span>Nova 설정</div>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.4)"></div>
+
+  <div class="drawer">
+    <div class="badge">✕</div>
+    <div class="hd"><span style="color:var(--accent)">◍</span><span class="t">소셜</span><span class="s">Sil2tium</span></div>
+    <div class="hline"></div>
+    <div class="sec">친구 5<span style="margin-left:auto;color:var(--dim)">↺</span></div>
+    <div class="frow"><span class="dot"></span>Steve<span class="r">노바 서버</span></div>
+    <div class="frow"><span class="dot"></span>Alex<span class="r">온라인</span></div>
+    <div class="frow"><span class="dot" style="background:#F2C94C"></span>Notch<span class="r">자리 비움</span></div>
+    <div class="frow"><span class="dot" style="background:#5A5E66"></span><span class="off">Herobrine</span><span class="r">오프라인</span></div>
+    <div class="frow"><span class="dot" style="background:#5A5E66"></span><span class="off">Dinnerbone</span><span class="r">오프라인</span></div>
+  </div>
+ </div>
+</div>
+
+<p class="cap" style="margin-top:26px">
+  ※ 실제 화면은 마인크래프트 안에서 GUI 배율에 따라 조금씩 달라집니다. 배경 사진, 아이템 그림, 파노라마는 이 목업에서 도형으로 대체했습니다.
+</p>
+
+</body>
+</html>

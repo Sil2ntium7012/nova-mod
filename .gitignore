@@ -1,0 +1,17 @@
+.gradle/
+build/
+out/
+*.iml
+.idea/
+.vscode/
+run/
+classes/
+bin/
+
+# 49-249차: GitHub(nova-mod)에 안 올릴 것
+/build.log
+/Claude outputs/
+/deliver/
+/_recovered-yarn-src/
+/.publish-stamp
+*.log

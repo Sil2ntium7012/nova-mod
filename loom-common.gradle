@@ -1,0 +1,815 @@
+// ===================================================================
+// 버전 서브프로젝트(versions/<버전>/build.gradle)가 전부 공통으로 적용하는 실제 Loom 빌드
+// 설정. 예전(18차 이전) 단일 build.gradle과 거의 같은 내용이고, 딱 두 가지만 다릅니다:
+//   1. project.minecraft_version 등을 루트가 아니라 "이 서브프로젝트 자신의"
+//      gradle.properties(versions/<버전>/gradle.properties)에서 읽음 - 그래서 버전마다
+//      다른 값이 자동으로 들어감
+//   2. sourceSets가 이 서브프로젝트 폴더 밑이 아니라 rootProject의 src/를 그대로 가리킴
+//      (실제 자바 파일은 한 벌만 존재 - versions/<버전>/ 밑에는 build.gradle +
+//      gradle.properties 딱 2개 파일만 있고 소스 복사본은 없음)
+//
+// ⚠️ 컴파일 확인 필요: sourceSets.main.java.srcDirs를 rootProject 경로로 재지정하는 부분과
+// splitEnvironmentSourceSets()(main/client 분리)가 같이 잘 동작하는지는 이 세션에서
+// 실제로 빌드해볼 수 없어서 확인 못 했습니다. 만약 sync 에러가 나면, sourceSets 블록을
+// loom { splitEnvironmentSourceSets() ... } 블록보다 뒤에 두는 순서만 지키면 대부분
+// 해결됩니다(이 파일은 이미 그 순서로 되어 있음).
+//
+// ⚠️ 실제로 sync해보고 고친 것: plugins {} 블록은 Gradle 제약상 "실제 프로젝트의 build.gradle
+// 자기 자신"에만 쓸 수 있고, 이 파일처럼 apply from:으로 끌어오는 스크립트 안에는 못 씁니다
+// ("Only Project and Settings build scripts can contain plugins {} blocks" 에러). 그래서
+// fabric-loom/maven-publish 플러그인 적용은 각 versions/<버전>/build.gradle 쪽으로 옮겼고,
+// 이 파일은 plugins {} 없이 그 이후의 실제 설정만 담당합니다.
+// ===================================================================
+
+version = "${rootProject.mod_version}+mc${project.minecraft_version}"
+group = rootProject.maven_group
+
+base {
+	archivesName = "${rootProject.archives_base_name}-${project.minecraft_version}"
+}
+
+repositories {
+	maven { url = "https://maven.terraformersmc.com/releases/" } // Mod Menu (최신 버전용)
+	// 31차: Modrinth maven을 그냥 저장소로만 추가했더니 1.16.1이 여전히 실패함 - 좌표
+	// "com.terraformersmc:modmenu:..."로는 Modrinth maven에서도 못 찾음. 원인은 저장소가
+	// 아니라 groupId였음: Modrinth maven은 모든 프로젝트를 "com.terraformersmc" 같은 실제
+	// groupId가 아니라 고정된 "maven.modrinth" 그룹 밑에 올려둠(공식 문서:
+	// support.modrinth.com/en/articles/8801191-modrinth-maven, 좌표 형식
+	// "maven.modrinth:<slug>:<version>"). 그래서 저장소 자체는 유지하되, 아래 dependencies의
+	// modmenu 좌표를 "maven.modrinth:modmenu:${modmenu_version}"으로 바꿔서 이 저장소를 통해
+	// 정확히 찾도록 고침(기존 modmenu_version 값들은 애초에 Modrinth API의 version_number
+	// 필드를 그대로 옮겨 적은 값들이라 좌표 형식과 그대로 맞음 - 30개 서브프로젝트 전부 영향).
+	maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven
+}
+
+// 29차(2026-08-28): 1.16(첫 시도한 버전)에서 실제 빌드해보고 발견한 것 - Loom의
+// splitEnvironmentSourceSets()는 "번들 서버 jar"가 있는 버전에서만 되는데, 그게 없는 옛날
+// 버전에서는 설정 단계에서 바로 "Only Minecraft versions using a bundled server jar can be
+// split, please use a merged jar setup for this version of minecraft" 에러로 죽습니다. 정확히
+// 어느 버전부터 번들 서버 jar가 생겼는지 확신이 안 서서(1.18 전후로 추정), 1.16~1.19.4
+// 16개 전부를 안전하게 "merged jar"(client/server 안 나누고 통짜 main 소스셋 하나) 방식으로
+// 통일했습니다 - merged 방식은 더 오래된 방식이라 최신 버전 포함 전부에서 항상 되지만, 이미
+// 잘 동작하는 기존 19개(1.20+)의 split 방식은 그대로 안 건드립니다(gradle.properties에
+// merged_jar 키가 있는 서브프로젝트만 이 분기를 탐).
+def mergedJar = project.hasProperty('merged_jar')
+
+loom {
+	if (!mergedJar) {
+		splitEnvironmentSourceSets()
+	}
+
+	mods {
+		"lunaslight" {
+			sourceSet sourceSets.main
+			if (!mergedJar) {
+				sourceSet sourceSets.client
+			}
+		}
+	}
+}
+
+// 실제 자바 소스는 복사하지 않고 rootProject의 src/를 그대로 공유 (버전마다 코드를 따로
+// 유지하지 않기 위함 - "코드는 한 벌, 빌드만 버전별로" 원칙). merged jar 버전은 client 소스셋이
+// 아예 없어서 src/client/java도 main에 같이 얹습니다.
+// 49-39차: 동봉 폰트 JSON은 두 벌(기본 = FreeType용 1.20.5+, "<이름>_stb<배율>" = stb_truetype용 1.20.4 이하 -
+// LunaCompat.ttfEraStb 주석 참고). 이 버전에 맞는 한 벌만 jar에 넣는다(안 쓰는 쪽도 넣으면 폰트 로더가 TTF를
+// 헛되이 한 번 더 메모리에 올림).
+def lunaFontVer = project.minecraft_version.findAll(/\d+/)*.toInteger()
+def lunaFontStb = lunaFontVer[0] == 1 && (lunaFontVer[1] < 20 || (lunaFontVer[1] == 20 && (lunaFontVer.size() > 2 ? lunaFontVer[2] : 0) < 5))
+// 49-170차: 색 보정 후처리 셰이더는 포맷이 셋(ColorGradeShader 주석) - 이 버전에 맞는 한 벌만 jar에 넣는다.
+//   UBO(1.21.6+, 26.x) = post_effect/grade.json + shaders/post/grade.fsh
+//   uniform(1.21.2~1.21.5) = post_effect/grade_uni.json + shaders/post/grade_uni.fsh
+//   옛 program(1.17~1.21.1) = shaders/post/grade_legacy.json + minecraft 네임스페이스의 shaders/program/luna_grade.*
+def lunaPostPatch = lunaFontVer.size() > 2 ? lunaFontVer[2] : 0
+def lunaPostUbo = lunaFontVer[0] >= 26 || (lunaFontVer[0] == 1 && lunaFontVer[1] == 21 && lunaPostPatch >= 6)
+def lunaPostUni = lunaFontVer[0] == 1 && lunaFontVer[1] == 21 && lunaPostPatch >= 2 && lunaPostPatch <= 5
+def lunaPostLegacy = lunaFontVer[0] == 1 && lunaFontVer[1] >= 17 && (lunaFontVer[1] < 21 || (lunaFontVer[1] == 21 && lunaPostPatch <= 1))
+
+sourceSets {
+	main {
+		java {
+			srcDirs = mergedJar
+				? [rootProject.file('src/main/java'), rootProject.file('src/client/java')]
+				: [rootProject.file('src/main/java')]
+		}
+		resources {
+			srcDirs = [rootProject.file('src/main/resources')]
+			if (lunaFontStb) {
+				['mchan', 'mchan9', 'mchan11', 'ui', 'title', 'icons', 'iconsmd', 'iconslg'].each { exclude "assets/lunaslight/font/${it}?.json" }
+			} else {
+				exclude 'assets/lunaslight/font/*_stb?.json'
+			}
+			// 49-82차: 채팅 얼굴 띄우개 글꼴은 두 벌 - chatface.json("space" 프로바이더, 1.20+) /
+			// chatface_bmp.json(비트맵, 1.16~1.19.4). 모르는 프로바이더가 든 json이 jar에 있으면
+			// 리소스 리로드마다 경고가 찍히므로 안 쓰는 쪽은 jar에서 뺀다(소스셋에서 - 위 stb와 같은 자리).
+			exclude project.hasProperty('legacy_compat_dir') ? 'assets/lunaslight/font/chatface.json' : 'assets/lunaslight/font/chatface_bmp.json'
+			// 49-170차: 색 보정 셰이더 - 위 lunaPost* 참고
+			if (!lunaPostUbo) {
+				exclude 'assets/lunaslight/post_effect/grade.json'
+				exclude 'assets/lunaslight/shaders/post/grade.fsh'
+			}
+			if (!lunaPostUni) {
+				exclude 'assets/lunaslight/post_effect/grade_uni.json'
+				exclude 'assets/lunaslight/shaders/post/grade_uni.fsh'
+			}
+			if (!lunaPostLegacy) {
+				exclude 'assets/lunaslight/shaders/post/grade_legacy.json'
+				exclude 'assets/minecraft/shaders/program/luna_grade.json'
+				exclude 'assets/minecraft/shaders/program/luna_grade.fsh'
+			}
+		}
+	}
+	if (!mergedJar) {
+		client {
+			java { srcDirs = [rootProject.file('src/client/java')] }
+		}
+	}
+}
+
+// ⚠️ 49-51차: 49-47차에 없앤 "인벤토리 애니메이션"의 잔해 3개는 **소스 파일이 PC에 남아 있을 수 있다**
+// (이 컨테이너엔 파일을 지울 셸이 없어 cleanup.cmd가 지우게 해 뒀는데, 아직 안 돌린 상태면 그대로 있다).
+// 다른 버전에선 죽은 채로 컴파일만 되지만 1.15.2에선 SlotDrawHook/HandledScreen이 빠져서 빌드가 깨진다
+// (40개 전체 빌드에서 :v1_15_2:compileJava 10오류로 드러남). 있든 없든 안전하게 통째로 제외한다
+// - Gradle의 exclude는 대상 파일이 없어도 아무 일도 하지 않는다.
+//
+// ⚠️ 여기에 맨 중괄호 블록 `{ … }`을 쓰면 안 된다 - 바로 위가 `sourceSets { … }`(메서드 호출)이라
+// Groovy가 이 블록을 sourceSets의 "두 번째 클로저 인자"로 붙여 읽는다
+// ("Could not find method sourceSets() for arguments [closure, closure]"로 설정 단계에서 즉사).
+def lunaDeadTarget = mergedJar ? sourceSets.main : sourceSets.client
+// 49-119차(빌드 로그 실측: :v1_15_2:compileJava 가 InventorySortModule에서 다수 오류): 인벤토리 정리 모듈은
+// 1.16+ 슬롯 API(HandledScreen · net.minecraft.screen.slot.Slot/SlotActionType · currentScreenHandler)를 직접
+// 쓴다. 1.15.2엔 이 이름들이 없어(container.Slot 등) 빌드가 깨진다 → 1.15.2에서만 제외한다.
+// (다른 버전에선 정상 컴파일되고, ModuleManager가 리플렉션으로 등록하므로 직접 참조 의존성도 없다.)
+// 49-158차(사용자: "1.14 버전 추가"): 1.14.4도 1.15.2와 같은 "Era 0"(container 패키지, GUI 렌더에 MatrixStack 없음)이라
+// 1.15.2만 보던 분기를 이 목록으로 본다.
+def lunaEra0 = ['1.14.4', '1.15.2'].contains(project.minecraft_version.toString())
+if (lunaEra0) {
+	lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/inventory/InventorySortModule.java'
+	// 49-125차: 인벤토리 탭(HandledScreen 의존)도 같은 이유로 1.15.2에서만 제외 - 리플렉션 등록이라 직접 참조 없음
+	lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/inventory/ContainerTabsModule.java'
+}
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/inventory/InventoryAnimationsModule.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/util/ScreenAnimHook.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/mixin/HandledScreenAnimMixin.java'
+// ⚠️ 49-57차: 같은 종류의 잔해가 하나 더 있었다. 49-44차에 지운 음성 채팅 **껍데기**(49-50차에
+// VoiceHudModule + integration/ 으로 제대로 다시 만들었다)가 PC 소스 트리에 그대로 남아 있었고,
+// 49-53차(4-47)에 ModuleCategory.CHAT을 없애면서 이 파일 한 줄 때문에 40개 중 36개가 죽었다
+// (26.x 넷은 src-26x를 쓰므로 무사했다). 어디에서도 참조되지 않는 죽은 파일이라 통째로 제외한다.
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/misc/VoiceChatIntegrationModule.java'
+// 49-76차(6-16): 상자·화로 줄이기 모듈 삭제(훅·믹스인은 AFK가 같이 써서 남긴다). PC에 남은 파일은 제외.
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/render/BlockEntityCullModule.java'
+// 49-76차(6-12-2): LunaProfileScreen은 여는 곳이 없던 죽은 화면(5-10 복사 기능이 여기 들어가 있었다). 삭제.
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/gui/LunaProfileScreen.java'
+// 49-76차: 39차부터 비어 있던 껍데기(어노테이션까지 다 뺀 빈 인터페이스). 이제 지운다.
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/mixin/TntEntityAccessor.java'
+// 49-76차(6-5): GIF 인코더는 ffmpeg(런처)로 바뀌면서 지웠다. PC에 남은 파일은 제외.
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/util/LunaGif.java'
+// 49-57차: PC 소스 트리와 내 검증 트리를 파일 이름으로 통째로 맞춰 보고(그래서 이번 실패를 찾았다)
+// 나온 나머지 고아 둘. 지금은 컴파일이 되지만 언제든 같은 식으로 36개를 죽일 수 있어 미리 뺀다
+// (49-21차/49-32차에 등록 해제된 것들 - ModuleManager 어디에서도 참조하지 않는다).
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/inventory/ItemUsageToastModule.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/inventory/RecentlyEatenModule.java'
+// 49-61차: 이번에 지운 둘. 내 트리에서는 파일 자체를 지웠지만 PC 소스 트리에는 남아 있고
+// (나는 PC 파일을 지울 수 없다) 남아 있는 채로 컴파일되면 언제든 위 VoiceChat 사고가 반복된다.
+//  · 테마 - 런처에서 장착한 색을 따라가는 일은 LunaSocial + LunaTheme 기본값이 이미 하고 있어
+//    모듈은 "인게임에서도 고를 수 있게" 하는 역할뿐이었다(사용자: 그러면 안 된다).
+//  · 다크 모드 - HandledScreen#drawBackground가 40개 버전 전부 abstract라 믹스인이 붙을 코드가
+//    없었다(javap 실측). 처음부터 아무 일도 안 하던 가짜 기능이라 훅·믹스인까지 같이 뺀다.
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/misc/ThemeModule.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/render/DarkModeModule.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/util/DarkModeHook.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/mixin/HandledScreenDarkMixin.java'
+// 49-121차(사용자: "셀 다 '채팅' 하나로 합치고 개별 삭제"): 채팅 강조(MessageColorizer)·채팅 숨기기
+// (ChatFilter)·채팅 정리(ChatTidy)를 "채팅"(ChatEnhancementsModule)에 통째로 합쳤다. ModuleManager에서
+// 등록·import를 뺐으니 이 셋은 이제 어디에서도 참조되지 않는 죽은 파일이다(PC 소스 트리엔 남아 있을 수
+// 있어 - 나는 못 지운다 - 전 버전에서 컴파일 제외한다. cleanup.cmd/사용자가 지우면 이 세 줄은 무의미해진다).
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/chat/MessageColorizerModule.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/chat/ChatFilterModule.java'
+lunaDeadTarget.java.exclude 'kr/lunaslight/mod/module/impl/chat/ChatTidyModule.java'
+
+// ===================================================================
+// 49-58차(1-6): "서명된 플레이어 채팅" 믹스인은 1.19.1부터만 컴파일한다.
+//
+// 1.19.1에서 ChatHud에 addMessage(Text, MessageSignatureData, MessageIndicator)가 생겼고,
+// 그 두 타입은 1.19 이하에 아예 없다(merged jar javap 실측 - 1.19는 addMessage(Text) 하나뿐,
+// 1.19.1부터 세 인자짜리가 붙는다). 믹스인 핸들러는 그 타입을 직접 받아야 해서
+// (취소하려면 Text가 필요하고, "인자 없는 핸들러"로는 Text를 못 받는다) 공유 소스 한 벌로는
+// 두 시대를 다 만족시킬 수 없다 → 파일 하나만 구버전에서 뺀다.
+//
+// 클래스가 jar에 없으면 Mixin이 설정을 읽다가 실패하므로 processResources에서
+// mixins.json 항목도 같이 뺀다(아래 lunaNoSignedChat 사용).
+// ⚠️ 여기에 맨 중괄호 블록을 쓰면 안 된다 - Groovy가 위 호출의 클로저 인자로 붙여 읽는다(49-52차).
+// ===================================================================
+def lunaSignedChatMissing = ["1.14.4", "1.15.2",
+		"1.16", "1.16.1", "1.16.2", "1.16.3", "1.16.4", "1.16.5",
+		"1.17", "1.17.1",
+		"1.18", "1.18.1", "1.18.2",
+		"1.19"]
+def lunaNoSignedChat = lunaSignedChatMissing.contains(project.minecraft_version.toString())
+if (lunaNoSignedChat) {
+	def lunaSignedTarget = mergedJar ? sourceSets.main : sourceSets.client
+	lunaSignedTarget.java.exclude 'kr/lunaslight/mod/mixin/ChatSignedMixin.java'
+}
+
+// ===================================================================
+// 49-59차(3-4 · 1-6): 엔티티 가리기 믹스인은 클래스 이름이 버전마다 달라 두 벌이다.
+//
+//   1.15.2 ~ 1.21.8   EntityRenderDispatcher   → EntityHideMixin
+//   1.21.9 ~ 1.21.11  EntityRenderManager      → EntityHideManagerMixin  (이름만 바뀜)
+//
+// 메서드 shouldRender(Entity, Frustum, double, double, double)는 1.15.2부터 1.21.11까지
+// 시그니처가 한 글자도 안 바뀌었다(javap 실측). 바뀐 건 들고 있는 클래스 이름뿐이라
+// 내용이 같은 파일 두 벌을 두고 버전에 맞는 하나만 컴파일한다(다른 쪽은 import부터 깨진다).
+// 26.x는 Mojang 이름이 다시 EntityRenderDispatcher라, 포팅 번역기가 Manager 판을 그쪽으로
+// 바꿔 준다(port26/sync.sh가 Dispatcher 판을 빼고 Manager 판만 넣는다).
+// ===================================================================
+def lunaEntityManagerEra = ["1.21.9", "1.21.10", "1.21.11"].contains(project.minecraft_version.toString())
+def lunaEntityTarget = mergedJar ? sourceSets.main : sourceSets.client
+// 49-62차(3-5): 블록 엔티티 쪽도 같은 개편으로 같은 자리에서 갈린다 - 같은 목록을 그대로 쓴다.
+//   1.15.2 ~ 1.21.8   BlockEntityRenderDispatcher.render(BlockEntity, float, MatrixStack, VertexConsumerProvider)
+//   1.21.9 ~ 1.21.11  BlockEntityRenderManager.render(BlockEntityRenderState, MatrixStack,
+//                                                     OrderedRenderCommandQueue, CameraRenderState)
+// 여긴 이름만 바뀐 게 아니라 인자가 통째로 달라져서(렌더 스테이트 개편) 두 벌이 꼭 필요하다.
+// 49-75차(2-3 뒤 절반): 1인칭 방패 높이도 **같은 자리에서** 갈린다.
+//   HeldItemRenderer.renderFirstPersonItem(..., MatrixStack, ?, int)
+//   1.15.2 ~ 1.21.8   VertexConsumerProvider      → ShieldOffsetMixin
+//   1.21.9 ~ 1.21.11  OrderedRenderCommandQueue   → ShieldOffsetQueueMixin
+// 나머지 인자 아홉 개는 1.15.2부터 1.21.11까지 한 글자도 안 바뀐다(javap 실측).
+// 바뀐 한 칸이 옛 버전에 없는 클래스라 한 파일로는 못 적어서 두 벌을 둔다.
+// 49-81차(4-48): 채팅 줄이 1.21.11부터 ChatHud$Hud(Backend)로 그려진다 - 그 내부 클래스가 그 전엔 없다.
+def lunaChatBackendEra = ["1.21.11"].contains(project.minecraft_version.toString())
+if (!lunaChatBackendEra) {
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/ChatFaceHudMixin.java'
+}
+if (lunaEntityManagerEra) {
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/EntityHideMixin.java'
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/BlockEntityCullMixin.java'
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/ShieldOffsetMixin.java'
+} else {
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/EntityHideManagerMixin.java'
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/BlockEntityCullManagerMixin.java'
+	lunaEntityTarget.java.exclude 'kr/lunaslight/mod/mixin/ShieldOffsetQueueMixin.java'
+}
+
+// 49-242차: 물결 망토(CapeChainMixin)는 PlayerCapeModel이 생긴 1.21.2부터만 컴파일한다(목록에서도 뺀다 - 아래 processResources).
+def lunaCapeParts = project.minecraft_version.toString().findAll(/\d+/)*.toInteger()
+def lunaNoCapeModel = lunaCapeParts[0] == 1 && (lunaCapeParts[1] < 21 || (lunaCapeParts[1] == 21 && (lunaCapeParts.size() < 3 || lunaCapeParts[2] < 2)))
+if (lunaNoCapeModel) {
+	def lunaCapeTarget = mergedJar ? sourceSets.main : sourceSets.client
+	lunaCapeTarget.java.exclude 'kr/lunaslight/mod/mixin/CapeChainMixin.java'
+}
+
+// 49-50차: Simple Voice Chat 애드온(integration/) 은 libs/voicechat-api-*.jar가 있을 때만 컴파일한다.
+// jar를 안 받아둔 체크아웃에서도 빌드가 되게 하려는 것 - 그 경우 음성 채팅 HUD는 "SVC 없음"으로만 뜬다
+// (HUD 모듈은 SVC 타입을 하나도 안 쓰고 util/VoiceState만 보므로 항상 컴파일된다).
+if (rootProject.fileTree(dir: 'libs', include: 'voicechat-api-*.jar').isEmpty()) {
+	def lunaVoiceTarget = mergedJar ? sourceSets.main : sourceSets.client
+	lunaVoiceTarget.java.exclude 'kr/lunaslight/mod/integration/**'
+}
+
+// 28차(2026-08-28): 1.16~1.19.4(구세대) 서브프로젝트 전용. DrawContext/RenderTickCounter
+// 클래스 자체가 존재하지 않는 버전이라, 공유 소스가 그대로 컴파일되도록 서브프로젝트 전용
+// shim 클래스(compat/legacy-era1/)를 추가 소스 폴더로 얹고, 아직 Screen 상속 문제로 이식 못한
+// 설정 화면(gui/ 패키지 - LunaClientScreen/ChatSearchScreen)은 컴파일에서 뺍니다. 해당하지
+// 않는 버전(대부분)의 gradle.properties에는 legacy_compat_dir 키 자체가 없어서 이 블록은
+// 조용히 스킵됩니다 - 기존 19개 서브프로젝트는 동작이 전혀 바뀌지 않습니다. merged jar
+// 버전은 client 소스셋이 없으므로 main 소스셋 쪽에 얹습니다.
+// 자세한 배경/설계는 claude/nova-mod-todo.md 28~29차 참고.
+if (project.hasProperty('legacy_compat_dir')) {
+	def targetSourceSet = mergedJar ? sourceSets.main : sourceSets.client
+	targetSourceSet.java.srcDir rootProject.file(project.legacy_compat_dir)
+	// 49-36차: 예전엔 gui/** 통째로 뺐는데, 49-12차 이후 HUD 상자·아이콘·툴팁 틀이 gui/LunaDraw·LunaGfx·LunaIcons·
+	// LunaTooltipFrame(그리기 헬퍼, Screen 상속 없음)을 쓰게 되면서 모듈 76곳이 "package gui does not exist"로 깨졌다.
+	// 헬퍼 4개는 남기고 Screen 계열만 뺐었다.
+	//
+	// ⚠️ 49-45차: **Screen 계열도 이제 들어간다.** 1.15.2~1.19.4(17개 버전)는 그동안 Luna 설정·타이틀·
+	// 일시정지·소셜·통계·HUD 편집기 화면이 아예 없었다(메뉴 키를 눌러도 "이 버전에서는 아직 지원되지
+	// 않는 화면입니다" 로그만). 막고 있던 건 세 가지뿐이었다:
+	//   ① 그리기 인자가 MatrixStack(1.16~1.19.4) / 없음(1.15.2) → compat/screen-input-legacy0|1|2의
+	//      LunaScreenBase가 진짜 render를 오버라이드해 shim DrawContext로 감싸 넘긴다(아래 블록).
+	//   ② shim DrawContext에 enableScissor/disableScissor/drawTooltip이 없었다 → 추가(GL 직접 + 겹침 스택).
+	//   ③ 이름이 다른 API 몇 개(Text.literal / client.setScreen / close / shouldPause / 옵션 화면 클래스)
+	//      → 공유 소스를 LunaCompat 경유로 바꾸고, close/shouldPause는 legacy0|1 LunaScreenBase가 다리를 놓는다.
+	// 남는 제외는 툴팁 부품(TooltipComponent 인터페이스 자체가 이 시대엔 시그니처가 다름)과
+	// 제작 도우미(1.17+ 인벤토리 API), 그리고 채팅 검색(채팅 강화 모듈이 빠지는 버전에서만).
+	// 49-216차(사용자: "버전별 안 되는 기능 살려내"): 툴팁 부품(셜커 미리보기, 음식 아이콘)과 제작 도우미는 1.17부터
+	// 들어간다. 툴팁 부품은 1.17~1.19.4 시그니처(MatrixStack) drawItems도 같이 갖게 됐고, 제작 도우미는 원래 1.17+
+	// 인벤토리 API라 이 시대 전체(1.16~1.19.4)를 뺄 이유가 없었다(1.17·1.17.1·1.18.2·1.19.2·1.19.4 컴파일 확인).
+	// TooltipComponent 자체가 없는 1.16 이하만 뺀다.
+	def lunaLegacyParts = project.minecraft_version.toString().findAll(/\d+/)*.toInteger()
+	if (lunaLegacyParts[0] == 1 && lunaLegacyParts[1] < 17) {
+		targetSourceSet.java.exclude 'kr/lunaslight/mod/gui/*TooltipComponent.java'
+		targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/CraftingHelperModule.java'
+		targetSourceSet.java.exclude 'kr/lunaslight/mod/util/LunaRecipes.java'
+	}
+	// LunaRecipeScreen은 49-39차부터 아무도 안 쓰는 죽은 파일인데 LunaRecipes를 참조한다
+	// (cleanup.cmd가 지우면 이 줄은 무의미해지지만, 안 지운 상태에서도 빌드가 되게 남겨 둔다)
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/gui/LunaRecipeScreen.java'
+	// 49-216차: 채팅 검색 화면은 이제 모든 판에 들어간다(채팅 모듈이 ChatEvents로 옛 판에서도 컴파일된다 - 아래).
+}
+
+// 46차(2026-09-01): Screen 마우스/키 입력 시그니처가 세 시대로 갈림(Yarn tiny 매핑으로 실측 확인):
+//   ≤1.20.1        mouseClicked(double,double,int) ... mouseScrolled(double,double,double)
+//   1.20.2~1.21.8  위와 같되 mouseScrolled(double,double,double,double)
+//   1.21.9+        mouseClicked(Click,boolean)/mouseReleased(Click)/mouseDragged(Click,double,double)/keyPressed(KeyInput)
+// 공유 소스의 LunaClientScreen은 한 시그니처로 전 버전 오버라이드가 불가능해서(19차에 @Override를
+// 떼고 컴파일만 통과시켜 1.21.9+에선 설정 화면 입력이 전혀 안 먹었음), 각 시대의 진짜 시그니처를
+// 오버라이드해 버전 무관 luna* 훅으로 넘겨주는 중간 클래스 LunaScreenBase를 시대별로 3벌 두고
+// 여기서 minecraft_version에 맞는 한 벌만 얹음(공유 트리엔 이 파일이 없다 - compat/에만 있음).
+
+{
+	def mcv = project.minecraft_version.toString()
+	def modernInput = ["1.21.9", "1.21.10", "1.21.11"]
+	def scroll4 = ["1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3",
+			"1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8"]
+	// 49-45차: 구세대 3벌 추가 - legacy2(render(MatrixStack)),
+	// legacy1(거기에 더해 close/shouldPause 이름이 onClose/isPauseScreen),
+	// legacy0(1.15.2: GUI 렌더에 MatrixStack 자체가 없고 Screen 필드가 minecraft/font).
+	//
+	// ⚠️ 49-51차: 경계가 틀렸었다. 49-45차엔 "1.18부터 close()/shouldPause()"로 잡았는데,
+	// merged jar를 javap로 실측해 보니 두 이름이 **따로따로** 바뀌었다:
+	//   1.15.2 ~ 1.18 : onClose() + isPauseScreen()   → legacy0 / legacy1
+	//   1.18.1        : onClose() + shouldPause()     → legacy1b (이 한 버전만)
+	//   1.18.2 +      : close()   + shouldPause()     → legacy2
+	// 그래서 1.18은 @Override 15개, 1.18.1은 11개가 "supertype에 없는 메서드"로 깨졌다
+	// (1.18.2는 멀쩡해서 로컬 검증에서 안 걸렸음 - 40개 전체 빌드에서만 드러남).
+	def era2 = ["1.18.2", "1.19", "1.19.1", "1.19.2", "1.19.3", "1.19.4"]
+	def era1b = ["1.18.1"]
+	def era1 = ["1.16", "1.16.1", "1.16.2", "1.16.3", "1.16.4", "1.16.5", "1.17", "1.17.1", "1.18"]
+	def screenInputDir = modernInput.contains(mcv) ? 'compat/screen-input-modern'
+			: (scroll4.contains(mcv) ? 'compat/screen-input-legacy4'
+			: (era2.contains(mcv) ? 'compat/screen-input-legacy2'
+			: (era1b.contains(mcv) ? 'compat/screen-input-legacy1b'
+			: (era1.contains(mcv) ? 'compat/screen-input-legacy1'
+			: (["1.14.4", "1.15.2"].contains(mcv) ? 'compat/screen-input-legacy0' : 'compat/screen-input-legacy3')))))
+	def targetSourceSet = mergedJar ? sourceSets.main : sourceSets.client
+	// ⚠️ 49-45차: 여기서 gui/LunaScreenBase.java를 exclude 하면 안 된다 - exclude는 소스셋의 모든
+	// srcDir에 걸려서 지금 얹는 이 한 벌까지 같이 빠진다(공유 트리엔 애초에 이 파일이 없다).
+	targetSourceSet.java.srcDir rootProject.file(screenInputDir)
+}
+
+// 35차(2026-08-28): org.slf4j는 마인크래프트 1.18.2부터 번들됨(그 전엔 log4j만 있음) - 1.18.1
+// 이하 버전은 compat/legacy-no-slf4j/ shim(내부적으로 log4j에 위임하는 최소 Logger/LoggerFactory)을
+// 추가 소스로 얹음. legacy_no_slf4j 키가 없는 대부분 서브프로젝트(1.18.2+ 포함)는 조용히 스킵되고
+// 진짜 org.slf4j를 그대로 씀 - 두 클래스가 동시에 클래스패스에 잡혀 충돌할 일은 없음(둘 중 하나만
+// 얹힘). 자세한 배경은 claude/nova-mod-todo.md 33~35차 참고.
+if (project.hasProperty('legacy_no_slf4j')) {
+	def targetSourceSet = mergedJar ? sourceSets.main : sourceSets.client
+	targetSourceSet.java.srcDir rootProject.file('compat/legacy-no-slf4j')
+}
+
+// 49-158차: 1.14.x엔 MatrixStack(1.15에 생김)이 아예 없다 - 공유 소스·legacy-era0 DrawContext가 쓰는 만큼만
+// 흉내 낸 shim(compat/legacy-no-matrix, GlStateManager에 위임)을 얹는다. 1.14.4 yarn에 이 이름이 없음을
+// 확인했다(FabricMC/yarn 1.14.4 브랜치에 client/util/math/MatrixStack.mapping 404, intermediary에 class_4587 없음)
+// - 있는 이름을 shim으로 덮으면 49-153차처럼 진짜 클래스를 가린다.
+if (project.hasProperty('legacy_no_matrix')) {
+	def targetSourceSet = mergedJar ? sourceSets.main : sourceSets.client
+	targetSourceSet.java.srcDir rootProject.file('compat/legacy-no-matrix')
+}
+
+// 49-163차(1.14.4 포팅): 게임 창은 1.15+ MinecraftClient#getWindow(), 1.14.4는 public 필드 window뿐이라 공유 소스 145곳이
+// kr.lunaslight.mod.util.WindowAccess.of(client)를 부르고, 여기서 버전에 맞는 한 벌만 얹는다(둘 다 직접 호출, 리플렉션 없음).
+// 1.14.4는 그 밖에도 VertexConsumerProvider(1.15+)를 인자로 받는 믹스인 3개를 뺀다(클래스가 없으면 믹스인 로딩에서 죽는다) -
+// 아래 processResources에서 mixins.json 줄도 같이 뺀다(셋 다 GlintMixin 앞이라 쉼표가 안 남는다).
+// ⚠️ 맨 중괄호 블록 금지(49-52차) - 변수 이름을 따로 둔다.
+def lunaLegacyWindow = project.minecraft_version.toString() == '1.14.4'
+def lunaWindowTarget = mergedJar ? sourceSets.main : sourceSets.client
+lunaWindowTarget.java.srcDir rootProject.file(lunaLegacyWindow ? 'compat/window-legacy14' : 'compat/window-modern')
+if (lunaLegacyWindow) {
+	lunaWindowTarget.java.exclude 'kr/lunaslight/mod/mixin/FireOverlayMixin.java'
+	lunaWindowTarget.java.exclude 'kr/lunaslight/mod/mixin/ShieldOffsetMixin.java'
+	lunaWindowTarget.java.exclude 'kr/lunaslight/mod/mixin/BlockEntityCullMixin.java'
+}
+
+// 35차(2026-08-28): net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents(채팅 메시지
+// 수신 이벤트)는 1.19.3 이전 Fabric API엔 아예 없음(mixin 없인 대체 불가) - no_message_events 키가
+// 있는 서브프로젝트(1.16~1.19.2)에서만 그 이벤트를 직접 쓰는 3개 모듈 파일을 컴파일에서 제외.
+// ModuleManager.java의 등록부는 리플렉션 방식으로 바꿔뒀기 때문에(gui/ 패키지와 동일 패턴) 이
+// 3개가 빠져도 나머지 모듈은 정상 컴파일/등록됨 - 해당 버전에서는 채팅강화/메시지컬러라이저/
+// TPS 3개 기능만 자동으로 빠짐(사용자 확인 완료, claude/nova-mod-todo.md 33~35차 참고).
+// 49-42차: MessageColorizerModule(채팅 강조)은 이제 Fabric 메시지 이벤트 대신 ChatHudMixin 길목을 쓰므로
+// 제외 목록에서 뺐다(전 버전 컴파일).
+// 49-216차(사용자: "버전별 안 되는 기능 살려내"): 두 모듈은 Fabric 이벤트를 직접 쓰지 않고 util/ChatEvents를 쓴다.
+// ChatEvents를 시대별로 두 벌 두고 하나만 얹는다 - 이벤트가 있으면 compat/chat-events-modern(Fabric 이벤트),
+// 없으면 compat/chat-events-legacy(ChatHudMixin/ChatSignedMixin이 넘겨 주는 줄). 그래서 1.14.4~1.19.2에서도
+// 채팅(기록·강조·숨기기·정리·차단)·TPS·채팅 검색이 들어간다.
+def lunaChatEventsTarget = mergedJar ? sourceSets.main : sourceSets.client
+lunaChatEventsTarget.java.srcDir rootProject.file(project.hasProperty('no_message_events') ? 'compat/chat-events-legacy' : 'compat/chat-events-modern')
+// 49-216차: 1.16~1.19.4(legacy-era1) HUD/칸 훅의 MatrixStack 판 - 칸 그리기(희귀도 테두리 등), 핫바 선택 부드럽게,
+// 하트 한 줄(1.17+), 갑옷 줄 색. DrawContext 시대 믹스인은 이 판들에서 붙을 곳이 없어 조용히 안 되고 있었다.
+def lunaLegacyHud = project.findProperty('legacy_compat_dir')?.toString() == 'compat/legacy-era1'
+if (lunaLegacyHud) {
+	lunaChatEventsTarget.java.srcDir rootProject.file('compat/legacy-hud')
+}
+// 49-216차: 시야각 효과 끄기 - FOV 효과 크기 설정이 없는 1.16.5 이하는 속도 배율 훅(compat/fov-legacy)으로.
+def lunaFovParts = project.minecraft_version.toString().findAll(/\d+/)*.toInteger()
+def lunaFovLegacy = lunaFovParts[0] == 1 && lunaFovParts[1] < 17
+if (lunaFovLegacy) {
+	lunaChatEventsTarget.java.srcDir rootProject.file('compat/fov-legacy')
+}
+// 49-267차: 설계도 홀로그램을 월드 안에 진짜 블록으로 - 월드 렌더 이벤트가 없는 1.14.4(GL 직접 그리기)와 1.15.2(WorldRenderer 끝)는
+// 버전별 믹스인으로 건다. 그 판에서만 컴파일하고, 아래 processResources에서 나머지 버전의 mixins.json 줄을 뺀다.
+def lunaBpWorld14 = project.minecraft_version.toString() == "1.14.4"
+def lunaBpWorld15 = project.minecraft_version.toString() == "1.15.2"
+if (lunaBpWorld14) {
+	lunaChatEventsTarget.java.srcDir rootProject.file('compat/blueprint-world14')
+}
+if (lunaBpWorld15) {
+	lunaChatEventsTarget.java.srcDir rootProject.file('compat/blueprint-world15')
+}
+
+// 38차(2026-08-29): 1.15.2("Era 0")는 ScreenHandler가 net.minecraft.container.Container로,
+// SlotActionType이 net.minecraft.container.SlotActionType으로, PlayerEntity의 핸들러 필드가
+// playerScreenHandler/currentScreenHandler 대신 playerContainer/container로 전부 달라짐.
+// AutoRefillModule/DropDumpModule/ElytraSwapModule 3개는 clickSlot 기반 "자동 클릭" 계열
+// 모듈로(이미 자체 문서 주석에서 안티치트 위험을 명시하며 싱글/친구서버 전용으로 표시된
+// 기능들) 이 3개만을 위해 Container/SlotActionType 전체를 리플렉션으로 감싸는 비용이
+// 이 오래된 단일 버전 하나의 가치에 비해 크다고 판단 - no_container_modules 키가 있는
+// 서브프로젝트(현재 1.15.2만)에서 이 3개 파일만 컴파일에서 제외. no_message_events와
+// 동일 패턴이며, 해당하지 않는 나머지 서브프로젝트는 조용히 스킵됨(사용자 확인 완료,
+// claude/nova-mod-todo.md 39차 참고).
+if (project.hasProperty('no_container_modules')) {
+	def targetSourceSet = mergedJar ? sourceSets.main : sourceSets.client
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/AutoRefillModule.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/DropDumpModule.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/misc/ElytraSwapModule.java'
+	// 49-23차: Alt+휠 핫바 줄 교체도 clickSlot(SWAP) 기반 - 같은 이유로 제외
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/HotbarRowSwapModule.java'
+	// 49-27차: 부드러운 마우스(clickSlot QUICK_MOVE) · 아이템 찾기(상자 내용 기록)도 같은 이유로 제외
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/MouseTweaksModule.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/ItemFinderModule.java'
+	// 49-42차: 희귀도 테두리 · 인벤토리 애니메이션 · 인벤토리 이동은 HandledScreen/Slot(1.15.2엔 ContainerScreen/
+	// container.Slot) 타입을 시그니처에 직접 쓰는 믹스인·훅에 얹혀 있어 같은 목록으로 제외. 믹스인 클래스가
+	// jar에 없으면 Mixin이 설정 로드에서 실패하므로 아래 processResources에서 mixins.json 항목도 같이 뺀다.
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/RarityOutlineModule.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/module/impl/inventory/InventoryMoveModule.java'
+	// 49-253차: 설계도의 "인벤토리에서 손으로"(clickSlot SWAP)도 같은 이유로 - BlueprintModule이 리플렉션으로 부른다
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/util/BlueprintPick.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/util/SlotDrawHook.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/mixin/SlotDrawMixin.java'
+	// 49-49차에 있던 다크 모드 세 줄은 49-61차에 위 lunaDeadTarget(전 버전 제외)으로 옮겼다.
+}
+
+// 49-82차(4-48 후속): 채팅 얼굴의 줄 훅을 시대별로 갈아 끼운다.
+//   · 1.20 ~ 1.21.10 : ChatFaceMixin(진짜 DrawContext#drawTextWithShadow) + ChatFaceLines  ← 공유 트리
+//   · 1.21.11+       : ChatFaceHudMixin(위 lunaChatBackendEra)
+//   · 1.16.2 ~ 1.19.4: compat/chatface-legacy/   ChatFaceLegacyMixin - ChatHud.render 안의
+//                      TextRenderer#drawWithShadow(MatrixStack, OrderedText, …) Redirect
+//   · 1.16 · 1.16.1  : compat/chatface-legacy16/ 같은 이름, 인자만 StringRenderable(OrderedText는 1.16.2부터)
+//   · 1.15.2         : 없음 - 채팅 줄이 String이라 Style(꼬리표)이 없고 withFont도 없다. 카드가 잠긴다.
+// ⚠️ 49-81차에 아래 제외 두 줄이 위 no_container_modules(1.15.2 전용) 블록에 잘못 들어가 있어서
+//    1.16·1.16.1이 "OrderedText를 찾을 수 없음"으로 깨졌다(1.16.2+는 컴파일만 되고 안 쓰이는 상태였다).
+// 49-89차(8-17): 마크 보조 키 믹스인은 KeyBinding이 net.minecraft.client.option에 있는 1.16.2+만(그 전은 options 패키지).
+// 49-216차: 1.16~1.16.4는 options 패키지라 믹스인이 두 이름을 다 적는다 → 1.16·1.16.1도 넣는다(InputUtil$Key는 1.16부터).
+def lunaKeyBindingOld = ["1.14.4", "1.15.2"].contains(project.minecraft_version.toString())
+if (lunaKeyBindingOld) {
+	(mergedJar ? sourceSets.main : sourceSets.client).java.exclude 'kr/lunaslight/mod/mixin/KeyBindingAltMixin.java'
+}
+
+if (project.hasProperty('legacy_compat_dir')) {
+	def targetSourceSet = mergedJar ? sourceSets.main : sourceSets.client
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/mixin/ChatFaceMixin.java'
+	targetSourceSet.java.exclude 'kr/lunaslight/mod/util/ChatFaceLines.java'
+	def mcv = project.minecraft_version.toString()
+	if (["1.16", "1.16.1"].contains(mcv)) {
+		targetSourceSet.java.srcDir rootProject.file('compat/chatface-legacy16')
+	} else if (!["1.14.4", "1.15.2"].contains(mcv)) {
+		targetSourceSet.java.srcDir rootProject.file('compat/chatface-legacy')
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	// 49-50차: Simple Voice Chat 애드온 API(kr.lunaslight.mod.integration.LunaVoicechatPlugin이 씀).
+	//   · libs/voicechat-api-*.jar 한 벌을 40개 서브프로젝트가 같이 쓴다 - 이 jar는 마인크래프트
+	//     클래스를 전혀 참조하지 않는 순수 인터페이스 묶음(자바 8 바이트코드)이라 버전별로 따로 받을
+	//     필요가 없다. 그래서 modCompileOnly(리맵 필요)가 아니라 그냥 compileOnly로 붙인다.
+	//   · compileOnly라 우리 jar 안에는 안 들어간다(런타임엔 SVC가 자기 걸 준다). SVC가 없으면
+	//     플러그인 클래스 자체가 로드되지 않으므로(진입점 방식) 없는 환경에서도 아무 문제 없다.
+	//   · 파일이 없으면 조용히 건너뛴다 - 그 경우 LunaVoicechatPlugin만 컴파일에서 빠지고 나머지는 그대로.
+	def lunaSvcApi = rootProject.fileTree(dir: 'libs', include: 'voicechat-api-*.jar')
+	if (!lunaSvcApi.isEmpty()) {
+		compileOnly lunaSvcApi
+		if (!mergedJar) {
+			clientCompileOnly lunaSvcApi
+		}
+	} else {
+		logger.lifecycle("[Luna] libs/voicechat-api-*.jar 없음 - 음성 채팅 애드온은 이번 빌드에서 제외됩니다.")
+	}
+
+	// Mod Menu는 "라이브러리" 배지로 숨기기 위한 연동용(있으면 badge 적용, 없으면 optional 취급).
+	// 버전마다 modmenu 릴리스가 따로 나오므로 이것도 versions/<버전>/gradle.properties에서 읽음.
+	//
+	// ⚠️ 실제로 sync해보고 고친 것: modmenu가 내부적으로 물고 있는 부가 의존성(예: placeholder-api)
+	// 중 일부가 우리가 등록한 저장소(Fabric maven, Mod Menu maven, Maven Central)에 없어서
+	// "Could not find eu.pb4:placeholder-api:..." 처럼 실패했습니다. 우리는 어차피 modmenu의
+	// "badge" 어노테이션/클래스만 컴파일 타임에 참조하는 용도(런타임엔 없어도 그만인
+	// modCompileOnly)라 그 부가 의존성들이 전혀 필요 없습니다 - transitive = false로 아예
+	// 그 트리를 안 따라가게 막아서 해결. (modmenu_version 값 자체가 버전마다 정확한지는
+	// 여전히 별개 문제라서, 이 트랜지티브 의존성 문제 말고 "그 클래스가 아예 없음" 같은
+	// 에러가 나면 그건 modmenu_version 숫자 자체가 틀린 것일 수 있습니다.)
+	//
+	// 28차: 1.16/1.16.2/1.16.3은 그 정확한 버전을 타겟한 ModMenu 릴리스가 아예 없었음(Modrinth
+	// API로 확인 - 오독 아님) - gradle.properties에 modmenu_version 키 자체를 뺐고, 여기서도
+	// hasProperty로 존재할 때만 의존성을 추가하도록 조건부 처리(없으면 조용히 스킵 - ModMenu
+	// 라이브러리 배지 표시만 안 될 뿐, 모드 자체 동작에는 영향 없음).
+	//
+	// 31차: groupId를 "maven.modrinth"로 변경(위 repositories 블록 설명 참고) - Modrinth maven
+	// 저장소를 통해 정확한 좌표로 찾도록 고침.
+	if (project.hasProperty('modmenu_version')) {
+		modCompileOnly("maven.modrinth:modmenu:${project.modmenu_version}") {
+			transitive = false
+		}
+	}
+}
+
+// ===================================================================
+// 46차(2026-09-01): Yarn -> intermediary 이름표를 jar 안에 같이 넣기 (프로덕션 리플렉션 대응)
+//
+// 실제 게임(런처로 실행하는 프로덕션 환경)에서는 마인크래프트 클래스/메서드/필드가 Yarn 이름
+// (예: net.minecraft.client.option.KeyBinding, wasPressed)이 아니라 intermediary 이름
+// (net.minecraft.class_304, method_1436)으로만 존재합니다. Loom은 소스 코드의 "직접 참조"만
+// 빌드 시 자동으로 바꿔주고, 문자열로 이름을 적어 Class.forName/getMethod로 찾는 리플렉션은
+// 바꿔주지 못해서, 이 프로젝트가 36개 버전을 소스 하나로 지원하려고 LunaCompat 등에 쌓아둔
+// 리플렉션 헬퍼 전부가 개발 환경(gradlew runClient)에서만 동작하고 실제 게임에서는 조용히
+// 실패하고 있었습니다(46차 인게임 검증에서 처음 발견 - Right Shift 설정 화면이 안 열리던 원인.
+// claude/nova-mod-todo.md 46차 참고).
+//
+// 대응: 이 서브프로젝트가 쓰는 Yarn 매핑(configurations.mappings의 yarn v2 jar 안
+// mappings/mappings.tiny)에서 "Yarn 이름 <-> intermediary 이름" 대응표만 뽑아 압축한 텍스트
+// (lunaslight/yarnmap.txt)를 리소스로 jar에 넣고, LunaCompat이 런타임에 이걸 읽어서 리플렉션
+// 이름을 두 가지(Yarn/intermediary) 다 시도합니다. 버전마다 자기 매핑에서 뽑으므로 별도 관리
+// 불필요. (Yarn은 CC0 라이선스라 재배포 문제 없음. 크기: 압축 후 jar당 1MB 안팎)
+// 26.x(loom-common-modern.gradle)는 비난독화라 이 작업 자체가 필요 없음.
+// ===================================================================
+def lunaYarnMapDir = layout.buildDirectory.dir("generated/lunaYarnMap")
+def generateLunaYarnMap = tasks.register("generateLunaYarnMap") {
+	def mappingsFiles = configurations.mappings
+	inputs.files(mappingsFiles)
+	outputs.dir(lunaYarnMapDir)
+	doLast {
+		def outFile = new File(lunaYarnMapDir.get().asFile, "lunaslight/yarnmap.txt")
+		outFile.parentFile.mkdirs()
+		// 49-37차: 예전엔 mappings.tiny(20~30MB)를 통째로 String → split("\n") → StringBuilder로 들고 있어서
+		// 40개 프로젝트가 병렬로 돌면 데몬 힙(3G)이 터졌다(":v1_21_6:generateLunaYarnMap Java heap space").
+		// 한 줄씩 읽어 바로 파일에 쓰는 스트리밍으로 바꿔 메모리를 거의 안 쓰게.
+		def tinyFile = null
+		mappingsFiles.files.each { jarFile ->
+			if (tinyFile != null) return
+			zipTree(jarFile).matching { include "mappings/mappings.tiny" }.each { f -> tinyFile = f }
+		}
+		if (tinyFile == null) {
+			throw new GradleException("[Luna] yarn v2 jar 안에서 mappings/mappings.tiny를 찾지 못함: " + mappingsFiles.files)
+		}
+		int classes = 0, members = 0
+		int imIdx = -1, namedIdx = -1
+		boolean first = true
+		outFile.withWriter("UTF-8") { w ->
+			tinyFile.withReader("UTF-8") { r ->
+				String raw
+				while ((raw = r.readLine()) != null) {
+					if (first) {
+						first = false
+						// tiny v2 헤더: tiny  2  0  <ns1>  <ns2> ...  -> 각 네임스페이스의 컬럼 위치 계산
+						def nsList = raw.split("\t").drop(3).collect { it.trim() }
+						imIdx = nsList.indexOf("intermediary")
+						namedIdx = nsList.indexOf("named")
+						if (imIdx < 0 || namedIdx < 0) {
+							throw new GradleException("[Luna] mappings.tiny에 intermediary/named 네임스페이스가 없음: " + nsList)
+						}
+						continue
+					}
+					if (raw.startsWith("c\t")) {
+						def p = raw.split("\t", -1)
+						def named = p[1 + namedIdx]
+						def im = p[1 + imIdx]
+						if (named && im && named != im) {
+							w.write("C\t" + named.replace('/', '.') + '\t' + im.replace('/', '.') + '\n')
+							classes++
+						}
+					} else if (raw.startsWith("\tm\t") || raw.startsWith("\tf\t")) {
+						// \t m \t <desc> \t <ns1> \t <ns2> ...
+						def p = raw.split("\t", -1)
+						def named = p[3 + namedIdx]
+						def im = p[3 + imIdx]
+						if (named && im && named != im) {
+							w.write(p[1] + '\t' + named + '\t' + im + '\n')
+							members++
+						}
+					}
+				}
+			}
+		}
+		logger.lifecycle("[Luna] yarnmap.txt 생성: 클래스 " + classes + "개, 멤버 " + members + "개 -> " + outFile)
+	}
+}
+
+sourceSets.main.resources.srcDir(generateLunaYarnMap)
+
+// ===================================================================
+// 49-31차: 버전마다 "그 마인크래프트가 실제로 도는 자바"에 맞춰 컴파일합니다.
+//
+// 예전에는 40개 전부 release=21로 컴파일하고 fabric.mod.json에도 java >=21을 박아 뒀는데,
+// 1.20.1은 자바 17로 돌아가기 때문에 패브릭이 실행 직전에 모드를 거부했습니다
+// ("모드 lunaslight는 자바 21 이상이 필요하지만 17이 있습니다" - 인게임에서 발견).
+// 런처의 getJavaFeatureVersionFor()와 같은 기준:
+//   1.20.5+  -> 21 / 1.17 ~ 1.20.4 -> 17 / 1.16 이하 -> (런처는 8을 줌)
+// 다만 공유 소스가 record·switch 식을 쓰기 때문에 16 밑으로는 컴파일 자체가 불가능합니다
+// (release 11/8로 시험 컴파일하면 406개 에러). 그래서 하한을 16으로 둡니다 - 1.16 이하에서
+// 이 모드를 쓰려면 런처가 그 버전에도 자바 17을 주도록 바꿔야 합니다.
+// ===================================================================
+def lunaMcParts = project.minecraft_version.findAll(/\d+/)*.toInteger()
+def lunaMcMajor = lunaMcParts.size() > 0 ? lunaMcParts[0] : 1
+def lunaMcMinor = lunaMcParts.size() > 1 ? lunaMcParts[1] : 0
+def lunaMcPatch = lunaMcParts.size() > 2 ? lunaMcParts[2] : 0
+def lunaJavaTarget = (
+	lunaMcMajor >= 26 ? 25 :
+	(lunaMcMinor > 20 || (lunaMcMinor == 20 && lunaMcPatch >= 5)) ? 21 :
+	lunaMcMinor >= 18 ? 17 : 16
+)
+
+// 49-159차: 글꼴 빠른 길(FontGlyphScanMixin, 서버 리소스팩 적용 끝 85초 멈춤 해결)은 핸들러가
+// fastutil 8.5의 it.unimi.dsi.fastutil.ints.IntConsumer를 받는다. 1.19.4 이하 게임은 더 옛 fastutil을
+// 쓸 수 있어(실행 중 클래스 없음) 1.20+와 26.x에만 넣는다. 나머지는 컴파일에서 빼고
+// 아래 processResources에서 mixins.json 항목도 뺀다. util/FontGlyphScan은 MC 타입이 없어 늘 들어가도 된다.
+def lunaFontScan = lunaMcMajor >= 26 || lunaMcMinor >= 20
+if (!lunaFontScan) {
+	(mergedJar ? sourceSets.main : sourceSets.client).java.exclude 'kr/lunaslight/mod/mixin/FontGlyphScanMixin.java'
+}
+
+def lunaFabricApiId = project.hasProperty('fabric_api_id') ? project.fabric_api_id.toString() : 'fabric-api'
+processResources {
+	inputs.property "version", project.version
+	inputs.property "minecraft_version", project.minecraft_version
+	inputs.property "java_version", lunaJavaTarget
+	// 49-31차 후속: filter/expand 안에서 쓰는 값은 Gradle이 입력으로 추적하지 못한다.
+	// (믹스인 레벨만 바꾼 빌드에서 processResources가 UP-TO-DATE로 건너뛰어져
+	//  jar 안 lunaslight.mixins.json이 예전 JAVA_21 그대로 남아 게임이 안 켜졌음)
+	// 아래처럼 실제로 박아 넣는 값을 입력으로 선언해야 값이 바뀔 때 다시 돈다.
+	inputs.property "mixin_compat", "JAVA_${lunaJavaTarget}"
+	filteringCharset "UTF-8"
+
+	// 49-171차: Fabric API의 모드 id는 0.42.0(2021-09, 1.16/1.17 브랜치)부터 "fabric-api"이고 그 전(0.28.5+1.14/1.15)은 "fabric"이다.
+	// 1.14.4·1.15.2는 gradle.properties의 fabric_api_id=fabric으로 바꿔 넣는다(없으면 fabric-api).
+	inputs.property "fabric_api_id", lunaFabricApiId
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version, "minecraft_version": project.minecraft_version,
+			"java_version": lunaJavaTarget, "fabric_api_id": lunaFabricApiId
+	}
+
+	// 49-31차 후속: 믹스인 설정의 compatibilityLevel도 컴파일 타깃과 같이 맞춥니다.
+	// (1.20.1에서 "The requested compatibility level JAVA_21 could not be set ... (Java 17.0)"로
+	//  게임이 아예 못 켜졌음 - 믹스인은 이 값이 실제 클래스 파일 버전과 맞아야 합니다.)
+	// 소스 파일은 그대로 "JAVA_21"로 두고(그 자체로 올바른 JSON) 복사할 때만 바꿔 끼웁니다.
+	filesMatching("lunaslight.mixins.json") {
+		filter { it.replace('"JAVA_21"', "\"JAVA_${lunaJavaTarget}\"") }
+		// 49-42차: no_container_modules(1.15.2)에서 컴파일 제외한 믹스인은 목록에서도 뺀다(줄 삭제 -
+		// 이 항목은 목록 끝이 아니라서 쉼표가 남지 않게 GlintMixin을 마지막에 둠).
+		// 49-61차: 여기 같이 있던 HandledScreenDarkMixin은 목록(lunaslight.mixins.json)에서 아예
+		// 사라졌으므로 거를 것도 없어졌다.
+		if (project.hasProperty('no_container_modules')) {
+			filter { line -> line.contains('"SlotDrawMixin"') ? null : line }
+		}
+		// 49-58차: 1.19.1 미만에서는 ChatSignedMixin을 컴파일에서 뺐으므로 목록에서도 뺀다
+		// (목록 끝이 아니라 GlintMixin 앞에 두었으므로 쉼표가 남지 않는다).
+		if (lunaNoSignedChat) {
+			filter { line -> line.contains('"ChatSignedMixin"') ? null : line }
+		}
+		// 49-59차: 엔티티 가리기 믹스인은 버전에 맞는 한 벌만 jar에 들어가므로, 목록에서도 나머지를 뺀다.
+		// 49-62차: 블록 엔티티 컬링도 같은 분기라 같이 뺀다(둘 다 GlintMixin 앞이라 쉼표가 안 남는다).
+		filter { line ->
+			def drop = lunaEntityManagerEra ? '"EntityHideMixin"' : '"EntityHideManagerMixin"'
+			line.contains(drop) ? null : line
+		}
+		filter { line ->
+			def drop = lunaEntityManagerEra ? '"BlockEntityCullMixin"' : '"BlockEntityCullManagerMixin"'
+			line.contains(drop) ? null : line
+		}
+		// 49-75차: 방패 높이 믹스인도 버전에 맞는 한 벌만 들어간다(둘 다 GlintMixin 앞이라 쉼표가 안 남는다).
+		filter { line ->
+			def drop = lunaEntityManagerEra ? '"ShieldOffsetMixin"' : '"ShieldOffsetQueueMixin"'
+			line.contains(drop) ? null : line
+		}
+		// 49-81차: 채팅 얼굴 - 1.21.11만 ChatFaceHudMixin, 1.15.2~1.19.4는 ChatFaceMixin도 없다(둘 다 GlintMixin 앞).
+		if (!lunaChatBackendEra) {
+			filter { line -> line.contains('"ChatFaceHudMixin"') ? null : line }
+		}
+		if (project.hasProperty('legacy_compat_dir')) {
+			filter { line -> line.contains('"ChatFaceMixin"') ? null : line }
+		}
+		// 49-82차: 옛 시대 줄 훅(ChatFaceLegacyMixin)은 1.16~1.19.4에만 들어간다(1.15.2 제외).
+		if (!project.hasProperty('legacy_compat_dir') || ["1.14.4", "1.15.2"].contains(project.minecraft_version.toString())) {
+			filter { line -> line.contains('"ChatFaceLegacyMixin"') ? null : line }
+		}
+		if (lunaKeyBindingOld) {
+			filter { line -> line.contains('"KeyBindingAltMixin"') ? null : line }
+		}
+		// 49-159차: 글꼴 빠른 길은 1.20+(와 26.x)만(위 lunaFontScan). GlintMixin 앞이라 쉼표가 안 남는다.
+		if (!lunaFontScan) {
+			filter { line -> line.contains('"FontGlyphScanMixin"') ? null : line }
+		}
+		// 49-216차: 옛 시대 HUD 훅(compat/legacy-hud)과 시야각 훅(compat/fov-legacy)은 얹힌 판에서만 목록에 남긴다.
+		if (!lunaLegacyHud) {
+			filter { line ->
+				(line.contains('"SlotDrawLegacyMixin"') || line.contains('"HotbarSelectionLegacyMixin"')
+					|| line.contains('"HealthBarLegacyMixin"') || line.contains('"ArmorBarLegacyMixin"')) ? null : line
+			}
+		}
+		if (!lunaFovLegacy) {
+			filter { line -> line.contains('"FovLegacyMixin"') ? null : line }
+		}
+		// 49-267차: 설계도 월드 그리기 옛 버전 믹스인(둘 다 GlintMixin 앞이라 쉼표가 안 남는다).
+		if (!lunaBpWorld14) {
+			filter { line -> line.contains('"BlueprintWorld14Mixin"') ? null : line }
+		}
+		if (!lunaBpWorld15) {
+			filter { line -> line.contains('"BlueprintWorld15Mixin"') ? null : line }
+		}
+		// 49-242차: 1.21.2 미만은 물결 망토 믹스인을 컴파일에서 뺐으므로 목록에서도 뺀다(목록 끝이 아니라 쉼표가 안 남는다).
+		if (lunaNoCapeModel) {
+			filter { line -> line.contains('"CapeChainMixin"') ? null : line }
+		}
+		// 49-163차: 1.14.4엔 VertexConsumerProvider가 없어 이 셋을 컴파일에서 뺐으므로 목록에서도 뺀다.
+		if (lunaLegacyWindow) {
+			filter { line ->
+				(line.contains('"FireOverlayMixin"') || line.contains('"ShieldOffsetMixin"') || line.contains('"BlockEntityCullMixin"'))
+					? null : line
+			}
+		}
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = lunaJavaTarget
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.toVersion(lunaJavaTarget)
+	targetCompatibility = JavaVersion.toVersion(lunaJavaTarget)
+}
+
+jar {
+	from(rootProject.file("LICENSE")) {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}
+
+// ===================================================================
+// 49-31차: 빌드가 끝나면 런처가 실제로 주입하는 폴더(Nova-Client/novamod)로 jar를 바로 복사.
+// 예전에는 손으로 복사해야 해서 "빌드했는데 인게임은 그대로"인 상태가 자주 생겼습니다.
+// 폴더가 없으면 조용히 건너뜁니다. 다른 경로에 두었으면
+//   .\gradlew :v1_20_1:build -Pluna_launcher_mods=D:\어딘가\novamod
+// 처럼 넘기면 됩니다.
+// ===================================================================
+def lunaLauncherMods = project.findProperty('luna_launcher_mods')
+	? rootProject.file(project.findProperty('luna_launcher_mods'))
+	: new File(rootProject.projectDir.parentFile, 'Nova-Client/novamod')
+
+tasks.register('deployToLauncher', Copy) {
+	group = 'lunaslight'
+	description = '빌드한 jar를 런처 novamod 폴더로 복사(런처가 게임에 넣어주는 실물)'
+	dependsOn tasks.named('remapJar')
+	from tasks.named('remapJar')
+	into lunaLauncherMods
+	onlyIf { lunaLauncherMods.isDirectory() }
+}
+
+// 49-38차: 설치판 런처(app.isPackaged)는 패키징 때 묶인 resources/novamod만 봐서 새 빌드가 안 들어갔다.
+// 런처가 %APPDATA%/NovaClient/novamod 를 먼저 보도록 바꿨으니(main.js getLunaModDir) 거기에도 복사한다.
+def lunaLauncherAppData = new File(System.getenv('APPDATA') ?: '', 'NovaClient/novamod')
+tasks.register('deployToLauncherAppData', Copy) {
+	group = 'lunaslight'
+	description = '빌드한 jar를 설치판 런처가 읽는 %APPDATA%/NovaClient/novamod 로 복사'
+	dependsOn tasks.named('remapJar')
+	from tasks.named('remapJar')
+	into lunaLauncherAppData
+	// 49-231차(사용자: "설정이랑 UI가 전혀 안 바뀌었는데"): 런처 폴더 이름이 LunaClient → NovaClient로 바뀐 뒤로 이 검사가 늘 거짓이라
+	// 복사가 SKIPPED 됐다 - 런처가 읽는 %APPDATA%/NovaClient/novamod 에 새 jar가 안 들어가 게임은 옛 jar로 돌았다. 둘 다 본다.
+	onlyIf { System.getenv('APPDATA') != null && (new File(System.getenv('APPDATA'), 'NovaClient').isDirectory()
+		|| new File(System.getenv('APPDATA'), 'LunaClient').isDirectory()) }
+	doFirst { lunaLauncherAppData.mkdirs() }
+	// 49-203차: 개발 PC 표시 - 런처가 이 PC에서 빌드한 jar를 저장소(GitHub novamod/)의 옛 jar로 덮지 않게 한다(main.js isLocalLunaModBuild).
+	doLast { new File(lunaLauncherAppData, '.local-build').text = 'Nova-Mod dev build marker (deployToLauncherAppData)\n' }
+}
+
+// 49-38차: 설치판 런처(resources/novamod)에도 직접 복사 - 런처를 다시 패키징하지 않아도 "빌드 → 실행"에 새 모드가 들어간다.
+// (설치 경로가 없으면 조용히 건너뜀. 개발용 지름길이라 배포 사용자 PC에는 해당 없음.)
+def lunaLauncherInstalled = new File(System.getenv('LOCALAPPDATA') ?: '', 'Programs/Nova Client/resources/novamod')
+tasks.register('deployToLauncherInstalled', Copy) {
+	group = 'lunaslight'
+	description = '빌드한 jar를 설치된 런처의 resources/novamod 로 복사(재패키징 없이 바로 반영)'
+	dependsOn tasks.named('remapJar')
+	from tasks.named('remapJar')
+	into lunaLauncherInstalled
+	onlyIf { lunaLauncherInstalled.isDirectory() }
+}
+
+tasks.named('build') {
+	finalizedBy tasks.named('deployToLauncher'), tasks.named('deployToLauncherAppData'), tasks.named('deployToLauncherInstalled')
+}

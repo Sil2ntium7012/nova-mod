@@ -1,0 +1,9 @@
+// plugins {} 블록은 Gradle 제약상 apply from:으로 끌어오는 스크립트(loom-common.gradle)
+// 안에는 못 써서, 여기 "진짜" 프로젝트 build.gradle 쪽에 둡니다. 나머지 공통 설정은 전부
+// loom-common.gradle에 있습니다. 새 버전을 추가할 때 이 파일은 그대로 복사만 하면 됩니다.
+plugins {
+	id 'fabric-loom' version '1.17.20'
+	id 'maven-publish'
+}
+
+apply from: rootProject.file('loom-common.gradle')

@@ -1,0 +1,39 @@
+{
+	"schemaVersion": 1,
+	"id": "lunaslight",
+	"version": "${version}",
+	"name": "Luna's Light",
+	"description": "전용 런처 내장 모드 (독립 배포용 아님)",
+	"authors": ["Luna's Light"],
+	"contact": {},
+	"license": "ARR",
+	"icon": "assets/lunaslight/icon.png",
+
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"kr.lunaslight.mod.LunaClientMod",
+			"kr.lunaslight.mod.util.ShopUnlocks"
+		],
+		"voicechat": [
+			"kr.lunaslight.mod.integration.LunaVoicechatPlugin"
+		]
+	},
+
+	"mixins": [
+		"lunaslight.mixins.json"
+	],
+
+	"custom": {
+		"modmenu": {
+			"badge": "library"
+		}
+	},
+
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"${fabric_api_id}": "*",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=${java_version}"
+	}
+}

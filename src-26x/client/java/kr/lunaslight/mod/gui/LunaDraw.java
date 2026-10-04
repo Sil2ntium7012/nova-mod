@@ -1,0 +1,1010 @@
+package kr.lunaslight.mod.gui;
+
+import kr.lunaslight.mod.util.LunaCompat;
+import kr.lunaslight.mod.util.LunaTheme;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 47~48차: 설정 화면/HUD 편집기 공용 그리기 도우미 - 페더 클라이언트 느낌의 "둥근 모서리 +
+ * 반투명 검정 + 부드러운 폰트 + 애니메이션".
+ *
+ * 48차부터 둥근 모서리는 안티앨리어싱 원 텍스처(LunaGfx.drawRound)로 그리고, 텍스트는 동봉 TTF
+ * 폰트(LunaGfx.text)로 그림. 텍스처/폰트 해석이 실패한 버전에서는 자동으로 47차의 fill 방식으로 폴백.
+ */
+public final class LunaDraw {
+	private LunaDraw() {
+	}
+
+	// ---- 팔레트 ----
+	// 49-19차: "분위기를 더 어둡게" - 패널/카드/트랙을 한 단계씩 더 내리고 뒷배경 막도 진하게.
+	// 밝기 차이는 유지해서 층(패널 < 카드 < 호버)이 여전히 구분되게 함.
+	public static final int OVERLAY = 0x8C000000;          // 뒤 게임 화면이 비치는 어두운 막
+	// 49-40차: 배경(패널/카드/글자)도 런처 "테마"(블랙 & 화이트·아쿠아·스카이…)를 따라가므로 상수가 아니라
+	// 갈아끼울 수 있는 값 - LunaTheme.refresh()가 전부 갱신한다. 호출부는 그대로 LunaDraw.PANEL 등을 쓰면 된다.
+	// (static final로 두면 다른 클래스의 상수 식에 값이 박혀 버려서 안 바뀐다 - 반드시 non-final)
+	public static int PANEL = LunaTheme.PANEL;            // 메인 패널(거의 검정)
+	public static int PANEL_BORDER = LunaTheme.PANEL_BORDER_LIVE;
+	public static int SIDEBAR = LunaTheme.SIDEBAR;
+	public static int CARD = LunaTheme.CARD;
+	public static int CARD_HOVER = LunaTheme.CARD_HOVER;
+	public static int CARD_BORDER = LunaTheme.CARD_BORDER;
+	// 49-29차: 테마 색(클라이언트에서 장착한 색)을 따라가므로 상수가 아니라 갈아끼울 수 있는 값.
+	// LunaTheme.refresh()가 두 값을 갱신한다 - 호출부는 그대로 LunaDraw.ACCENT를 쓰면 된다.
+	public static int ACCENT = LunaTheme.ACCENT;
+	public static int ACCENT_SOFT = LunaTheme.ACCENT_SOFT; // 선택된 카테고리 배경 등(아주 은은하게)
+	public static final int ACCENT_DIM = 0xFF6A7076;
+	public static int TRACK = LunaTheme.TRACK;
+	public static final int KNOB = 0xFFF4F4F8;
+	public static int TEXT = LunaTheme.TEXT;
+	public static int TEXT_SUB = LunaTheme.TEXT_SUB;
+	public static int TEXT_DIM = LunaTheme.TEXT_DIM;
+	/** 타이틀·일시정지의 반투명 버튼(루나식) - 패널색에 알파만 다르게, 테마를 따라감. */
+	public static int BTN_BG = LunaTheme.BTN_BG;
+	public static int BTN_BG_HOVER = LunaTheme.BTN_BG_HOVER;
+
+	/** 화면 전체 페이드 등에 쓰는 전역 알파 배수(0~1). 모든 헬퍼가 색에 곱함. */
+	private static float alphaMul = 1f;
+
+	public static void setAlpha(float a) {
+		alphaMul = Math.max(0f, Math.min(1f, a));
+	}
+
+	public static float alpha() {
+		return alphaMul;
+	}
+
+	// 49-22차: "UI 둥근 정도 심함 - 확실히 넣거나 빼기" → 모든 둥근 모서리를 최대 4px로 통일(알약 포함).
+	// 카드/버튼/패널/모달이 제각각 5~10px이던 것을 한 규격으로 - 둥글되 과하지 않게.
+	public static final int MAX_RADIUS = 4;
+
+	public static int radius(int requested) {
+		if (requested <= 0) {
+			return 0;
+		}
+		if (softNow()) {
+			return Math.min(requested + SOFT_EXTRA, SOFT_MAX_RADIUS);
+		}
+		return Math.min(requested, MAX_RADIUS);
+	}
+
+	// 49-161차(사용자: "UI좀 조금 더 다듬어줄 수 없어? 너무 네모가 보여 클라이언트처럼 부드럽게", 고른 것: 설정 화면 전체 +
+	// 켜기/끄기 스위치, 둥근 정도 중간 6px): 루나 설정 화면들(일시정지, 타이틀 빼고)을 그리는 동안에만 모든 모서리를
+	// 2px 더 둥글게(최대 6). 테두리 상자(바깥 4 / 안 3)는 6 / 5가 되어 두께가 그대로 맞는다.
+	// HUD 상자와 그 미리보기, 편집기 샘플은 예전 모양 그대로 - Module이 그 동안 beginHud()/endHud()로 막는다
+	// (설정 화면 뒤에 그려지는 게임 HUD도 마찬가지).
+	public static final int SOFT_EXTRA = 2;
+	public static final int SOFT_MAX_RADIUS = 6;
+	private static int hudDepth;
+	private static Class<?> softClass;
+	private static boolean softClassResult;
+
+	public static void beginHud() {
+		hudDepth++;
+	}
+
+	public static void endHud() {
+		if (hudDepth > 0) {
+			hudDepth--;
+		}
+	}
+
+	private static boolean softNow() {
+		if (hudDepth > 0) {
+			return false;
+		}
+		Object screen;
+		try {
+			screen = kr.lunaslight.mod.util.LunaCompat.screenOf(net.minecraft.client.Minecraft.getInstance());   // 26.2부터 gui.screen()이라 LunaCompat가 둘 다 푼다
+		} catch (Throwable t) {
+			return false;
+		}
+		if (screen == null) {
+			return false;
+		}
+		Class<?> c = screen.getClass();
+		if (c != softClass) {
+			String n = c.getName();
+			softClassResult = n.startsWith("kr.lunaslight.mod.gui.")
+					&& !n.endsWith(".LunaPauseScreen") && !n.endsWith(".LunaTitleScreen");
+			softClass = c;
+		}
+		return softClassResult;
+	}
+
+	/**
+	 * 49-161차: 알약(양 끝이 반원). 모서리 제한(MAX/SOFT) 없이 짧은 변의 절반을 반지름으로 쓴다 - 켜기/끄기 스위치 트랙.
+	 */
+	public static void pill(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		color = applyAlpha(color);
+		int r = Math.min(w, h) / 2;
+		if (r > 0 && LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x, y + h - r, r, r, 0, 64, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x + w - r, y + h - r, r, r, 64, 64, 64, 64, color)) {
+			ctx.fill(x + r, y, x + w - r, y + h, color);
+			ctx.fill(x, y + r, x + r, y + h - r, color);
+			ctx.fill(x + w - r, y + r, x + w, y + h - r, color);
+			return;
+		}
+		ctx.fill(x, y + r, x + w, y + h - r, color);
+		for (int dy = 0; dy < r; dy++) {
+			double cy = r - dy - 0.5;
+			int inset = r - (int) Math.floor(Math.sqrt(r * (double) r - cy * cy));
+			ctx.fill(x + inset, y + dy, x + w - inset, y + dy + 1, color);
+			ctx.fill(x + inset, y + h - dy - 1, x + w - inset, y + h - dy, color);
+		}
+	}
+
+	public static int applyAlpha(int argb) {
+		if (alphaMul >= 0.999f) {
+			return argb;
+		}
+		int a = Math.round(((argb >>> 24) & 0xFF) * alphaMul);
+		return (argb & 0x00FFFFFF) | (a << 24);
+	}
+
+	// =====================================================================
+	// 도형
+	// =====================================================================
+
+	/** 둥근 사각형(채움). radius가 0이면 일반 사각형. */
+	public static void roundRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int color) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		color = applyAlpha(color);
+		int r = Math.min(radius(radius), Math.min(w, h) / 2);
+		if (r <= 0) {
+			ctx.fill(x, y, x + w, y + h, color);
+			return;
+		}
+		// 부드러운 텍스처 모서리(4개) + 몸통 fill
+		if (LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x, y + h - r, r, r, 0, 64, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x + w - r, y + h - r, r, r, 64, 64, 64, 64, color)) {
+			ctx.fill(x + r, y, x + w - r, y + h, color);
+			ctx.fill(x, y + r, x + r, y + h - r, color);
+			ctx.fill(x + w - r, y + r, x + w, y + h - r, color);
+			return;
+		}
+		// 폴백: 원의 방정식으로 줄마다 채움
+		ctx.fill(x, y + r, x + w, y + h - r, color);
+		for (int dy = 0; dy < r; dy++) {
+			double cy = r - dy - 0.5;
+			int inset = r - (int) Math.floor(Math.sqrt(r * (double) r - cy * cy));
+			ctx.fill(x + inset, y + dy, x + w - inset, y + dy + 1, color);
+			ctx.fill(x + inset, y + h - dy - 1, x + w - inset, y + h - dy, color);
+		}
+	}
+
+	/**
+	 * 49-195차: 위쪽 두 모서리만 둥근 사각형(아래는 직각). 제목 줄처럼 아래 본문과 이어 붙이는 띠에 쓴다 - 예전엔 스코어보드
+	 * 제목 띠를 둥근 사각형으로 r만큼 더 길게 그린 뒤 아래를 투명(0)으로 "지우려" 해서 지워지지 않고 첫 줄까지 덮었다.
+	 */
+	public static void roundRectTop(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int color) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		color = applyAlpha(color);
+		int r = Math.min(radius(radius), Math.min(w / 2, h));
+		if (r <= 0) {
+			ctx.fill(x, y, x + w, y + h, color);
+			return;
+		}
+		if (LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, color)
+			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, color)) {
+			ctx.fill(x + r, y, x + w - r, y + r, color);
+			ctx.fill(x, y + r, x + w, y + h, color);
+			return;
+		}
+		ctx.fill(x, y + r, x + w, y + h, color);
+		for (int dy = 0; dy < r; dy++) {
+			double cy = r - dy - 0.5;
+			int inset = r - (int) Math.floor(Math.sqrt(r * (double) r - cy * cy));
+			ctx.fill(x + inset, y + dy, x + w - inset, y + dy + 1, color);
+		}
+	}
+
+	/**
+	 * 49-180차: 윤곽선({@link #roundRectOutline})과 <b>같은 계단 모서리</b>로 채운 둥근 사각형. 기본 roundRect는 부드러운
+	 * 텍스처 모서리라 계단 윤곽선과 모서리 모양이 달라, 둘을 겹치면 배경이 윤곽선 밖으로 삐져나와 보였다
+	 * (사용자: "테두리가 검정색이 튀어나와 있음 - 색 테두리랑 검정색이랑 모양이 다름"). 윤곽선을 같이 그릴 때 이걸 쓴다.
+	 */
+	public static void roundRectPixel(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int color) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		color = applyAlpha(color);
+		int r = Math.min(radius(radius), Math.min(w, h) / 2);
+		if (r <= 0) {
+			ctx.fill(x, y, x + w, y + h, color);
+			return;
+		}
+		ctx.fill(x, y + r, x + w, y + h - r, color);
+		for (int dy = 0; dy < r; dy++) {
+			double cy = r - dy - 0.5;
+			int inset = r - (int) Math.floor(Math.sqrt(r * (double) r - cy * cy));
+			ctx.fill(x + inset, y + dy, x + w - inset, y + dy + 1, color);
+			ctx.fill(x + inset, y + h - dy - 1, x + w - inset, y + h - dy, color);
+		}
+	}
+
+	/** 패널 뒤 부드러운 그림자(아래로 살짝 번짐) - 패널을 그리기 직전에 호출. */
+	public static void shadow(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius) {
+		roundRect(ctx, x - 3, y - 1, w + 6, h + 7, radius + 2, 0x1F000000);
+		roundRect(ctx, x - 1, y + 1, w + 2, h + 4, radius + 1, 0x2E000000);
+	}
+
+	/**
+	 * 49-25차: 세로 그라데이션 둥근 사각형(위 top → 아래 bottom). 모서리는 텍스처 원(위쪽은 top색, 아래쪽은
+	 * bottom색), 몸통과 좌우 띠는 fillGradient. 텍스처를 못 쓰는 버전은 줄마다 색을 섞어 채움.
+	 */
+	public static void roundRectGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int top, int bottom) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		top = applyAlpha(top);
+		bottom = applyAlpha(bottom);
+		if (top == bottom) {
+			roundRect(ctx, x, y, w, h, radius, top);
+			return;
+		}
+		int r = Math.min(radius(radius), Math.min(w, h) / 2);
+		if (r <= 0) {
+			ctx.fillGradient(x, y, x + w, y + h, top, bottom);
+			return;
+		}
+		int midTop = lerpColor(top, bottom, r / (float) h);
+		int midBottom = lerpColor(top, bottom, (h - r) / (float) h);
+		if (LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, top)
+			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, top)
+			&& LunaGfx.drawRound(ctx, x, y + h - r, r, r, 0, 64, 64, 64, bottom)
+			&& LunaGfx.drawRound(ctx, x + w - r, y + h - r, r, r, 64, 64, 64, 64, bottom)) {
+			ctx.fillGradient(x + r, y, x + w - r, y + h, top, bottom);
+			ctx.fillGradient(x, y + r, x + r, y + h - r, midTop, midBottom);
+			ctx.fillGradient(x + w - r, y + r, x + w, y + h - r, midTop, midBottom);
+			return;
+		}
+		ctx.fillGradient(x, y + r, x + w, y + h - r, midTop, midBottom);
+		for (int dy = 0; dy < r; dy++) {
+			double cy = r - dy - 0.5;
+			int inset = r - (int) Math.floor(Math.sqrt(r * (double) r - cy * cy));
+			ctx.fill(x + inset, y + dy, x + w - inset, y + dy + 1, lerpColor(top, bottom, dy / (float) h));
+			ctx.fill(x + inset, y + h - dy - 1, x + w - inset, y + h - dy, lerpColor(top, bottom, (h - dy - 1) / (float) h));
+		}
+	}
+
+	/** 색을 흰색 쪽으로 k(0~1)만큼(알파 유지). */
+	public static int lighten(int argb, float k) {
+		int a = (argb >>> 24) & 0xFF;
+		return (lerpColor(argb | 0xFF000000, 0xFFFFFFFF, k) & 0x00FFFFFF) | (a << 24);
+	}
+
+	/** RGB에 k를 곱함(알파 유지). */
+	public static int darken(int argb, float k) {
+		int a = (argb >>> 24) & 0xFF;
+		int r = Math.round(((argb >> 16) & 0xFF) * k);
+		int g = Math.round(((argb >> 8) & 0xFF) * k);
+		int b = Math.round((argb & 0xFF) * k);
+		return (a << 24) | (r << 16) | (g << 8) | b;
+	}
+
+	/**
+	 * 테두리 있는 둥근 사각형. 49-25차: 툴팁 상자와 같은 결 - 테두리는 아래로 갈수록 옅어지고, 속은 위가 살짝
+	 * 밝은 세로 그라데이션, 안쪽 윗줄에 가는 하이라이트("다른 곳도 그라데이션으로 예쁘게, 마크 느낌 안 나게").
+	 * 카드·패널·모달·버튼·칩이 전부 이 함수를 쓰므로 한 번에 바뀐다.
+	 */
+	public static void roundRectBordered(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int fill, int border) {
+		// 49-34차(사용자: "그라데이션을 너무 대충 넣어서 하나도 안예뻐 - 다른 클라이언트 벤치마킹"):
+		// 49-25차에 넣었던 "속은 위가 밝고 아래가 어둡게, 테두리는 아래로 갈수록 사라지는" 세로 그라데이션을
+		// 뺐다. 거의 검정인 바탕에서는 아래쪽이 탁해지고 테두리가 끊긴 것처럼 보여서, 카드·버튼·패널이
+		// 전부 마감 안 된 느낌이 났다. 루나·페더·배드라이언은 **평평한 바탕 + 균일한 1px 테두리 + 아주
+		// 옅은 위쪽 하이라이트 한 줄**이 전부다 - 그대로 따른다.
+		// 49-226차(사진 시안): 화면(HUD 아님)의 테두리 상자는 아래로 2px 두께(어두운 띠)를 깐다 - 판, 카드, 칩이 한 번에 입체로.
+		if (hudDepth == 0 && h >= 10 && w >= 10 && ((fill >>> 24) & 0xFF) >= 0xC0) {
+			roundRect(ctx, x, y + 2, w, h, radius, 0x47000000);
+		}
+		roundRect(ctx, x, y, w, h, radius, border);
+		roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, radius - 1), fill);
+		if (h >= 12 && w >= 12) {
+			int r = Math.max(1, Math.min(radius(radius), Math.min(w, h) / 2));
+			ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(0x0AFFFFFF));
+		}
+	}
+
+	/** 49-25차: 예전 방식(평면 채움)이 필요한 곳용. */
+	public static void roundRectBorderedFlat(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int fill, int border) {
+		roundRect(ctx, x, y, w, h, radius, border);
+		roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, radius - 1), fill);
+	}
+
+	/** 둥근 사각형 테두리(1px)만. 배경이 투명한 곳(HUD 편집기 박스)에 사용. */
+	public static void roundRectOutline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius, int color) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		color = applyAlpha(color);
+		int r = Math.min(radius(radius), Math.min(w, h) / 2);
+		if (r <= 0) {
+			ctx.fill(x, y, x + w, y + 1, color);
+			ctx.fill(x, y + h - 1, x + w, y + h, color);
+			ctx.fill(x, y, x + 1, y + h, color);
+			ctx.fill(x + w - 1, y, x + w, y + h, color);
+			return;
+		}
+		ctx.fill(x + r, y, x + w - r, y + 1, color);
+		ctx.fill(x + r, y + h - 1, x + w - r, y + h, color);
+		ctx.fill(x, y + r, x + 1, y + h - r, color);
+		ctx.fill(x + w - 1, y + r, x + w, y + h - r, color);
+		int prevInset = r;
+		for (int dy = 0; dy < r; dy++) {
+			double cy = r - dy - 0.5;
+			int inset = r - (int) Math.floor(Math.sqrt(r * (double) r - cy * cy));
+			int from = inset;
+			int to = Math.max(inset + 1, prevInset);
+			ctx.fill(x + from, y + dy, x + to, y + dy + 1, color);
+			ctx.fill(x + w - to, y + dy, x + w - from, y + dy + 1, color);
+			ctx.fill(x + from, y + h - dy - 1, x + to, y + h - dy, color);
+			ctx.fill(x + w - to, y + h - dy - 1, x + w - from, y + h - dy, color);
+			prevInset = inset;
+		}
+	}
+
+	// =====================================================================
+	// 49-28차: 화면 공통 "결" - 통계 화면에서 쓰던 가는 선/섹션 제목을 다른 화면도 함께 쓴다
+	// =====================================================================
+
+	/** 왼쪽에서 오른쪽으로 사라지는 1px 선. */
+	public static void fadeLine(GuiGraphicsExtractor ctx, int x, int y, int w, int color) {
+		if (w <= 0) {
+			return;
+		}
+		ctx.fillGradient(x, y, x + w / 2, y + 1, applyAlpha(withAlpha(color, 0x30)), applyAlpha(0x10FFFFFF));
+		ctx.fillGradient(x + w / 2, y, x + w, y + 1, applyAlpha(0x10FFFFFF), applyAlpha(0x03FFFFFF));
+	}
+
+	/**
+	 * 49-124차(사용자: "줄이 끝까지 이어지지 말고 그라데이션으로 끝나게"): 제목 뒤에서 <b>정해진 길이 안에서</b>
+	 * 완전 투명(알파 0)으로 사라지는 머리줄. 폭이 아무리 넓어도 토글까지 이어지지 않고, ease-out 곡선으로
+	 * 부드럽게 흩어진다(fillGradient는 선형이라 여러 토막으로 곡선을 흉내 낸다).
+	 */
+	public static void headerFade(GuiGraphicsExtractor ctx, int x, int y, int w, int color) {
+		if (w <= 0) {
+			return;
+		}
+		int len = Math.min(w, 150);
+		int rgb = color & 0x00FFFFFF;
+		final int a0 = 0x2E;      // 제목 바로 뒤 알파(46)
+		final int steps = 16;
+		for (int i = 0; i < steps; i++) {
+			double s0 = i / (double) steps;
+			double s1 = (i + 1) / (double) steps;
+			int sx0 = x + (int) Math.round(len * s0);
+			int sx1 = x + (int) Math.round(len * s1);
+			if (sx1 <= sx0) {
+				continue;
+			}
+			int aa0 = (int) Math.round(a0 * (1 - s0) * (1 - s0));   // ease-out: (1-s)^2 → 0에 수렴
+			int aa1 = (int) Math.round(a0 * (1 - s1) * (1 - s1));
+			ctx.fillGradient(sx0, y, sx1, y + 1,
+					applyAlpha((aa0 << 24) | rgb), applyAlpha((aa1 << 24) | rgb));
+		}
+	}
+
+	/** 가운데가 옅어지는 연결선(항목 이름과 값 사이). */
+	public static void linkLine(GuiGraphicsExtractor ctx, int x0, int x1, int y) {
+		if (x1 <= x0) {
+			return;
+		}
+		int mid = (x0 + x1) / 2;
+		ctx.fillGradient(x0, y, mid, y + 1, applyAlpha(0x12FFFFFF), applyAlpha(0x07FFFFFF));
+		ctx.fillGradient(mid, y, x1, y + 1, applyAlpha(0x07FFFFFF), applyAlpha(0x12FFFFFF));
+	}
+
+	/**
+	 * 49-93차(사용자: "이름 ---- 값 막대기 없애거나 조금만 가다 사라지게, 저것 때문에 구분이 안 됨"):
+	 * 이름 뒤에서 조금 나가다 사라지는 꼬리. 칸을 가로지르는 막대기가 아니라 이름에 붙은 짧은 여운.
+	 *
+	 * <p>49-103차(사용자: "막대기 뚝 끊지 말고 그라데이션으로 서서히 없애고"): 22px에서 선형으로 뚝 끝나던 것을
+	 * 최대 42px까지 ease-out(제곱) 곡선으로 부드럽게 흩어지게. 알파가 처음엔 진하다가 뒤로 갈수록 완만하게 0으로
+	 * 수렴해, 눈에 보이는 길이는 여전히 짧지만 끝이 딱 잘리지 않는다. fillGradient는 선형이라 여러 토막으로 나눠
+	 * 곡선을 흉내 낸다.
+	 */
+	public static void linkTail(GuiGraphicsExtractor ctx, int x0, int x1, int y) {
+		if (x1 <= x0) {
+			return;
+		}
+		int end = Math.min(x1, x0 + 42);
+		int len = end - x0;
+		if (len <= 0) {
+			return;
+		}
+		final int a0 = 0x20;      // 이름 바로 뒤 알파(32)
+		final int steps = 14;
+		for (int i = 0; i < steps; i++) {
+			double s0 = i / (double) steps;
+			double s1 = (i + 1) / (double) steps;
+			int sx0 = x0 + (int) Math.round(len * s0);
+			int sx1 = x0 + (int) Math.round(len * s1);
+			if (sx1 <= sx0) {
+				continue;
+			}
+			int aa0 = (int) Math.round(a0 * (1 - s0) * (1 - s0));   // ease-out: (1-s)^2
+			int aa1 = (int) Math.round(a0 * (1 - s1) * (1 - s1));
+			ctx.fillGradient(sx0, y, sx1, y + 1,
+					applyAlpha((aa0 << 24) | 0x00FFFFFF), applyAlpha((aa1 << 24) | 0x00FFFFFF));
+		}
+	}
+
+	/** 섹션 제목 + 오른쪽으로 사라지는 강조선. */
+	public static void sectionTitle(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String title) {
+		text(ctx, tr, title, x, y, TEXT);
+		int lx = x + width(tr, title) + 8;
+		fadeLine(ctx, lx, y + 4, x + w - lx, ACCENT);
+	}
+
+	/** 이름 · 연결선 · 값 한 줄(통계/진단/설정 공용). */
+	public static void infoRow(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String label, String value, int valueColor) {
+		infoRowColored(ctx, tr, x, y, w, label, value, TEXT_SUB, valueColor);
+	}
+
+	/** 이름 색까지 정하는 판. */
+	public static void infoRowColored(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String label, String value,
+			int labelColor, int valueColor) {
+		text(ctx, tr, label, x, y, labelColor);
+		int vw = width(tr, value);
+		text(ctx, tr, value, x + w - vw, y, valueColor);
+		linkLine(ctx, x + width(tr, label) + 6, x + w - vw - 6, y + 4);
+	}
+
+	/**
+	 * 작은 꺾쇠(설정 그룹 접기/펴기).	/**
+	 * 작은 꺾쇠(설정 그룹 접기/펴기). 동봉 아이콘 폰트 서브셋에 chevron이 없어서 fill로 직접 그린다.
+	 * down=true면 ∨(펼침), false면 ›(접힘). 5×5 안에 들어감.
+	 */
+	public static void chevron(GuiGraphicsExtractor ctx, int x, int y, boolean down, int color) {
+		color = applyAlpha(color);
+		for (int i = 0; i < 3; i++) {
+			if (down) {
+				ctx.fill(x + i, y + i, x + i + 1, y + i + 2, color);
+				ctx.fill(x + 4 - i, y + i, x + 5 - i, y + i + 2, color);
+			} else {
+				ctx.fill(x + i, y + i, x + i + 2, y + i + 1, color);
+				ctx.fill(x + i, y + 4 - i, x + i + 2, y + 5 - i, color);
+			}
+		}
+	}
+
+	/** 원(지름 d). */
+	public static void circle(GuiGraphicsExtractor ctx, int x, int y, int d, int color) {
+		if (!LunaGfx.drawRound(ctx, x, y, d, d, 0, 0, 128, 128, applyAlpha(color))) {
+			roundRect(ctx, x, y, d, d, d / 2, color);
+		}
+	}
+
+	/**
+	 * 페더 스타일 토글 스위치(알약). t = 0(꺼짐)~1(켜짐) 애니메이션 진행도 - 노브가 미끄러지고
+	 * 트랙 색이 섞임.
+	 */
+	// 49-104차(사용자: "기능 껐다켰다 하는 버튼은 활성화했을 때 테마색 말고 초록색 고정으로"):
+	// 켜짐 스위치를 테마(ACCENT)와 무관하게 항상 초록으로. 값은 기본 테마(초록)일 때와 같은 톤 - 어두운 초록 트랙 + 밝은 초록 노브.
+	private static final int TOGGLE_ON_TRACK = 0xFF566E42;
+	private static final int TOGGLE_ON_KNOB = 0xFFB9E387;
+
+	public static void toggle(GuiGraphicsExtractor ctx, int x, int y, int w, int h, float t, boolean enabledLook) {
+		t = Math.max(0f, Math.min(1f, t));
+		int on = enabledLook ? TOGGLE_ON_TRACK : ACCENT_DIM; // 켜짐 = 고정 초록 트랙 + 밝은 초록 노브(테마색 안 따라감)
+		if (soft()) {
+			// 크림: 시안처럼 하늘색 알약 + 흰 노브
+			pill(ctx, x, y, w, h, lerpColor(0xFFE6D8BE, enabledLook ? 0xFF62ACE6 : 0xFFB9C9D6, t));
+			int ks = h - 4;
+			circle(ctx, Math.round(x + 2 + (w - ks - 4) * t), y + 2, ks, 0xFFFFFFFF);
+			return;
+		}
+		int track = lerpColor(TRACK, on, t);
+		// 49-128차: 알약 + 동그란 노브 → 모서리 2px 트랙 + 네모 노브(작은 동그라미가 각져 보인다고).
+		// 49-161차(사용자: "너무 네모가 보여 클라이언트처럼 부드럽게", 스위치 골라 줌): 다시 알약 트랙 + 동그란 노브.
+		// 이번엔 둘 다 부드러운 텍스처 원(LunaGfx.drawRound)으로 그려 계단이 안 진다.
+		pill(ctx, x, y, w, h, track);
+		int knobSize = h - 4;
+		int knobX = Math.round(x + 2 + (w - knobSize - 4) * t);
+		int knob = enabledLook ? lerpColor(0xFF80848E, TOGGLE_ON_KNOB, t) : 0xFF6A6E78;
+		circle(ctx, knobX, y + 2, knobSize, knob);
+	}
+
+	/** 슬라이더: 둥근 트랙 + 채움 + 노브. ratio01은 0~1. */
+	public static void slider(GuiGraphicsExtractor ctx, int x, int y, int w, float ratio01, boolean hovered) {
+		int trackH = 4;
+		int ty = y + 5;
+		roundRect(ctx, x, ty, w, trackH, 2, TRACK);
+		// 49-234차(사용자: "게이지 끝까지 당기면 원이 밖으로 튀어나가"): 노브 가운데가 트랙 양 끝에서 반지름(5)만큼 안쪽에서만 움직인다
+		float r = Math.max(0f, Math.min(1f, ratio01));
+		int cx = x + 5 + Math.round((w - 10) * r);
+		int fillW = Math.max(trackH, cx - x);
+		roundRect(ctx, x, ty, fillW, trackH, 2, ACCENT);
+		int knob = hovered ? 10 : 8;
+		int kx = cx - knob / 2;
+		circle(ctx, kx, ty + trackH / 2 - knob / 2, knob, KNOB);
+	}
+
+	// =====================================================================
+	// 49-227차: 사진 시안 공용 부품(사용자: "다른 UI들도 전부 이런 입체감 + 예쁜 버튼으로")
+	// 판 = 그림자 + 아래 두께 3px + 테두리 + 불투명 속, 카드 = 아래 두께 2px + 테두리 + 속,
+	// 버튼 = 아래 두께 2px + 테두리 + 위가 밝은 그라데이션 속(+ 윗줄 하이라이트). 모든 Nova 화면이 이것만 쓴다.
+	// =====================================================================
+
+	public static final int B_NEUTRAL = 0, B_PRIMARY = 1, B_DANGER = 2, B_GOOD = 3;
+	private static final int GOOD_BASE = 0xFF5C9A38;   // 켜짐 초록(테마와 무관)
+	private static final int DANGER_BASE = 0xFFB9493F;
+
+	private static boolean lightTheme() {
+		try {
+			return LunaTheme.light();
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/** 판 속(불투명). */
+	public static int surfaceBg() {
+		return lightTheme() ? 0xFFF7EEDC : LunaTheme.mix(0xFF000000 | LunaTheme.PANEL, 0xFF000000 | LunaTheme.CARD, 0.35f);
+	}
+
+	/** 카드 속(판보다 한 단계 밝게). */
+	public static int surfaceCard() {
+		return lightTheme() ? 0xFFFFFBF2 : LunaTheme.mix(0xFF000000 | LunaTheme.CARD, 0xFF000000 | LunaTheme.CARD_HOVER, 0.5f);
+	}
+
+	/** 카드/판 테두리. */
+	public static int surfaceLine() {
+		return lightTheme() ? 0xFFE6D6B8 : LunaTheme.mix(0xFF000000 | LunaTheme.TRACK, 0xFF000000 | LunaTheme.TEXT, 0.06f);
+	}
+
+	/** 입력칸 속(카드보다 깊게). */
+	public static int surfaceField() {
+		return lightTheme() ? 0xFFFFFFFF : LunaTheme.mix(surfaceBg(), 0xFF000000, 0.25f);
+	}
+
+	/** 아래 두께 색. */
+	public static int surfaceEdge() {
+		return lightTheme() ? 0xFFD6C29C : LunaTheme.mix(surfaceBg(), 0xFF000000, 0.55f);
+	}
+
+	/** 판(화면 가운데 큰 창): 바깥 그림자 + 아래 두께 3px + 테두리 + 불투명 속. */
+	// ---- 49-239차(사용자: "크림은 시안 오른쪽이랑 진짜 비슷하게 부드럽고 말랑하게"): 밝은(크림) 스킨일 땐 둥글기를 키우고
+	// 아래 두께(어두운 띠) 대신 갈색 기운의 옅은 그림자 두 겹으로 띄운다.
+	public static boolean soft() {
+		return lightTheme();
+	}
+
+	/** 크림 스킨의 부드러운 그림자(상자 바로 아래 1~2px로 번짐). */
+	public static void softShadow(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r) {
+		roundRect(ctx, x - 1, y + 1, w + 2, h + 2, r + 1, 0x0F5A4630);
+		roundRect(ctx, x, y + 1, w, h + 1, r, 0x1C5A4630);
+	}
+
+	public static void panel3d(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r) {
+		if (soft()) {
+			r += 4;
+			roundRect(ctx, x - 3, y - 1, w + 6, h + 8, r + 3, 0x125A4630);
+			roundRect(ctx, x - 1, y + 1, w + 2, h + 3, r + 1, 0x1C5A4630);
+			roundRect(ctx, x, y, w, h, r, 0xFFE3D0AE);
+			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), surfaceBg());
+			return;
+		}
+		roundRect(ctx, x - 2, y, w + 4, h + 7, r + 1, 0x38000000);
+		roundRect(ctx, x, y + 3, w, h, r, surfaceEdge());
+		roundRect(ctx, x, y, w, h, r, lightTheme() ? 0xFFDCC8A4 : LunaTheme.mix(surfaceLine(), 0xFFFFFFFF, 0.06f));
+		roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), surfaceBg());
+	}
+
+	/** 카드: 아래 두께 2px + 테두리 + 속. fill/border가 0이면 기본 카드색. */
+	public static void card3d(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int fill, int border) {
+		if (w <= 2 || h <= 2) {
+			return;
+		}
+		if (soft()) {
+			r = Math.min(r + 3, Math.min(w, h) / 2);
+			softShadow(ctx, x, y, w, h, r);
+			roundRect(ctx, x, y, w, h, r, border == 0 ? surfaceLine() : border);
+			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill == 0 ? surfaceCard() : fill);
+			return;
+		}
+		roundRect(ctx, x, y + 2, w, h, r, surfaceEdge());
+		roundRect(ctx, x, y, w, h, r, border == 0 ? surfaceLine() : border);
+		roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill == 0 ? surfaceCard() : fill);
+	}
+
+	/** 카드(호버 0~1, 고름 = 테마색 테두리/속). */
+	public static void card3d(GuiGraphicsExtractor ctx, int x, int y, int w, int h, float hov, boolean selected) {
+		int fill = lerpColor(surfaceCard(), LunaTheme.mix(surfaceCard(), 0xFF000000 | LunaTheme.TEXT, 0.05f), hov);
+		int border = lerpColor(surfaceLine(), LunaTheme.mix(surfaceLine(), 0xFF000000 | LunaTheme.TEXT, 0.15f), hov);
+		if (selected) {
+			fill = LunaTheme.mix(fill, ACCENT | 0xFF000000, 0.08f);
+			border = LunaTheme.mix(surfaceLine(), ACCENT | 0xFF000000, 0.6f);
+		}
+		card3d(ctx, x, y, w, h, 4, fill, border);
+	}
+
+	/** 입력칸: 깊은 속 + 테두리(초점이면 테마색) + 아래 두께 1px. */
+	public static void field3d(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, boolean focused, boolean hovered) {
+		if (w <= 2 || h <= 2) {
+			return;
+		}
+		if (soft()) {
+			r = Math.min(r + 2, Math.min(w, h) / 2);
+		} else {
+			roundRect(ctx, x, y + 1, w, h, r, surfaceEdge());
+		}
+		int border = focused ? LunaTheme.mix(surfaceLine(), ACCENT | 0xFF000000, 0.7f)
+			: hovered ? LunaTheme.mix(surfaceLine(), 0xFF000000 | LunaTheme.TEXT, 0.15f) : surfaceLine();
+		roundRect(ctx, x, y, w, h, r, border);
+		roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), surfaceField());
+		ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(lightTheme() ? 0x0C000000 : 0x40000000));
+	}
+
+	private static int buttonBase(int kind) {
+		return switch (kind) {
+			case B_PRIMARY -> ACCENT | 0xFF000000;
+			case B_GOOD -> GOOD_BASE;
+			case B_DANGER -> DANGER_BASE;
+			default -> lightTheme() ? 0xFFFBF3E2 : LunaTheme.mix(surfaceCard(), 0xFF000000 | LunaTheme.TEXT, 0.07f);
+		};
+	}
+
+	/** 입체 버튼 몸통(글자는 부르는 쪽이 buttonText 색으로). hov = 0~1. */
+	public static void button3d(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int kind, float hov) {
+		if (w <= 2 || h <= 2) {
+			return;
+		}
+		int base = buttonBase(kind);
+		if (hov > 0f) {
+			base = kind == B_NEUTRAL && lightTheme() ? darken(base, 1f - 0.04f * hov) : lighten(base, 0.10f * hov);
+		}
+		int edge = kind == B_NEUTRAL ? surfaceEdge() : darken(base, 0.42f);
+		int border = kind == B_NEUTRAL
+			? lerpColor(LunaTheme.mix(surfaceLine(), 0xFF000000 | LunaTheme.TEXT, 0.10f),
+				LunaTheme.mix(surfaceLine(), 0xFF000000 | LunaTheme.TEXT, 0.22f), hov)
+			: darken(base, 0.72f);
+		int top = kind == B_NEUTRAL ? lighten(base, lightTheme() ? 0.6f : 0.05f) : lighten(base, 0.14f);
+		if (soft()) {
+			// 크림: 더 둥글게, 두께는 1px로 얇게 + 부드러운 그림자
+			r = Math.min(r + 3, h / 2);
+			softShadow(ctx, x, y, w, h, r);
+			roundRect(ctx, x, y + 1, w, h, r, kind == B_NEUTRAL ? 0xFFE0CDA8 : darken(base, 0.25f));
+			roundRect(ctx, x, y, w, h, r, kind == B_NEUTRAL ? lerpColor(0xFFE3D0AE, 0xFFD2BB92, hov) : darken(base, 0.82f));
+			roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), top, base);
+			if (w > 2 * r + 2) {
+				ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(kind == B_NEUTRAL ? 0x99FFFFFF : 0x40FFFFFF));
+			}
+			return;
+		}
+		roundRect(ctx, x, y + 2, w, h, r, edge);
+		roundRect(ctx, x, y, w, h, r, border);
+		roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), top, base);
+		if (w > 2 * r + 2) {
+			ctx.fill(x + Math.max(2, r), y + 1, x + w - Math.max(2, r), y + 2,
+				applyAlpha(kind == B_NEUTRAL ? (lightTheme() ? 0x80FFFFFF : 0x14FFFFFF) : 0x33FFFFFF));
+		}
+	}
+
+	/**
+	 * 49-256차: 아이콘 버튼 이름표(툴팁). 테마 카드 색 바탕 + 테두리 + 본문 글자색 - 예전엔 검은 바탕에 고정 글자색이라 밝은(크림) 테마에서
+	 * 글자가 바탕과 같은 어두운 색으로 바뀌어 안 보였다(사용자: "글 색이 하나도 안보여 테마랑 맞지도 않고"). 높이 14.
+	 */
+	public static void tipBox(GuiGraphicsExtractor ctx, net.minecraft.client.gui.Font tr, String s, int x, int y) {
+		int w = width(tr, s) + 10;
+		roundRect(ctx, x, y + 1, w, 14, 4, 0x26000000);
+		roundRect(ctx, x, y, w, 14, 4, surfaceLine());
+		roundRect(ctx, x + 1, y + 1, w - 2, 12, 3, surfaceCard());
+		text(ctx, tr, s, x + 5, textY(y, 14), TEXT);
+	}
+
+	public static int tipWidth(net.minecraft.client.gui.Font tr, String s) {
+		return width(tr, s) + 10;
+	}
+
+	/** 버튼 글자색. */
+	public static int buttonText(int kind, float hov) {
+		return switch (kind) {
+			case B_PRIMARY -> LunaTheme.ON_ACCENT;
+			case B_GOOD, B_DANGER -> 0xFFF7FAF4;
+			default -> lerpColor(TEXT_SUB, TEXT, Math.max(0.4f, hov));
+		};
+	}
+
+	/** 버튼 + 가운데 글자 한 번에. */
+	public static void button3d(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h, String label, int kind, float hov) {
+		button3d(ctx, x, y, w, h, Math.min(4, h / 2), kind, hov);
+		if (label != null && !label.isEmpty()) {
+			String t = ellipsize(tr, label, w - 6);
+			text(ctx, tr, t, x + (w - width(tr, t)) / 2, textY(y, h), buttonText(kind, hov));
+		}
+	}
+
+	/** 네모 아이콘 버튼(뒤로, 닫기, 톱니 …). active면 테마색 테두리 + 아이콘. */
+	public static void iconButton3d(GuiGraphicsExtractor ctx, Font tr, int x, int y, int size, String glyph, float hov, boolean active) {
+		card3d(ctx, x, y, size, size, hov, active);
+		int c = active ? (ACCENT | 0xFF000000) : lerpColor(TEXT_SUB, TEXT, hov);
+		if (size >= 18) {
+			LunaIcons.drawInBox(ctx, tr, glyph, x, y, size, c);
+		} else {
+			LunaIcons.draw(ctx, tr, glyph, x + (size - 10) / 2, iconY(y, size), c);
+		}
+	}
+
+	/** 작은 알약 버튼. */
+	public static void pillButton(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h, String label,
+			boolean hovered, boolean accent) {
+		// 49-227차: 공용 입체 버튼(button3d)으로 - 강조 = 테마색 채움, 아니면 회색 몸통
+		int kind = accent ? B_PRIMARY : B_NEUTRAL;
+		button3d(ctx, x, y, w, h, Math.min(4, h / 2), kind, hovered ? 1f : 0f);
+		int tw = width(tr, label);
+		text(ctx, tr, label, x + (w - tw) / 2, textY(y, h), buttonText(kind, hovered ? 1f : 0f));
+	}
+
+	// =====================================================================
+	// 텍스트(동봉 폰트)
+	// =====================================================================
+
+	// ---- 세로 정렬(49-10차, 49-13차 폰트 모드 대응) ----
+	// 49-39차(사용자: "아이콘이랑 글 높낮이도 안 맞잖아"): 예전 상수(아이콘 1.5, 큰 아이콘 −1.75, 마크 글자 4.0)는
+	// 1.21(FreeType) 기준 실측이라 1.20.4 이하(stb_truetype - 세로 규칙이 다름)에선 아이콘이 1~7px 내려앉았고,
+	// 마크 글자 중심도 실제(대문자 0..7 → 3.5)보다 0.5 컸다. 폰트 JSON을 두 벌로 나눠 두 시대 모두
+	// 잉크 밴드를 같게 맞췄고(LunaCompat.textBandTop 주석), 그 밴드 기준으로 상수를 다시 잡았다:
+	//  마크 기본/한글 픽셀 = 0..7(중심 3.5), 모던 Pretendard = 0.3..8.5(중심 4.4), 아이콘 11px = 3.5, 큰 아이콘 17px = 3.5.
+	private static final float ICON_CENTER = 3.5f;
+
+	/** 상자(boxY..boxY+boxH) 세로 정중앙에 오는 텍스트 draw y. */
+	/**
+	 * 49-236차(사용자: "폰트가 한 칸씩 밀렸어"): 반올림(.5 → 위로 1)이 글자와 아이콘을 상자 가운데보다 1px 아래로 보냈다.
+	 * 글자 잉크가 8줄(0..7)이고 상자가 짝수 높이면 늘 .5가 나와 전부 한 칸 내려앉았다(입체 버튼은 아래 두께까지 있어 더 처져
+	 * 보였다). .5는 위쪽으로 붙인다.
+	 */
+	private static int roundHalfDown(float v) {
+		return (int) Math.ceil(v - 0.5f);
+	}
+
+	public static int textY(int boxY, int boxH) {
+		return boxY + roundHalfDown(boxH / 2f - LunaCompat.textVisualCenter());
+	}
+
+	/** 상자 세로 정중앙에 오는 일반(11px) 아이콘 draw y. */
+	public static int iconY(int boxY, int boxH) {
+		return boxY + roundHalfDown(boxH / 2f - ICON_CENTER);
+	}
+
+	/** ty에 그린 텍스트와 시각적 중심을 맞추는(같은 줄) 아이콘 draw y. */
+	public static int iconBesideText(int textDrawY) {
+		return textDrawY + roundHalfDown(LunaCompat.textVisualCenter() - ICON_CENTER);
+	}
+
+	// 49-20차: 큰 아이콘(iconslg.ttf size 17) 실측 중심. 버튼을 키우면서 큰 아이콘을
+	// 쓰게 돼 세로 정렬 헬퍼가 하나 더 필요해짐. 49-39차: 폰트 JSON에서 베이스라인을 12로 맞춰 작은 아이콘·글자와 같은 3.5.
+	private static final float ICON_LG_CENTER = 3.5f;
+
+	/** 49-79차: 중간(16px) 아이콘의 잉크 중심도 같은 3.5(폰트 JSON 베이스라인을 그렇게 구웠다). */
+	public static int iconMdY(int boxY, int boxH) {
+		return boxY + roundHalfDown(boxH / 2f - ICON_LG_CENTER);
+	}
+
+	/** 49-245차: iconMdY의 반올림 전 값(화면 픽셀 단위로 맞춰 그릴 때). */
+	public static float iconMdYf(int boxY, int boxH) {
+		return boxY + boxH / 2f - ICON_LG_CENTER;
+	}
+
+	/** 상자 세로 정중앙에 오는 큰(17px) 아이콘 draw y. */
+	public static int iconLgY(int boxY, int boxH) {
+		return boxY + roundHalfDown(boxH / 2f - ICON_LG_CENTER);
+	}
+
+	public static int width(Font tr, String s) {
+		return LunaCompat.textWidth(tr, LunaGfx.text(s));
+	}
+
+	public static void text(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int color) {
+		if (hudDepth > 0 && kr.lunaslight.mod.util.LunaCompat.hudCream) {
+			s = kr.lunaslight.mod.util.LunaCompat.creamText(s);   // 49-257차: 크림 HUD 상자 위
+			color = kr.lunaslight.mod.util.LunaCompat.creamColor(color);
+		}
+		ctx.text(tr, LunaGfx.text(s), x, y, applyAlpha(color), false);
+	}
+
+	public static void textCentered(GuiGraphicsExtractor ctx, Font tr, String s, int cx, int y, int color) {
+		text(ctx, tr, s, cx - width(tr, s) / 2, y, color);
+	}
+
+	// ---- 49-25차: 굵은 글씨(타이틀·일시정지 버튼, 화면 제목) - 모던 모드는 동봉 Pretendard ExtraBold(title.ttf) ----
+	// 49-37차(사용자: "글이 2개로 겹쳐 보이잖아"): 마크/픽셀 글꼴 모드에서 1px 옆에 한 번 더 그려 굵게 흉내 내던 것을
+	// 없앰. 픽셀 글꼴은 획이 1px라 GUI 배율 2 이상에서 두 획이 떨어져 "글자가 두 개로 겹친" 것처럼 보였다
+	// (유니폰트·갈무리 둘 다). 픽셀 글꼴은 그냥 한 번만 그린다 - 굵기는 모던 글꼴에서만.
+
+	public static int widthBold(Font tr, String s) {
+		Object t = LunaGfx.titleText(s);
+		if (t instanceof net.minecraft.network.chat.Component txt) {
+			return LunaCompat.textWidth(tr, txt);
+		}
+		return width(tr, s);
+	}
+
+	public static void textBold(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int color) {
+		Object t = LunaGfx.titleText(s);
+		if (t instanceof net.minecraft.network.chat.Component txt) {
+			ctx.text(tr, txt, x, y, applyAlpha(color), false);
+			return;
+		}
+		text(ctx, tr, s, x, y, color);
+	}
+
+	/** 폭에 맞게 "…"로 자름. */
+	public static String ellipsize(Font tr, String text, int maxWidth) {
+		if (text == null) {
+			return "";
+		}
+		if (width(tr, text) <= maxWidth) {
+			return text;
+		}
+		String dots = "…";
+		int dotsW = width(tr, dots);
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < text.length(); i++) {
+			sb.append(text.charAt(i));
+			if (width(tr, sb.toString()) + dotsW > maxWidth) {
+				sb.setLength(Math.max(0, sb.length() - 1));
+				break;
+			}
+		}
+		return sb + dots;
+	}
+
+	/**
+	 * 49-21차: 바닐라 폰트 + §서식 코드가 섞인 문자열용 ellipsize(HUD/채팅 검색). 폭 측정을
+	 * LunaCompat.getTextWidth(현재 글꼴 모드)로 하고, §코드 한가운데서 잘리지 않게 한다.
+	 */
+	public static String ellipsizeFormatted(Font tr, String text, int maxWidth) {
+		if (text == null) {
+			return "";
+		}
+		if (LunaCompat.getTextWidth(tr, text) <= maxWidth) {
+			return text;
+		}
+		String dots = "…";
+		int dotsW = LunaCompat.getTextWidth(tr, dots);
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < text.length(); i++) {
+			char c = text.charAt(i);
+			if (c == '§' && i + 1 < text.length()) {
+				sb.append(c).append(text.charAt(i + 1));
+				i++;
+				continue;
+			}
+			sb.append(c);
+			if (LunaCompat.getTextWidth(tr, sb.toString()) + dotsW > maxWidth) {
+				sb.setLength(Math.max(0, sb.length() - 1));
+				break;
+			}
+		}
+		return sb + dots;
+	}
+
+	// =====================================================================
+	// 49-24차: 마인크래프트 인벤토리 느낌(바닐라 GUI 회색 판 + 베벨 슬롯) - 셜커 격자/핫바 줄 교체 미리보기용
+	// =====================================================================
+
+	public static final int MC_PANEL = 0xFFC6C6C6;
+	public static final int MC_SLOT = 0xFF8B8B8B;
+
+	/** 바닐라 GUI 판: 회색 바탕 + 왼/위 흰 하이라이트 + 오른/아래 어두운 그림자(모서리 1px 깎음). base로 색 틴트 가능. */
+	public static void mcPanel(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int base) {
+		int light = lerpColor(base, 0xFFFFFFFF, 0.55f);
+		int dark = lerpColor(base, 0xFF000000, 0.6f);
+		ctx.fill(x + 1, y + 1, x + w - 1, y + h - 1, applyAlpha(base));
+		ctx.fill(x + 1, y, x + w - 2, y + 1, applyAlpha(0xFF000000));
+		ctx.fill(x + 1, y + h - 1, x + w - 2, y + h, applyAlpha(0xFF000000));
+		ctx.fill(x, y + 1, x + 1, y + h - 2, applyAlpha(0xFF000000));
+		ctx.fill(x + w - 1, y + 1, x + w, y + h - 2, applyAlpha(0xFF000000));
+		ctx.fill(x + 1, y + 1, x + w - 2, y + 3, applyAlpha(light));
+		ctx.fill(x + 1, y + 1, x + 3, y + h - 2, applyAlpha(light));
+		ctx.fill(x + 2, y + h - 3, x + w - 1, y + h - 1, applyAlpha(dark));
+		ctx.fill(x + w - 3, y + 2, x + w - 1, y + h - 1, applyAlpha(dark));
+	}
+
+	public static void mcPanel(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		mcPanel(ctx, x, y, w, h, MC_PANEL);
+	}
+
+	/** 바닐라 인벤토리 슬롯(18×18): 회색 바닥 + 왼/위 어둡고 오른/아래 밝은 1px. */
+	public static void mcSlot(GuiGraphicsExtractor ctx, int x, int y) {
+		ctx.fill(x, y, x + 18, y + 18, applyAlpha(MC_SLOT));
+		ctx.fill(x, y, x + 17, y + 1, applyAlpha(0xFF373737));
+		ctx.fill(x, y, x + 1, y + 17, applyAlpha(0xFF373737));
+		ctx.fill(x + 1, y + 17, x + 18, y + 18, applyAlpha(0xFFFFFFFF));
+		ctx.fill(x + 17, y + 1, x + 18, y + 18, applyAlpha(0xFFFFFFFF));
+	}
+
+	// =====================================================================
+	// 애니메이션(프레임 독립, 지수 보간)
+	// =====================================================================
+
+	private static final Map<String, float[]> ANIM = new HashMap<>();
+	private static long lastFrameNanos;
+	private static float frameDt;
+
+	/** 이번 프레임의 경과 시간(초). 부드러운 스크롤 등 화면 쪽 보간에 사용. */
+	public static float dt() {
+		return frameDt;
+	}
+
+	/** 매 프레임 render 진입부에서 한 번 호출 - 프레임 시간 계산. */
+	public static void beginFrame() {
+		long now = System.nanoTime();
+		// 49-25차: 한 프레임 안에서 두 번 불리면(서랍 화면이 뒤에 부모 화면을 그릴 때) 두 번째는 무시 - dt가 0이 되면 안 됨
+		if (lastFrameNanos != 0 && now - lastFrameNanos < 200_000L) {
+			return;
+		}
+		frameDt = lastFrameNanos == 0 ? 0.016f : Math.min(0.1f, (now - lastFrameNanos) / 1_000_000_000f);
+		lastFrameNanos = now;
+	}
+
+	/**
+	 * key의 현재 값을 target 쪽으로 speed(1/초 단위의 반응 속도, 10~20이 자연스러움)만큼 접근시켜
+	 * 돌려줌. 처음 보는 key는 target에서 시작(첫 프레임 튐 방지).
+	 */
+	public static float anim(String key, float target, float speed) {
+		float[] v = ANIM.get(key);
+		if (v == null) {
+			v = new float[]{target};
+			ANIM.put(key, v);
+			return target;
+		}
+		float k = 1f - (float) Math.exp(-speed * frameDt);
+		v[0] += (target - v[0]) * k;
+		if (Math.abs(target - v[0]) < 0.002f) {
+			v[0] = target;
+		}
+		return v[0];
+	}
+
+	/** 처음 보는 key를 특정 시작값으로 두고 싶을 때(패널 열림 페이드 등). */
+	public static float animFrom(String key, float start, float target, float speed) {
+		if (!ANIM.containsKey(key)) {
+			ANIM.put(key, new float[]{start});
+		}
+		return anim(key, target, speed);
+	}
+
+	public static void resetAnim(String key) {
+		ANIM.remove(key);
+	}
+
+	// =====================================================================
+	// 유틸
+	// =====================================================================
+
+	public static boolean in(double mx, double my, int x, int y, int w, int h) {
+		return mx >= x && mx < x + w && my >= y && my < y + h;
+	}
+
+	/** 0xAARRGGBB에서 알파만 바꿈. */
+	public static int withAlpha(int argb, int alpha) {
+		return (argb & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
+	}
+
+	public static int lerpColor(int a, int b, float t) {
+		t = Math.max(0f, Math.min(1f, t));
+		int aa = (a >>> 24) & 0xFF, ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+		int ba = (b >>> 24) & 0xFF, br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+		int ra = Math.round(aa + (ba - aa) * t);
+		int rr = Math.round(ar + (br - ar) * t);
+		int rg = Math.round(ag + (bg - ag) * t);
+		int rb = Math.round(ab + (bb - ab) * t);
+		return (ra << 24) | (rr << 16) | (rg << 8) | rb;
+	}
+}

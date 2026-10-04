@@ -1,0 +1,5021 @@
+{
+ "version": 2,
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. 아이콘은 바닐라 대체 아이콘이며, 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다.",
+ "stations": {
+  "farm": {
+   "name": "농사",
+   "note": "내 섬(마인팜)에서 재배",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  "scarecrow": {
+   "name": "허수아비",
+   "note": "밀 벼 감자 당근 고추 호박 수박 재배 중 등장, 괭이나 도끼로 처치",
+   "icon": [
+    "minecraft:carved_pumpkin"
+   ]
+  },
+  "mine": {
+   "name": "광산",
+   "note": "/워프 광산 NPC 아오 (일반광산, 고급광산 하루 10분)",
+   "icon": [
+    "minecraft:iron_pickaxe"
+   ]
+  },
+  "fish": {
+   "name": "낚시",
+   "note": "스폰 낚시터 (/워프 → 낚시)",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  "dodo": {
+   "name": "낚시터 NPC 도토",
+   "note": "낚싯대 강화, 물고기 교환",
+   "icon": [
+    "minecraft:cod_bucket",
+    "minecraft:water_bucket"
+   ]
+  },
+  "is_harvest": {
+   "name": "수확 섬",
+   "note": "채집섬 (/워프 → 비행장 NPC 소라)",
+   "icon": [
+    "minecraft:hay_block"
+   ]
+  },
+  "is_ocean": {
+   "name": "해양 섬",
+   "note": "채집섬 (/워프 → 비행장 NPC 소라)",
+   "icon": [
+    "minecraft:prismarine"
+   ]
+  },
+  "is_mud": {
+   "name": "갯벌 섬",
+   "note": "채집섬 (/워프 → 비행장 NPC 소라)",
+   "icon": [
+    "minecraft:mud",
+    "minecraft:clay"
+   ]
+  },
+  "is_meat": {
+   "name": "정육 섬",
+   "note": "채집섬 (/워프 → 비행장 NPC 소라)",
+   "icon": [
+    "minecraft:cooked_beef"
+   ]
+  },
+  "shop": {
+   "name": "채집도구 제작",
+   "note": "상점에서 Lv.1을 만들고 이전 단계 + 채집코인으로 강화",
+   "icon": [
+    "minecraft:smithing_table",
+    "minecraft:crafting_table"
+   ]
+  },
+  "cook": {
+   "name": "요리",
+   "note": "요리실 NPC 야미 (/워프2 → 요리)",
+   "icon": [
+    "minecraft:smoker",
+    "minecraft:furnace"
+   ]
+  },
+  "smith": {
+   "name": "대장간",
+   "note": "NPC 탱구 (/워프2 → 대장간)",
+   "icon": [
+    "minecraft:anvil"
+   ]
+  },
+  "craft": {
+   "name": "제작대",
+   "note": "",
+   "icon": [
+    "minecraft:crafting_table"
+   ]
+  },
+  "dg1": {
+   "name": "던전 외딴 농장",
+   "note": "권장 Lv.1~10 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:hay_block"
+   ]
+  },
+  "dg2": {
+   "name": "던전 메마른 대지",
+   "note": "권장 Lv.11~20 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:sand"
+   ]
+  },
+  "dg3": {
+   "name": "던전 얼어붙은 설원",
+   "note": "권장 Lv.21~30 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:snow_block"
+   ]
+  },
+  "dg4": {
+   "name": "던전 울창한 숲",
+   "note": "권장 Lv.31~40 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:oak_log"
+   ]
+  },
+  "dg5": {
+   "name": "던전 안개의 습지",
+   "note": "권장 Lv.41~50 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:lily_pad"
+   ]
+  },
+  "dg6": {
+   "name": "던전 무릉도원",
+   "note": "권장 Lv.51~60 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:bamboo",
+    "minecraft:jungle_sapling"
+   ]
+  },
+  "dg7": {
+   "name": "던전 균사지대",
+   "note": "권장 Lv.61~70 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:red_mushroom_block"
+   ]
+  },
+  "dg8": {
+   "name": "던전 끝없는 분화구",
+   "note": "권장 Lv.71~80 (/워프 던전 NPC 우츠)",
+   "icon": [
+    "minecraft:magma_block"
+   ]
+  }
+ },
+ "categories": [
+  {
+   "id": "crop",
+   "name": "작물",
+   "icon": [
+    "minecraft:wheat"
+   ]
+  },
+  {
+   "id": "gather",
+   "name": "채집",
+   "icon": [
+    "minecraft:shears"
+   ]
+  },
+  {
+   "id": "food",
+   "name": "요리",
+   "icon": [
+    "minecraft:bread"
+   ]
+  },
+  {
+   "id": "fish",
+   "name": "물고기",
+   "icon": [
+    "minecraft:cod"
+   ]
+  },
+  {
+   "id": "gem",
+   "name": "광물",
+   "icon": [
+    "minecraft:diamond"
+   ]
+  },
+  {
+   "id": "dungeon",
+   "name": "던전",
+   "icon": [
+    "minecraft:bone"
+   ]
+  },
+  {
+   "id": "gear",
+   "name": "장비",
+   "icon": [
+    "minecraft:iron_chestplate"
+   ]
+  }
+ ],
+ "items": [
+  {
+   "key": "wheat",
+   "name": "밀",
+   "cat": "crop",
+   "icon": [
+    "minecraft:wheat"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "rice_plant",
+   "name": "벼",
+   "cat": "crop",
+   "icon": [
+    "minecraft:short_grass",
+    "minecraft:grass"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "potato",
+   "name": "감자",
+   "cat": "crop",
+   "icon": [
+    "minecraft:potato"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "carrot",
+   "name": "당근",
+   "cat": "crop",
+   "icon": [
+    "minecraft:carrot"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "pepper",
+   "name": "고추",
+   "cat": "crop",
+   "icon": [
+    "minecraft:red_dye"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "pumpkin",
+   "name": "호박",
+   "cat": "crop",
+   "icon": [
+    "minecraft:pumpkin"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "melon",
+   "name": "수박",
+   "cat": "crop",
+   "icon": [
+    "minecraft:melon"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "berry",
+   "name": "달콤한 열매",
+   "cat": "crop",
+   "icon": [
+    "minecraft:sweet_berries"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "apple",
+   "name": "사과",
+   "cat": "crop",
+   "icon": [
+    "minecraft:apple"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "sugarcane",
+   "name": "사탕수수",
+   "cat": "crop",
+   "icon": [
+    "minecraft:sugar_cane"
+   ],
+   "from": [
+    "farm"
+   ]
+  },
+  {
+   "key": "hay",
+   "name": "건초 더미",
+   "cat": "crop",
+   "icon": [
+    "minecraft:hay_block"
+   ]
+  },
+  {
+   "key": "gold_dust",
+   "name": "황금 가루",
+   "cat": "crop",
+   "icon": [
+    "minecraft:gold_nugget"
+   ],
+   "from": [
+    {
+     "at": "scarecrow",
+     "note": "처치 시 1개 고정"
+    }
+   ]
+  },
+  {
+   "key": "sus_box",
+   "name": "수상한 상자",
+   "cat": "crop",
+   "icon": [
+    "minecraft:barrel"
+   ],
+   "from": [
+    {
+     "at": "scarecrow",
+     "note": "처치 시 1개 고정"
+    }
+   ]
+  },
+  {
+   "key": "cobble",
+   "name": "조약돌",
+   "cat": "etc",
+   "icon": [
+    "minecraft:cobblestone"
+   ]
+  },
+  {
+   "key": "stick",
+   "name": "막대기",
+   "cat": "etc",
+   "icon": [
+    "minecraft:stick"
+   ]
+  },
+  {
+   "key": "cabbage",
+   "name": "양배추",
+   "cat": "gather",
+   "icon": [
+    "minecraft:fern"
+   ],
+   "from": [
+    {
+     "at": "is_harvest",
+     "note": "작물을 채집"
+    }
+   ]
+  },
+  {
+   "key": "leek",
+   "name": "대파",
+   "cat": "gather",
+   "icon": [
+    "minecraft:green_dye"
+   ],
+   "from": [
+    {
+     "at": "is_harvest",
+     "note": "작물을 채집"
+    }
+   ]
+  },
+  {
+   "key": "garlic",
+   "name": "마늘",
+   "cat": "gather",
+   "icon": [
+    "minecraft:beetroot_seeds"
+   ],
+   "from": [
+    {
+     "at": "is_harvest",
+     "note": "작물을 채집"
+    }
+   ]
+  },
+  {
+   "key": "ember_g",
+   "name": "초록 잉걸불",
+   "cat": "gather",
+   "icon": [
+    "minecraft:slime_ball"
+   ],
+   "from": [
+    {
+     "at": "is_harvest",
+     "note": "채집 중 미니게임 클리어 시"
+    }
+   ]
+  },
+  {
+   "key": "coin_harvest",
+   "name": "수확 채집코인",
+   "cat": "gather",
+   "icon": [
+    "minecraft:raw_gold",
+    "minecraft:gold_ingot"
+   ]
+  },
+  {
+   "key": "tool_harvest_1",
+   "name": "수확용 원형낫 (Lv.1)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_2",
+   "name": "수확용 원형낫 (Lv.2)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_3",
+   "name": "수확용 원형낫 (Lv.3)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_4",
+   "name": "수확용 원형낫 (Lv.4)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_5",
+   "name": "수확용 원형낫 (Lv.5)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_6",
+   "name": "수확용 원형낫 (Lv.6)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_7",
+   "name": "수확용 원형낫 (Lv.7)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "tool_harvest_8",
+   "name": "수확용 원형낫 (Lv.8)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_hoe"
+   ]
+  },
+  {
+   "key": "oyster",
+   "name": "굴",
+   "cat": "gather",
+   "icon": [
+    "minecraft:flint"
+   ],
+   "from": [
+    {
+     "at": "is_ocean",
+     "note": "해양 광석 채집 시 랜덤"
+    }
+   ]
+  },
+  {
+   "key": "scallop",
+   "name": "가리비",
+   "cat": "gather",
+   "icon": [
+    "minecraft:nautilus_shell"
+   ],
+   "from": [
+    {
+     "at": "is_ocean",
+     "note": "해양 광석 채집 시 랜덤"
+    }
+   ]
+  },
+  {
+   "key": "seaweed",
+   "name": "미역",
+   "cat": "gather",
+   "icon": [
+    "minecraft:kelp"
+   ],
+   "from": [
+    {
+     "at": "is_ocean",
+     "note": "해양 광석 채집 시 랜덤"
+    }
+   ]
+  },
+  {
+   "key": "ember_b",
+   "name": "푸른 잉걸불",
+   "cat": "gather",
+   "icon": [
+    "minecraft:light_blue_dye"
+   ],
+   "from": [
+    {
+     "at": "is_ocean",
+     "note": "채집 중 미니게임 클리어 시"
+    }
+   ]
+  },
+  {
+   "key": "coin_ocean",
+   "name": "해양 채집코인",
+   "cat": "gather",
+   "icon": [
+    "minecraft:raw_gold",
+    "minecraft:gold_ingot"
+   ]
+  },
+  {
+   "key": "tool_ocean_1",
+   "name": "해양용 호미 (Lv.1)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_2",
+   "name": "해양용 호미 (Lv.2)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_3",
+   "name": "해양용 호미 (Lv.3)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_4",
+   "name": "해양용 호미 (Lv.4)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_5",
+   "name": "해양용 호미 (Lv.5)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_6",
+   "name": "해양용 호미 (Lv.6)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_7",
+   "name": "해양용 호미 (Lv.7)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "tool_ocean_8",
+   "name": "해양용 호미 (Lv.8)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_hoe"
+   ]
+  },
+  {
+   "key": "crab",
+   "name": "꽃게",
+   "cat": "gather",
+   "icon": [
+    "minecraft:cod"
+   ],
+   "from": [
+    {
+     "at": "is_mud",
+     "note": "갯벌 블럭 채집 시 랜덤"
+    }
+   ]
+  },
+  {
+   "key": "squid",
+   "name": "갯벌 오징어",
+   "cat": "gather",
+   "icon": [
+    "minecraft:ink_sac"
+   ],
+   "from": [
+    {
+     "at": "is_mud",
+     "note": "갯벌 블럭 채집 시 랜덤"
+    }
+   ]
+  },
+  {
+   "key": "shrimp",
+   "name": "갯새우",
+   "cat": "gather",
+   "icon": [
+    "minecraft:salmon"
+   ],
+   "from": [
+    {
+     "at": "is_mud",
+     "note": "갯벌 블럭 채집 시 랜덤"
+    }
+   ]
+  },
+  {
+   "key": "ember_a",
+   "name": "잿빛 잉걸불",
+   "cat": "gather",
+   "icon": [
+    "minecraft:gunpowder"
+   ],
+   "from": [
+    {
+     "at": "is_mud",
+     "note": "채집 중 미니게임 클리어 시"
+    }
+   ]
+  },
+  {
+   "key": "coin_mud",
+   "name": "갯벌 채집코인",
+   "cat": "gather",
+   "icon": [
+    "minecraft:raw_gold",
+    "minecraft:gold_ingot"
+   ]
+  },
+  {
+   "key": "tool_mud_1",
+   "name": "어업용 갯갈퀴 (Lv.1)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_2",
+   "name": "어업용 갯갈퀴 (Lv.2)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_3",
+   "name": "어업용 갯갈퀴 (Lv.3)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_4",
+   "name": "어업용 갯갈퀴 (Lv.4)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_5",
+   "name": "어업용 갯갈퀴 (Lv.5)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_6",
+   "name": "어업용 갯갈퀴 (Lv.6)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_7",
+   "name": "어업용 갯갈퀴 (Lv.7)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "tool_mud_8",
+   "name": "어업용 갯갈퀴 (Lv.8)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_shovel"
+   ]
+  },
+  {
+   "key": "beef",
+   "name": "소고기",
+   "cat": "gather",
+   "icon": [
+    "minecraft:beef"
+   ],
+   "from": [
+    {
+     "at": "is_meat",
+     "note": "동물을 잡아 획득"
+    }
+   ]
+  },
+  {
+   "key": "pork",
+   "name": "돼지고기",
+   "cat": "gather",
+   "icon": [
+    "minecraft:porkchop"
+   ],
+   "from": [
+    {
+     "at": "is_meat",
+     "note": "동물을 잡아 획득"
+    }
+   ]
+  },
+  {
+   "key": "chicken",
+   "name": "닭고기",
+   "cat": "gather",
+   "icon": [
+    "minecraft:chicken"
+   ],
+   "from": [
+    {
+     "at": "is_meat",
+     "note": "동물을 잡아 획득"
+    }
+   ]
+  },
+  {
+   "key": "ember_r",
+   "name": "붉은 잉걸불",
+   "cat": "gather",
+   "icon": [
+    "minecraft:blaze_powder"
+   ],
+   "from": [
+    {
+     "at": "is_meat",
+     "note": "채집 중 미니게임 클리어 시"
+    }
+   ]
+  },
+  {
+   "key": "coin_meat",
+   "name": "정육 채집코인",
+   "cat": "gather",
+   "icon": [
+    "minecraft:raw_gold",
+    "minecraft:gold_ingot"
+   ]
+  },
+  {
+   "key": "tool_meat_1",
+   "name": "정육용 식칼 (Lv.1)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_2",
+   "name": "정육용 식칼 (Lv.2)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_3",
+   "name": "정육용 식칼 (Lv.3)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_4",
+   "name": "정육용 식칼 (Lv.4)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_5",
+   "name": "정육용 식칼 (Lv.5)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_6",
+   "name": "정육용 식칼 (Lv.6)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_7",
+   "name": "정육용 식칼 (Lv.7)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "tool_meat_8",
+   "name": "정육용 식칼 (Lv.8)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_sword"
+   ]
+  },
+  {
+   "key": "orca",
+   "name": "범고래",
+   "cat": "fish",
+   "icon": [
+    "minecraft:black_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "S급 0.35%"
+    }
+   ]
+  },
+  {
+   "key": "shark",
+   "name": "상어",
+   "cat": "fish",
+   "icon": [
+    "minecraft:gray_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "S급 0.35%"
+    }
+   ]
+  },
+  {
+   "key": "conch",
+   "name": "소라고동",
+   "cat": "fish",
+   "icon": [
+    "minecraft:nautilus_shell"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "S급 0.35%"
+    }
+   ]
+  },
+  {
+   "key": "salmon_f",
+   "name": "연어",
+   "cat": "fish",
+   "icon": [
+    "minecraft:salmon"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "A급 4%"
+    }
+   ]
+  },
+  {
+   "key": "eel",
+   "name": "장어",
+   "cat": "fish",
+   "icon": [
+    "minecraft:brown_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "A급 4%"
+    }
+   ]
+  },
+  {
+   "key": "jelly",
+   "name": "해파리",
+   "cat": "fish",
+   "icon": [
+    "minecraft:slime_ball"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "A급 4%"
+    }
+   ]
+  },
+  {
+   "key": "lobster",
+   "name": "랍스터",
+   "cat": "fish",
+   "icon": [
+    "minecraft:red_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "A급 4%"
+    }
+   ]
+  },
+  {
+   "key": "tuna",
+   "name": "참치",
+   "cat": "fish",
+   "icon": [
+    "minecraft:cod"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "A급 4%"
+    }
+   ]
+  },
+  {
+   "key": "tropical",
+   "name": "열대어",
+   "cat": "fish",
+   "icon": [
+    "minecraft:tropical_fish"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "catfish",
+   "name": "메기",
+   "cat": "fish",
+   "icon": [
+    "minecraft:cod"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "bass",
+   "name": "베스",
+   "cat": "fish",
+   "icon": [
+    "minecraft:cod"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "sunfish",
+   "name": "개복치",
+   "cat": "fish",
+   "icon": [
+    "minecraft:pufferfish"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "starfish",
+   "name": "불가사리",
+   "cat": "fish",
+   "icon": [
+    "minecraft:orange_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "anchovy",
+   "name": "다시 멸치",
+   "cat": "fish",
+   "icon": [
+    "minecraft:cod"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "seahorse",
+   "name": "분홍 해마",
+   "cat": "fish",
+   "icon": [
+    "minecraft:pink_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "goldfish",
+   "name": "금붕어",
+   "cat": "fish",
+   "icon": [
+    "minecraft:orange_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "jjukku",
+   "name": "쭈꾸미",
+   "cat": "fish",
+   "icon": [
+    "minecraft:ink_sac"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "gaebul",
+   "name": "개불",
+   "cat": "fish",
+   "icon": [
+    "minecraft:pink_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "B급 58%"
+    }
+   ]
+  },
+  {
+   "key": "ricefish",
+   "name": "송사리",
+   "cat": "fish",
+   "icon": [
+    "minecraft:cod"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "C급 37.65%"
+    }
+   ]
+  },
+  {
+   "key": "frog",
+   "name": "청개구리",
+   "cat": "fish",
+   "icon": [
+    "minecraft:lime_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "C급 37.65%"
+    }
+   ]
+  },
+  {
+   "key": "cola",
+   "name": "콜라 캔",
+   "cat": "fish",
+   "icon": [
+    "minecraft:red_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "C급 37.65%"
+    }
+   ]
+  },
+  {
+   "key": "can",
+   "name": "빈 깡통",
+   "cat": "fish",
+   "icon": [
+    "minecraft:iron_nugget"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "C급 37.65%"
+    }
+   ]
+  },
+  {
+   "key": "trash",
+   "name": "쓰레기 봉투",
+   "cat": "fish",
+   "icon": [
+    "minecraft:black_dye"
+   ],
+   "from": [
+    {
+     "at": "fish",
+     "note": "C급 37.65%"
+    }
+   ]
+  },
+  {
+   "key": "fcoin_a",
+   "name": "낚시 코인(A)",
+   "cat": "fish",
+   "icon": [
+    "minecraft:gold_ingot"
+   ]
+  },
+  {
+   "key": "fcoin_b",
+   "name": "낚시 코인(B)",
+   "cat": "fish",
+   "icon": [
+    "minecraft:iron_ingot"
+   ]
+  },
+  {
+   "key": "rod0",
+   "name": "기본 낚싯대",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod1",
+   "name": "낡은 낚싯대 (Lv.1)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod2",
+   "name": "낡은 낚싯대 (Lv.2)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod3",
+   "name": "평범한 낚싯대 (Lv.3)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod4",
+   "name": "평범한 낚싯대 (Lv.4)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod5",
+   "name": "쓸만한 낚싯대 (Lv.5)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod6",
+   "name": "쓸만한 낚싯대 (Lv.6)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod7",
+   "name": "고급 낚싯대 (Lv.7)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod8",
+   "name": "고급 낚싯대 (Lv.8)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod9",
+   "name": "최고급 낚싯대 (Lv.9)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "rod10",
+   "name": "황금 낚싯대 (Lv.Max)",
+   "cat": "gear",
+   "icon": [
+    "minecraft:fishing_rod"
+   ]
+  },
+  {
+   "key": "cook_coal",
+   "name": "요리용 석탄",
+   "cat": "gem",
+   "icon": [
+    "minecraft:charcoal"
+   ],
+   "from": [
+    {
+     "at": "mine",
+     "note": "일반"
+    }
+   ]
+  },
+  {
+   "key": "opal",
+   "name": "오팔 조각",
+   "cat": "gem",
+   "icon": [
+    "minecraft:prismarine_shard"
+   ],
+   "from": [
+    {
+     "at": "mine",
+     "note": "일반"
+    }
+   ]
+  },
+  {
+   "key": "aquamarine",
+   "name": "아쿠아마린",
+   "cat": "gem",
+   "icon": [
+    "minecraft:diamond"
+   ],
+   "from": [
+    {
+     "at": "mine",
+     "note": "레어 | 보석의 이해 I (Lv.20)"
+    }
+   ]
+  },
+  {
+   "key": "ruby",
+   "name": "루비 수정",
+   "cat": "gem",
+   "icon": [
+    "minecraft:redstone"
+   ],
+   "from": [
+    {
+     "at": "mine",
+     "note": "에픽 | 보석의 이해 II (Lv.40)"
+    }
+   ]
+  },
+  {
+   "key": "sapphire",
+   "name": "사파이어",
+   "cat": "gem",
+   "icon": [
+    "minecraft:lapis_lazuli"
+   ],
+   "from": [
+    {
+     "at": "mine",
+     "note": "유니크 | 보석의 이해 III (Lv.60)"
+    }
+   ]
+  },
+  {
+   "key": "peridot",
+   "name": "페리도트",
+   "cat": "gem",
+   "icon": [
+    "minecraft:emerald"
+   ],
+   "from": [
+    {
+     "at": "mine",
+     "note": "희귀 | 보석의 이해 III (Lv.60)"
+    }
+   ]
+  },
+  {
+   "key": "moonstone",
+   "name": "문스톤",
+   "cat": "gem",
+   "icon": [
+    "minecraft:quartz"
+   ]
+  },
+  {
+   "key": "topaz",
+   "name": "토파즈",
+   "cat": "gem",
+   "icon": [
+    "minecraft:glowstone_dust"
+   ]
+  },
+  {
+   "key": "larimar",
+   "name": "라리마",
+   "cat": "gem",
+   "icon": [
+    "minecraft:prismarine_crystals"
+   ]
+  },
+  {
+   "key": "garnet",
+   "name": "가넷",
+   "cat": "gem",
+   "icon": [
+    "minecraft:nether_wart"
+   ]
+  },
+  {
+   "key": "iolite",
+   "name": "아이올라이트",
+   "cat": "gem",
+   "icon": [
+    "minecraft:amethyst_shard",
+    "minecraft:purple_dye"
+   ]
+  },
+  {
+   "key": "prehnite",
+   "name": "프레나이트",
+   "cat": "gem",
+   "icon": [
+    "minecraft:lime_dye"
+   ]
+  },
+  {
+   "key": "lavender",
+   "name": "라벤더 자수정",
+   "cat": "gem",
+   "icon": [
+    "minecraft:purple_dye"
+   ]
+  },
+  {
+   "key": "feather",
+   "name": "깃털",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:feather"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "닭 Lv.1~3 100%"
+    }
+   ]
+  },
+  {
+   "key": "pig_hide",
+   "name": "돼지 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:pink_dye"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "돼지 Lv.3~5 100%"
+    }
+   ]
+  },
+  {
+   "key": "cow_hide",
+   "name": "소 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:brown_dye"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "소 Lv.5~7 100%"
+    }
+   ]
+  },
+  {
+   "key": "mane",
+   "name": "갈기",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:string"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "말 Lv.7~9 100%"
+    }
+   ]
+  },
+  {
+   "key": "raccoon_tail",
+   "name": "너구리 꼬리",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:rabbit_foot"
+   ],
+   "from": [
+    {
+     "at": "dg2",
+     "note": "너구리 Lv.11~13 100%"
+    }
+   ]
+  },
+  {
+   "key": "fox_fur",
+   "name": "사막여우 털뭉치",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:orange_wool"
+   ],
+   "from": [
+    {
+     "at": "dg2",
+     "note": "사막여우 Lv.13~15 100%"
+    }
+   ]
+  },
+  {
+   "key": "camel_hoof",
+   "name": "낙타 발굽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:bone"
+   ],
+   "from": [
+    {
+     "at": "dg2",
+     "note": "낙타 Lv.15~17 100%"
+    }
+   ]
+  },
+  {
+   "key": "hyena_fang",
+   "name": "하이애나 송곳니",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:bone_meal"
+   ],
+   "from": [
+    {
+     "at": "dg2",
+     "note": "하이애나 Lv.17~19 100%"
+    }
+   ]
+  },
+  {
+   "key": "penguin_beak",
+   "name": "펭귄 부리",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:orange_dye"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "펭귄 Lv.21~23 100%"
+    }
+   ]
+  },
+  {
+   "key": "seal_whisker",
+   "name": "하프물범 수염",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:white_wool"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "하프물범 Lv.23~25 100%"
+    }
+   ]
+  },
+  {
+   "key": "bear_paw_w",
+   "name": "반달곰 발바닥 (북극곰)",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:white_dye"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "북극곰 Lv.25~27 100%"
+    }
+   ]
+  },
+  {
+   "key": "reindeer_horn",
+   "name": "순록 뿔",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:dead_bush"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "순록 Lv.27~29 100%"
+    }
+   ]
+  },
+  {
+   "key": "deer_horn",
+   "name": "사슴 뿔",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:dead_bush"
+   ],
+   "from": [
+    {
+     "at": "dg4",
+     "note": "사슴 Lv.31~33 100%"
+    }
+   ]
+  },
+  {
+   "key": "boar_tusk",
+   "name": "멧돼지 송곳니",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:bone"
+   ],
+   "from": [
+    {
+     "at": "dg4",
+     "note": "멧돼지 Lv.33~35 100%"
+    }
+   ]
+  },
+  {
+   "key": "dog_fur",
+   "name": "들개 털뭉치",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:brown_wool"
+   ],
+   "from": [
+    {
+     "at": "dg4",
+     "note": "들개 Lv.35~37 100%"
+    }
+   ]
+  },
+  {
+   "key": "bear_paw",
+   "name": "반달 곰 발바닥",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:black_dye"
+   ],
+   "from": [
+    {
+     "at": "dg4",
+     "note": "반달곰 Lv.37~39 100%"
+    }
+   ]
+  },
+  {
+   "key": "poison_sac",
+   "name": "독 주머니",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:spider_eye"
+   ],
+   "from": [
+    {
+     "at": "dg5",
+     "note": "독개구리 Lv.41~43 100%"
+    }
+   ]
+  },
+  {
+   "key": "turtle_shell",
+   "name": "거북이 등껍질",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:turtle_scute",
+    "minecraft:scute"
+   ],
+   "from": [
+    {
+     "at": "dg5",
+     "note": "거북이 Lv.43~45 100%"
+    }
+   ]
+  },
+  {
+   "key": "snake_scale",
+   "name": "뱀 비늘",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:green_dye"
+   ],
+   "from": [
+    {
+     "at": "dg5",
+     "note": "뱀 Lv.45~47 100%"
+    }
+   ]
+  },
+  {
+   "key": "croc_hide",
+   "name": "악어 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:rabbit_hide"
+   ],
+   "from": [
+    {
+     "at": "dg5",
+     "note": "악어 Lv.47~49 100%"
+    }
+   ]
+  },
+  {
+   "key": "peacock_feather",
+   "name": "공작새 깃털",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:feather"
+   ],
+   "from": [
+    {
+     "at": "dg6",
+     "note": "공작새 Lv.51~53 100%"
+    }
+   ]
+  },
+  {
+   "key": "monkey_tail",
+   "name": "원숭이 꼬리",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:brown_dye"
+   ],
+   "from": [
+    {
+     "at": "dg6",
+     "note": "베이비 몽키 Lv.54~56 100%"
+    }
+   ]
+  },
+  {
+   "key": "panda_paw",
+   "name": "판다곰 발바닥",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:black_dye"
+   ],
+   "from": [
+    {
+     "at": "dg6",
+     "note": "판다곰 Lv.57~59 100%"
+    }
+   ]
+  },
+  {
+   "key": "orange_mush",
+   "name": "주황 버섯",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:red_mushroom"
+   ],
+   "from": [
+    {
+     "at": "dg7",
+     "note": "전사 버섯 Lv.61~63 100%"
+    }
+   ]
+  },
+  {
+   "key": "purple_mush",
+   "name": "보라 버섯",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:brown_mushroom"
+   ],
+   "from": [
+    {
+     "at": "dg7",
+     "note": "고목 버섯 Lv.63~65 100%"
+    }
+   ]
+  },
+  {
+   "key": "poison_mush",
+   "name": "독 버섯",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:crimson_fungus"
+   ],
+   "from": [
+    {
+     "at": "dg7",
+     "note": "독버섯 Lv.65~67 100%"
+    }
+   ]
+  },
+  {
+   "key": "spore",
+   "name": "버섯 포자",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:warped_fungus"
+   ],
+   "from": [
+    {
+     "at": "dg7",
+     "note": "헌터 버섯 Lv.67~69 100%"
+    }
+   ]
+  },
+  {
+   "key": "broken_sword",
+   "name": "부러진 검 조각",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:iron_nugget"
+   ],
+   "from": [
+    {
+     "at": "dg8",
+     "note": "전사 들쥐 Lv.71~73 100%"
+    }
+   ]
+  },
+  {
+   "key": "broken_bow",
+   "name": "부러진 활 조각",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:stick"
+   ],
+   "from": [
+    {
+     "at": "dg8",
+     "note": "사수 들쥐 Lv.73~75 100%"
+    }
+   ]
+  },
+  {
+   "key": "rat_hood",
+   "name": "마법사 들쥐 후드",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "from": [
+    {
+     "at": "dg8",
+     "note": "마법사 들쥐 Lv.75~77 100%"
+    }
+   ]
+  },
+  {
+   "key": "rat_tooth",
+   "name": "대장 들쥐 앞니",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:bone_meal"
+   ],
+   "from": [
+    {
+     "at": "dg8",
+     "note": "대장 들쥐 Lv.77~79 100%"
+    }
+   ]
+  },
+  {
+   "key": "leather1",
+   "name": "하급 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:rabbit_hide"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "10%"
+    },
+    {
+     "at": "dg2",
+     "note": "10%"
+    },
+    {
+     "at": "dg3",
+     "note": "3%"
+    },
+    {
+     "at": "dg4",
+     "note": "3%"
+    }
+   ]
+  },
+  {
+   "key": "leather2",
+   "name": "중급 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:leather"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "7%"
+    },
+    {
+     "at": "dg4",
+     "note": "7%"
+    },
+    {
+     "at": "dg5",
+     "note": "3%"
+    },
+    {
+     "at": "dg6",
+     "note": "3%"
+    }
+   ]
+  },
+  {
+   "key": "leather3",
+   "name": "고급 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:phantom_membrane"
+   ],
+   "from": [
+    {
+     "at": "dg5",
+     "note": "7%"
+    },
+    {
+     "at": "dg6",
+     "note": "7%"
+    },
+    {
+     "at": "dg7",
+     "note": "3%"
+    },
+    {
+     "at": "dg8",
+     "note": "3%"
+    }
+   ]
+  },
+  {
+   "key": "leather4",
+   "name": "황금 가죽",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:yellow_dye"
+   ],
+   "from": [
+    {
+     "at": "dg7",
+     "note": "7%"
+    },
+    {
+     "at": "dg8",
+     "note": "7%"
+    }
+   ]
+  },
+  {
+   "key": "spell",
+   "name": "주문의 흔적",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:experience_bottle"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg2",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg3",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg4",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg5",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg6",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg7",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "dg8",
+     "note": "모든 몬스터 약 7~8.5%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "16개 9.9%"
+    }
+   ]
+  },
+  {
+   "key": "box1",
+   "name": "하급 보물상자",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "약 1%"
+    },
+    {
+     "at": "dg2",
+     "note": "약 1.3%"
+    },
+    {
+     "at": "dg3",
+     "note": "0.84%"
+    },
+    {
+     "at": "dg4",
+     "note": "약 0.9%"
+    }
+   ]
+  },
+  {
+   "key": "box2",
+   "name": "중급 보물상자",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:trapped_chest"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "약 0.5%"
+    },
+    {
+     "at": "dg4",
+     "note": "약 0.65%"
+    },
+    {
+     "at": "dg5",
+     "note": "약 1.3%"
+    },
+    {
+     "at": "dg6",
+     "note": "약 1.5%"
+    },
+    {
+     "at": "dg7",
+     "note": "0.96%"
+    },
+    {
+     "at": "dg8",
+     "note": "약 1%"
+    }
+   ]
+  },
+  {
+   "key": "box3",
+   "name": "고급 보물상자",
+   "cat": "dungeon",
+   "icon": [
+    "minecraft:ender_chest"
+   ],
+   "from": [
+    {
+     "at": "dg7",
+     "note": "약 0.55%"
+    },
+    {
+     "at": "dg8",
+     "note": "약 0.65%"
+    }
+   ]
+  },
+  {
+   "key": "ember_gold",
+   "name": "황금 잉걸불",
+   "cat": "food",
+   "icon": [
+    "minecraft:fire_charge"
+   ]
+  },
+  {
+   "key": "bread",
+   "name": "빵",
+   "cat": "food",
+   "icon": [
+    "minecraft:bread"
+   ]
+  },
+  {
+   "key": "rice",
+   "name": "쌀",
+   "cat": "food",
+   "icon": [
+    "minecraft:bone_meal"
+   ]
+  },
+  {
+   "key": "ex_pumpkin",
+   "name": "호박 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "farm",
+     "note": "스킬 황금 작물: 호박 재배 시 0.01~0.022%"
+    }
+   ]
+  },
+  {
+   "key": "ex_melon",
+   "name": "수박 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "farm",
+     "note": "스킬 황금 작물: 수박 재배 시 0.01~0.022%"
+    }
+   ]
+  },
+  {
+   "key": "ex_potato",
+   "name": "감자 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "farm",
+     "note": "스킬 황금 작물: 감자 재배 시 0.01~0.022%"
+    }
+   ]
+  },
+  {
+   "key": "ex_berry",
+   "name": "열매 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ]
+  },
+  {
+   "key": "ex_pepper",
+   "name": "고추 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "farm",
+     "note": "스킬 황금 작물: 고추 재배 시 0.01~0.022%"
+    }
+   ]
+  },
+  {
+   "key": "ex_carrot",
+   "name": "당근 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "farm",
+     "note": "스킬 황금 작물: 당근 재배 시 0.01~0.022%"
+    }
+   ]
+  },
+  {
+   "key": "ex_apple",
+   "name": "사과 액기스",
+   "cat": "food",
+   "icon": [
+    "minecraft:potion"
+   ]
+  },
+  {
+   "key": "sugar",
+   "name": "수북한 설탕",
+   "cat": "food",
+   "icon": [
+    "minecraft:sugar"
+   ]
+  },
+  {
+   "key": "flour",
+   "name": "수북한 밀가루",
+   "cat": "food",
+   "icon": [
+    "minecraft:white_dye"
+   ]
+  },
+  {
+   "key": "coleslaw",
+   "name": "코울슬로",
+   "cat": "food",
+   "icon": [
+    "minecraft:beetroot_soup"
+   ]
+  },
+  {
+   "key": "baguette",
+   "name": "마늘 바게트",
+   "cat": "food",
+   "icon": [
+    "minecraft:cookie"
+   ]
+  },
+  {
+   "key": "leek_soup",
+   "name": "감자 대파 수프",
+   "cat": "food",
+   "icon": [
+    "minecraft:mushroom_stew"
+   ]
+  },
+  {
+   "key": "chicken_rice",
+   "name": "치킨 라이스",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_chicken"
+   ]
+  },
+  {
+   "key": "beef_sand",
+   "name": "비프 샌드위치",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_beef"
+   ]
+  },
+  {
+   "key": "jeyuk",
+   "name": "제육볶음",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_porkchop"
+   ]
+  },
+  {
+   "key": "shrimp_rice",
+   "name": "새우 볶음밥",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_salmon"
+   ]
+  },
+  {
+   "key": "squid_grill",
+   "name": "달콤 오징어 구이",
+   "cat": "food",
+   "icon": [
+    "minecraft:dried_kelp"
+   ]
+  },
+  {
+   "key": "scallop_grill",
+   "name": "가리비 호박 구이",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_cod"
+   ]
+  },
+  {
+   "key": "melon_salad",
+   "name": "수박 미역 샐러드",
+   "cat": "food",
+   "icon": [
+    "minecraft:melon_slice"
+   ]
+  },
+  {
+   "key": "apple_salad",
+   "name": "사과 샐러드",
+   "cat": "food",
+   "icon": [
+    "minecraft:glow_berries",
+    "minecraft:apple"
+   ]
+  },
+  {
+   "key": "pumpkin_porridge",
+   "name": "호박죽",
+   "cat": "food",
+   "icon": [
+    "minecraft:rabbit_stew"
+   ]
+  },
+  {
+   "key": "oyster_mix",
+   "name": "과일 굴 무침",
+   "cat": "food",
+   "icon": [
+    "minecraft:tropical_fish"
+   ]
+  },
+  {
+   "key": "brulee",
+   "name": "호박 브륄레",
+   "cat": "food",
+   "icon": [
+    "minecraft:pumpkin_pie"
+   ]
+  },
+  {
+   "key": "carrot_cake",
+   "name": "당근 케이크",
+   "cat": "food",
+   "icon": [
+    "minecraft:cake"
+   ]
+  },
+  {
+   "key": "potato_pancake",
+   "name": "감자전",
+   "cat": "food",
+   "icon": [
+    "minecraft:baked_potato"
+   ]
+  },
+  {
+   "key": "melon_juice",
+   "name": "수박 주스",
+   "cat": "food",
+   "icon": [
+    "minecraft:honey_bottle"
+   ]
+  },
+  {
+   "key": "apple_pie",
+   "name": "애플파이",
+   "cat": "food",
+   "icon": [
+    "minecraft:pumpkin_pie"
+   ]
+  },
+  {
+   "key": "crab_burger",
+   "name": "게살버거",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_rabbit"
+   ]
+  },
+  {
+   "key": "gold_coleslaw",
+   "name": "황금 코울슬로",
+   "cat": "food",
+   "icon": [
+    "minecraft:beetroot_soup"
+   ]
+  },
+  {
+   "key": "gold_baguette",
+   "name": "황금 마늘 바게트",
+   "cat": "food",
+   "icon": [
+    "minecraft:cookie"
+   ]
+  },
+  {
+   "key": "gold_leek_soup",
+   "name": "황금 감자 대파 수프",
+   "cat": "food",
+   "icon": [
+    "minecraft:mushroom_stew"
+   ]
+  },
+  {
+   "key": "gold_chicken_rice",
+   "name": "황금 치킨 라이스",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_chicken"
+   ]
+  },
+  {
+   "key": "gold_beef_sand",
+   "name": "황금 비프 샌드위치",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_beef"
+   ]
+  },
+  {
+   "key": "gold_jeyuk",
+   "name": "황금 제육볶음",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_porkchop"
+   ]
+  },
+  {
+   "key": "gold_shrimp_rice",
+   "name": "황금 새우 볶음밥",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_salmon"
+   ]
+  },
+  {
+   "key": "gold_squid_grill",
+   "name": "황금 달콤 오징어 구이",
+   "cat": "food",
+   "icon": [
+    "minecraft:dried_kelp"
+   ]
+  },
+  {
+   "key": "gold_scallop_grill",
+   "name": "황금 가리비 호박 구이",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_cod"
+   ]
+  },
+  {
+   "key": "gold_melon_salad",
+   "name": "황금 수박 미역 샐러드",
+   "cat": "food",
+   "icon": [
+    "minecraft:melon_slice"
+   ]
+  },
+  {
+   "key": "gold_pumpkin_porridge",
+   "name": "황금 호박죽",
+   "cat": "food",
+   "icon": [
+    "minecraft:rabbit_stew"
+   ]
+  },
+  {
+   "key": "gold_oyster_mix",
+   "name": "황금 과일 굴 무침",
+   "cat": "food",
+   "icon": [
+    "minecraft:tropical_fish"
+   ]
+  },
+  {
+   "key": "gold_potato_pancake",
+   "name": "황금 감자전",
+   "cat": "food",
+   "icon": [
+    "minecraft:baked_potato"
+   ]
+  },
+  {
+   "key": "gold_apple_pie",
+   "name": "황금 애플파이",
+   "cat": "food",
+   "icon": [
+    "minecraft:pumpkin_pie"
+   ]
+  },
+  {
+   "key": "gold_crab_burger",
+   "name": "황금 게살버거",
+   "cat": "food",
+   "icon": [
+    "minecraft:cooked_rabbit"
+   ]
+  },
+  {
+   "key": "elder_helmet",
+   "name": "엘더우드 모자",
+   "cat": "gear",
+   "icon": [
+    "minecraft:leather_helmet"
+   ]
+  },
+  {
+   "key": "elder_chest",
+   "name": "엘더우드 갑옷",
+   "cat": "gear",
+   "icon": [
+    "minecraft:leather_chestplate"
+   ]
+  },
+  {
+   "key": "elder_legs",
+   "name": "엘더우드 레깅스",
+   "cat": "gear",
+   "icon": [
+    "minecraft:leather_leggings"
+   ]
+  },
+  {
+   "key": "elder_boots",
+   "name": "엘더우드 부츠",
+   "cat": "gear",
+   "icon": [
+    "minecraft:leather_boots"
+   ]
+  },
+  {
+   "key": "elder_sword",
+   "name": "엘더우드 검",
+   "cat": "gear",
+   "icon": [
+    "minecraft:wooden_sword"
+   ]
+  },
+  {
+   "key": "lotus_helmet",
+   "name": "블랙로터스 모자",
+   "cat": "gear",
+   "icon": [
+    "minecraft:chainmail_helmet"
+   ]
+  },
+  {
+   "key": "lotus_chest",
+   "name": "블랙로터스 갑옷",
+   "cat": "gear",
+   "icon": [
+    "minecraft:chainmail_chestplate"
+   ]
+  },
+  {
+   "key": "lotus_legs",
+   "name": "블랙로터스 레깅스",
+   "cat": "gear",
+   "icon": [
+    "minecraft:chainmail_leggings"
+   ]
+  },
+  {
+   "key": "lotus_boots",
+   "name": "블랙로터스 부츠",
+   "cat": "gear",
+   "icon": [
+    "minecraft:chainmail_boots"
+   ]
+  },
+  {
+   "key": "lotus_dagger",
+   "name": "블랙로터스 단검",
+   "cat": "gear",
+   "icon": [
+    "minecraft:stone_sword"
+   ]
+  },
+  {
+   "key": "nord_helmet",
+   "name": "노르드 투구",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_helmet"
+   ]
+  },
+  {
+   "key": "nord_chest",
+   "name": "노르드 갑옷",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_chestplate"
+   ]
+  },
+  {
+   "key": "nord_legs",
+   "name": "노르드 레깅스",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_leggings"
+   ]
+  },
+  {
+   "key": "nord_boots",
+   "name": "노르드 부츠",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_boots"
+   ]
+  },
+  {
+   "key": "nord_axe",
+   "name": "노르드 도끼",
+   "cat": "gear",
+   "icon": [
+    "minecraft:iron_axe"
+   ]
+  },
+  {
+   "key": "burgonet_helmet",
+   "name": "버거넷 투구",
+   "cat": "gear",
+   "icon": [
+    "minecraft:diamond_helmet"
+   ]
+  },
+  {
+   "key": "burgonet_chest",
+   "name": "버거넷 갑옷",
+   "cat": "gear",
+   "icon": [
+    "minecraft:diamond_chestplate"
+   ]
+  },
+  {
+   "key": "burgonet_legs",
+   "name": "버거넷 레깅스",
+   "cat": "gear",
+   "icon": [
+    "minecraft:diamond_leggings"
+   ]
+  },
+  {
+   "key": "burgonet_boots",
+   "name": "버거넷 부츠",
+   "cat": "gear",
+   "icon": [
+    "minecraft:diamond_boots"
+   ]
+  },
+  {
+   "key": "burgonet_claymore",
+   "name": "버거넷 클레이모어",
+   "cat": "gear",
+   "icon": [
+    "minecraft:diamond_sword"
+   ]
+  },
+  {
+   "key": "oakhark_helmet",
+   "name": "오크하크 투구",
+   "cat": "gear",
+   "icon": [
+    "minecraft:netherite_helmet",
+    "minecraft:golden_helmet"
+   ]
+  },
+  {
+   "key": "oakhark_chest",
+   "name": "오크하크 갑옷",
+   "cat": "gear",
+   "icon": [
+    "minecraft:netherite_chestplate",
+    "minecraft:golden_chestplate"
+   ]
+  },
+  {
+   "key": "oakhark_legs",
+   "name": "오크하크 레깅스",
+   "cat": "gear",
+   "icon": [
+    "minecraft:netherite_leggings",
+    "minecraft:golden_leggings"
+   ]
+  },
+  {
+   "key": "oakhark_boots",
+   "name": "오크하크 부츠",
+   "cat": "gear",
+   "icon": [
+    "minecraft:netherite_boots",
+    "minecraft:golden_boots"
+   ]
+  },
+  {
+   "key": "oakhark_greatsword",
+   "name": "오크하크 대검",
+   "cat": "gear",
+   "icon": [
+    "minecraft:netherite_sword",
+    "minecraft:golden_sword"
+   ]
+  }
+ ],
+ "recipes": [
+  {
+   "at": "craft",
+   "out": "hay",
+   "n": 1,
+   "in": [
+    [
+     "wheat",
+     9
+    ]
+   ]
+  },
+  {
+   "at": "shop",
+   "out": "coin_harvest",
+   "n": 1,
+   "in": [
+    [
+     "cabbage",
+     20
+    ],
+    [
+     "leek",
+     20
+    ],
+    [
+     "garlic",
+     20
+    ],
+    [
+     "ember_g",
+     3
+    ]
+   ],
+   "note": "채집도구 교환 재화"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_1",
+   "n": 1,
+   "in": [
+    [
+     "cobble",
+     3
+    ],
+    [
+     "stick",
+     2
+    ]
+   ],
+   "note": "채집효율 +6 | 추가드랍 +3%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_2",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_1",
+     1
+    ],
+    [
+     "coin_harvest",
+     10
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +5%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_3",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_2",
+     1
+    ],
+    [
+     "coin_harvest",
+     20
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +8%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_4",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_3",
+     1
+    ],
+    [
+     "coin_harvest",
+     35
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +10%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_5",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_4",
+     1
+    ],
+    [
+     "coin_harvest",
+     60
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +14%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_6",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_5",
+     1
+    ],
+    [
+     "coin_harvest",
+     95
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +16%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_7",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_6",
+     1
+    ],
+    [
+     "coin_harvest",
+     130
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +20%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_harvest_8",
+   "n": 1,
+   "in": [
+    [
+     "tool_harvest_7",
+     1
+    ],
+    [
+     "coin_harvest",
+     150
+    ]
+   ],
+   "note": "채집효율 +15 | 추가드랍 +25%"
+  },
+  {
+   "at": "shop",
+   "out": "coin_ocean",
+   "n": 1,
+   "in": [
+    [
+     "oyster",
+     18
+    ],
+    [
+     "scallop",
+     18
+    ],
+    [
+     "seaweed",
+     18
+    ],
+    [
+     "ember_b",
+     3
+    ]
+   ],
+   "note": "채집도구 교환 재화"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_1",
+   "n": 1,
+   "in": [
+    [
+     "cobble",
+     3
+    ],
+    [
+     "stick",
+     2
+    ]
+   ],
+   "note": "채집효율 +6 | 추가드랍 +3%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_2",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_1",
+     1
+    ],
+    [
+     "coin_ocean",
+     10
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +5%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_3",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_2",
+     1
+    ],
+    [
+     "coin_ocean",
+     20
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +8%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_4",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_3",
+     1
+    ],
+    [
+     "coin_ocean",
+     35
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +10%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_5",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_4",
+     1
+    ],
+    [
+     "coin_ocean",
+     60
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +14%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_6",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_5",
+     1
+    ],
+    [
+     "coin_ocean",
+     95
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +16%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_7",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_6",
+     1
+    ],
+    [
+     "coin_ocean",
+     130
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +20%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_ocean_8",
+   "n": 1,
+   "in": [
+    [
+     "tool_ocean_7",
+     1
+    ],
+    [
+     "coin_ocean",
+     150
+    ]
+   ],
+   "note": "채집효율 +15 | 추가드랍 +25%"
+  },
+  {
+   "at": "shop",
+   "out": "coin_mud",
+   "n": 1,
+   "in": [
+    [
+     "crab",
+     18
+    ],
+    [
+     "squid",
+     18
+    ],
+    [
+     "shrimp",
+     18
+    ],
+    [
+     "ember_a",
+     3
+    ]
+   ],
+   "note": "채집도구 교환 재화"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_1",
+   "n": 1,
+   "in": [
+    [
+     "cobble",
+     3
+    ],
+    [
+     "stick",
+     2
+    ]
+   ],
+   "note": "채집효율 +6 | 추가드랍 +3%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_2",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_1",
+     1
+    ],
+    [
+     "coin_mud",
+     10
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +5%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_3",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_2",
+     1
+    ],
+    [
+     "coin_mud",
+     20
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +8%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_4",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_3",
+     1
+    ],
+    [
+     "coin_mud",
+     35
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +10%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_5",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_4",
+     1
+    ],
+    [
+     "coin_mud",
+     60
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +14%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_6",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_5",
+     1
+    ],
+    [
+     "coin_mud",
+     95
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +16%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_7",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_6",
+     1
+    ],
+    [
+     "coin_mud",
+     130
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +20%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_mud_8",
+   "n": 1,
+   "in": [
+    [
+     "tool_mud_7",
+     1
+    ],
+    [
+     "coin_mud",
+     150
+    ]
+   ],
+   "note": "채집효율 +15 | 추가드랍 +25%"
+  },
+  {
+   "at": "shop",
+   "out": "coin_meat",
+   "n": 1,
+   "in": [
+    [
+     "beef",
+     20
+    ],
+    [
+     "pork",
+     20
+    ],
+    [
+     "chicken",
+     20
+    ],
+    [
+     "ember_r",
+     3
+    ]
+   ],
+   "note": "채집도구 교환 재화"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_1",
+   "n": 1,
+   "in": [
+    [
+     "cobble",
+     3
+    ],
+    [
+     "stick",
+     2
+    ]
+   ],
+   "note": "채집효율 +6 | 추가드랍 +3%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_2",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_1",
+     1
+    ],
+    [
+     "coin_meat",
+     10
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +5%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_3",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_2",
+     1
+    ],
+    [
+     "coin_meat",
+     20
+    ]
+   ],
+   "note": "채집효율 +7 | 추가드랍 +8%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_4",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_3",
+     1
+    ],
+    [
+     "coin_meat",
+     35
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +10%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_5",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_4",
+     1
+    ],
+    [
+     "coin_meat",
+     60
+    ]
+   ],
+   "note": "채집효율 +9 | 추가드랍 +14%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_6",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_5",
+     1
+    ],
+    [
+     "coin_meat",
+     95
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +16%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_7",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_6",
+     1
+    ],
+    [
+     "coin_meat",
+     130
+    ]
+   ],
+   "note": "채집효율 +12 | 추가드랍 +20%"
+  },
+  {
+   "at": "shop",
+   "out": "tool_meat_8",
+   "n": 1,
+   "in": [
+    [
+     "tool_meat_7",
+     1
+    ],
+    [
+     "coin_meat",
+     150
+    ]
+   ],
+   "note": "채집효율 +15 | 추가드랍 +25%"
+  },
+  {
+   "at": "dodo",
+   "out": "fcoin_a",
+   "n": 1,
+   "in": [
+    [
+     "tuna",
+     1
+    ],
+    [
+     "salmon_f",
+     1
+    ],
+    [
+     "eel",
+     1
+    ],
+    [
+     "jelly",
+     1
+    ],
+    [
+     "lobster",
+     1
+    ]
+   ],
+   "note": "A급 5종 각 1마리 교환"
+  },
+  {
+   "at": "dodo",
+   "out": "fcoin_b",
+   "n": 1,
+   "in": [
+    [
+     "tropical",
+     1
+    ],
+    [
+     "jjukku",
+     1
+    ],
+    [
+     "sunfish",
+     1
+    ],
+    [
+     "starfish",
+     1
+    ],
+    [
+     "goldfish",
+     1
+    ]
+   ],
+   "note": "B급 5종 각 1마리 교환"
+  },
+  {
+   "at": "dodo",
+   "out": "fcoin_b",
+   "n": 1,
+   "in": [
+    [
+     "bass",
+     1
+    ],
+    [
+     "gaebul",
+     1
+    ],
+    [
+     "seahorse",
+     1
+    ],
+    [
+     "catfish",
+     1
+    ],
+    [
+     "anchovy",
+     1
+    ]
+   ],
+   "note": "B급 5종 각 1마리 교환"
+  },
+  {
+   "at": "dodo",
+   "out": "rod1",
+   "n": 1,
+   "in": [
+    [
+     "rod0",
+     1
+    ]
+   ],
+   "note": "힘 +3 | 미끼 +1 | 행운 +5%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod2",
+   "n": 1,
+   "in": [
+    [
+     "rod1",
+     1
+    ],
+    [
+     "fcoin_a",
+     1
+    ],
+    [
+     "fcoin_b",
+     12
+    ]
+   ],
+   "note": "힘 +3 | 미끼 +2 | 행운 +6%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod3",
+   "n": 1,
+   "in": [
+    [
+     "rod2",
+     1
+    ],
+    [
+     "fcoin_a",
+     3
+    ],
+    [
+     "fcoin_b",
+     28
+    ]
+   ],
+   "note": "힘 +4 | 미끼 +3 | 행운 +6%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod4",
+   "n": 1,
+   "in": [
+    [
+     "rod3",
+     1
+    ],
+    [
+     "fcoin_a",
+     6
+    ],
+    [
+     "fcoin_b",
+     50
+    ]
+   ],
+   "note": "힘 +4 | 미끼 +4 | 행운 +7%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod5",
+   "n": 1,
+   "in": [
+    [
+     "rod4",
+     1
+    ],
+    [
+     "fcoin_a",
+     10
+    ],
+    [
+     "fcoin_b",
+     80
+    ]
+   ],
+   "note": "힘 +4 | 미끼 +5 | 행운 +7%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod6",
+   "n": 1,
+   "in": [
+    [
+     "rod5",
+     1
+    ],
+    [
+     "fcoin_a",
+     15
+    ],
+    [
+     "fcoin_b",
+     120
+    ]
+   ],
+   "note": "힘 +4 | 미끼 +6 | 행운 +8%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod7",
+   "n": 1,
+   "in": [
+    [
+     "rod6",
+     1
+    ],
+    [
+     "fcoin_a",
+     21
+    ],
+    [
+     "fcoin_b",
+     170
+    ]
+   ],
+   "note": "힘 +5 | 미끼 +7 | 행운 +8%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod8",
+   "n": 1,
+   "in": [
+    [
+     "rod7",
+     1
+    ],
+    [
+     "fcoin_a",
+     28
+    ],
+    [
+     "fcoin_b",
+     240
+    ]
+   ],
+   "note": "힘 +5 | 미끼 +8 | 행운 +9%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod9",
+   "n": 1,
+   "in": [
+    [
+     "rod8",
+     1
+    ],
+    [
+     "fcoin_a",
+     36
+    ],
+    [
+     "fcoin_b",
+     330
+    ]
+   ],
+   "note": "힘 +5 | 미끼 +9 | 행운 +10%"
+  },
+  {
+   "at": "dodo",
+   "out": "rod10",
+   "n": 1,
+   "in": [
+    [
+     "rod9",
+     1
+    ],
+    [
+     "fcoin_a",
+     45
+    ],
+    [
+     "fcoin_b",
+     430
+    ]
+   ],
+   "note": "힘 +5 | 미끼 +10 | 행운 +12%"
+  },
+  {
+   "at": "cook",
+   "out": "ember_gold",
+   "n": 1,
+   "in": [
+    [
+     "ember_g",
+     20
+    ],
+    [
+     "ember_b",
+     20
+    ],
+    [
+     "ember_a",
+     20
+    ],
+    [
+     "ember_r",
+     20
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "bread",
+   "n": 1,
+   "in": [
+    [
+     "wheat",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "rice",
+   "n": 1,
+   "in": [
+    [
+     "rice_plant",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_pumpkin",
+   "n": 1,
+   "in": [
+    [
+     "pumpkin",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_melon",
+   "n": 1,
+   "in": [
+    [
+     "melon",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_potato",
+   "n": 1,
+   "in": [
+    [
+     "potato",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_berry",
+   "n": 1,
+   "in": [
+    [
+     "berry",
+     32
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_pepper",
+   "n": 1,
+   "in": [
+    [
+     "pepper",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_carrot",
+   "n": 1,
+   "in": [
+    [
+     "carrot",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "ex_apple",
+   "n": 1,
+   "in": [
+    [
+     "apple",
+     8
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "sugar",
+   "n": 1,
+   "in": [
+    [
+     "sugarcane",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "flour",
+   "n": 1,
+   "in": [
+    [
+     "wheat",
+     64
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "bread",
+   "n": 9,
+   "in": [
+    [
+     "hay",
+     64
+    ],
+    [
+     "cook_coal",
+     9
+    ]
+   ],
+   "note": "재료요리 (판매 불가)"
+  },
+  {
+   "at": "cook",
+   "out": "coleslaw",
+   "n": 1,
+   "in": [
+    [
+     "cabbage",
+     1
+    ],
+    [
+     "ex_carrot",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "baguette",
+   "n": 1,
+   "in": [
+    [
+     "garlic",
+     1
+    ],
+    [
+     "bread",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "leek_soup",
+   "n": 1,
+   "in": [
+    [
+     "leek",
+     1
+    ],
+    [
+     "ex_potato",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "chicken_rice",
+   "n": 1,
+   "in": [
+    [
+     "chicken",
+     1
+    ],
+    [
+     "rice",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "beef_sand",
+   "n": 1,
+   "in": [
+    [
+     "beef",
+     1
+    ],
+    [
+     "bread",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "jeyuk",
+   "n": 1,
+   "in": [
+    [
+     "pork",
+     1
+    ],
+    [
+     "ex_pepper",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "shrimp_rice",
+   "n": 1,
+   "in": [
+    [
+     "shrimp",
+     1
+    ],
+    [
+     "rice",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "squid_grill",
+   "n": 1,
+   "in": [
+    [
+     "squid",
+     1
+    ],
+    [
+     "sugar",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "scallop_grill",
+   "n": 1,
+   "in": [
+    [
+     "scallop",
+     1
+    ],
+    [
+     "ex_pumpkin",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "melon_salad",
+   "n": 1,
+   "in": [
+    [
+     "seaweed",
+     1
+    ],
+    [
+     "ex_melon",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "apple_salad",
+   "n": 1,
+   "in": [
+    [
+     "ex_berry",
+     1
+    ],
+    [
+     "ex_apple",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "pumpkin_porridge",
+   "n": 1,
+   "in": [
+    [
+     "rice",
+     1
+    ],
+    [
+     "ex_pumpkin",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "oyster_mix",
+   "n": 1,
+   "in": [
+    [
+     "oyster",
+     1
+    ],
+    [
+     "ex_berry",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "brulee",
+   "n": 1,
+   "in": [
+    [
+     "ex_pumpkin",
+     1
+    ],
+    [
+     "sugar",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "carrot_cake",
+   "n": 1,
+   "in": [
+    [
+     "ex_carrot",
+     1
+    ],
+    [
+     "flour",
+     1
+    ],
+    [
+     "sugar",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "potato_pancake",
+   "n": 1,
+   "in": [
+    [
+     "ex_potato",
+     1
+    ],
+    [
+     "flour",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "melon_juice",
+   "n": 1,
+   "in": [
+    [
+     "ex_melon",
+     1
+    ],
+    [
+     "sugar",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "apple_pie",
+   "n": 1,
+   "in": [
+    [
+     "ex_apple",
+     1
+    ],
+    [
+     "flour",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "crab_burger",
+   "n": 1,
+   "in": [
+    [
+     "bread",
+     1
+    ],
+    [
+     "crab",
+     1
+    ],
+    [
+     "cook_coal",
+     1
+    ]
+   ],
+   "note": "일반요리 | 유통기한 3일"
+  },
+  {
+   "at": "cook",
+   "out": "gold_coleslaw",
+   "n": 1,
+   "in": [
+    [
+     "coleslaw",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_baguette",
+   "n": 1,
+   "in": [
+    [
+     "baguette",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_leek_soup",
+   "n": 1,
+   "in": [
+    [
+     "leek_soup",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_chicken_rice",
+   "n": 1,
+   "in": [
+    [
+     "chicken_rice",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_beef_sand",
+   "n": 1,
+   "in": [
+    [
+     "beef_sand",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_jeyuk",
+   "n": 1,
+   "in": [
+    [
+     "jeyuk",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_shrimp_rice",
+   "n": 1,
+   "in": [
+    [
+     "shrimp_rice",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_squid_grill",
+   "n": 1,
+   "in": [
+    [
+     "squid_grill",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_scallop_grill",
+   "n": 1,
+   "in": [
+    [
+     "scallop_grill",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_melon_salad",
+   "n": 1,
+   "in": [
+    [
+     "melon_salad",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_pumpkin_porridge",
+   "n": 1,
+   "in": [
+    [
+     "pumpkin_porridge",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_oyster_mix",
+   "n": 1,
+   "in": [
+    [
+     "oyster_mix",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_potato_pancake",
+   "n": 1,
+   "in": [
+    [
+     "potato_pancake",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_apple_pie",
+   "n": 1,
+   "in": [
+    [
+     "apple_pie",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "cook",
+   "out": "gold_crab_burger",
+   "n": 1,
+   "in": [
+    [
+     "crab_burger",
+     1
+    ],
+    [
+     "gold_dust",
+     1
+    ]
+   ],
+   "note": "특수요리 (무역 전용)"
+  },
+  {
+   "at": "smith",
+   "out": "elder_helmet",
+   "n": 1,
+   "in": [
+    [
+     "opal",
+     2
+    ]
+   ],
+   "note": "제작레벨 1 | 쿨타임 1분"
+  },
+  {
+   "at": "smith",
+   "out": "elder_chest",
+   "n": 1,
+   "in": [
+    [
+     "opal",
+     2
+    ]
+   ],
+   "note": "제작레벨 1 | 쿨타임 1분"
+  },
+  {
+   "at": "smith",
+   "out": "elder_legs",
+   "n": 1,
+   "in": [
+    [
+     "opal",
+     2
+    ]
+   ],
+   "note": "제작레벨 1 | 쿨타임 1분"
+  },
+  {
+   "at": "smith",
+   "out": "elder_boots",
+   "n": 1,
+   "in": [
+    [
+     "opal",
+     2
+    ]
+   ],
+   "note": "제작레벨 1 | 쿨타임 1분"
+  },
+  {
+   "at": "smith",
+   "out": "elder_sword",
+   "n": 1,
+   "in": [
+    [
+     "opal",
+     4
+    ]
+   ],
+   "note": "제작레벨 1 | 쿨타임 1분"
+  },
+  {
+   "at": "smith",
+   "out": "lotus_helmet",
+   "n": 1,
+   "in": [
+    [
+     "leather1",
+     19
+    ],
+    [
+     "opal",
+     2
+    ],
+    [
+     "aquamarine",
+     2
+    ],
+    [
+     "moonstone",
+     1
+    ]
+   ],
+   "note": "제작레벨 20 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "lotus_chest",
+   "n": 1,
+   "in": [
+    [
+     "leather1",
+     19
+    ],
+    [
+     "opal",
+     2
+    ],
+    [
+     "aquamarine",
+     2
+    ],
+    [
+     "moonstone",
+     1
+    ]
+   ],
+   "note": "제작레벨 20 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "lotus_legs",
+   "n": 1,
+   "in": [
+    [
+     "leather1",
+     19
+    ],
+    [
+     "opal",
+     2
+    ],
+    [
+     "aquamarine",
+     2
+    ],
+    [
+     "moonstone",
+     1
+    ]
+   ],
+   "note": "제작레벨 20 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "lotus_boots",
+   "n": 1,
+   "in": [
+    [
+     "leather1",
+     19
+    ],
+    [
+     "opal",
+     2
+    ],
+    [
+     "aquamarine",
+     2
+    ],
+    [
+     "moonstone",
+     1
+    ]
+   ],
+   "note": "제작레벨 20 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "lotus_dagger",
+   "n": 1,
+   "in": [
+    [
+     "leather1",
+     38
+    ],
+    [
+     "opal",
+     4
+    ],
+    [
+     "aquamarine",
+     4
+    ],
+    [
+     "moonstone",
+     2
+    ]
+   ],
+   "note": "제작레벨 20 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "nord_helmet",
+   "n": 1,
+   "in": [
+    [
+     "leather2",
+     22
+    ],
+    [
+     "aquamarine",
+     3
+    ],
+    [
+     "ruby",
+     3
+    ],
+    [
+     "topaz",
+     1
+    ],
+    [
+     "larimar",
+     1
+    ]
+   ],
+   "note": "제작레벨 40 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "nord_chest",
+   "n": 1,
+   "in": [
+    [
+     "leather2",
+     22
+    ],
+    [
+     "aquamarine",
+     3
+    ],
+    [
+     "ruby",
+     3
+    ],
+    [
+     "topaz",
+     1
+    ],
+    [
+     "larimar",
+     1
+    ]
+   ],
+   "note": "제작레벨 40 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "nord_legs",
+   "n": 1,
+   "in": [
+    [
+     "leather2",
+     22
+    ],
+    [
+     "aquamarine",
+     3
+    ],
+    [
+     "ruby",
+     3
+    ],
+    [
+     "topaz",
+     1
+    ],
+    [
+     "larimar",
+     1
+    ]
+   ],
+   "note": "제작레벨 40 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "nord_boots",
+   "n": 1,
+   "in": [
+    [
+     "leather2",
+     22
+    ],
+    [
+     "aquamarine",
+     3
+    ],
+    [
+     "ruby",
+     3
+    ],
+    [
+     "topaz",
+     1
+    ],
+    [
+     "larimar",
+     1
+    ]
+   ],
+   "note": "제작레벨 40 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "nord_axe",
+   "n": 1,
+   "in": [
+    [
+     "leather2",
+     44
+    ],
+    [
+     "aquamarine",
+     6
+    ],
+    [
+     "ruby",
+     6
+    ],
+    [
+     "topaz",
+     2
+    ],
+    [
+     "larimar",
+     2
+    ]
+   ],
+   "note": "제작레벨 40 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "burgonet_helmet",
+   "n": 1,
+   "in": [
+    [
+     "leather3",
+     29
+    ],
+    [
+     "ruby",
+     5
+    ],
+    [
+     "sapphire",
+     2
+    ],
+    [
+     "garnet",
+     1
+    ]
+   ],
+   "note": "제작레벨 60 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "burgonet_chest",
+   "n": 1,
+   "in": [
+    [
+     "leather3",
+     29
+    ],
+    [
+     "ruby",
+     5
+    ],
+    [
+     "sapphire",
+     2
+    ],
+    [
+     "iolite",
+     1
+    ]
+   ],
+   "note": "제작레벨 60 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "burgonet_legs",
+   "n": 1,
+   "in": [
+    [
+     "leather3",
+     29
+    ],
+    [
+     "ruby",
+     5
+    ],
+    [
+     "sapphire",
+     2
+    ],
+    [
+     "garnet",
+     1
+    ]
+   ],
+   "note": "제작레벨 60 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "burgonet_boots",
+   "n": 1,
+   "in": [
+    [
+     "leather3",
+     29
+    ],
+    [
+     "ruby",
+     5
+    ],
+    [
+     "sapphire",
+     2
+    ],
+    [
+     "iolite",
+     1
+    ]
+   ],
+   "note": "제작레벨 60 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "burgonet_claymore",
+   "n": 1,
+   "in": [
+    [
+     "leather3",
+     58
+    ],
+    [
+     "ruby",
+     10
+    ],
+    [
+     "sapphire",
+     4
+    ],
+    [
+     "garnet",
+     1
+    ],
+    [
+     "iolite",
+     1
+    ]
+   ],
+   "note": "제작레벨 60 | 쿨타임 5분"
+  },
+  {
+   "at": "smith",
+   "out": "oakhark_helmet",
+   "n": 1,
+   "in": [
+    [
+     "leather4",
+     70
+    ],
+    [
+     "sapphire",
+     4
+    ],
+    [
+     "peridot",
+     4
+    ],
+    [
+     "prehnite",
+     1
+    ]
+   ],
+   "note": "제작레벨 80 | 쿨타임 30분"
+  },
+  {
+   "at": "smith",
+   "out": "oakhark_chest",
+   "n": 1,
+   "in": [
+    [
+     "leather4",
+     70
+    ],
+    [
+     "sapphire",
+     4
+    ],
+    [
+     "peridot",
+     4
+    ],
+    [
+     "lavender",
+     1
+    ]
+   ],
+   "note": "제작레벨 80 | 쿨타임 30분"
+  },
+  {
+   "at": "smith",
+   "out": "oakhark_legs",
+   "n": 1,
+   "in": [
+    [
+     "leather4",
+     70
+    ],
+    [
+     "sapphire",
+     4
+    ],
+    [
+     "peridot",
+     4
+    ],
+    [
+     "prehnite",
+     1
+    ]
+   ],
+   "note": "제작레벨 80 | 쿨타임 30분"
+  },
+  {
+   "at": "smith",
+   "out": "oakhark_boots",
+   "n": 1,
+   "in": [
+    [
+     "leather4",
+     70
+    ],
+    [
+     "sapphire",
+     4
+    ],
+    [
+     "peridot",
+     4
+    ],
+    [
+     "lavender",
+     1
+    ]
+   ],
+   "note": "제작레벨 80 | 쿨타임 30분"
+  },
+  {
+   "at": "smith",
+   "out": "oakhark_greatsword",
+   "n": 1,
+   "in": [
+    [
+     "leather4",
+     140
+    ],
+    [
+     "sapphire",
+     8
+    ],
+    [
+     "peridot",
+     8
+    ],
+    [
+     "prehnite",
+     1
+    ],
+    [
+     "lavender",
+     1
+    ]
+   ],
+   "note": "제작레벨 80 | 쿨타임 30분"
+  }
+ ]
+}

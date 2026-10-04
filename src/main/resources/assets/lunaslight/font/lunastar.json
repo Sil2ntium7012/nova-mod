@@ -1,0 +1,13 @@
+{
+ "providers": [
+  {
+   "type": "bitmap",
+   "file": "lunaslight:font/lunastar.png",
+   "ascent": 7,
+   "height": 7,
+   "chars": [
+    "\ue100"
+   ]
+  }
+ ]
+}
