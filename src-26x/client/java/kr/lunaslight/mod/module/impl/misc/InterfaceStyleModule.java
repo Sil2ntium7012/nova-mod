@@ -122,6 +122,9 @@ public class InterfaceStyleModule extends Module {
 			"Nova 화면 전체의 색 묶음입니다. 크림은 밝은 베이지 판에 갈색 글자로 바뀝니다.",
 			kr.lunaslight.mod.util.LunaTheme.Skin.DEFAULT, kr.lunaslight.mod.util.LunaTheme.Skin.class).vertical());
 		skin.onChange(() -> kr.lunaslight.mod.util.LunaTheme.setSkin(skin.get()));
+		// 49-271차(사용자: "교체는 클라이언트에서 할 거니까 따로 교체는 못 하게"): 게임 안에서는 고를 수 없다 - 런처가 정한 값(ShopUnlocks)만.
+		// 지금 무엇을 꼈는지는 [코스메틱] 페이지에서 본다.
+		skin.hidden();
 		kr.lunaslight.mod.util.LunaTheme.setTileViewSupplier(() -> tileView.get().ordinal());
 		kr.lunaslight.mod.util.LunaTheme.setTileViewSetter(tileView::setIndex);
 		alwaysOn();

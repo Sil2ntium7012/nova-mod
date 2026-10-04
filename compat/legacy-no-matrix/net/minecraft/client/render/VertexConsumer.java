@@ -8,4 +8,13 @@ package net.minecraft.client.render;
  */
 public interface VertexConsumer {
 	VertexConsumer color(float r, float g, float b, float a);
+
+	// 49-270차: 날개 그리기(NovaWingsRender)가 부른다 - 1.14.4에선 그 길을 안 타지만(GL 판 NovaWingsGl14) 컴파일용으로.
+	VertexConsumer texture(float u, float v);
+
+	VertexConsumer overlay(int uv);
+
+	VertexConsumer light(int uv);
+
+	VertexConsumer normal(float x, float y, float z);
 }

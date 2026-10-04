@@ -819,7 +819,9 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	//  · 매 프레임은 화면 밖 칸을 건너뛰고(시야 절두체), 테두리는 가까운 칸에만.
 
 	private static final int MAX_BOXES = 1500;
-	private static final int EDGE_BOXES = 120;
+	private static final int EDGE_BOXES = 200;
+	/** 49-274차: 칸 테두리 굵기(예전 1px - 블록 그림에 묻혔다). */
+	private static final float EDGE_W = 1.8f;
 	private static final int[][] FACE_DIRS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 	/** 면 f의 네 꼭짓점(a, b, c, d 둘레 순서, a = 그림 왼쪽 위, a→b 가로, a→d 아래로). 꼭짓점 번호 = x | z<<1 | y<<2. */
 	private static final int[][] FACE_CORNERS = {
@@ -1106,8 +1108,25 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			if (opaqueAt(x, y, z)) {
 				return false;
 			}
+			if (rayHolo && holoSolidAt(x, y, z)) {
+				return false;   // 49-274차: 테두리만 그릴 땐 앞에 있는 홀로그램 블록도 가린다(뒤 칸 테두리가 비쳐 어지럽지 않게)
+			}
 		}
 		return true;
+	}
+
+	/** 49-274차: clearRay가 월드에 진짜 블록으로 그린 (꽉 찬) 홀로그램 칸도 막힘으로 볼지. */
+	private boolean rayHolo;
+
+	private boolean holoSolidAt(int wx, int wy, int wz) {
+		int x = wx - origin.getX(), y = wy - origin.getY(), z = wz - origin.getZ();
+		if (x < 0 || y < 0 || z < 0 || x >= bp.w || y >= bp.h || z >= bp.l || !inLayer(y)) {
+			return false;
+		}
+		int idx = bp.index(x, y, z);
+		int st = status[idx];
+		return bp.cells[idx] != Blueprint.AIR && st != Blueprint.OK && st != Blueprint.UNKNOWN && worldDrawn.get(idx)
+				&& boxesOf(bp.cells[idx]) == null;
 	}
 
 	private boolean opaqueAt(int x, int y, int z) {
@@ -1198,14 +1217,18 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			if (st == Blueprint.OK || st == Blueprint.UNKNOWN) {
 				continue;   // 목록을 만든 뒤에 맞게 놓인 칸
 			}
-			if (inWorld && worldDrawn.get(idx)) {
+			// 49-274차(사용자: "테두리를 파란색으로 좀 더, 색이랑 구분이 안 돼"): 월드에 진짜 블록으로 그린 칸도 가까우면 테두리만 그린다
+			boolean edgeOnly = inWorld && worldDrawn.get(idx);
+			if (edgeOnly && i >= EDGE_BOXES) {
 				continue;
 			}
 			int y = idx / wl, rem = idx - y * wl, z = rem / bp.w, x = rem - z * bp.w;
 			// 화면 방식: 보이는 면만. 월드 그리기 중인데 모델이 없어 여기로 온 칸(상자 등)은 면 막힘을 지금 본다.
 			faceMaskNow = i < faceMask.length ? faceMask[i] & 0x3F : 0x3F;
-			if (inWorld && faceMaskNow == 0x3F) {
+			if (inWorld && (faceMaskNow == 0x3F || edgeOnly)) {
+				rayHolo = edgeOnly;
 				faceMaskNow = faceVisMask(proj.camX, proj.camY, proj.camZ, origin.getX() + x, origin.getY() + y, origin.getZ() + z);
+				rayHolo = false;
 				if (faceMaskNow == 0) {
 					continue;
 				}
@@ -1221,18 +1244,32 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 				continue;   // 머리가 그 칸 안 - 화면을 덮는다
 			}
 			boolean edges = i < EDGE_BOXES;
+			edgesOnly = edgeOnly;
 			if (st == Blueprint.MISSING) {
 				BlueprintTex.Tex[] t = tex ? texOf(bp.cells[idx]) : null;
 				boolean has = t != null && t[0] != null;
 				rotNow = has ? rotOf(bp.cells[idx]) : 0;
 				drawCell(ctx, proj, x, y, z, bx, by, bz, boxesOf(bp.cells[idx]), has ? t : null,
-						has ? a : (Math.min(255, a * 3 / 5) << 24) | miss, edges ? (0x90 << 24) | miss : 0);
+						has ? a : (Math.min(255, a * 3 / 5) << 24) | miss, edges ? 0xFF000000 | edgeBlue(miss) : 0);
 			} else {
 				int rgb = st == Blueprint.WRONG ? wrong : rot;
 				rotNow = 0;
-				drawCell(ctx, proj, x, y, z, bx, by, bz, boxesOf(bp.cells[idx]), null, (fillA << 24) | rgb, edges ? (0xD0 << 24) | rgb : 0);
+				drawCell(ctx, proj, x, y, z, bx, by, bz, boxesOf(bp.cells[idx]), null, (fillA << 24) | rgb, edges ? 0xF0000000 | rgb : 0);
 			}
 		}
+		edgesOnly = false;
+	}
+
+	/** 지금 칸은 테두리만(면은 월드에 진짜 블록으로 이미 그림). */
+	private boolean edgesOnly;
+
+	/** 49-274차: 테두리 색 = '놓을 곳 색'을 더 짙은 파랑 쪽으로(블록 그림과 섞여 안 보이지 않게). */
+	private static int edgeBlue(int rgb) {
+		int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+		r = r * 2 / 5;
+		g = (g * 3 + 0x8C * 2) / 5 * 4 / 5;
+		b = Math.max(b, 0xFF);
+		return (r << 16) | (g << 8) | b;
 	}
 
 	// ==================== 49-266차: 월드 안에 진짜 블록으로 ====================
@@ -1358,6 +1395,14 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 					continue;
 				}
 				int[] q = FACE_CORNERS[f];
+				if (edgesOnly) {
+					if (edge != 0) {
+						for (int e = 0; e < 4; e++) {
+							proj.drawViewSegment(ctx, vbuf[q[e]], vbuf[q[(e + 1) % 4]], EDGE_W, edge);
+						}
+					}
+					continue;
+				}
 				BlueprintTex.Tex t = tex == null ? null : f == 2 ? tex[1] : f == 3 ? tex[tex.length > 2 && tex[2] != null ? 2 : 1] : tex[0];
 				// 49-260차: 윗면, 아랫면은 모델 회전만큼 그림을 돌린다(꼭짓점 순서를 돌림). 그림 일부만 쓰는 면(반 블록 등)은 그대로.
 				boolean fullUv = b[0] <= 0.001 && b[2] <= 0.001 && b[3] >= 0.999 && b[5] >= 0.999;
@@ -1426,7 +1471,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 				}
 				if (edge != 0) {
 					for (int e = 0; e < 4; e++) {
-						proj.drawViewSegment(ctx, vbuf[q[e]], vbuf[q[(e + 1) % 4]], 1f, edge);
+						proj.drawViewSegment(ctx, vbuf[q[e]], vbuf[q[(e + 1) % 4]], EDGE_W, edge);
 					}
 				}
 			}

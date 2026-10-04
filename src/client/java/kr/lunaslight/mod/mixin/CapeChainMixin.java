@@ -44,9 +44,10 @@ public abstract class CapeChainMixin {
 				ModelPartBuilder.create().uv(0, 0).cuboid(-5f, 0f, -1f, 10f, 1f, 1f, Dilation.NONE, 1f, 0.5f), transform);
 		ModelPartData seg = first;
 		for (int i = 1; i < CapePhysics.SEGMENTS; i++) {
+			// 49-272차: 접히는 축을 두께 가운데(z -0.5)로 - 굽을 때 마디 사이 틈/겹침이 반으로 줄어 이어져 보인다
 			seg = seg.addChild("s" + i,
-					ModelPartBuilder.create().uv(0, i).cuboid(-5f, 0f, -1f, 10f, 1f, 1f, Dilation.NONE, 1f, 0.5f),
-					ModelTransform.of(0f, 1f, 0f, 0f, 0f, 0f));
+					ModelPartBuilder.create().uv(0, i).cuboid(-5f, 0f, -0.5f, 10f, 1f, 1f, Dilation.NONE, 1f, 0.5f),
+					ModelTransform.of(0f, 1f, i == 1 ? -0.5f : 0f, 0f, 0f, 0f));
 		}
 		return first;
 	}
@@ -74,7 +75,7 @@ public abstract class CapeChainMixin {
 		float root = 6f + lean / 2f + state.field_53536;
 		float[] rel = CapePhysics.step(state.id, root, lean);
 		for (int i = 1; i < CapePhysics.SEGMENTS; i++) {
-			segs[i].pitch = rel[i];
+			segs[i].pitch = -rel[i];   // 49-272차: 망토 판은 Y로 180도 돌아 있어 부품 x회전 +가 몸 쪽(처짐)이다
 		}
 	}
 }

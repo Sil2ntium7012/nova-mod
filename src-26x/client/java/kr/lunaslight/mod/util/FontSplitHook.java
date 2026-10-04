@@ -18,8 +18,13 @@ import java.io.StringReader;
  * <ul>
  *   <li>ttf 프로바이더: {@code skip}에 기호를 전부 더한다(그 글자는 이 글꼴이 안 그린다).</li>
  *   <li>bitmap 프로바이더: {@code chars} 표에서 기호 칸을 빈 칸(\u0000)으로 바꾼다(줄 길이는 그대로).</li>
- *   <li>나머지(reference, space, unihex)는 그대로.</li>
+ *   <li>바닐라 글꼴을 끌어오는 reference(minecraft:include/space, include/default, include/unifont)는 뺀다(49-269차).</li>
+ *   <li>나머지(다른 reference, space, unihex)는 그대로.</li>
  * </ul>
+ * 49-269차(사용자: "특수문자만 적용 안 되게 해 주는 거 아직 안 됐어"): ttf에서 기호를 빼도, 런처가 만든 글꼴 팩(그리고 흔한 글꼴 팩)은
+ * 같은 JSON 안에 바닐라 글꼴 reference(include/default, include/unifont)를 이어 붙여 둔다. 글꼴 찾기는 위 팩부터 프로바이더를
+ * 차례로 보므로, 내 ttf가 비운 ★ 같은 기호를 <b>내 팩 안의 바닐라 reference</b>가 먼저 그려 버려서 서버 팩까지 내려가지 않았다.
+ * 그 reference를 빼면 내 글꼴에 없는 글자는 서버 팩 → 맨 아래 바닐라 팩(같은 reference를 늘 갖고 있다) 순으로 내려간다.
  * 빠진 기호는 그 아래 팩(서버 팩, 없으면 바닐라)이 그린다 - 마인크래프트 글꼴은 팩마다 프로바이더를 이어 붙이고
  * 위 팩부터 찾기 때문이다. 글자, 숫자, 빈칸은 그대로 내 팩 글꼴이다.
  *
@@ -144,8 +149,10 @@ public final class FontSplitHook {
 		}
 		JsonArray providers = root.getAsJsonObject().getAsJsonArray("providers");
 		boolean changed = false;
+		JsonArray kept = new JsonArray();
 		for (JsonElement e : providers) {
 			if (!e.isJsonObject()) {
+				kept.add(e);
 				continue;
 			}
 			JsonObject p = e.getAsJsonObject();
@@ -153,6 +160,11 @@ public final class FontSplitHook {
 			if (type.startsWith("minecraft:")) {
 				type = type.substring("minecraft:".length());
 			}
+			if (type.equals("reference") && p.has("id") && isVanillaInclude(p.get("id").getAsString())) {
+				changed = true;   // 49-269차: 내 팩 안의 바닐라 글꼴 reference는 뺀다
+				continue;
+			}
+			kept.add(e);
 			if (type.equals("ttf")) {
 				StringBuilder skip = new StringBuilder();
 				if (p.has("skip")) {
@@ -184,6 +196,15 @@ public final class FontSplitHook {
 				changed = true;
 			}
 		}
+		if (changed) {
+			root.getAsJsonObject().add("providers", kept);
+		}
 		return changed ? root.toString() : json;
+	}
+
+	/** minecraft:include/space, include/default, include/unifont(바닐라가 default 글꼴을 쪼개 둔 것). */
+	static boolean isVanillaInclude(String id) {
+		String s = id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id;
+		return s.startsWith("include/");
 	}
 }

@@ -21,28 +21,38 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public abstract class BlueprintWorldMixin {
 
-	private static Module lunaslight$blueprint;
+	private static Module lunaslight$blueprint, lunaslight$wings;
 
 	@Inject(method = "submitEntities(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/state/level/LevelRenderState;Lnet/minecraft/client/renderer/SubmitNodeCollector;)V",
 			at = @At("TAIL"), require = 0)
 	private void lunaslight$blueprintHolo(PoseStack pose, LevelRenderState state, SubmitNodeCollector collector, CallbackInfo ci) {
+		if (state == null || state.cameraRenderState == null || !kr.lunaslight.mod.LunaClientMod.launchOk()) {
+			return;
+		}
+		BlueprintWorld.Ctx ctx = new BlueprintWorld.Ctx(pose, state.cameraRenderState.pos, collector);
 		try {
-			if (!BlueprintWorld.usable() || state == null || state.cameraRenderState == null) {
-				return;
-			}
-			if (lunaslight$blueprint == null) {
-				lunaslight$blueprint = ModuleManager.get().find("blueprint").orElse(null);
+			if (BlueprintWorld.usable()) {
 				if (lunaslight$blueprint == null) {
-					return;
+					lunaslight$blueprint = ModuleManager.get().find("blueprint").orElse(null);
+				}
+				if (lunaslight$blueprint != null && lunaslight$blueprint.isEnabled()) {
+					lunaslight$blueprint.onWorldRender(ctx);
 				}
 			}
-			if (!lunaslight$blueprint.isEnabled() || !kr.lunaslight.mod.LunaClientMod.launchOk()) {
-				return;
-			}
-			lunaslight$blueprint.onWorldRender(new BlueprintWorld.Ctx(pose, state.cameraRenderState.pos, collector));
 		} catch (Throwable t) {
 			BlueprintWorld.fail(t);
 			LunaCompat.warnOnce("blueprint:mixin", t);
+		}
+		// 49-270차: 노바 날개도 같은 자리에서(26.x엔 우리가 쓰던 월드 그리기 이벤트가 없다)
+		try {
+			if (lunaslight$wings == null) {
+				lunaslight$wings = ModuleManager.get().find("wings").orElse(null);
+			}
+			if (lunaslight$wings != null && lunaslight$wings.isEnabled()) {
+				lunaslight$wings.onWorldRender(ctx);
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("wings:mixin", t);
 		}
 	}
 }

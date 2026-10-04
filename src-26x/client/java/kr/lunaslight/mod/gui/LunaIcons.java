@@ -129,6 +129,8 @@ public final class LunaIcons {
 		MODULE_ICONS.put("weather_changer", "\uE914");
 		MODULE_ICONS.put("whisper_alert", "\uE93C");
 		MODULE_ICONS.put("zoom", "\uE97C");
+		MODULE_ICONS.put("wings", "\uE983");   // 49-271차: bird
+		MODULE_ICONS.put("cosmetics", "\uE982");   // 49-271차: wand-sparkles
 	}
 
 	/** 49-76차(6-19): 일반 12 / 중간 16 / 큰 22px. 폰트 JSON은 tools/bake-font.py로 굽는다(시각 중심 3.5 유지). */
@@ -177,6 +179,7 @@ public final class LunaIcons {
 			case UI -> "\uE94D";
 			case GRAPHICS -> "\uE940";
 			case KEYS -> KEYBOARD;   // 49-89차(8-8)
+			case COSMETICS -> "\uE982";   // 49-271차: wand-sparkles
 		};
 	}
 
@@ -237,6 +240,8 @@ public final class LunaIcons {
 		}
 	}
 
+	private static final int BOX_NUDGE = kr.lunaslight.mod.util.LunaVersion.isWithin("26.3", null) ? 0 : 1;
+
 	public static void drawInBox(GuiGraphicsExtractor ctx, Font tr, String glyph, int boxX, int boxY, int box, int color) {
 		Component t = iconTextMd(glyph);
 		if (t == null) {
@@ -244,7 +249,8 @@ public final class LunaIcons {
 		}
 		int w = LunaCompat.textWidth(tr, t);
 		// 49-236차: FreeType에서 잰 폭이 잉크보다 좁게 나와 아이콘이 가운데보다 1px 오른쪽에 섰다(GUI 2 실측) - 1px 당긴다
-		drawAtPx(ctx, tr, t, boxX + (box - w) / 2 - 1, LunaDraw.iconMdYf(boxY, box), color);
+		// 49-276차(사용자: "26.3인데 아이콘 밀렸다", 사진): 26.3은 폭이 제대로 나와서 당기면 왼쪽으로 1px 밀린다 - 26.1~26.2만 당긴다
+		drawAtPx(ctx, tr, t, boxX + (box - w) / 2 - BOX_NUDGE, LunaDraw.iconMdYf(boxY, box), color);
 	}
 
 	/**

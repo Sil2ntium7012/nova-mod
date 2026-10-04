@@ -119,6 +119,18 @@ public final class LunaSocial {
 						JsonObject cp = cos.getAsJsonObject("cape");
 						NovaCapes.setMine(firstNonEmpty(str(cp, "key"), str(cp, "id")));
 					}
+					// 49-270차: 노바 날개 cosmetics.wing = { key, ts, sig } - 런처 서명(kind "wing", 글자 "key|내 uuid")이 맞아야 그린다
+					if (cos.has("wing") && cos.get("wing").isJsonObject()) {
+						JsonObject wg = cos.getAsJsonObject("wing");
+						long wts = 0;
+						try {
+							wts = wg.has("ts") ? wg.get("ts").getAsLong() : 0;
+						} catch (Throwable ignored) {
+						}
+						NovaWings.setMineSigned(firstNonEmpty(str(wg, "key"), str(wg, "id")), wts, str(wg, "sig"));
+					} else {
+						NovaWings.setMineSigned(null, 0, null);
+					}
 					if (cos.has("theme") && cos.get("theme").isJsonObject()) {
 						JsonObject th = cos.getAsJsonObject("theme");
 						mode = firstNonEmpty(str(th, "mode"), str(th, "id"));
@@ -420,6 +432,42 @@ public final class LunaSocial {
 					JsonObject r = e.getAsJsonObject();
 					String u = normalize(str(r, "mc_uuid"));
 					String k = r.has("cosmetic_cape") && !r.get("cosmetic_cape").isJsonNull() ? str(r, "cosmetic_cape") : "";
+					if (!u.isEmpty()) {
+						out.put(u, k == null ? "" : k);
+					}
+				}
+			}
+			return out;
+		});
+	}
+
+	/** 49-270차: 남의 노바 날개 - nova_player_tiers.cosmetic_wing(망토와 따로 묻는다: 칸이 없으면 날개만 안 보이게). */
+	public static CompletableFuture<java.util.Map<String, String>> fetchWings(java.util.Collection<String> ids) {
+		load();
+		if (!available() || ids == null || ids.isEmpty()) {
+			return CompletableFuture.completedFuture(java.util.Collections.emptyMap());
+		}
+		StringBuilder in = new StringBuilder();
+		for (String id : ids) {
+			String n = normalize(id);
+			if (n.isEmpty()) {
+				continue;
+			}
+			if (in.length() > 0) {
+				in.append(',');
+			}
+			in.append('"').append(n).append("\",\"").append(dashed(n)).append('"');
+		}
+		return rest("/nova_player_tiers?mc_uuid=in." + enc("(" + in + ")") + "&select=mc_uuid,cosmetic_wing").thenApply(arr -> {
+			java.util.Map<String, String> out = new java.util.HashMap<>();
+			if (arr != null && arr.isJsonArray()) {
+				for (JsonElement e : arr.getAsJsonArray()) {
+					if (!e.isJsonObject()) {
+						continue;
+					}
+					JsonObject r = e.getAsJsonObject();
+					String u = normalize(str(r, "mc_uuid"));
+					String k = r.has("cosmetic_wing") && !r.get("cosmetic_wing").isJsonNull() ? str(r, "cosmetic_wing") : "";
 					if (!u.isEmpty()) {
 						out.put(u, k == null ? "" : k);
 					}

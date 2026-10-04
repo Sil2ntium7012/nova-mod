@@ -329,6 +329,15 @@ public class LunaClientScreen extends LunaScreenBase {
 	}
 
 	/** 49-226차: 설정 줄 하나를 감싸는 작은 카드(묶음 카드 안, 한 단계 깊게). */
+	/**
+	 * 49-275차(사용자: "키 지정 버튼 같은 것들 여전히 좀 낮아"): 줄 안 값 상자/키 버튼/선택 버튼의 위쪽 y.
+	 * 줄 카드는 y+1부터 ROW_H-4 높이라 실제 가운데가 줄 가운데보다 1px 위고, 상자는 아래로 2px 두께 띠를 깔아 눈으로 보는 가운데가
+	 * 1px 더 내려가 있었다. 그만큼(2px) 올린다. 슬라이더는 원래 자리 그대로.
+	 */
+	private static int ctrlY(int y) {
+		return y + (ROW_H - CTRL_H) / 2 - 2;
+	}
+
 	private static void rowCard(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
 		if (w <= 4 || h <= 4) {
 			return;
@@ -2988,6 +2997,9 @@ public class LunaClientScreen extends LunaScreenBase {
 	}
 
 	private int controlWidth(Setting<?> s) {
+		if (s instanceof kr.lunaslight.mod.module.setting.InfoSetting inf) {
+			return LunaDraw.width(font, inf.text()) + 2;   // 49-271차: 보기만 하는 줄
+		}
 		if (s instanceof ActionSetting as) {
 			return LunaDraw.width(font, as.getButtonLabel()) + 18;
 		}
@@ -3136,6 +3148,10 @@ public class LunaClientScreen extends LunaScreenBase {
 			} else {
 				renderSegments(ctx, es, right, y, mouseX, mouseY);
 			}
+		} else if (s instanceof kr.lunaslight.mod.module.setting.InfoSetting inf) {
+			// 49-271차: 보기만 하는 줄 - 오른쪽에 글자(없으면 흐리게)
+			String tv = inf.text();
+			LunaDraw.text(ctx, font, tv, right - LunaDraw.width(font, tv), ty, inf.empty() ? LunaDraw.TEXT_DIM : LunaDraw.TEXT);
 		} else if (s instanceof ActionSetting as) {
 			// 49-89차: 버튼 설정 - 오른쪽 알약 하나
 			String lb = as.getButtonLabel();
@@ -3164,7 +3180,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			String label = listening ? "..." : ks.getKeyName();
 			int kw = Math.max(48, LunaDraw.width(font, label) + 20);
 			// 49-245차(사용자: "키 설정 버튼 위치가 이상해"): 값 상자와 같은 높이, 같은 세로 자리(줄 가운데)
-			int ky = y + (ROW_H - CTRL_H) / 2;
+			int ky = ctrlY(y);
 			LunaDraw.roundRectBordered(ctx, right - kw, ky, kw, CTRL_H, 4,
 				hovered ? LunaDraw.CARD_HOVER : NUMBOX_BG,
 				listening ? LunaDraw.ACCENT : LunaDraw.CARD_BORDER);
@@ -3527,7 +3543,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		// 49-76차(6-17): 단위가 붙어 "24000틱"처럼 길어질 수 있어 상자가 글자에 맞춰 늘어난다
 		int boxW = Math.max(NUMBOX_W, LunaDraw.width(font, value) + 10);
 		int bx = sx - 6 - boxW;
-		int by = y + (ROW_H - CTRL_H) / 2;
+		int by = ctrlY(y);
 		LunaDraw.roundRectBordered(ctx, bx, by, boxW, CTRL_H, 4, NUMBOX_BG, LunaDraw.CARD_BORDER);
 		LunaDraw.text(ctx, font, value, bx + (boxW - LunaDraw.width(font, value)) / 2,
 			LunaDraw.textY(by, CTRL_H), LunaDraw.TEXT);
@@ -3614,7 +3630,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		}
 		total -= 3;
 		int maxW = curRowW - 120;
-		int cy = y + (ROW_H - CTRL_H) / 2;
+		int cy = ctrlY(y);
 		if (options.length > 4 || total > maxW) {
 			// 자리가 부족하면 현재 값만 알약으로(클릭 = 다음 값)
 			String v = enumLabel(es.get());
@@ -4489,7 +4505,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			total += widths[i] + 3;
 		}
 		total -= 3;
-		int cy = y + (ROW_H - CTRL_H) / 2;
+		int cy = ctrlY(y);
 		if (options.length > 4 || total > curRowW - 120) {
 			es.cycle(button == 1 ? -1 : 1);
 			return;

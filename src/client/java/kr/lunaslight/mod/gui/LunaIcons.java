@@ -130,6 +130,8 @@ public final class LunaIcons {
 		MODULE_ICONS.put("weather_changer", "\uE914");
 		MODULE_ICONS.put("whisper_alert", "\uE93C");
 		MODULE_ICONS.put("zoom", "\uE97C");
+		MODULE_ICONS.put("wings", "\uE983");   // 49-271차: bird
+		MODULE_ICONS.put("cosmetics", "\uE982");   // 49-271차: wand-sparkles
 	}
 
 	/** 49-76차(6-19): 일반 12 / 중간 16 / 큰 22px. 폰트 JSON은 tools/bake-font.py로 굽는다(시각 중심 3.5 유지). */
@@ -178,6 +180,7 @@ public final class LunaIcons {
 			case UI -> "\uE94D";
 			case GRAPHICS -> "\uE940";
 			case KEYS -> KEYBOARD;   // 49-89차(8-8)
+			case COSMETICS -> "\uE982";   // 49-271차: wand-sparkles
 		};
 	}
 

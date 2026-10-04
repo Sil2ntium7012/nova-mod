@@ -29,22 +29,25 @@ public abstract class BlueprintWorld14Mixin {
 	private void lunaslight$blueprintHolo(float tickDelta, long endTime, CallbackInfo ci) {
 		try {
 			BlueprintWorld.markHooked();
-			if (!BlueprintWorld.usable()) {
-				return;
-			}
-			if (lunaslight$blueprint == null) {
-				lunaslight$blueprint = ModuleManager.get().find("blueprint").orElse(null);
+			if (BlueprintWorld.usable()) {
 				if (lunaslight$blueprint == null) {
-					return;
+					lunaslight$blueprint = ModuleManager.get().find("blueprint").orElse(null);
+				}
+				if (lunaslight$blueprint != null && lunaslight$blueprint.isEnabled() && kr.lunaslight.mod.LunaClientMod.launchOk()) {
+					lunaslight$blueprint.onWorldRender(lunaslight$sink);
 				}
 			}
-			if (!lunaslight$blueprint.isEnabled() || !kr.lunaslight.mod.LunaClientMod.launchOk()) {
-				return;
-			}
-			lunaslight$blueprint.onWorldRender(lunaslight$sink);
 		} catch (Throwable t) {
 			BlueprintWorld.fail(t);
 			LunaCompat.warnOnce("blueprint:mixin14", t);
+		}
+		// 49-270차: 노바 날개(1.14.4는 GL로 직접 - NovaWingsGl14)
+		try {
+			if (kr.lunaslight.mod.module.impl.render.WingsModule.shown() && kr.lunaslight.mod.LunaClientMod.launchOk()) {
+				kr.lunaslight.mod.util.NovaWingsGl14.draw(kr.lunaslight.mod.module.impl.render.WingsModule.othersShown());
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("wings:mixin14", t);
 		}
 	}
 }

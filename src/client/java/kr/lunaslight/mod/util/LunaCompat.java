@@ -2605,13 +2605,20 @@ public final class LunaCompat {
 		if (tickCounter == null) {
 			return 1f;
 		}
-		try {
-			Method m = getMethodCompat(tickCounter.getClass(), "getTickDelta", boolean.class);
-			Object r = m.invoke(tickCounter, true);
-			if (r instanceof Float f) {
-				return f;
+		// 49-272차: 1.21.5+는 Yarn 이름이 getTickProgress(boolean)로 바뀌어서 예전엔 여기서 못 찾고 1을 돌려줬다
+		// (보간 없이 틱 위치 그대로 - 날개가 움직일 때 몸과 따로 버벅였다).
+		for (String name : new String[]{"getTickProgress", "getTickDelta"}) {
+			Method m = findMethod(tickCounter.getClass(), name, boolean.class);
+			if (m == null) {
+				continue;
 			}
-		} catch (Throwable ignored) {
+			try {
+				Object r = m.invoke(tickCounter, true);
+				if (r instanceof Float f) {
+					return f;
+				}
+			} catch (Throwable ignored) {
+			}
 		}
 		try {
 			java.lang.reflect.Field f = getFieldCompat(tickCounter.getClass(), "tickDelta");

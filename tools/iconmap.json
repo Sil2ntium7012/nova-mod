@@ -128,7 +128,9 @@
     "ban": 59774,
     "copy": 59775,
     "square-terminal": 59658,
-    "sprout": 59776
+    "sprout": 59776,
+    "wand-sparkles": 59778,
+    "bird": 59779
   },
   "modules": {
     "afk": 59669,
@@ -233,7 +235,8 @@
     "weather_changer": 59668,
     "whisper_alert": 59708,
     "youtube_window": 59713,
-    "zoom": 59772
+    "zoom": 59772,
+    "wings": 59779
   },
   "roles": {
     "BACK": 59649,
@@ -270,6 +273,7 @@
     "CAT_FEATURE": 59730,
     "PAGE_GENERAL": 59740,
     "PAGE_UI": 59725,
-    "PAGE_GRAPHICS": 59712
+    "PAGE_GRAPHICS": 59712,
+    "PAGE_COSMETICS": 59778
   }
 }
