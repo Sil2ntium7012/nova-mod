@@ -274,9 +274,19 @@ public final class LunaTheme {
 		}
 	}
 
+	/** 49-282차: [코스메틱] 인게임 UI 쓰기를 끄면 true(가진 스킨이어도 기본으로 보인다). */
+	private static volatile boolean skinOff;
+
+	public static void setSkinOff(boolean off) {
+		if (off != skinOff) {
+			skinOff = off;
+			refresh();
+		}
+	}
+
 	/** 지금 실제로 쓰는 스킨. */
 	public static Skin skin() {
-		return skin != Skin.DEFAULT && skinOwned(skin) ? skin : Skin.DEFAULT;
+		return !skinOff && skin != Skin.DEFAULT && skinOwned(skin) ? skin : Skin.DEFAULT;
 	}
 
 	/** 지금 쓸 색·배경을 정해서 팔레트 전체에 반영. */

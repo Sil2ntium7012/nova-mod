@@ -95,7 +95,7 @@ public final class NovaCapes {
 		}
 		String key;
 		if (uid.equals(selfId())) {
-			key = mine;
+			key = kr.lunaslight.mod.module.impl.misc.CosmeticsModule.capeOn() ? mine : null;   // 49-282차: [코스메틱] 망토 쓰기
 		} else {
 			if (!CapeSmoothModule.othersCapesShown()) {
 				return null;

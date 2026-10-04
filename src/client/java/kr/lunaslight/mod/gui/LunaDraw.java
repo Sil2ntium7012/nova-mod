@@ -613,12 +613,11 @@ public final class LunaDraw {
 
 	/** 상자 바깥으로 번지는 빛(1px 고리를 바깥으로 갈수록 옅게 - 속은 안 칠해서 반투명 판이 물들지 않는다). */
 	public static void glow(DrawContext ctx, int x, int y, int w, int h, int r, int rgb, int a0, int spread) {
+		// 49-285차(사용자: "미드나잇 바깥 빛나는 모서리에 검은 선으로 빛이 안 나오는 곳"): 1px 고리(계단 모서리)는 둥근 모서리에서
+		// 고리끼리 틈이 나 검은 줄이 보였다. 바깥부터 옅은 둥근 판을 겹쳐 칠한다(안으로 갈수록 겹쳐 진해짐, 부드러운 둥근 모서리).
+		int al = Math.max(1, Math.round(a0 * 2f / (spread + 1)));
 		for (int i = spread; i >= 1; i--) {
-			float k = 1f - (i - 0.5f) / spread;
-			int a = Math.round(a0 * k * k);
-			if (a > 0) {
-				roundRectOutline(ctx, x - i, y - i, w + 2 * i, h + 2 * i, r + i, (a << 24) | (rgb & 0xFFFFFF));
-			}
+			roundRect(ctx, x - i, y - i, w + 2 * i, h + 2 * i, r + i, (al << 24) | (rgb & 0xFFFFFF));
 		}
 	}
 
@@ -683,7 +682,8 @@ public final class LunaDraw {
 			glow(ctx, x, y, w, h, r, MID_GLOW, 0x5A, 9);
 			roundRect(ctx, x, y, w, h, r, LunaTheme.mix(0xFF16112F, 0xFFA06EFF, 0.45f));
 			roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), 0xF01D1740, 0xF0100C22);
-			ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(0x14FFFFFF));
+			midnightSky(ctx, x, y, w, h, r);   // 49-283차: 별, 오로라, 달
+			ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(0x22E9DDFF));
 			return true;
 		}
 		if (neon()) {
@@ -695,6 +695,7 @@ public final class LunaDraw {
 			neonFill(ctx, x + 2, y + 2, w - 4, h - 4, cut, 0xEE060609);
 			neonFrame(ctx, x + 2, y + 2, w - 4, h - 4, cut, 1, 0x2A20F0FF);   // 안쪽 은은한 빛
 			neonFrame(ctx, x + 3, y + 3, w - 6, h - 6, cut, 1, 0x1220F0FF);
+			cyberDecor(ctx, x, y, w, h, cut);   // 49-283차: 사이버펑크(주사선, 색 번짐, 모서리 꺾쇠, 눈금)
 			neonFrame(ctx, x, y, w, h, cut, 2, NEON_CYAN);
 			return true;
 		}
@@ -711,9 +712,14 @@ public final class LunaDraw {
 			return true;
 		}
 		if (neon()) {
-			r = Math.min(2, Math.min(w, h) / 2);
-			roundRect(ctx, x, y, w, h, r, border);
-			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
+			// 49-283차: 사이버펑크 - 오른쪽 위, 왼쪽 아래를 잘라낸 카드 + 왼쪽 위 시안 꺾쇠
+			int cut = Math.max(2, Math.min(6, Math.min(w, h) / 5));
+			neonFill(ctx, x, y, w, h, cut, border);
+			neonFill(ctx, x + 1, y + 1, w - 2, h - 2, cut, fill);
+			if (w > 14 && h > 10) {
+				ctx.fill(x, y, x + 6, y + 1, applyAlpha(NEON_CYAN));
+				ctx.fill(x, y, x + 1, y + 5, applyAlpha(NEON_CYAN));
+			}
 			return true;
 		}
 		return false;
@@ -742,18 +748,22 @@ public final class LunaDraw {
 			return true;
 		}
 		if (neon()) {
+			// 49-283차: 사이버펑크 - 모서리 잘린 버튼, 주 버튼은 분홍이 1px 어긋나 번지고 왼쪽에 굵은 시안 띠
+			int cut = Math.max(2, Math.min(5, h / 3));
 			if (primary) {
-				glow(ctx, x, y, w, h, 1, 0x20F0FF, Math.round(0x48 + 0x30 * hov), 4);
-				roundRect(ctx, x, y, w, h, 1, NEON_CYAN);
-				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, 0xFF060609);
-				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, Math.round(0x24 + 0x20 * hov) << 24 | 0x20F0FF);
+				neonFill(ctx, x, y, w, h, cut, NEON_CYAN);
+				neonFill(ctx, x + 1, y + 1, w - 2, h - 2, cut, 0xFF060609);
+				neonFill(ctx, x + 1, y + 1, w - 2, h - 2, cut, Math.round(0x24 + 0x22 * hov) << 24 | 0x20F0FF);
+				ctx.fill(x + 1, y + 1, x + 3, y + h - cut, applyAlpha(NEON_CYAN));
+				ctx.fill(x + cut + 2, y + h, x + w - 2, y + h + 1, applyAlpha(0x80FF3CC8));   // 아래 분홍 번짐 한 줄
 			} else {
+				int edge = LunaTheme.mix(0xFF060609, NEON_PINK, 0.75f + 0.25f * hov);
+				neonFill(ctx, x, y, w, h, cut, edge);
+				neonFill(ctx, x + 1, y + 1, w - 2, h - 2, cut, 0xFF060609);
+				neonFill(ctx, x + 1, y + 1, w - 2, h - 2, cut, Math.round(0x08 + 0x14 * hov) << 24 | 0xFF3CC8);
 				if (hov > 0.01f) {
-					glow(ctx, x, y, w, h, 1, 0xFF3CC8, Math.round(0x40 * hov), 3);
+					ctx.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, applyAlpha((Math.round(0xC0 * hov) << 24) | 0xFF3CC8));
 				}
-				roundRect(ctx, x, y, w, h, 1, LunaTheme.mix(0xFF060609, NEON_PINK, 0.75f + 0.25f * hov));
-				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, 0xFF060609);
-				roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 0, Math.round(0x10 * hov) << 24 | 0xFF3CC8);
 			}
 			return true;
 		}
@@ -798,10 +808,127 @@ public final class LunaDraw {
 		return false;
 	}
 
+	/**
+	 * 49-283차(사용자: "미드나잇도 뭔가 킥을"): 미드나잇 판 위에 밤하늘 - 위쪽 보라 오로라(옅은 띠), 반짝이는 별(자리는 판 크기로
+	 * 고정, 밝기만 천천히 깜빡), 오른쪽 아래 초승달과 빛. 판 바탕 바로 뒤에 그려서 내용이 위에 덮인다.
+	 */
+	public static void midnightSky(DrawContext ctx, int x, int y, int w, int h, int r) {
+		if (w < 40 || h < 40) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		// 오로라: 위에서 아래로 옅어지는 보라/분홍 띠 두 겹
+		int band = Math.min(36, h / 4);
+		for (int j = 0; j < band; j++) {
+			float k = 1f - j / (float) band;
+			int a = Math.round(0x2C * k * k);
+			if (a > 0) {
+				int c = j % 2 == 0 ? 0x8A5CFF : 0xB06CFF;
+				int yy = 2 + j;
+				double dy = r - yy - 0.5;
+				int in = yy < r ? (int) Math.ceil(r - Math.sqrt(Math.max(0, r * (double) r - dy * dy))) : 1;
+				ctx.fill(x + Math.max(1, in), y + yy, x + w - Math.max(1, in), y + yy + 1, applyAlpha((a << 24) | c));
+			}
+		}
+		// 별: 판 크기로 정해지는 자리(매 프레임 같은 자리), 밝기만 깜빡
+		int n = Math.max(12, Math.min(140, w * h / 1400));
+		long seed = (long) w * 73856093L ^ (long) h * 19349663L;
+		for (int i = 0; i < n; i++) {
+			seed = seed * 6364136223846793005L + 1442695040888963407L;
+			int sx = x + 4 + (int) ((seed >>> 33) % Math.max(1, w - 8));
+			seed = seed * 6364136223846793005L + 1442695040888963407L;
+			int sy = y + 4 + (int) ((seed >>> 33) % Math.max(1, h - 8));
+			seed = seed * 6364136223846793005L + 1442695040888963407L;
+			int kind = (int) ((seed >>> 40) & 0xFF);
+			double ph = (kind / 255.0) * Math.PI * 2;
+			double tw = 0.5 + 0.5 * Math.sin(now / (900.0 + (kind & 31) * 40.0) + ph);
+			int a = (int) Math.round((kind < 40 ? 0xC0 : 0x50) * (0.35 + 0.65 * tw));
+			int col = (kind & 3) == 0 ? 0xE6D8FF : 0xFFFFFF;
+			ctx.fill(sx, sy, sx + 1, sy + 1, applyAlpha((a << 24) | col));
+			if (kind < 40) {   // 밝은 별은 십자 빛
+				int a2 = a / 3;
+				ctx.fill(sx - 1, sy, sx, sy + 1, applyAlpha((a2 << 24) | col));
+				ctx.fill(sx + 1, sy, sx + 2, sy + 1, applyAlpha((a2 << 24) | col));
+				ctx.fill(sx, sy - 1, sx + 1, sy, applyAlpha((a2 << 24) | col));
+				ctx.fill(sx, sy + 1, sx + 1, sy + 2, applyAlpha((a2 << 24) | col));
+			}
+		}
+		// 초승달(오른쪽 아래): 빛 + 밝은 원 위에 바탕색 원을 비껴 덮는다
+		if (w >= 120 && h >= 90) {
+			int d = 18, mx = x + w - d - 16, my = y + h - d - 16;
+			for (int g = 6; g >= 1; g--) {
+				circle(ctx, mx - g, my - g, d + 2 * g, (Math.round(0x10 * (1f - g / 7f)) << 24) | 0xB597FF);
+			}
+			// 초승달: 밝은 원 안에서 비껴 놓은 원 밖인 부분만 줄마다 칠한다(덮어 지우지 않아 빛과 하늘이 그대로)
+			double rad = d / 2.0, cx0 = mx + rad, cy0 = my + rad, cx1 = cx0 + 5, cy1 = cy0 - 3;
+			for (int j = 0; j < d; j++) {
+				double py = my + j + 0.5;
+				double ha = rad * rad - (py - cy0) * (py - cy0);
+				if (ha <= 0) {
+					continue;
+				}
+				double sa = Math.sqrt(ha), a0 = cx0 - sa, a1 = cx0 + sa;
+				double hb = rad * rad - (py - cy1) * (py - cy1);
+				int col = 0x9AF0EAFF;
+				if (hb <= 0) {
+					ctx.fill((int) Math.round(a0), (int) py, (int) Math.round(a1), (int) py + 1, applyAlpha(col));
+					continue;
+				}
+				double sb = Math.sqrt(hb), b0 = cx1 - sb;
+				if (b0 > a0) {
+					ctx.fill((int) Math.round(a0), (int) py, (int) Math.round(Math.min(b0, a1)), (int) py + 1, applyAlpha(col));
+				}
+			}
+		}
+	}
+
+	/**
+	 * 49-283차(사용자: "네온 색감은 유지하고 조금 더 사이버펑크 UI 느낌"): 네온 판 장식 - 옅은 주사선(3줄마다), 모서리 바깥 굵은 꺾쇠
+	 * (왼쪽 위 시안, 오른쪽 아래 분홍), 위 테두리의 기울어진 시안 탭과 눈금, 아래쪽 분홍 사선 줄무늬.
+	 */
+	public static void cyberDecor(DrawContext ctx, int x, int y, int w, int h, int cut) {
+		if (w < 60 || h < 40) {
+			return;
+		}
+		// 주사선
+		for (int j = y + 4; j < y + h - 4; j += 3) {
+			int l = x + 3 + (j >= y + h - cut ? j - (y + h - cut) + 1 : 0);
+			int rr = x + w - 3 - (j < y + cut ? (y + cut) - j : 0);
+			ctx.fill(l, j, rr, j + 1, applyAlpha(0x0A20F0FF));
+		}
+		// 바깥 꺾쇠
+		// 49-285차(사용자: "모서리에 핑크가 약간 이상해"): 꺾쇠를 2px로 가늘게, 판에 4px 붙여서, 오른쪽 아래도 시안(분홍 덩어리 없앰)
+		int L = Math.min(22, Math.min(w, h) / 4), t = 2;
+		ctx.fill(x - 4, y - 4, x - 4 + L, y - 4 + t, applyAlpha(NEON_CYAN));
+		ctx.fill(x - 4, y - 4, x - 4 + t, y - 4 + L, applyAlpha(NEON_CYAN));
+		ctx.fill(x + w + 4 - L, y + h + 4 - t, x + w + 4, y + h + 4, applyAlpha(NEON_CYAN));
+		ctx.fill(x + w + 4 - t, y + h + 4 - L, x + w + 4, y + h + 4, applyAlpha(NEON_CYAN));
+		// 위 테두리 탭(기울어진 시안 덩어리) + 눈금
+		int tabX = x + 22, tabW = Math.min(90, w / 4);
+		for (int j = 0; j < 4; j++) {
+			ctx.fill(tabX + j, y - 4 + j, tabX + tabW - 4 + j, y - 3 + j, applyAlpha(NEON_CYAN));
+		}
+		for (int i = 0; i < 6; i++) {
+			int tx = tabX + tabW + 8 + i * 5;
+			ctx.fill(tx, y - 3, tx + 2, y, applyAlpha(i % 3 == 2 ? NEON_PINK : 0xAA20F0FF));
+		}
+		// 아래쪽 분홍 사선 줄무늬(경고 띠)
+		int sx0 = x + w - cut - 70, sy0 = y + h + 3;
+		if (sx0 > x + cut + 10) {
+			for (int i = 0; i < 8; i++) {
+				int bx = sx0 + i * 7;
+				for (int j = 0; j < 3; j++) {
+					ctx.fill(bx + j, sy0 + j, bx + j + 3, sy0 + j + 1, applyAlpha(0xCCFF3CC8));
+				}
+			}
+		}
+	}
+
 	/** 설정 줄 바탕. 미드나잇 = 흰색 4%, 네온 = 분홍 6% + 왼쪽 2px 분홍 띠. 그리면 true. */
 	public static boolean skinRow(DrawContext ctx, int x, int y, int w, int h) {
 		if (midnight()) {
 			roundRect(ctx, x, y, w, h, Math.min(5, h / 2), 0x0BFFFFFF);
+			ctx.fill(x + 4, y, x + w - 4, y + 1, applyAlpha(0x1CB597FF));   // 49-283차: 윗변 보라 빛 한 줄
 			return true;
 		}
 		if (neon()) {

@@ -149,18 +149,80 @@ public final class LunaProjection {
 
 	/** 지금 프레임의 카메라로 투영기를 만든다(프레임당 1회 계산, 이후는 캐시). 카메라/FOV를 못 읽으면 null. */
 	public static LunaProjection capture(Minecraft client) {
-		if (cachedSerial == frameSerial) {
+		// 49-288차(사용자: "26.x에서 화면을 돌리면 홀로그램이 화면에 붙어서 같이 돈다"): 프레임 번호(HUD 콜백의 beginFrame)만 믿고
+		// 캐시하면, 번호가 안 바뀌는 경로에서 처음 카메라 그대로 계속 그려 화면에 달라붙는다. 이제 카메라 위치/각도/FOV/화면 크기가
+		// 하나라도 바뀌면 다시 만든다(같으면 그대로 - 계산은 몇 번의 곱셈뿐).
+		net.minecraft.client.Camera cam = mainCamera(client);
+		if (cached != null && cam != null && client != null && client.getWindow() != null) {
+			Vec3 pos = cam.position();
+			if (pos != null && pos.x == cached.camX && pos.y == cached.camY && pos.z == cached.camZ
+					&& cam.yRot() == cached.yawDeg && cam.xRot() == cached.pitchDeg && cam.getFov() == cached.fovKey
+					&& client.getWindow().getGuiScaledWidth() == cached.sw && client.getWindow().getGuiScaledHeight() == cached.sh
+					&& cachedSerial >= frameSerial - 1) {
+				cachedSerial = frameSerial;
+				return cached;
+			}
+		} else if (cachedSerial == frameSerial && cam == null) {
 			return cached;
 		}
-		LunaProjection p = compute(client);
+		LunaProjection p = compute(client, cam);
 		cached = p;
 		cachedSerial = frameSerial;
 		return p;
 	}
 
-	private static LunaProjection compute(Minecraft client) {
+	private static java.lang.reflect.Method mainCameraMethod;
+	private static boolean mainCameraResolved;
+
+	/** 26.3 GameRenderer#mainCamera() / 26.1~26.2 getMainCamera(). 없으면 null. */
+	private static net.minecraft.client.Camera mainCamera(Minecraft client) {
+		if (client == null || client.gameRenderer == null) {
+			return null;
+		}
+		try {
+			if (!mainCameraResolved) {
+				mainCameraResolved = true;
+				for (String n : new String[]{"mainCamera", "getMainCamera"}) {
+					try {
+						java.lang.reflect.Method m = client.gameRenderer.getClass().getMethod(n);
+						if (net.minecraft.client.Camera.class.isAssignableFrom(m.getReturnType())) {
+							mainCameraMethod = m;
+							break;
+						}
+					} catch (NoSuchMethodException ignored) {
+					}
+				}
+			}
+			return mainCameraMethod == null ? null : (net.minecraft.client.Camera) mainCameraMethod.invoke(client.gameRenderer);
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/** 캐시 비교용(만들 때의 카메라 값). */
+	private double yawDeg = Double.NaN, pitchDeg = Double.NaN, fovKey = Double.NaN;
+
+	private static LunaProjection compute(Minecraft client, net.minecraft.client.Camera cam) {
 		if (client == null || client.player == null || client.getWindow() == null) {
 			return null;
+		}
+		if (cam != null && cam.position() != null) {
+			// 49-288차: 26.x 카메라를 직접 읽는다(리플렉션 이름 찾기 없이) - 위치, 각도, 실제 FOV(시야 효과, 줌 포함)
+			double fov = cam.getFov();
+			if (!(fov > 1) || !(fov < 179)) {
+				fov = ZoomState.lastFov > 1 && ZoomState.lastFov < 179 ? ZoomState.lastFov : LunaCompat.optionsFov(client);
+			}
+			if (!(fov > 1) || !(fov < 179)) {
+				return null;
+			}
+			int sw = client.getWindow().getGuiScaledWidth();
+			int sh = client.getWindow().getGuiScaledHeight();
+			double aspect = (double) client.getWindow().getWidth() / Math.max(1, client.getWindow().getHeight());
+			LunaProjection p = new LunaProjection(cam.position(), cam.yRot(), cam.xRot(), fov, sw, sh, aspect, currentBob());
+			p.yawDeg = cam.yRot();
+			p.pitchDeg = cam.xRot();
+			p.fovKey = cam.getFov();
+			return p;
 		}
 		Object camera = LunaCompat.getCamera(client);
 		Vec3 camPos = LunaCompat.cameraPos(camera, client);

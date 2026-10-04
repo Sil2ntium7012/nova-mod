@@ -73,13 +73,47 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			"auto_pick", "놓을 때 블록 바꾸기", "블록을 들고 홀로그램 자리에 우클릭하면 그 자리에 맞는 블록을 인벤토리에서 손으로 가져와 놓습니다.", true));
 	// 49-268차(사용자: "홀로그램 색을 그 설정한 푸른색을 껴 줘야 구분이 잘 가지"): 블록 그림에 '놓을 곳 색'을 이만큼 섞는다.
 	private final IntSetting tintMix = register(new IntSetting(
-			"holo_tint", "색 입히기", "홀로그램 블록 그림에 '놓을 곳 색'을 섞는 정도입니다. 0이면 블록 색 그대로입니다.", 55, 0, 100, 5).unit("%"));
+			"holo_tint", "색 입히기", "홀로그램 블록 그림에 '놓을 곳 색'을 섞는 정도입니다. 0이면 블록 색 그대로입니다.", 0, 0, 100, 5).unit("%"));
+	// 49-281차(사용자: "파란색 테두리 없애고 그 색 자체를 리터매티카랑 똑같이"): 기본 색을 리터매티카 기본값 그대로
+	// (Colors: schematicOverlayColorMissing #2C33B3E6, WrongBlock #4CFF3333, WrongState #4CFF9010 - 알파 포함 ARGB).
+	// 칸마다 이 색의 반투명 면 + 같은 색 1px 윤곽선을 덮는다(리터매티카 오버레이). 예전 기본값으로 저장돼 있으면 새 기본값으로 본다.
 	private final ColorSetting missingColor = register(new ColorSetting(
-			"missing_color", "놓을 곳 색", "아직 안 놓은 칸의 색입니다.", 0xFF7FD4FF));
+			"missing_color", "놓을 곳 색", "아직 안 놓은 칸에 덮는 색입니다. 기본은 리터매티카와 같은 하늘색입니다.", LITE_MISSING));
 	private final ColorSetting wrongColor = register(new ColorSetting(
-			"wrong_color", "틀린 블록 색", "다른 블록이 놓인 칸의 색입니다.", 0xFFFF5A50));
+			"wrong_color", "틀린 블록 색", "다른 블록이 놓인 칸에 덮는 색입니다.", LITE_WRONG));
 	private final ColorSetting rotatedColor = register(new ColorSetting(
-			"rotated_color", "방향 틀림 색", "블록은 맞는데 방향이 다른 칸의 색입니다.", 0xFFFFA040));
+			"rotated_color", "방향 틀림 색", "블록은 맞는데 방향이 다른 칸에 덮는 색입니다.", LITE_STATE));
+
+	public static final int LITE_MISSING = 0x2C33B3E6, LITE_WRONG = 0x4CFF3333, LITE_STATE = 0x4CFF9010;
+
+	/** 49-281차: 예전 기본값(불투명 하늘/빨강/주황)으로 저장된 값은 리터매티카 기본값으로. */
+	private static int liteColor(ColorSetting s, int oldDefault, int def) {
+		int v = s.getArgb();
+		return v == oldDefault ? def : v;
+	}
+
+	private int missArgb() {
+		return liteColor(missingColor, 0xFF7FD4FF, LITE_MISSING);
+	}
+
+	private int wrongArgb() {
+		return liteColor(wrongColor, 0xFFFF5A50, LITE_WRONG);
+	}
+
+	private int stateArgb() {
+		return liteColor(rotatedColor, 0xFFFFA040, LITE_STATE);
+	}
+
+	/** 윤곽선 = 같은 색 불투명. */
+	private static int lineOf(int argb) {
+		return 0xFF000000 | (argb & 0xFFFFFF);
+	}
+
+	/** 49-281차: 색 입히기 - 예전 기본값 55는 0(리터매티카처럼 블록 색 그대로)으로 본다. */
+	private int tintPct() {
+		int v = tintMix.get();
+		return v == 55 ? 0 : v;
+	}
 
 	// ---- 선택 ----
 	public BlockPos pos1, pos2;
@@ -893,8 +927,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 
 	private static final int MAX_BOXES = 1500;
 	private static final int EDGE_BOXES = 200;
+	/** 49-281차: 월드에 진짜 블록으로 그린 칸에 리터매티카 오버레이(반투명 면 + 윤곽선)를 덮는 최대 칸 수(가까운 것부터). */
+	private static final int OVERLAY_BOXES = 900;
 	/** 49-274차: 칸 테두리 굵기(예전 1px - 블록 그림에 묻혔다). */
-	private static final float EDGE_W = 1.8f;
+	private static final float EDGE_W = 1f;   // 49-281차: 1.8 → 1(리터매티카 윤곽선 굵기 1)
 	private static final int[][] FACE_DIRS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 	/** 면 f의 네 꼭짓점(a, b, c, d 둘레 순서, a = 그림 왼쪽 위, a→b 가로, a→d 아래로). 꼭짓점 번호 = x | z<<1 | y<<2. */
 	private static final int[][] FACE_CORNERS = {
@@ -957,21 +993,148 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			return;
 		}
 		if (pos1 != null) {
-			box(ctx, proj, pos1.getX(), pos1.getY(), pos1.getZ(), pos1.getX() + 1, pos1.getY() + 1, pos1.getZ() + 1, 2f, 0xFF55C8FF);
+			selBox(ctx, proj, 0, pos1.getX(), pos1.getY(), pos1.getZ(), pos1.getX() + 1, pos1.getY() + 1, pos1.getZ() + 1, 2f, 0xFF55C8FF);
 		}
 		if (pos2 != null) {
-			box(ctx, proj, pos2.getX(), pos2.getY(), pos2.getZ(), pos2.getX() + 1, pos2.getY() + 1, pos2.getZ() + 1, 2f, 0xFFE070FF);
+			selBox(ctx, proj, 1, pos2.getX(), pos2.getY(), pos2.getZ(), pos2.getX() + 1, pos2.getY() + 1, pos2.getZ() + 1, 2f, 0xFFE070FF);
 		}
 		if (pos1 != null && pos2 != null) {
-			box(ctx, proj, Math.min(pos1.getX(), pos2.getX()), Math.min(pos1.getY(), pos2.getY()), Math.min(pos1.getZ(), pos2.getZ()),
+			selBox(ctx, proj, 2, Math.min(pos1.getX(), pos2.getX()), Math.min(pos1.getY(), pos2.getY()), Math.min(pos1.getZ(), pos2.getZ()),
 					Math.max(pos1.getX(), pos2.getX()) + 1, Math.max(pos1.getY(), pos2.getY()) + 1, Math.max(pos1.getZ(), pos2.getZ()) + 1,
 					1.2f, 0xB0FFFFFF);
 		}
 		BlockPos ref = refPos();
 		if (ref != null) {
 			double g = 0.25;
-			box(ctx, proj, ref.getX() + g, ref.getY() + g, ref.getZ() + g, ref.getX() + 1 - g, ref.getY() + 1 - g, ref.getZ() + 1 - g, 1.6f, 0xFFFFD84A);
+			selBox(ctx, proj, 3, ref.getX() + g, ref.getY() + g, ref.getZ() + g, ref.getX() + 1 - g, ref.getY() + 1 - g, ref.getZ() + 1 - g, 1.6f, 0xFFFFD84A);
 		}
+	}
+
+	// ==================== 49-286차: 도끼로 찍은 지점/구역 상자 - 블록에 가린 선은 옅게 ====================
+	// 사용자(사진): "도끼로 빌드하는 거 내가 보는 방향에 따라 이상하게 보여". 상자 선은 화면 위에 덧그려서 블록에 안 가렸다 -
+	// 바닥 블록을 찍으면 상자 아래 반이 땅속인데도 다 보여서 공중에 뜬 상자처럼 보이고 방향 따라 모양이 바뀌었다.
+	// 이제 모서리를 잘게 나눠 조각마다 카메라에서 그 점까지 불투명 블록이 막는지 보고(DDA), 막힌 조각은 25% 진하기로만 그린다.
+	// 상자마다 결과를 담아 두고 카메라가 0.2블록 넘게 움직였거나 상자가 바뀌었거나 0.25초가 지나면 다시 본다.
+
+	private final double[][] selKey = new double[4][];
+	private final boolean[][] selSeen = new boolean[4][];
+	private final long[] selAt = new long[4];
+
+	private void selBox(GuiGraphicsExtractor ctx, LunaProjection proj, int key, double x0, double y0, double z0, double x1, double y1, double z1,
+			float width, int argb) {
+		double[] k = {x0, y0, z0, x1, y1, z1, proj.camX, proj.camY, proj.camZ};
+		long now = System.currentTimeMillis();
+		double[] old = selKey[key];
+		boolean fresh = old != null && now - selAt[key] < 250;
+		if (fresh) {
+			for (int i = 0; i < 6; i++) {
+				if (old[i] != k[i]) {
+					fresh = false;
+					break;
+				}
+			}
+			double mx = k[6] - old[6], my = k[7] - old[7], mz = k[8] - old[8];
+			if (mx * mx + my * my + mz * mz > 0.04) {
+				fresh = false;
+			}
+		}
+		// 모서리마다 조각 수(길이 2배, 1~24)
+		int[] pieces = new int[EDGES.length];
+		int total = 0;
+		double[][] corner = new double[8][];
+		for (int i = 0; i < 8; i++) {
+			corner[i] = new double[]{(i & 1) == 0 ? x0 : x1, (i & 4) == 0 ? y0 : y1, (i & 2) == 0 ? z0 : z1};
+		}
+		for (int e = 0; e < EDGES.length; e++) {
+			double[] a = corner[EDGES[e][0]], b = corner[EDGES[e][1]];
+			double len = Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]) + Math.abs(b[2] - a[2]);
+			pieces[e] = Math.max(1, Math.min(24, (int) Math.ceil(len * 2)));
+			total += pieces[e];
+		}
+		boolean[] seen = selSeen[key];
+		if (!fresh || seen == null || seen.length != total) {
+			seen = new boolean[total];
+			int n = 0;
+			for (int e = 0; e < EDGES.length; e++) {
+				double[] a = corner[EDGES[e][0]], b = corner[EDGES[e][1]];
+				for (int i = 0; i < pieces[e]; i++) {
+					double t = (i + 0.5) / pieces[e];
+					seen[n++] = seenFromCam(proj, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+				}
+			}
+			selSeen[key] = seen;
+			selKey[key] = k;
+			selAt[key] = now;
+		}
+		int faint = ((Math.max(0x18, ((argb >>> 24) & 0xFF) / 4)) << 24) | (argb & 0xFFFFFF);
+		double[] va = new double[3], vb = new double[3];
+		int n = 0;
+		for (int e = 0; e < EDGES.length; e++) {
+			double[] a = corner[EDGES[e][0]], b = corner[EDGES[e][1]];
+			int i = 0;
+			while (i < pieces[e]) {
+				boolean v = seen[n + i];
+				int j = i;
+				while (j + 1 < pieces[e] && seen[n + j + 1] == v) {
+					j++;
+				}
+				double t0 = (double) i / pieces[e], t1 = (double) (j + 1) / pieces[e];
+				proj.toView(a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0, a[2] + (b[2] - a[2]) * t0, va);
+				proj.toView(a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1, a[2] + (b[2] - a[2]) * t1, vb);
+				proj.drawViewSegment(ctx, va, vb, v ? width : Math.max(1f, width * 0.6f), v ? argb : faint);
+				i = j + 1;
+			}
+			n += pieces[e];
+		}
+	}
+
+	/** 카메라에서 그 점(카메라 쪽으로 0.03 당김)까지 불투명 블록이 없나. 점이 든 칸까지 본다. */
+	private boolean seenFromCam(LunaProjection proj, double px, double py, double pz) {
+		double sx = proj.camX, sy = proj.camY, sz = proj.camZ;
+		double dx = sx - px, dy = sy - py, dz = sz - pz;
+		double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		if (len < 0.05) {
+			return true;
+		}
+		if (len > 96) {
+			return true;   // 너무 멀면 보지 않는다(옛 방식대로 진하게)
+		}
+		px += dx / len * 0.03;
+		py += dy / len * 0.03;
+		pz += dz / len * 0.03;
+		double ex = px - sx, ey = py - sy, ez = pz - sz;
+		int x = (int) Math.floor(sx), y = (int) Math.floor(sy), z = (int) Math.floor(sz);
+		int stepX = ex > 0 ? 1 : -1, stepY = ey > 0 ? 1 : -1, stepZ = ez > 0 ? 1 : -1;
+		double adx = Math.abs(ex), ady = Math.abs(ey), adz = Math.abs(ez);
+		double tMaxX = adx < 1e-9 ? Double.MAX_VALUE : (ex > 0 ? x + 1 - sx : sx - x) / adx;
+		double tMaxY = ady < 1e-9 ? Double.MAX_VALUE : (ey > 0 ? y + 1 - sy : sy - y) / ady;
+		double tMaxZ = adz < 1e-9 ? Double.MAX_VALUE : (ez > 0 ? z + 1 - sz : sz - z) / adz;
+		double tdX = adx < 1e-9 ? Double.MAX_VALUE : 1 / adx, tdY = ady < 1e-9 ? Double.MAX_VALUE : 1 / ady, tdZ = adz < 1e-9 ? Double.MAX_VALUE : 1 / adz;
+		for (int guard = 0; guard < 400; guard++) {
+			if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+				if (tMaxX > 1) {
+					return true;
+				}
+				x += stepX;
+				tMaxX += tdX;
+			} else if (tMaxY < tMaxZ) {
+				if (tMaxY > 1) {
+					return true;
+				}
+				y += stepY;
+				tMaxY += tdY;
+			} else {
+				if (tMaxZ > 1) {
+					return true;
+				}
+				z += stepZ;
+				tMaxZ += tdZ;
+			}
+			if (opaqueAt(x, y, z)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** 그릴 칸 목록을 다시 만들어야 하면 만든다. 결과: drawIdx[0..drawN) = 칸 인덱스, 가까운 순. */
@@ -1280,7 +1443,8 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		boolean inWorld = worldOk && System.nanoTime() - worldStamp < 250_000_000L;
 		int a = Math.round(255 * alpha.get() / 100f);
 		int fillA = Math.min(255, a * 3 / 4 + 30);
-		int miss = missingColor.getArgb() & 0xFFFFFF, wrong = wrongColor.getArgb() & 0xFFFFFF, rot = rotatedColor.getArgb() & 0xFFFFFF;
+		int missC = missArgb(), wrongC = wrongArgb(), stateC = stateArgb();
+		int miss = missC & 0xFFFFFF;
 		double limX = proj.tanHalf * proj.aspect * 1.05, limY = proj.tanHalf * 1.05;
 		int wl = bp.w * bp.l;
 		// 먼 것부터(가까운 게 위에)
@@ -1290,9 +1454,9 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			if (st == Blueprint.OK || st == Blueprint.UNKNOWN) {
 				continue;   // 목록을 만든 뒤에 맞게 놓인 칸
 			}
-			// 49-274차(사용자: "테두리를 파란색으로 좀 더, 색이랑 구분이 안 돼"): 월드에 진짜 블록으로 그린 칸도 가까우면 테두리만 그린다
+			// 49-281차: 월드에 진짜 블록으로 그린 칸은 리터매티카처럼 반투명 색 면 + 윤곽선만 덮는다(가까운 OVERLAY_BOXES칸)
 			boolean edgeOnly = inWorld && worldDrawn.get(idx);
-			if (edgeOnly && i >= EDGE_BOXES) {
+			if (edgeOnly && i >= OVERLAY_BOXES) {
 				continue;
 			}
 			int y = idx / wl, rem = idx - y * wl, z = rem / bp.w, x = rem - z * bp.w;
@@ -1316,18 +1480,25 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			if (cbuf[0] * cbuf[0] + cbuf[1] * cbuf[1] + vz * vz < 0.7) {
 				continue;   // 머리가 그 칸 안 - 화면을 덮는다
 			}
-			boolean edges = i < EDGE_BOXES;
-			edgesOnly = edgeOnly;
-			if (st == Blueprint.MISSING) {
+			boolean edges = edgeOnly || i < EDGE_BOXES;
+			edgesOnly = false;
+			if (st == Blueprint.MISSING && edgeOnly) {
+				// 리터매티카 '없는 블록' 오버레이: 블록 모양 그대로(월드에 그린 진짜 블록 위) 하늘색 반투명 면 + 윤곽선
+				rotNow = 0;
+				// 49-287차(사용자: "홀로그램 테두리 없애, 블록 많을 때 이상하게 보여"): 윤곽선 없이 반투명 하늘색 면만
+				drawCell(ctx, proj, x, y, z, bx, by, bz, boxesOf(bp.cells[idx]), null, missC, 0);
+			} else if (st == Blueprint.MISSING) {
+				// 화면 방식(월드 그리기를 못 쓸 때): 블록 그림 + 같은 색 윤곽선
 				BlueprintTex.Tex[] t = tex ? texOf(bp.cells[idx]) : null;
 				boolean has = t != null && t[0] != null;
 				rotNow = has ? rotOf(bp.cells[idx]) : 0;
 				drawCell(ctx, proj, x, y, z, bx, by, bz, boxesOf(bp.cells[idx]), has ? t : null,
-						has ? a : (Math.min(255, a * 3 / 5) << 24) | miss, edges ? 0xFF000000 | edgeBlue(miss) : 0);
+						has ? a : (Math.min(255, a * 3 / 5) << 24) | miss, 0);   // 49-287차: 테두리 없음
 			} else {
-				int rgb = st == Blueprint.WRONG ? wrong : rot;
+				// 리터매티카 '틀린 블록'(빨강) / '틀린 상태'(주황): 그 칸 전체에 반투명 색 면 + 윤곽선(놓인 진짜 블록 위)
+				int c = st == Blueprint.WRONG ? wrongC : stateC;
 				rotNow = 0;
-				drawCell(ctx, proj, x, y, z, bx, by, bz, boxesOf(bp.cells[idx]), null, (fillA << 24) | rgb, edges ? 0xF0000000 | rgb : 0);
+				drawCell(ctx, proj, x, y, z, bx, by, bz, null, null, c, lineOf(c));
 			}
 		}
 		edgesOnly = false;
@@ -1389,15 +1560,14 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		try {
 			worldDrawn.clear();
 			int wl = bp.w * bp.l;
-			int wrong = wrongColor.getArgb(), rot = rotatedColor.getArgb();
 			for (int i = 0; i < drawN; i++) {
 				int idx = drawIdx[i];
 				if (idx >= status.length || idx >= bp.cells.length) {
 					continue;
 				}
 				int st = status[idx];
-				if (st == Blueprint.OK || st == Blueprint.UNKNOWN) {
-					continue;
+				if (st != Blueprint.MISSING) {
+					continue;   // 49-281차: 맞음은 안 그리고, 틀린 블록/틀린 상태는 리터매티카처럼 색 상자만(화면 쪽에서)
 				}
 				int y = idx / wl, rem = idx - y * wl, z = rem / bp.w, x = rem - z * bp.w;
 				int bx = origin.getX() + x, by = origin.getY() + y, bz = origin.getZ() + z;
@@ -1417,11 +1587,6 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 					int ht = holoTint();
 					kr.lunaslight.mod.util.BlueprintWorld.block(m, bx, by, bz, ((ht >> 16) & 0xFF) / 255f, ((ht >> 8) & 0xFF) / 255f, (ht & 0xFF) / 255f,
 							af, cull, 0);
-				} else {
-					// 틀린 블록 / 방향 틀림: 있어야 할 블록을 그 색으로 물들여 살짝 크게(진짜 블록과 겹쳐 깜빡이지 않게)
-					int c = st == Blueprint.WRONG ? wrong : rot;
-					kr.lunaslight.mod.util.BlueprintWorld.block(m, bx, by, bz, ((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f,
-							(c & 0xFF) / 255f, Math.max(af, 0.6f), 0, 0.003);
 				}
 				worldDrawn.set(idx);
 			}
@@ -1575,8 +1740,8 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 
 	/** 49-268차: 블록 그림에 곱할 색 - '놓을 곳 색'을 '색 입히기'만큼(0 = 흰색 = 그대로). */
 	private int holoTint() {
-		int c = missingColor.getArgb();
-		int k = tintMix.get();
+		int c = missArgb();
+		int k = tintPct();
 		int r = 255 - (255 - ((c >> 16) & 0xFF)) * k / 100, g = 255 - (255 - ((c >> 8) & 0xFF)) * k / 100, b = 255 - (255 - (c & 0xFF)) * k / 100;
 		return r << 16 | g << 8 | b;
 	}

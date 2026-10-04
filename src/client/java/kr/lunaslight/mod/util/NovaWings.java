@@ -138,7 +138,7 @@ public final class NovaWings {
 		}
 		LunaSocial.load();
 		if (uid.equals(selfId())) {
-			return mine(uid);
+			return kr.lunaslight.mod.module.impl.misc.CosmeticsModule.wingsOn() ? mine(uid) : null;   // 49-282차: [코스메틱] 날개 쓰기
 		}
 		if (!others) {
 			return null;

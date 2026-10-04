@@ -166,6 +166,8 @@ public final class LunaSocial {
 				// 49-74차(5-9): 닉네임으로 친구를 찾으려면 Luna Site 주소가 필요하다. 런처가 실어 보내면
 				// 그걸 쓰고, 옛 런처면 아래 기본값(siteApi())으로 간다 - 그래서 런처를 안 고쳐도 동작한다.
 				siteApiBase = str(site, "api");
+				// 49-282차: 런처가 사이트 로그인 세션을 실어 주면 친구, 귓속말은 사이트 서버(/api/app/social/…)로
+				siteToken = firstNonEmpty(str(site, "sessionToken"), str(site, "token"));
 			}
 			if (o.has("supabase") && o.get("supabase").isJsonObject()) {
 				JsonObject sb = o.getAsJsonObject("supabase");
@@ -327,6 +329,32 @@ public final class LunaSocial {
 			return CompletableFuture.completedFuture(List.of());
 		}
 		String me = siteId;
+		if (viaSite()) {
+			JsonObject body = new JsonObject();
+			body.addProperty("other", otherId);
+			return social("whisper-list", body).thenApply(o -> {
+				List<Whisper> out = new ArrayList<>();
+				com.google.gson.JsonArray list = arr(o, "list");
+				if (list.size() == 0) {
+					list = arr(o, "rows");
+				}
+				for (JsonElement e : list) {
+					if (!e.isJsonObject()) {
+						continue;
+					}
+					JsonObject w = e.getAsJsonObject();
+					String sender = firstNonEmpty(str(w, "sender_uuid"), str(w, "from"));
+					out.add(new Whisper(normalize(sender).equals(normalize(me)), firstNonEmpty(str(w, "message"), str(w, "text")), str(w, "created_at")));
+				}
+				if (out.size() > 1 && parseIso(out.get(0).at()) > parseIso(out.get(out.size() - 1).at())) {
+					java.util.Collections.reverse(out);   // 화면은 오래된 순
+				}
+				return out;
+			}).exceptionally(t -> {
+				LunaCompat.warnOnce("whisper:list", t);
+				return List.of();
+			});
+		}
 		String q = "/whispers?or=(and(sender_uuid.eq." + me + ",receiver_uuid.eq." + otherId + "),"
 			+ "and(sender_uuid.eq." + otherId + ",receiver_uuid.eq." + me + "))"
 			+ "&select=sender_uuid,message,created_at&order=created_at.desc&limit=60";
@@ -362,6 +390,15 @@ public final class LunaSocial {
 		}
 		if (msg.length() > 500) {
 			msg = msg.substring(0, 500);
+		}
+		if (viaSite()) {
+			JsonObject body = new JsonObject();
+			body.addProperty("to", friend.accountId());
+			body.addProperty("message", msg);
+			return social("whisper-send", body).thenApply(x -> true).exceptionally(t -> {
+				LunaCompat.warnOnce("whisper:send", t);
+				return false;
+			});
 		}
 		JsonObject o = new JsonObject();
 		o.addProperty("sender_uuid", siteId);
@@ -500,6 +537,119 @@ public final class LunaSocial {
 	}
 
 	private static String siteApiBase;
+
+	// ==================== 49-282차: 친구 · 귓속말은 사이트 서버로 ====================
+	// 사용자: "인게임 친구 목록이 안 떠". 10-04에 런처 쪽이 friends / whispers 표를 공개(anon) 키로 못 읽고 못 쓰게 막고
+	// (게임 로그: "permission denied for table friends"), 친구, 귓속말, 접속 상태를 사이트 서버(Nova Site lib/social.js)를
+	// 거치게 바꿨다 - POST {api}/api/app/social/<action> 본문 {accountId, sessionToken, ...}. 런처가 .luna-launch.json
+	// site.sessionToken을 실어 주면 모드도 같은 길로 간다(없으면 예전 Supabase 직접 조회 - 지금은 막혀 빈 목록).
+
+	private static volatile String siteToken;
+
+	/** 사이트 서버 길을 쓸 수 있나(런처가 세션을 넘겨 줬나). */
+	public static boolean viaSite() {
+		return siteToken != null && !siteToken.isEmpty() && siteId != null && !siteApi().isEmpty();
+	}
+
+	@SuppressWarnings("deprecation")
+	private static CompletableFuture<JsonObject> social(String action, JsonObject body) {
+		JsonObject b = body == null ? new JsonObject() : body;
+		b.addProperty("accountId", siteId);
+		b.addProperty("sessionToken", siteToken);
+		HttpRequest req = HttpRequest.newBuilder(URI.create(siteApi() + "/api/app/social/" + action))
+				.timeout(Duration.ofSeconds(10))
+				.header("Content-Type", "application/json")
+				.header("Accept", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(b.toString(), StandardCharsets.UTF_8)).build();
+		return http().sendAsync(req, HttpResponse.BodyHandlers.ofString()).thenApply(res -> {
+			JsonElement el = null;
+			try {
+				el = JsonParser.parseString(res.body());
+			} catch (Throwable ignored) {
+			}
+			JsonObject o = el != null && el.isJsonObject() ? el.getAsJsonObject() : new JsonObject();
+			boolean ok = o.has("ok") && o.get("ok").isJsonPrimitive() && o.get("ok").getAsBoolean();
+			if (res.statusCode() / 100 != 2 || !ok) {
+				String err = str(o, "error");
+				throw new RuntimeException(err == null || err.isEmpty() ? "사이트 " + action + " " + res.statusCode() : err);
+			}
+			return o;
+		});
+	}
+
+	/** 사이트가 돌려준 이유(사용자에게 보여 줄 한국어)가 있으면 그것, 아니면 fallback. */
+	private static String siteError(Throwable t, String fallback) {
+		Throwable c = t;
+		while (c.getCause() != null && c.getCause() != c) {
+			c = c.getCause();
+		}
+		String m = c.getMessage();
+		return m == null || m.isEmpty() || m.startsWith("사이트 ") || m.contains("Exception") ? fallback : m;
+	}
+
+	private static com.google.gson.JsonArray arr(JsonObject o, String key) {
+		JsonElement e = o == null ? null : o.get(key);
+		return e != null && e.isJsonArray() ? e.getAsJsonArray() : new com.google.gson.JsonArray();
+	}
+
+	/** site_presence 줄들 → id(정규화) → {presence, status, server, serverName, mcName}. */
+	private static Map<String, String[]> presenceFrom(com.google.gson.JsonArray pres, String idCol) {
+		Map<String, String[]> presence = new HashMap<>();
+		long now = System.currentTimeMillis();
+		for (JsonElement e : pres) {
+			if (!e.isJsonObject()) {
+				continue;
+			}
+			JsonObject p = e.getAsJsonObject();
+			String id = firstNonEmpty(str(p, idCol), str(p, "nova_account_id"), str(p, "account_id"));
+			long elapsed = now - parseIso(str(p, "updated_at"));
+			String state = elapsed < ONLINE_WINDOW_MS ? "online" : elapsed < AWAY_WINDOW_MS ? "away" : "offline";
+			String status = state.equals("offline") ? "" : (str(p, "status_text") == null ? "" : str(p, "status_text"));
+			String server = state.equals("offline") ? "" : firstNonEmpty(str(p, "server_address"), str(p, "server"));
+			String serverName = firstNonEmpty(str(p, "server_name"), str(p, "world_name"));
+			String mcName = firstNonEmpty(str(p, "mc_name"), str(p, "minecraft_name"), str(p, "player_name"));
+			presence.put(normalize(id), new String[]{state, status, server, serverName, mcName});
+		}
+		return presence;
+	}
+
+	private static CompletableFuture<List<Friend>> siteFriends(boolean requests) {
+		String me = siteId;
+		String idCol = presenceIdCol == null || presenceIdCol.isEmpty() ? "nova_account_id" : presenceIdCol;
+		return social("friends-list", null).thenApply(o -> {
+			Map<String, String[]> presence = presenceFrom(arr(o, "presences"), idCol);
+			List<Friend> out = new ArrayList<>();
+			for (JsonElement e : arr(o, "rows")) {
+				if (!e.isJsonObject()) {
+					continue;
+				}
+				JsonObject r = e.getAsJsonObject();
+				String st = str(r, "status");
+				boolean meRequester = sameId(str(r, "requester_uuid"), me);
+				if (requests) {
+					if (!"pending".equals(st) || meRequester) {
+						continue;   // 나한테 들어온 요청만
+					}
+					String name = str(r, "requester_name");
+					out.add(new Friend(str(r, "id"), str(r, "requester_uuid"), name == null ? "?" : name, "offline", "", "", "", ""));
+					continue;
+				}
+				if (!"accepted".equals(st)) {
+					continue;
+				}
+				String otherId = meRequester ? str(r, "addressee_uuid") : str(r, "requester_uuid");
+				String otherName = meRequester ? str(r, "addressee_name") : str(r, "requester_name");
+				String[] ps = presence.get(normalize(otherId));
+				out.add(new Friend(str(r, "id"), otherId, otherName == null ? "?" : otherName,
+						ps == null ? "offline" : ps[0], ps == null ? "" : ps[1],
+						ps == null ? "" : ps[2], ps == null ? "" : ps[3], ps == null ? "" : ps[4]));
+			}
+			if (!requests) {
+				out.sort((a, c) -> Integer.compare(rank(a.presence()), rank(c.presence())));
+			}
+			return out;
+		});
+	}
 	private static String presenceIdCol;
 	private static String logoUrl;
 
@@ -582,6 +732,17 @@ public final class LunaSocial {
 		if (siteName != null && nick.equalsIgnoreCase(siteName)) {
 			return CompletableFuture.completedFuture("자기 자신은 추가할 수 없어요");
 		}
+		if (viaSite()) {
+			JsonObject body = new JsonObject();
+			body.addProperty("nickname", nick);
+			return social("friend-add", body).thenApply(o -> {
+				boolean accepted = o.has("accepted") && o.get("accepted").isJsonPrimitive() && o.get("accepted").getAsBoolean();
+				return accepted ? nick + " 님과 친구가 됐습니다" : nick + " 님에게 친구 요청을 보냈습니다";
+			}).exceptionally(t -> {
+				LunaCompat.warnOnce("social:addFriend", t);
+				return siteError(t, "보내지 못했습니다 - 잠시 뒤 다시");
+			});
+		}
 		return resolveNickname(nick).thenCompose(found -> {
 			if (found == null) {
 				return CompletableFuture.completedFuture("그런 닉네임의 노바 계정이 없어요");
@@ -630,6 +791,14 @@ public final class LunaSocial {
 		if (!signedIn() || rowId == null || rowId.isEmpty()) {
 			return CompletableFuture.completedFuture("지울 수 없습니다");
 		}
+		if (viaSite()) {
+			JsonObject body = new JsonObject();
+			body.addProperty("requestId", rowId);
+			return social("friend-remove", body).thenApply(x -> (String) null).exceptionally(t -> {
+				LunaCompat.warnOnce("social:removeFriend", t);
+				return siteError(t, "지우지 못했습니다");
+			});
+		}
 		return restSend("DELETE", "/friends?id=eq." + enc(rowId), null)
 			.thenApply(x -> (String) null)
 			.exceptionally(t -> {
@@ -649,6 +818,14 @@ public final class LunaSocial {
 		load();
 		if (!signedIn() || friend == null) {
 			return CompletableFuture.completedFuture("차단할 수 없습니다");
+		}
+		if (viaSite()) {
+			JsonObject body = new JsonObject();
+			body.addProperty("nickname", friend.name());
+			return social("friend-block", body).thenApply(x -> (String) null).exceptionally(t -> {
+				LunaCompat.warnOnce("social:blockFriend", t);
+				return siteError(t, "차단하지 못했습니다");
+			});
 		}
 		JsonObject patch = new JsonObject();
 		patch.addProperty("requester_uuid", siteId);
@@ -672,6 +849,12 @@ public final class LunaSocial {
 		load();
 		if (!signedIn()) {
 			return CompletableFuture.completedFuture(List.of());
+		}
+		if (viaSite()) {
+			return siteFriends(true).exceptionally(t -> {
+				LunaCompat.warnOnce("social:requests", t);
+				return List.of();
+			});
 		}
 		return rest("/friends?addressee_uuid=eq." + enc(siteId)
 				+ "&status=eq.pending&select=id,requester_uuid,requester_name")
@@ -701,6 +884,14 @@ public final class LunaSocial {
 		if (!signedIn() || rowId == null || rowId.isEmpty()) {
 			return CompletableFuture.completedFuture("수락할 수 없습니다");
 		}
+		if (viaSite()) {
+			JsonObject body = new JsonObject();
+			body.addProperty("requestId", rowId);
+			return social("friend-accept", body).thenApply(x -> (String) null).exceptionally(t -> {
+				LunaCompat.warnOnce("social:accept", t);
+				return siteError(t, "수락하지 못했습니다");
+			});
+		}
 		JsonObject patch = new JsonObject();
 		patch.addProperty("status", "accepted");
 		return restSend("PATCH", "/friends?id=eq." + enc(rowId), patch.toString())
@@ -718,6 +909,12 @@ public final class LunaSocial {
 			return CompletableFuture.completedFuture(List.of());
 		}
 		String me = siteId;
+		if (viaSite()) {
+			return siteFriends(false).exceptionally(t -> {
+				LunaCompat.warnOnce("social:friends", t);
+				return List.of();
+			});
+		}
 		return rest("/friends?or=(requester_uuid.eq." + enc(me) + ",addressee_uuid.eq." + enc(me)
 				+ ")&status=eq.accepted&select=id,requester_uuid,addressee_uuid,requester_name,addressee_name")
 			.thenCompose(rows -> {
