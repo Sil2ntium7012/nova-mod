@@ -76,7 +76,7 @@ public class HeldItemCounterModule extends Module {
 			int size = LunaCompat.invSize(inv);
 			for (int i = 0; i < size; i++) {
 				ItemStack s = LunaCompat.invGetStack(inv, i);
-				if (s != null && !s.isEmpty() && s.getItem() == hand.getItem()) {
+				if (s != null && !s.isEmpty() && s.getItem() == hand.getItem() && sameData(s, hand)) {
 					total += s.getCount();
 				}
 			}
@@ -84,6 +84,18 @@ public class HeldItemCounterModule extends Module {
 			return hand.getCount();
 		}
 		return Math.max(total, hand.getCount());
+	}
+
+	/**
+	 * 49-299차(사용자: "nbt 다르면 안 뜨게 해 주고 아이템 개수에 포함"): 서버 아이템은 같은 바닐라 아이템에 데이터(이름, 모델, 태그)만 달라
+	 * 다른 아이템인 경우가 많다 - 아이템 종류뿐 아니라 데이터까지 같은 것만 센다(손에 든 것과 합쳐질 수 있는 것만).
+	 */
+	private static boolean sameData(ItemStack a, ItemStack b) {
+		try {
+			return ItemStack.isSameItemSameComponents(a, b);
+		} catch (Throwable t) {
+			return true;
+		}
 	}
 
 	@Override

@@ -128,10 +128,8 @@ public class DiscordStatusModule extends Module {
 		if (dim != null) {
 			state = state == null ? dim : state + " | " + dim;
 		}
-		boolean paused = kr.lunaslight.mod.util.LunaCompat.screenOf(client) != null && kr.lunaslight.mod.util.LunaCompat.screenOf(client).getClass().getSimpleName().matches(".*(GameMenu|Pause).*");
-		if (paused) {
-			state = state == null ? "일시정지" : state + " | 일시정지";
-		}
+		// 49-297차(사용자: "디코에 일시정지는 왜 떠 있는 거야"): 창을 내리거나 디스코드를 보려고 다른 창을 누르면 마크가 일시정지 메뉴를
+		// 저절로 띄워서, 디스코드를 볼 때마다 "일시정지"가 붙어 있었다. 일시정지 표시를 뺀다.
 		return DiscordIpc.activity(details, state, showElapsed.get() ? worldSince : 0,
 				kr.lunaslight.mod.util.LunaSocial.logoUrl(), "Nova Client", null, null, button, INVITE);
 	}

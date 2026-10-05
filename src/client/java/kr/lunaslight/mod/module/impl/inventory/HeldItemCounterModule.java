@@ -76,7 +76,7 @@ public class HeldItemCounterModule extends Module {
 			int size = LunaCompat.invSize(inv);
 			for (int i = 0; i < size; i++) {
 				ItemStack s = LunaCompat.invGetStack(inv, i);
-				if (s != null && !s.isEmpty() && s.getItem() == hand.getItem()) {
+				if (s != null && !s.isEmpty() && s.getItem() == hand.getItem() && sameData(s, hand)) {
 					total += s.getCount();
 				}
 			}
@@ -84,6 +84,32 @@ public class HeldItemCounterModule extends Module {
 			return hand.getCount();
 		}
 		return Math.max(total, hand.getCount());
+	}
+
+	/**
+	 * 49-299차(사용자: "nbt 다르면 안 뜨게 해 주고 아이템 개수에 포함"): 서버 아이템은 같은 바닐라 아이템에 데이터(이름, 모델, 태그)만 달라
+	 * 다른 아이템인 경우가 많다 - 아이템 종류뿐 아니라 데이터까지 같은 것만 센다(손에 든 것과 합쳐질 수 있는 것만).
+	 * 1.20.5+ areItemsAndComponentsEqual, 1.17~1.20.4 canCombine, 그 전 areTagsEqual(전부 static (ItemStack, ItemStack)).
+	 */
+	private static java.lang.reflect.Method sameMethod;
+	private static boolean sameResolved;
+
+	private static boolean sameData(ItemStack a, ItemStack b) {
+		try {
+			if (!sameResolved) {
+				sameResolved = true;
+				for (String n : new String[]{"areItemsAndComponentsEqual", "canCombine", "areTagsEqual"}) {
+					java.lang.reflect.Method m = LunaCompat.findMethod(ItemStack.class, n, ItemStack.class, ItemStack.class);
+					if (m != null && (m.getReturnType() == boolean.class) && java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+						sameMethod = m;
+						break;
+					}
+				}
+			}
+			return sameMethod == null || Boolean.TRUE.equals(sameMethod.invoke(null, a, b));
+		} catch (Throwable t) {
+			return true;
+		}
 	}
 
 	@Override

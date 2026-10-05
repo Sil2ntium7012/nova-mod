@@ -119,6 +119,7 @@ public final class LunaDraw {
 	 * 49-161차: 알약(양 끝이 반원). 모서리 제한(MAX/SOFT) 없이 짧은 변의 절반을 반지름으로 쓴다 - 켜기/끄기 스위치 트랙.
 	 */
 	public static void pill(DrawContext ctx, int x, int y, int w, int h, int color) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -156,6 +157,7 @@ public final class LunaDraw {
 
 	/** 둥근 사각형(채움). radius가 0이면 일반 사각형. */
 	public static void roundRect(DrawContext ctx, int x, int y, int w, int h, int radius, int color) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -190,6 +192,7 @@ public final class LunaDraw {
 	 * 제목 띠를 둥근 사각형으로 r만큼 더 길게 그린 뒤 아래를 투명(0)으로 "지우려" 해서 지워지지 않고 첫 줄까지 덮었다.
 	 */
 	public static void roundRectTop(DrawContext ctx, int x, int y, int w, int h, int radius, int color) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -219,6 +222,7 @@ public final class LunaDraw {
 	 * (사용자: "테두리가 검정색이 튀어나와 있음 - 색 테두리랑 검정색이랑 모양이 다름"). 윤곽선을 같이 그릴 때 이걸 쓴다.
 	 */
 	public static void roundRectPixel(DrawContext ctx, int x, int y, int w, int h, int radius, int color) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -248,6 +252,7 @@ public final class LunaDraw {
 	 * bottom색), 몸통과 좌우 띠는 fillGradient. 텍스처를 못 쓰는 버전은 줄마다 색을 섞어 채움.
 	 */
 	public static void roundRectGradient(DrawContext ctx, int x, int y, int w, int h, int radius, int top, int bottom) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -328,6 +333,7 @@ public final class LunaDraw {
 
 	/** 둥근 사각형 테두리(1px)만. 배경이 투명한 곳(HUD 편집기 박스)에 사용. */
 	public static void roundRectOutline(DrawContext ctx, int x, int y, int w, int h, int radius, int color) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -485,6 +491,7 @@ public final class LunaDraw {
 
 	/** 원(지름 d). */
 	public static void circle(DrawContext ctx, int x, int y, int d, int color) {
+		LunaGfx.layerBreak(ctx);   // 49-292차
 		if (!LunaGfx.drawRound(ctx, x, y, d, d, 0, 0, 128, 128, applyAlpha(color))) {
 			roundRect(ctx, x, y, d, d, d / 2, color);
 		}

@@ -29,7 +29,7 @@ import java.util.Map;
  * 49-253차: 설계도(사용자: "라이트매티카 같은 걸 우리 쪽에서 편하게").
  *
  * <ol>
- *   <li>도구(기본 나무 도끼)를 들고 좌클릭 = 지점 1, 우클릭 = 지점 2. 클릭은 MeasureHook이 먹어서 블록이 안 깨진다.</li>
+ *   <li>도구(기본 나무 삽, 49-291차)를 들고 좌클릭 = 지점 1, 우클릭 = 지점 2. 클릭은 MeasureHook이 먹어서 블록이 안 깨진다.</li>
  *   <li>O = 설계도 창(gui.BlueprintScreen): 두 지점 좌표, 기준 위치(기본 지점 1), 이름 + [빌드](저장), 저장된 목록에서 불러오기,
  *       불러온 설계도의 층 범위, 필요한 블록 목록.</li>
  *   <li>불러오면 내가 서 있는 칸이 기준 위치가 된다. 아직 안 놓은 칸은 반투명 홀로그램(하늘색), 다른 블록이 놓였으면 빨강,
@@ -46,7 +46,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	public static BlueprintModule instance;
 
 	private final StringSetting tool = register(new StringSetting(
-			"tool", "도구", "지점을 찍을 아이템입니다. 좌클릭 = 지점 1, 우클릭 = 지점 2. id(wooden_axe)나 이름 아무거나 됩니다.", "wooden_axe"));
+			"tool", "도구", "지점을 찍을 아이템입니다. 좌클릭 = 지점 1, 우클릭 = 지점 2. id(wooden_shovel)나 이름 아무거나 됩니다.", "wooden_shovel"));
+	/** 49-291차(사용자: "설계도 도구 삽으로 바꿔줘"): 예전 기본값(나무 도끼)을 나무 삽으로 한 번 옮겼는지(숨김, 저장용). */
+	private final kr.lunaslight.mod.module.setting.BooleanSetting toolShovel = register(
+			new kr.lunaslight.mod.module.setting.BooleanSetting("tool_shovel_v1", "삽으로 옮김", "", false));
 	private final KeybindSetting openKey = register(new KeybindSetting(
 			"open_key", "설계도 창 키", "설계도 창을 엽니다.", 79));   // O
 	private final KeybindSetting layerUp = register(new KeybindSetting(
@@ -137,9 +140,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	private boolean openHeld, upHeld, downHeld, minUpHeld, minDownHeld;
 
 	public BlueprintModule() {
-		super("blueprint", "설계도", ModuleCategory.FEATURE, "나무 도끼로 구역 찍기 | O로 저장, 불러오기 | 홀로그램 보며 짓기");
+		super("blueprint", "설계도", ModuleCategory.FEATURE, "나무 삽으로 구역 찍기 | O로 저장, 불러오기 | 홀로그램 보며 짓기");
 		defaultEnabled(true);
 		instance = this;
+		toolShovel.hidden();
 		MeasureHook.add(this);
 	}
 
@@ -162,7 +166,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			}
 			String want = tool.get() == null ? "" : tool.get().trim().toLowerCase();
 			if (want.isEmpty()) {
-				want = "wooden_axe";
+				want = "wooden_shovel";
 			}
 			Object id = LunaCompat.getItemId(main.getItem());
 			if (id != null) {
@@ -282,10 +286,13 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		}
 	}
 
-	/** 창에 보여 줄 도구 이름(설정 글자 그대로, 비었으면 나무 도끼). */
+	/** 창에 보여 줄 도구 이름(설정 글자 그대로, 비었으면 나무 삽). */
 	public String toolLabel() {
 		String t = tool.get() == null ? "" : tool.get().trim();
-		return t.isEmpty() || t.equalsIgnoreCase("wooden_axe") || t.equalsIgnoreCase("minecraft:wooden_axe") ? "나무 도끼" : t;
+		if (t.isEmpty() || t.equalsIgnoreCase("wooden_shovel") || t.equalsIgnoreCase("minecraft:wooden_shovel")) {
+			return "나무 삽";
+		}
+		return t.equalsIgnoreCase("wooden_axe") || t.equalsIgnoreCase("minecraft:wooden_axe") ? "나무 도끼" : t;
 	}
 
 	public BlockPos refPos() {
@@ -644,6 +651,18 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 
 	@Override
 	public void onTick() {
+		if (!toolShovel.get()) {
+			// 49-291차: 예전 기본값(나무 도끼) 그대로면 나무 삽으로. 직접 다른 걸 적어 둔 건 그대로.
+			toolShovel.setValue(true);
+			String t = tool.get() == null ? "" : tool.get().trim();
+			if (t.isEmpty() || t.equalsIgnoreCase("wooden_axe") || t.equalsIgnoreCase("minecraft:wooden_axe")) {
+				tool.setValue("wooden_shovel");
+			}
+			try {
+				kr.lunaslight.mod.config.LunaClientConfig.save();
+			} catch (Throwable ignored) {
+			}
+		}
 		trackWorld();   // 49-260차
 		if (client == null || client.player == null) {
 			return;

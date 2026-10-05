@@ -208,8 +208,44 @@ public final class LunaStats {
 		if (source == null) {
 			return null;
 		}
+		return keyForSource(source);
+	}
+
+	private static String keyForSource(String source) {
 		String base = sanitizeKey(source.substring(3));
 		return (base.isEmpty() ? "w" : base) + "-" + fingerprint(source);
+	}
+
+	/**
+	 * 49-296차(사용자 사진: "mc.novaclient.kr"과 "mc.novaclient.kr:25565"가 따로 쌓임 - 하나는 자동 접속, 하나는 직접 접속):
+	 * 같은 서버는 주소를 같게 본다 - 앞뒤 공백, 대소문자, 끝의 점, 기본 포트(:25565)를 뗀다.
+	 */
+	static String normServer(String addr) {
+		if (addr == null) {
+			return null;
+		}
+		String a = addr.trim().toLowerCase(Locale.ROOT);
+		if (a.endsWith(":25565")) {
+			String host = a.substring(0, a.length() - 6);
+			// IPv6 맨 주소(대괄호 없이 콜론 여러 개)는 포트가 아니라 주소의 일부일 수 있어 그대로 둔다
+			if (host.startsWith("[") || host.indexOf(':') < 0) {
+				a = host;
+			}
+		}
+		while (a.endsWith(".")) {
+			a = a.substring(0, a.length() - 1);
+		}
+		return a;
+	}
+
+	/** 지금 서버/맵 이름(서버면 normServer로 맞춘 주소, 싱글이면 맵 이름 그대로). */
+	private static String labelOf(MinecraftClient client) {
+		String label = LunaCompat.currentServerLabel(client);
+		String folder = LunaCompat.currentWorldFolder(client);
+		if (label == null || label.isEmpty() || (folder != null && !folder.isEmpty())) {
+			return label;
+		}
+		return normServer(label);
 	}
 
 	/** "sp:&lt;폴더&gt;" 또는 "mp:&lt;주소&gt;". 어느 쪽도 아니면 null. */
@@ -218,7 +254,7 @@ public final class LunaStats {
 		if (folder != null && !folder.isEmpty()) {
 			return "sp:" + folder;
 		}
-		String label = LunaCompat.currentServerLabel(client);
+		String label = labelOf(client);   // 49-296차: 기본 포트 등을 뗀 주소
 		if (label == null || label.isEmpty()) {
 			return null;
 		}
@@ -291,7 +327,7 @@ public final class LunaStats {
 			if (key != null && !key.equals(worldKey)) {
 				saveNow();
 				worldKey = key;
-				String label = LunaCompat.currentServerLabel(client);
+				String label = labelOf(client);
 				boolean isNew = !Files.exists(worldFile(key));
 				world = loadScope(worldFile(key), key, label);
 				if (isNew) {
@@ -1136,6 +1172,106 @@ public final class LunaStats {
 		globalLoaded = true;
 		Scope loaded = loadScope(globalFile(), "global", "전체");
 		copyInto(loaded, GLOBAL);
+		mergeServerDuplicates();
+	}
+
+	/**
+	 * 49-296차: 예전에 주소 표기만 달라 따로 쌓인 서버 기록(mc.novaclient.kr / mc.novaclient.kr:25565 …)을 하나로 합친다.
+	 * 처음 불러올 때 한 번. 싱글 맵(folder 있음)은 건드리지 않는다. 전체(global) 기록은 원래 다 더해져 있어 그대로.
+	 */
+	private static void mergeServerDuplicates() {
+		try {
+			Path wdir = dir().resolve("worlds");
+			if (!Files.isDirectory(wdir)) {
+				return;
+			}
+			List<Path> files;
+			try (java.util.stream.Stream<Path> st = Files.list(wdir)) {
+				files = st.filter(f -> f.getFileName().toString().endsWith(".json")).sorted().toList();
+			}
+			for (Path f : files) {
+				if (!Files.exists(f)) {
+					continue;
+				}
+				String name = f.getFileName().toString();
+				String key = name.substring(0, name.length() - 5);
+				if (key.equals(worldKey)) {
+					continue;
+				}
+				Scope s = loadScope(f, key, key);
+				if (!s.folder.isEmpty() || s.label == null || s.label.isEmpty() || s.label.equals(key)) {
+					continue;   // 싱글 맵이거나 주소를 모르는 기록
+				}
+				String norm = normServer(s.label);
+				String target = keyForSource("mp:" + norm);
+				if (target.equals(key)) {
+					continue;
+				}
+				Path tf = worldFile(target);
+				Scope into = loadScope(tf, target, norm);
+				addInto(s, into);
+				into.key = target;
+				into.label = norm;
+				into.folder = "";
+				write(tf, writeScope(into));
+				Files.deleteIfExists(f);
+				kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 통계: " + s.label + " 기록을 " + norm + "에 합침");
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:mergeServers", t);
+		}
+	}
+
+	/** 49-296차: from의 기록을 to에 더한다(최고 기록은 큰 값, 처음 본 때는 이른 값). */
+	private static void addInto(Scope from, Scope to) {
+		to.playMs += from.playMs;
+		to.afkMs += from.afkMs;
+		to.sneakMs += from.sneakMs;
+		to.sessions += from.sessions;
+		to.jumps += from.jumps;
+		to.deaths += from.deaths;
+		to.kills += from.kills;
+		to.trades += from.trades;
+		to.chestsOpened += from.chestsOpened;
+		to.chatSent += from.chatSent;
+		to.damageTaken += from.damageTaken;
+		if (from.firstSeen != 0 && (to.firstSeen == 0 || from.firstSeen < to.firstSeen)) {
+			to.firstSeen = from.firstSeen;
+		}
+		to.lastSeen = Math.max(to.lastSeen, from.lastSeen);
+		to.hits += from.hits;
+		to.playerKills += from.playerKills;
+		to.playerDeaths += from.playerDeaths;
+		to.bestLifeMs = Math.max(to.bestLifeMs, from.bestLifeMs);
+		to.lifeMs = Math.max(to.lifeMs, from.lifeMs);
+		to.longestSessionMs = Math.max(to.longestSessionMs, from.longestSessionMs);
+		to.chatReceived += from.chatReceived;
+		to.mentions += from.mentions;
+		for (int i = 0; i < to.hourMs.length; i++) {
+			to.hourMs[i] += from.hourMs[i];
+		}
+		from.days.forEach((k, v) -> to.days.merge(k, v, Long::sum));
+		from.peers.forEach((k, v) -> to.peers.merge(k, v, Long::sum));
+		from.deathCauses.forEach((k, v) -> to.deathCauses.merge(k, v, Long::sum));
+		from.killTypes.forEach((k, v) -> to.killTypes.merge(k, v, Long::sum));
+		from.distance.forEach((k, v) -> to.distance.merge(k, v, Double::sum));
+		from.travelMs.forEach((k, v) -> to.travelMs.merge(k, v, Long::sum));
+		from.interactions.forEach((k, v) -> to.interactions.merge(k, v, Long::sum));
+		from.months.forEach((k, v) -> to.month(k).add(v));
+		from.items.forEach((k, v) -> {
+			ItemStat t = to.item(k);
+			t.used += v.used;
+			t.dropped += v.dropped;
+			t.crafted += v.crafted;
+			t.mined += v.mined;
+			t.picked += v.picked;
+			if (t.name == null) {
+				t.name = v.name;
+			}
+			if (t.base == null) {
+				t.base = v.base;
+			}
+		});
 	}
 
 	private static void copyInto(Scope from, Scope to) {

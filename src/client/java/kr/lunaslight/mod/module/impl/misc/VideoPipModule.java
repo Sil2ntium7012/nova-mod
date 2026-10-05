@@ -406,6 +406,9 @@ public class VideoPipModule extends Module {
 		texH = h;
 	}
 
+	/** 49-301차: 마지막 장이 3초 넘게 오래됐나(그리는 동안만 쓰는 값). */
+	private boolean stale;
+
 	@Override
 	public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
 		int sw = WindowAccess.of(client).getScaledWidth();
@@ -415,7 +418,11 @@ public class VideoPipModule extends Module {
 		if (!isPreview()) {
 			LunaPip.poll();
 			swapInFrame();
-			live = texId != null && texW > 0 && texH > 0 && System.currentTimeMillis() - LunaPip.lastFrameMs < 3000;
+			// 49-301차(사용자: "영상 아닌 창을 켰다 마크 켜면 영상이 검정되거나 사라져"): 새 장이 3초 끊기면 영상을 지웠다 - 런처가
+			// 다시 잇는 동안(켜져 있는 동안)은 마지막 장을 그대로 두고 아래에 이유만 작게 띄운다.
+			boolean hasTex = texId != null && texW > 0 && texH > 0;
+			stale = System.currentTimeMillis() - LunaPip.lastFrameMs >= 3000;
+			live = hasTex && (!stale || LunaPip.running);
 		}
 		int nameH = showName.get() && live ? 12 : 0;
 		int x = position.get().resolveX(sw, w);
@@ -433,6 +440,12 @@ public class VideoPipModule extends Module {
 			}
 			int a = Math.max(0, Math.min(255, Math.round(opacity.get() * 2.55f)));
 			LunaGfx.drawImageRegion(context, texId, x, y, w, h, u, v, cw, ch, texW, texH, (a << 24) | 0xFFFFFF);
+			if (stale) {
+				String why = LunaPip.error != null && !LunaPip.error.isEmpty() ? LunaPip.error : "영상 다시 잇는 중";
+				why = LunaDraw.ellipsize(client.textRenderer, why, w - 6);
+				context.fill(x, y + h - 11, x + w, y + h, 0xA0000000);
+				LunaCompat.drawHudText(context, client.textRenderer, why, x + 3, y + h - 10, 0xFFE0E4EA);
+			}
 			if (nameH > 0) {
 				String name = LunaDraw.ellipsize(client.textRenderer, LunaPip.window, w - 4);
 				LunaCompat.drawHudText(context, client.textRenderer, name, x + 2, y + h + 2, 0xFFB8BEC6);

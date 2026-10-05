@@ -240,7 +240,6 @@ public final class LunaIcons {
 		}
 	}
 
-	private static final int BOX_NUDGE = kr.lunaslight.mod.util.LunaVersion.isWithin("26.3", null) ? 0 : 1;
 
 	public static void drawInBox(GuiGraphicsExtractor ctx, Font tr, String glyph, int boxX, int boxY, int box, int color) {
 		Component t = iconTextMd(glyph);
@@ -248,9 +247,10 @@ public final class LunaIcons {
 			return;
 		}
 		int w = LunaCompat.textWidth(tr, t);
-		// 49-236차: FreeType에서 잰 폭이 잉크보다 좁게 나와 아이콘이 가운데보다 1px 오른쪽에 섰다(GUI 2 실측) - 1px 당긴다
-		// 49-276차(사용자: "26.3인데 아이콘 밀렸다", 사진): 26.3은 폭이 제대로 나와서 당기면 왼쪽으로 1px 밀린다 - 26.1~26.2만 당긴다
-		drawAtPx(ctx, tr, t, boxX + (box - w) / 2 - BOX_NUDGE, LunaDraw.iconMdYf(boxY, box), color);
+		// 49-236차: 1px 당겼었다 → 49-276차: 26.3은 당기지 않음 → 49-299차(사용자 사진, 26.1.2: "아이콘 밀려 있어, 몇 번째야"):
+		// 26.1.2도 모든 칸에서 아이콘이 가운데보다 1단위(2px) 왼쪽이었다(11칸 실측, 위아래는 맞음). 지금 아이콘 글꼴은 폭 = 잉크 폭이라
+		// 당기기를 전부 없애고, (상자 - 폭)이 홀수일 때 반 칸 내림도 없앤다(가운데를 소수로 구해 화면 픽셀에 맞춰 그림).
+		drawAtPx(ctx, tr, t, boxX + (box - w) / 2f, LunaDraw.iconMdYf(boxY, box), color);
 	}
 
 	/**
@@ -259,18 +259,26 @@ public final class LunaIcons {
 	 * (설정 화면 가상 GUI 2면 0.5단위 = 1픽셀이라 흐려지지 않는다). 행렬을 못 쓰는 버전만 예전처럼 반올림.
 	 */
 	private static void drawAtPx(GuiGraphicsExtractor ctx, Font tr, Component t, int x, float y, int color) {
+		drawAtPx(ctx, tr, t, (float) x, y, color);
+	}
+
+	/** 49-299차: 가로도 소수 자리(화면 픽셀에 맞춤)로. */
+	private static void drawAtPx(GuiGraphicsExtractor ctx, Font tr, Component t, float x, float y, int color) {
 		float ppu = Math.max(1f, LunaGfx.pxPerUnit());
 		float snapped = Math.round(y * ppu) / ppu;
+		float snappedX = Math.round(x * ppu) / ppu;
 		int iy = (int) Math.floor(snapped);
+		int ix = (int) Math.floor(snappedX);
 		float frac = snapped - iy;
-		if (frac > 0.01f && LunaCompat.guiTransformSupported(ctx)) {
+		float fracX = snappedX - ix;
+		if ((frac > 0.01f || fracX > 0.01f) && LunaCompat.guiTransformSupported(ctx)) {
 			LunaCompat.guiPush(ctx);
-			LunaCompat.guiTranslate(ctx, 0f, frac);
-			ctx.text(tr, t, x, iy, LunaDraw.applyAlpha(color), false);
+			LunaCompat.guiTranslate(ctx, fracX, frac);
+			ctx.text(tr, t, ix, iy, LunaDraw.applyAlpha(color), false);
 			LunaCompat.guiPop(ctx);
 			return;
 		}
 		iy = Math.round(snapped);
-		ctx.text(tr, t, x, iy, LunaDraw.applyAlpha(color), false);
+		ctx.text(tr, t, Math.round(snappedX), iy, LunaDraw.applyAlpha(color), false);
 	}
 }

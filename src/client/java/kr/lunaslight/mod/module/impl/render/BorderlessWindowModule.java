@@ -64,6 +64,23 @@ public class BorderlessWindowModule extends Module {
 	/** 테두리 없는 창을 켜기 전 창(되돌릴 때). */
 	private boolean saved;
 	private int savedX, savedY, savedW, savedH, savedDecorated = 1;
+	/** 49-299차: 독점 전체화면이 실제로 풀리길 기다리는 남은 틱(0 = 안 기다림). */
+	private int pendingBorderless;
+
+	/** 49-299차: 창이 지금 실제로 모니터에 걸린(독점 전체화면) 상태인지 - GLFW에 직접 묻는다(마크의 전체화면 값은 한 프레임 먼저 바뀐다). */
+	private boolean onMonitor() {
+		try {
+			long handle = handle();
+			if (handle == 0L) {
+				return false;
+			}
+			Object m = call("glfwGetWindowMonitor", new Class<?>[]{long.class}, handle);
+			return m instanceof Long l && l != 0L;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** 테두리 없는 창이 지금 창에 걸려 있는지. */
 	private boolean borderlessOn;
 	/** 마지막으로 창에 적용한 모드(null = 아직). */
@@ -114,6 +131,16 @@ public class BorderlessWindowModule extends Module {
 		} else if (applied != null) {
 			followOutside();
 		}
+		if (pendingBorderless > 0) {
+			pendingBorderless--;
+			if (mode.get() != Mode.BORDERLESS || applied != Mode.BORDERLESS) {
+				pendingBorderless = 0;
+			} else if (!onMonitor() || pendingBorderless == 0) {
+				pendingBorderless = 0;
+				doBorderless();
+				settle = 10;
+			}
+		}
 		Mode want = mode.get();
 		if (want == Mode.BORDERLESS && !borderlessSupported()) {
 			want = Mode.FULLSCREEN;
@@ -162,7 +189,14 @@ public class BorderlessWindowModule extends Module {
 						sdlSet(true, false);
 					} else {
 						setExclusive(false);
-						doBorderless();
+						// 49-299차(사용자: "테두리 없는 화면 ↔ 전체화면 바꿀 때 가끔 작은 테두리 없는 마크 화면이 돼"): 독점 전체화면 끄기는
+						// 마크가 다음 프레임에 창을 "창 모드 크기"로 되돌리며 처리한다. 예전엔 같은 틱에 테두리 없는 창을 만들어 놔서, 한 프레임 뒤
+						// 마크가 그 창을 예전 작은 크기로 줄였다(테두리는 꺼진 채). 창이 실제로 모니터에서 빠진 뒤에 테두리 없는 창을 만든다.
+						if (onMonitor()) {
+							pendingBorderless = 40;
+						} else {
+							doBorderless();
+						}
 					}
 				}
 				default -> {
@@ -346,7 +380,10 @@ public class BorderlessWindowModule extends Module {
 		}
 		call("glfwSetWindowAttrib", new Class<?>[]{long.class, int.class, int.class}, handle, GLFW_DECORATED, 0);
 		call("glfwSetWindowPos", new Class<?>[]{long.class, int.class, int.class}, handle, mx[0], my[0]);
-		call("glfwSetWindowSize", new Class<?>[]{long.class, int.class, int.class}, handle, w, h);
+		// 49-298차(사용자 사진: "전체화면 하면 마우스 커서가 이렇게 안 보여" - 커서가 보라색 사선으로 깨짐): 모니터와 크기가 꼭 같은 창은
+		// 윈도우/그래픽 드라이버가 독점 전체화면처럼 다뤄(화면 바로 넘기기) 사용자 지정 마우스 포인터가 깨져 보였다. 아래로 1픽셀 더 크게
+		// 만들어 그 취급을 피한다(넘친 1줄은 화면 밖이라 안 보인다).
+		call("glfwSetWindowSize", new Class<?>[]{long.class, int.class, int.class}, handle, w, h + 1);
 		borderlessOn = true;
 	}
 

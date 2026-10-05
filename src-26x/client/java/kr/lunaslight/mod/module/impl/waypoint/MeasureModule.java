@@ -45,6 +45,12 @@ public class MeasureModule extends Module implements MeasureHook.Handler {
 	private final kr.lunaslight.mod.module.setting.StringSetting item = register(new kr.lunaslight.mod.module.setting.StringSetting(
 			"item", "아이템", "재는 데 쓸 아이템입니다. 이름(막대기)이나 id(stick, blaze_rod) 아무거나 됩니다.", "stick"));
 
+	// 49-295차(사용자: "거리재기 중앙 확인 기능 넣어주고 기본 켜짐"): 두 점 사이 가운데 블록(짝수 칸이면 가운데 두 칸)을 상자로, 좌표를 글자로
+	private final kr.lunaslight.mod.module.setting.BooleanSetting center = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"center", "중앙 표시", "두 점 사이 가운데 블록을 상자로 보여 주고 좌표를 알려 줍니다. 칸 수가 짝수면 가운데 두 칸을 같이 표시합니다.", true));
+	private final ColorSetting centerColor = register(new ColorSetting(
+			"center_color", "중앙 색", "가운데 블록 상자의 색입니다.", 0xFFFFD84A));
+
 	private BlockPos a, b;
 
 	public MeasureModule() {
@@ -189,6 +195,27 @@ public class MeasureModule extends Module implements MeasureHook.Handler {
 		return Math.abs(a.getZ() - b.getZ()) + 1;
 	}
 
+	/** 49-295차: 한 축의 가운데 칸 시작(포함). 칸 수가 홀수면 한 칸, 짝수면 이 칸과 다음 칸 두 칸. */
+	private static int centerLo(int p, int q) {
+		return Math.floorDiv(Math.min(p, q) + Math.max(p, q), 2);
+	}
+
+	/** 한 축의 가운데 칸 끝(제외). */
+	private static int centerHi(int p, int q) {
+		int sum = Math.min(p, q) + Math.max(p, q);
+		return Math.floorDiv(sum, 2) + (Math.floorMod(sum, 2) == 0 ? 1 : 2);
+	}
+
+	/** 한 축 가운데 좌표 글자(한 칸이면 "12", 두 칸이면 "12~13"). */
+	private static String centerAxis(int p, int q) {
+		int lo = centerLo(p, q), hi = centerHi(p, q);
+		return hi - lo == 1 ? String.valueOf(lo) : lo + "~" + (hi - 1);
+	}
+
+	private String centerText() {
+		return "중앙 " + centerAxis(a.getX(), b.getX()) + ", " + centerAxis(a.getY(), b.getY()) + ", " + centerAxis(a.getZ(), b.getZ());
+	}
+
 	/** 두 블록 가운데 사이의 직선 거리. */
 	private double straight() {
 		double dx = a.getX() - b.getX(), dy = a.getY() - b.getY(), dz = a.getZ() - b.getZ();
@@ -244,6 +271,9 @@ public class MeasureModule extends Module implements MeasureHook.Handler {
 			lines.add("거리 8.6블록");
 			lines.add("가로 5 × 높이 3 × 세로 7");
 			lines.add(countText(105));
+			if (center.get()) {
+				lines.add("중앙 12, 64~65, -8");
+			}
 		} else {
 			if (client.player == null || a == null || !holding()) {
 				return;   // 49-76차(6-2): 재는 아이템을 들고 있을 때만 - 점은 남아 있어서 다시 들면 그대로다
@@ -262,6 +292,9 @@ public class MeasureModule extends Module implements MeasureHook.Handler {
 					long total = (long) spanX() * spanY() * spanZ();
 					lines.add("가로 " + spanX() + " × 높이 " + spanY() + " × 세로 " + spanZ());
 					lines.add(countText(total));   // 49-195차: 개수는 맨 아래 줄로
+				}
+				if (center.get()) {
+					lines.add(centerText());   // 49-295차
 				}
 			}
 		}
@@ -299,6 +332,11 @@ public class MeasureModule extends Module implements MeasureHook.Handler {
 			int y0 = Math.min(a.getY(), b.getY()), y1 = Math.max(a.getY(), b.getY()) + 1;
 			int z0 = Math.min(a.getZ(), b.getZ()), z1 = Math.max(a.getZ(), b.getZ()) + 1;
 			drawBox(context, proj, x0, y0, z0, x1, y1, z1, 1f, (col & 0x00FFFFFF) | 0x8C000000);
+		}
+		if (center.get()) {
+			// 49-295차: 가운데 칸(짝수면 두 칸 묶음) 상자. 두 점과 겹치면(붙어 있는 두 블록 등) 그 위에 그대로 덧그린다.
+			drawBox(context, proj, centerLo(a.getX(), b.getX()), centerLo(a.getY(), b.getY()), centerLo(a.getZ(), b.getZ()),
+					centerHi(a.getX(), b.getX()), centerHi(a.getY(), b.getY()), centerHi(a.getZ(), b.getZ()), 2f, centerColor.getArgb());
 		}
 	}
 

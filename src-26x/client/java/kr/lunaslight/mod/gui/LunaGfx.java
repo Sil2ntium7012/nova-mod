@@ -403,11 +403,50 @@ public final class LunaGfx {
 					return false;
 				}
 			}
+			texSinceBreak = true;   // 49-292차
 			return true;
 		} catch (Throwable t) {
 			warnOnce("drawTexture", t);
 			textureBroken = true;
 			return false;
+		}
+	}
+
+	// ---------------------------------------------------------------- 49-292차: 새 GUI 렌더러 층 나누기
+	// 사용자(사진): "이거 이상한 선 생기는데 막아줘" - 미드나잇 카드/버튼 안에 세로 선, 버튼 끝이 밝게 뜸.
+	// 1.21.6+ / 26.x GUI 렌더러는 한 층(stratum) 안의 그림을 파이프라인별로 다시 정렬한다(색 채우기 먼저, 텍스처 나중).
+	// 둥근 사각형은 모서리(텍스처) + 몸통(채우기)이라, 여러 겹을 쌓으면(빛 번짐, 테두리, 속) 앞 겹의 모서리가 뒤 겹의 몸통 위로 올라와
+	// 경계에 선과 밝은 띠가 생겼다. 텍스처를 그린 뒤 다음 둥근 도형을 그리기 전에 층을 나눠 그린 순서 그대로 겹치게 한다.
+	// 예전 렌더러(그 메서드가 없는 버전)에서는 아무것도 안 한다.
+
+	/** 마지막 층 나누기 뒤로 텍스처를 그렸나. */
+	public static boolean texSinceBreak;
+	private static java.lang.reflect.Method stratumMethod;
+	/** 0 = 아직 안 찾음, 1 = 있음, -1 = 없음(예전 렌더러). */
+	private static int stratumState;
+
+	/** 텍스처를 그린 뒤라면 새 층을 연다(그 뒤 그림이 앞 그림 위에 그대로 올라가게). */
+	public static void layerBreak(GuiGraphicsExtractor ctx) {
+		if (!texSinceBreak || ctx == null || stratumState < 0) {
+			return;
+		}
+		texSinceBreak = false;
+		try {
+			if (stratumState == 0) {
+				java.lang.reflect.Method m = kr.lunaslight.mod.util.LunaCompat.findMethod(GuiGraphicsExtractor.class, "createNewRootLayer");
+				if (m == null) {
+					m = kr.lunaslight.mod.util.LunaCompat.findMethod(GuiGraphicsExtractor.class, "nextStratum");
+				}
+				stratumMethod = m;
+				stratumState = m == null ? -1 : 1;
+				if (m == null) {
+					return;
+				}
+			}
+			stratumMethod.invoke(ctx);
+		} catch (Throwable t) {
+			stratumState = -1;
+			warnOnce("layerBreak", t);
 		}
 	}
 
