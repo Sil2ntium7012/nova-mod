@@ -794,6 +794,25 @@ public abstract class Module {
 	}
 
 	/** HUD 편집기에서 정한 크기 배율(위치 설정이 없으면 1). */
+	/** 49-303차: 마지막으로 그린 HUD 자리(배율 포함)가 사각형 r(x0, y0, x1, y1)과 겹치나. 자리를 모르면 false. */
+	public boolean hudOverlaps(int[] r) {
+		try {
+			kr.lunaslight.mod.module.setting.PositionSetting ps = positionSetting();
+			if (ps == null || r == null) {
+				return false;
+			}
+			kr.lunaslight.mod.module.setting.HudPosition p = ps.get();
+			int w = p.getLastWidth(), h = p.getLastHeight();
+			if (w <= 0 || h <= 0) {
+				return false;
+			}
+			float s = hudScale();
+			return kr.lunaslight.mod.util.TabArea.overlaps(r, p.getLastX(), p.getLastY(), Math.round(w * s), Math.round(h * s));
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	public float hudScale() {
 		kr.lunaslight.mod.module.setting.PositionSetting ps = positionSetting();
 		return ps == null ? 1f : Math.max(0.25f, Math.min(4f, ps.get().scale));

@@ -268,10 +268,15 @@ public final class ModuleManager {
 			if (kr.lunaslight.mod.util.HudEditorState.active) {
 				return;
 			}
+			// 49-303차(사용자: "탭 눌렀을 때 그 탭 근처에 있는 HUD들 가려줘"): 탭 목록이 떠 있으면 그 자리와 겹치는 HUD는 그동안 안 그린다
+			int[] tabArea = kr.lunaslight.mod.util.TabArea.rect(mc, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
 			for (Module module : hudOrder()) {
 				if (module.isEnabled()) {
 					// 49-22차: F3 화면에서는 F3 꾸미기 모듈만 그리고 나머지 HUD는 전부 숨김
 					if (debugHud && !module.rendersOnDebugHud()) {
+						continue;
+					}
+					if (tabArea != null && module.hudOverlaps(tabArea)) {
 						continue;
 					}
 					try {

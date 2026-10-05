@@ -222,6 +222,11 @@ public class ContainerTabsModule extends Module {
 						if (desc.contains("type=right")) {
 							continue;   // 큰 상자의 오른쪽 반쪽 - 왼쪽 반쪽 하나로 보인다
 						}
+						// 49-302차(사용자: "상자끼리 있을 때 블록 너머에 있는 상자는 안 보이게"): 눈에서 그 칸(큰 상자면 옆 반쪽까지)의
+						// 가운데나 면 가운데 중 하나라도 막힘 없이 보여야 칸에 넣는다. 막는 것 = 꽉 찬 불투명 블록과 다른 보관함.
+						if (!seenFromEye(eye, pos, partnerOf(state, pos))) {
+							continue;
+						}
 						ItemStack icon = new ItemStack(state.getBlock());
 						String name;
 						try {
@@ -342,6 +347,103 @@ public class ContainerTabsModule extends Module {
 	}
 
 	/** 블록에 손이 닿는 거리 - 1.20.5+ getBlockInteractionRange, 그 전엔 interactionManager.getReachDistance, 없으면 4.5. */
+	/** 49-302차: 큰 상자의 다른 반쪽(왼쪽 반쪽 칸 기준 오른쪽). 아니면 null. */
+	private BlockPos partnerOf(BlockState state, BlockPos pos) {
+		String d = String.valueOf(state);
+		if (!d.contains("type=left")) {
+			return null;
+		}
+		// 상자를 앞(facing)에서 볼 때 왼쪽 반쪽 - 오른쪽 반쪽은 facing을 시계 방향으로 돈 쪽
+		if (d.contains("facing=north")) {
+			return new BlockPos(pos.getX() + 1, pos.getY(), pos.getZ());
+		}
+		if (d.contains("facing=south")) {
+			return new BlockPos(pos.getX() - 1, pos.getY(), pos.getZ());
+		}
+		if (d.contains("facing=west")) {
+			return new BlockPos(pos.getX(), pos.getY(), pos.getZ() - 1);
+		}
+		if (d.contains("facing=east")) {
+			return new BlockPos(pos.getX(), pos.getY(), pos.getZ() + 1);
+		}
+		return null;
+	}
+
+	/** 49-302차: 눈에서 이 보관함(과 큰 상자 반쪽)의 가운데/면 가운데 중 하나라도 막힘 없이 보이나. */
+	private boolean seenFromEye(Vec3d eye, BlockPos pos, BlockPos partner) {
+		BlockPos[] cells = partner == null ? new BlockPos[]{pos} : new BlockPos[]{pos, partner};
+		for (BlockPos c : cells) {
+			double cx = c.getX() + 0.5, cy = c.getY() + 0.5, cz = c.getZ() + 0.5;
+			if (clearTo(eye, cx, cy, cz, pos, partner)) {
+				return true;
+			}
+			for (int f = 0; f < 6; f++) {
+				double fx = cx + (f == 0 ? 0.45 : f == 1 ? -0.45 : 0);
+				double fy = cy + (f == 2 ? 0.45 : f == 3 ? -0.45 : 0);
+				double fz = cz + (f == 4 ? 0.45 : f == 5 ? -0.45 : 0);
+				if (clearTo(eye, fx, fy, fz, pos, partner)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private final BlockPos.Mutable rayCell = new BlockPos.Mutable();
+
+	/** 눈에서 그 점까지(격자 따라가기) 지나는 칸에 막는 블록이 없나. 보관함 자신과 그 반쪽 칸은 안 막는다. */
+	private boolean clearTo(Vec3d eye, double ex, double ey, double ez, BlockPos self, BlockPos partner) {
+		double sx = eye.x, sy = eye.y, sz = eye.z;
+		double dx = ex - sx, dy = ey - sy, dz = ez - sz;
+		int x = (int) Math.floor(sx), y = (int) Math.floor(sy), z = (int) Math.floor(sz);
+		int stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+		double adx = Math.abs(dx), ady = Math.abs(dy), adz = Math.abs(dz);
+		double tMaxX = adx < 1e-9 ? Double.MAX_VALUE : (dx > 0 ? x + 1 - sx : sx - x) / adx;
+		double tMaxY = ady < 1e-9 ? Double.MAX_VALUE : (dy > 0 ? y + 1 - sy : sy - y) / ady;
+		double tMaxZ = adz < 1e-9 ? Double.MAX_VALUE : (dz > 0 ? z + 1 - sz : sz - z) / adz;
+		double tdX = adx < 1e-9 ? Double.MAX_VALUE : 1 / adx, tdY = ady < 1e-9 ? Double.MAX_VALUE : 1 / ady, tdZ = adz < 1e-9 ? Double.MAX_VALUE : 1 / adz;
+		for (int guard = 0; guard < 64; guard++) {
+			if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+				if (tMaxX > 1) {
+					return true;
+				}
+				x += stepX;
+				tMaxX += tdX;
+			} else if (tMaxY < tMaxZ) {
+				if (tMaxY > 1) {
+					return true;
+				}
+				y += stepY;
+				tMaxY += tdY;
+			} else {
+				if (tMaxZ > 1) {
+					return true;
+				}
+				z += stepZ;
+				tMaxZ += tdZ;
+			}
+			if (x == self.getX() && y == self.getY() && z == self.getZ()) {
+				return true;
+			}
+			if (partner != null && x == partner.getX() && y == partner.getY() && z == partner.getZ()) {
+				continue;
+			}
+			try {
+				rayCell.set(x, y, z);
+				BlockState st = client.world.getBlockState(rayCell);
+				if (st != null && st.isOpaque()) {
+					return false;
+				}
+				Object rbe = client.world.getBlockEntity(rayCell);
+				if (rbe instanceof Inventory) {
+					return false;   // 다른 보관함(상자 뒤 상자)
+				}
+			} catch (Throwable ignored) {
+			}
+		}
+		return true;
+	}
+
 	private double reachDistance() {
 		try {
 			Object v = LunaCompat.callNoArg(client.player, "getBlockInteractionRange");
@@ -459,6 +561,7 @@ public class ContainerTabsModule extends Module {
 				ctx.drawItem(t.icon(), sx + 1, sy + 1);
 			} catch (Throwable ignored) {
 			}
+			drawTopItem(ctx, t, sx, sy);   // 49-302차
 			if (current != null && current.equals(t.pos())) {
 				// 지금 열려 있는 상자: 핫바 선택처럼 흰 테두리
 				int c = LunaDraw.applyAlpha(0xFFFFFFFF);
@@ -473,6 +576,59 @@ public class ContainerTabsModule extends Module {
 			}
 		}
 		return hover;
+	}
+
+	// 49-302차(사용자: "그 상자에 가장 많이 있는 아이템을 상자 오른쪽 아래 아이콘처럼"): 아이템 찾기 색인(ContainerIndex)에 적힌
+	// 내용물 중 가장 많은 것을 칸 오른쪽 아래에 반 크기로. 한 번도 안 열어 본 상자(색인 없음)는 안 그린다.
+	private final java.util.Map<BlockPos, Object[]> topCache = new java.util.HashMap<>();
+
+	private ItemStack topItem(BlockPos pos) {
+		ContainerIndex.Entry e = ContainerIndex.get(client, pos);
+		if (e == null || e.items == null || e.items.isEmpty()) {
+			return ItemStack.EMPTY;
+		}
+		Object[] c = topCache.get(pos);
+		if (c != null && c[0] == e && c[2] instanceof Integer h && h == e.items.hashCode()) {
+			return (ItemStack) c[1];
+		}
+		String best = null;
+		int bestN = 0;
+		for (Map.Entry<String, Integer> it : e.items.entrySet()) {
+			if (it.getValue() != null && it.getValue() > bestN) {
+				bestN = it.getValue();
+				best = it.getKey();
+			}
+		}
+		ItemStack stack = ItemStack.EMPTY;
+		net.minecraft.item.Item item = best == null ? null : LunaCompat.itemById(best);
+		if (item != null) {
+			stack = new ItemStack(item);
+		}
+		if (topCache.size() > 256) {
+			topCache.clear();
+		}
+		topCache.put(pos, new Object[]{e, stack, e.items.hashCode()});
+		return stack;
+	}
+
+	private void drawTopItem(DrawContext ctx, Tab t, int sx, int sy) {
+		ItemStack top = topItem(t.pos());
+		if (top.isEmpty()) {
+			return;
+		}
+		try {
+			LunaCompat.guiPush(ctx);
+			LunaCompat.guiTranslateZ(ctx, 200);
+			LunaCompat.guiTranslate(ctx, sx + 9, sy + 9);
+			LunaCompat.guiScale(ctx, 0.5f, 0.5f);
+			ctx.drawItem(top, 0, 0);
+			LunaCompat.guiPop(ctx);
+		} catch (Throwable ignored) {
+			try {
+				LunaCompat.guiPop(ctx);
+			} catch (Throwable ignored2) {
+			}
+		}
 	}
 
 	/** 마우스 아래 탭(없으면 null)과 그 칸의 y. */
