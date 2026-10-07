@@ -206,6 +206,7 @@ public class HotbarRowSwapModule extends Module {
 
 	/** 인벤토리 줄 row의 c칸 ↔ 핫바 c칸. 둘 다 비어 있으면 생략. */
 	private void swap(int syncId, net.minecraft.entity.player.PlayerInventory inv, int row, int c) {
+		AutoRefillModule.resync();   // 49-305차: 자동 채우기가 옮긴 아이템을 도로 끌어오지 않게
 		ItemStack a = inv.getStack(9 + row * 9 + c);
 		ItemStack b = inv.getStack(c);
 		if ((a == null || a.isEmpty()) && (b == null || b.isEmpty())) {

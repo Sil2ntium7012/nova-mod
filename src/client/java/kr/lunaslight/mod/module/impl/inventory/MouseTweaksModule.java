@@ -84,10 +84,41 @@ public class MouseTweaksModule extends Module {
 		// 49-245차(사용자: "마우스 트윅스 크리에이티브 인벤토리에서도"): 크리에이티브 창도 받는다. 대신 거기선 칸 클릭을 서버로 바로 보내지 않고
 		// 화면 자신의 칸 클릭(크리에이티브 화면이 크리에이티브 패킷으로 바꿔 보냄)으로 넘긴다 - 49-40차의 "가짜 칸 번호" 문제가 없다.
 		return isEnabled() && client.player != null && client.interactionManager != null
-				&& client.currentScreen instanceof HandledScreen;
+				&& client.currentScreen instanceof HandledScreen
+				&& creativeOk();
 	}
 
 	/** 커서에 아이템을 들고 있으면(바닐라 드래그 분배 중) 우리가 끼어들지 않는다. */
+	/**
+	 * 49-308차(사용자: "크리에이티브 인벤토리 안에서 마우스 트윅스 여전히 안 됨"): 크리에이티브 [인벤토리] 탭 칸들은 화면이 메뉴에 직접 끼운
+	 * 감싼 칸이라 칸 번호(id)가 전부 0이었다 - 첫 칸 하나만 처리되고 나머지는 "이미 처리함"으로 걸렀다. 크리에이티브에선 칸 번호 대신
+	 * 화면 메뉴 목록 안의 자리를 쓴다. 아이템 탭(블록, 검색 등)에선 Shift로 옮기면 바닐라가 핫바 아이템을 지워 버려서 아예 안 한다.
+	 */
+	private int idOf(Slot s) {
+		if (s == null) {
+			return -1;
+		}
+		if (creative()) {
+			return menuSlots().indexOf(s);
+		}
+		return s.id;
+	}
+
+	/** 크리에이티브면 [인벤토리] 탭일 때만(아이템 탭은 Shift 이동 = 핫바 아이템 삭제). */
+	private boolean creativeOk() {
+		if (!creative()) {
+			return true;
+		}
+		Object screen = client.currentScreen;
+		for (String n : new String[]{"isInventoryTabSelected", "isInventoryOpen"}) {
+			Object v = LunaCompat.callNoArg(screen, n);
+			if (v instanceof Boolean b) {
+				return b;
+			}
+		}
+		return false;
+	}
+
 	private boolean holdingStack() {
 		try {
 			ItemStack cursor = LunaCompat.cursorStack(client.player); // 49-36차: ≤1.16은 PlayerInventory#getCursorStack
@@ -142,13 +173,8 @@ public class MouseTweaksModule extends Module {
 	private void click(int slotId, int button, SlotActionType type) {
 		Object screen = client.currentScreen;
 		if (creative()) {
-			Slot target = null;
-			for (Slot s : menuSlots()) {
-				if (s.id == slotId) {
-					target = s;
-					break;
-				}
-			}
+			java.util.List<Slot> all = menuSlots();
+			Slot target = slotId >= 0 && slotId < all.size() ? all.get(slotId) : null;   // 49-308차: 크리에이티브 = 목록 안 자리
 			java.lang.reflect.Method m = screenClick();
 			if (target == null || m == null) {
 				return;
@@ -245,7 +271,7 @@ public class MouseTweaksModule extends Module {
 
 	/** 그 칸을 반대쪽으로 보낸다. 이미 처리했거나 빈 칸이면 0(빈 칸도 기억해 매 프레임 다시 보지 않게). */
 	private int take(Slot slot) {
-		if (slot == null || !handled.add(slot.id)) {
+		if (slot == null || !handled.add(idOf(slot))) {
 			return 0;
 		}
 		if (creative() && !(slot.inventory instanceof PlayerInventory)) {
@@ -255,7 +281,7 @@ public class MouseTweaksModule extends Module {
 		if (stack == null || stack.isEmpty()) {
 			return 0;
 		}
-		quickMove(slot.id);
+		quickMove(idOf(slot));
 		return 1;
 	}
 
@@ -290,7 +316,7 @@ public class MouseTweaksModule extends Module {
 			if (target < 0) {
 				return false;
 			}
-			moveOne(slot.id, target);
+			moveOne(idOf(slot), target);
 			return true;
 		}
 		// 아래로: 반대쪽에서 이 칸으로 한 개
@@ -301,7 +327,7 @@ public class MouseTweaksModule extends Module {
 		if (source < 0) {
 			return false;
 		}
-		moveOne(source, slot.id);
+		moveOne(source, idOf(slot));
 		return true;
 	}
 
@@ -407,7 +433,7 @@ public class MouseTweaksModule extends Module {
 			}
 			ItemStack st = s.getStack();
 			if (st != null && !st.isEmpty() && st.getItem() == item) {
-				return s.id;
+				return idOf(s);
 			}
 		}
 		return -1;
@@ -449,7 +475,7 @@ public class MouseTweaksModule extends Module {
 				}
 				ItemStack st = other.getStack();
 				if (st == null || st.isEmpty()) {
-					return other.id;
+					return idOf(other);
 				}
 			}
 		} catch (Throwable ignored) {

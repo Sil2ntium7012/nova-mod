@@ -1573,6 +1573,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			}
 			boolean edges = edgeOnly || i < EDGE_BOXES;
 			edgesOnly = false;
+			if (st == Blueprint.MISSING && edgeOnly
+					&& kr.lunaslight.mod.util.BlueprintWorld.crossLike(modelOf(bp.cells[idx], bx, by, bz))) {
+				continue;   // 49-309차: 잔디, 꽃 같은 X자 판은 모델 자체가 파랗다 - 상자 덮개 없음
+			}
 			if (st == Blueprint.MISSING && edgeOnly) {
 				// 리터매티카 '없는 블록' 오버레이: 블록 모양 그대로(월드에 그린 진짜 블록 위) 하늘색 반투명 면 + 윤곽선
 				rotNow = 0;
@@ -1675,7 +1679,8 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 							cull |= 1 << d;
 						}
 					}
-					int ht = holoTint();
+					// 49-309차(사용자: "잔디 같은 블록은 파란색이어야지 박스가 생기면 어떡해"): X자 판 블록은 위에 상자를 안 덮으니 모델을 놓을 곳 색으로 칠한다
+					int ht = kr.lunaslight.mod.util.BlueprintWorld.crossLike(m) ? (missArgb() & 0xFFFFFF) : holoTint();
 					kr.lunaslight.mod.util.BlueprintWorld.block(m, bx, by, bz, ((ht >> 16) & 0xFF) / 255f, ((ht >> 8) & 0xFF) / 255f, (ht & 0xFF) / 255f,
 							af, cull, 0);
 				}

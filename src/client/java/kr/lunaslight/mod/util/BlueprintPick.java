@@ -38,6 +38,7 @@ public final class BlueprintPick {
 				if (selected < 0 || client.interactionManager == null) {
 					return -1;
 				}
+				kr.lunaslight.mod.module.impl.inventory.AutoRefillModule.resync();   // 49-305차
 				client.interactionManager.clickSlot(client.player.playerScreenHandler.syncId, i, selected,
 						SlotActionType.SWAP, client.player);
 				return 2;

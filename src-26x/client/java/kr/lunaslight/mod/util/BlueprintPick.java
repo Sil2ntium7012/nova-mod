@@ -37,6 +37,7 @@ public final class BlueprintPick {
 				if (selected < 0 || client.gameMode == null) {
 					return -1;
 				}
+				kr.lunaslight.mod.module.impl.inventory.AutoRefillModule.resync();   // 49-305차
 				client.gameMode.handleContainerInput(client.player.inventoryMenu.containerId, i, selected,
 						ContainerInput.SWAP, client.player);
 				return 2;

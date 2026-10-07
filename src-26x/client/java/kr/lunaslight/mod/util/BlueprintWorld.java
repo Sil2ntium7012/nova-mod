@@ -44,6 +44,22 @@ public final class BlueprintWorld {
 		final int[][] tints = new int[7][];
 	}
 
+	/**
+	 * 49-309차: 면(위/아래/옆)에 붙은 쿼드가 하나도 없고 방향 없는 쿼드만 있는 모델 - 잔디, 꽃, 묘목처럼 X자로 엇갈린 판. 이런 블록은
+	 * 상자로 덮지 않고 모델 자체를 파랗게 칠한다(상자를 씌우면 풀 위에 네모가 떠 보였다).
+	 */
+	public static boolean crossLike(Model m) {
+		if (m == null) {
+			return false;
+		}
+		for (int d = 0; d < 6; d++) {
+			if (m.quads[d] != null && m.quads[d].length > 0) {
+				return false;
+			}
+		}
+		return m.quads[6] != null && m.quads[6].length > 0;
+	}
+
 	/** 믹스인이 넘겨 주는 이번 프레임 정보(onWorldRender의 context). */
 	public static final class Ctx {
 		final PoseStack pose;
