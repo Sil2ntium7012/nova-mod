@@ -85,7 +85,7 @@ public class MouseTweaksModule extends Module {
 		// 화면 자신의 칸 클릭(크리에이티브 화면이 크리에이티브 패킷으로 바꿔 보냄)으로 넘긴다 - 49-40차의 "가짜 칸 번호" 문제가 없다.
 		return isEnabled() && client.player != null && client.gameMode != null
 				&& kr.lunaslight.mod.util.LunaCompat.screenOf(client) instanceof AbstractContainerScreen
-				&& creativeOk();
+				;   // 49-311차: 크리에이티브 아이템 탭도 받는다(끌기 = 목록 아이템을 인벤토리로, 휠은 막음 - take/onScroll에서)
 	}
 
 	/** 커서에 아이템을 들고 있으면(바닐라 드래그 분배 중) 우리가 끼어들지 않는다. */
@@ -243,6 +243,10 @@ public class MouseTweaksModule extends Module {
 			return;
 		}
 		try {
+			if (from == null && creative() && !creativeOk()) {
+				handled.add(idOf(to));   // 49-311차: 처음 누른 칸은 바닐라 Shift 클릭이 이미 처리했다(두 번 넣지 않게)
+				return;
+			}
 			int moved = take(to);
 			if (from == null || from == to) {
 				return;
@@ -274,6 +278,14 @@ public class MouseTweaksModule extends Module {
 		if (slot == null || !handled.add(idOf(slot))) {
 			return 0;
 		}
+		if (creative() && !creativeOk()) {
+			// 49-311차(사용자 사진, 크리에이티브 [레드스톤 블록] 탭: "이 인벤에서 마우스 트윅스가 안 됨"): 아이템 탭에서 Shift 끌기 =
+			// 지나간 목록 아이템을 한 묶음씩 빈 칸(핫바 먼저, 다음 가방)에 넣는다. 핫바 칸 자체는 건드리지 않는다(바닐라는 Shift 클릭에 지움).
+			if (slot.container instanceof Inventory) {
+				return 0;
+			}
+			return giveCreative(slot.getItem()) ? 1 : 0;
+		}
 		if (creative() && !(slot.container instanceof Inventory)) {
 			return 0;   // 크리에이티브 아이템 목록 칸은 옮길 대상이 아니다(누르면 한 묶음이 커서에 집힌다)
 		}
@@ -283,6 +295,36 @@ public class MouseTweaksModule extends Module {
 		}
 		quickMove(idOf(slot));
 		return 1;
+	}
+
+	/** 49-311차: 크리에이티브에서 아이템 한 묶음을 빈 칸(핫바 0~8 먼저, 가방 9~35)에 넣는다(크리에이티브 칸 패킷). 넣었으면 true. */
+	private boolean giveCreative(ItemStack src) {
+		if (src == null || src.isEmpty() || client.player == null || client.gameMode == null) {
+			return false;
+		}
+		try {
+			Object invObj = LunaCompat.getPlayerInventory(client.player);
+			if (!(invObj instanceof Inventory inv)) {
+				return false;
+			}
+			int slot = -1;
+			for (int i = 0; i < 36 && slot < 0; i++) {
+				if (inv.getItem(i).isEmpty()) {
+					slot = i;
+				}
+			}
+			if (slot < 0) {
+				return false;   // 빈 칸 없음
+			}
+			ItemStack give = src.copy();
+			give.setCount(give.getMaxStackSize());
+			inv.setItem(slot, give.copy());
+			client.gameMode.handleCreativeModeItemAdd(give, slot < 9 ? 36 + slot : slot);   // 플레이어 인벤토리 화면 칸 번호(핫바 = 36~44)
+			return true;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("mouseTweaks:creativeGive", t);
+			return false;
+		}
 	}
 
 	/** 칸 좌표 (x, y)를 품고 있는 칸. 없으면 null. */
@@ -298,7 +340,7 @@ public class MouseTweaksModule extends Module {
 	// ==================== ③ 휠로 옮기기 ====================
 
 	private boolean onScroll(double horizontal, double vertical) {
-		if (!usable() || Math.abs(vertical) < 0.01 || holdingStack()) {
+		if (!usable() || Math.abs(vertical) < 0.01 || holdingStack() || (creative() && !creativeOk())) {
 			return false;
 		}
 		Slot slot = focusedSlot(kr.lunaslight.mod.util.LunaCompat.screenOf(client));
