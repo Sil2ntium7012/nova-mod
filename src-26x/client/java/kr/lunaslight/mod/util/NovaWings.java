@@ -114,7 +114,7 @@ public final class NovaWings {
 	private static final Set<String> WANT = ConcurrentHashMap.newKeySet();
 	private static volatile boolean inFlight;
 	private static volatile long lastFetch;
-	private static final long TTL = 60_000L;
+	private static final long TTL = 10 * 60_000L;   // 10-08(Supabase 요청 수): 1분 → 10분, 없는 사람도 같이 기억
 	private static String selfId = "";
 	private static long selfAt;
 
@@ -154,7 +154,7 @@ public final class NovaWings {
 
 	private static void maybeFetch() {
 		long now = System.currentTimeMillis();
-		if (inFlight || WANT.isEmpty() || now - lastFetch < 2000L || !LunaSocial.available()) {
+		if (inFlight || WANT.isEmpty() || now - lastFetch < 5000L || !LunaSocial.available()) {
 			return;
 		}
 		inFlight = true;
@@ -173,7 +173,7 @@ public final class NovaWings {
 				for (String u : batch) {
 					String k = map == null ? null : valid(map.get(u));
 					OTHERS.put(u, k == null ? "" : k);
-					FETCHED.put(u, err == null ? t : t - TTL + 15_000L);
+					FETCHED.put(u, err == null ? t : t - TTL + 60_000L);
 				}
 				inFlight = false;
 			});

@@ -34,7 +34,7 @@ public final class NovaCapes {
 	private static final Map<String, Identifier> IDS = new ConcurrentHashMap<>();
 	private static String selfId = "";
 	private static long selfAt;
-	private static final long TTL = 60_000L;
+	private static final long TTL = 10 * 60_000L;   // 10-08(Supabase 요청 수): 1분 → 10분, 없는 사람도 같이 기억
 
 	/** 런처가 알려 준 내 노바 망토(key, 없으면 null). */
 	public static void setMine(String key) {
@@ -110,10 +110,10 @@ public final class NovaCapes {
 		return key == null || key.isEmpty() ? null : id(key);
 	}
 
-	/** 모인 uuid를 한 번에 조회(2초에 한 번, 최대 60명). */
+	/** 모인 uuid를 한 번에 조회(5초에 한 번, 최대 60명). 10-08: 한 번 본 사람은 10분 동안 다시 안 묻는다. */
 	private static void maybeFetch() {
 		long now = System.currentTimeMillis();
-		if (inFlight || WANT.isEmpty() || now - lastFetch < 2000L || !LunaSocial.available()) {
+		if (inFlight || WANT.isEmpty() || now - lastFetch < 5000L || !LunaSocial.available()) {
 			return;
 		}
 		inFlight = true;
@@ -132,7 +132,7 @@ public final class NovaCapes {
 				for (String u : batch) {
 					String k = map == null ? null : valid(map.get(u));
 					OTHERS.put(u, k == null ? "" : k);
-					FETCHED.put(u, err == null ? t : t - TTL + 15_000L);   // 실패면 15초 뒤 다시
+					FETCHED.put(u, err == null ? t : t - TTL + 60_000L);   // 실패면 15초 뒤 다시
 				}
 				inFlight = false;
 			});

@@ -73,8 +73,8 @@ public final class LunaSocial {
 	private static final List<Account> ACCOUNTS = new ArrayList<>();
 	private static HttpClient http;
 
-	private static final long ONLINE_WINDOW_MS = 90L * 1000L;
-	private static final long AWAY_WINDOW_MS = 5L * 60L * 1000L;
+	private static final long ONLINE_WINDOW_MS = 4L * 60L * 1000L;   // 10-08: 런처 접속 알림이 2분마다라 90초 → 4분(런처와 같게)
+	private static final long AWAY_WINDOW_MS = 10L * 60L * 1000L;   // 10-08: 5분 → 10분
 
 	private static String launcherVersion;
 
@@ -1094,6 +1094,7 @@ public final class LunaSocial {
 	/** 49-201차: 그중 자리 비움인 사람(site_presence.game_afk). */
 	private static volatile java.util.Set<String> serverAfkNames = java.util.Collections.emptySet();
 	private static long lastBadgePollMs;
+	private static String lastBadgeServer = "\u0000";   // 10-08: 서버를 옮기면 바로 한 번
 
 	/** 49-201차: 이 마크 닉네임이 지금 서버에서 자리 비움인 루나 유저인지(소문자 비교). */
 	public static boolean isAfkLunaPlayer(String mcName) {
@@ -1157,7 +1158,7 @@ public final class LunaSocial {
 		return c == '_' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z');
 	}
 
-	/** 15초마다 site_presence에서 같은 서버·최근 접속한 루나 유저의 닉네임을 모은다. */
+	/** 5분마다(10-08: 15초 → 5분, 서버를 옮기면 바로) site_presence에서 같은 서버·최근 접속한 루나 유저의 닉네임을 모은다. */
 	public static void pollServerBadges(MinecraftClient client) {
 		if (client == null || client.world == null) {
 			serverLunaNames = java.util.Collections.emptySet();
@@ -1166,11 +1167,14 @@ public final class LunaSocial {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		if (now - lastBadgePollMs < 15_000L) {
+		// 10-08(사용자: "같은 노바 사람 찾는 것도 완전 천천히 해도 돼"): 5분에 한 번. 서버를 옮긴 직후엔 바로 한 번
+		String myServer = serverAddress(client);
+		boolean moved = !String.valueOf(myServer).equals(lastBadgeServer);
+		if (!moved && now - lastBadgePollMs < 5L * 60_000L) {
 			return;
 		}
 		lastBadgePollMs = now;
-		String myServer = serverAddress(client);
+		lastBadgeServer = String.valueOf(myServer);
 		if (myServer == null || myServer.isEmpty()) {   // 싱글이면 배지 없음
 			serverLunaNames = java.util.Collections.emptySet();
 			serverAfkNames = java.util.Collections.emptySet();
@@ -1188,7 +1192,7 @@ public final class LunaSocial {
 			return;
 		}
 		String sinceIso = java.time.Instant.ofEpochMilli(now - AWAY_WINDOW_MS).toString();
-		rest("/site_presence?updated_at=gte." + enc(sinceIso) + "&select=*")
+		rest("/site_presence?updated_at=gte." + enc(sinceIso) + "&server_address=not.is.null&select=*")   // 10-08: 게임 중인 사람만
 				.exceptionally(t -> null)
 				.thenAccept(arr -> {
 					if (arr == null || !arr.isJsonArray()) {
