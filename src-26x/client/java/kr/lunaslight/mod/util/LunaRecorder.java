@@ -51,6 +51,13 @@ public final class LunaRecorder {
 	public static volatile boolean recording;
 	public static volatile boolean ready;
 	public static volatile String error;
+	private static volatile long errorAt;
+
+	/** 49-320차(사용자: "녹화가 끊겼습니다 메시지가 너무 오래가"): 오류는 온 뒤 5초만 보여 준다(런처 상태 파일엔 다음 녹화 전까지 남아 있다). */
+	public static String recentError() {
+		String e = error;
+		return e != null && System.currentTimeMillis() - errorAt < 5000L ? e : null;
+	}
 	private static volatile long since;
 	private static volatile boolean stateFileExists;
 
@@ -131,7 +138,11 @@ public final class LunaRecorder {
 			stateFileExists = true;
 			recording = bool(o, "recording");
 			ready = bool(o, "ready") || recording;
-			error = o.has("error") && !o.get("error").isJsonNull() ? o.get("error").getAsString() : null;
+			String err = o.has("error") && !o.get("error").isJsonNull() ? o.get("error").getAsString() : null;
+			if (err != null && !err.equals(error)) {
+				errorAt = System.currentTimeMillis();   // 49-320차: 새 오류가 온 때
+			}
+			error = err;
 			since = o.has("since") && !o.get("since").isJsonNull() ? o.get("since").getAsLong() : since;
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("record:state", t);

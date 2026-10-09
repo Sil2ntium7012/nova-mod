@@ -199,7 +199,11 @@ public class MouseTweaksModule extends Module {
 		boolean want = shift;
 		boolean down = leftDown();
 
-		if (!down || !want || holdingStack()) {
+		// 49-315차(사용자 사진, 크리에이티브 [아이템 검색] 탭: "마우스 트윅스 해달라고 몇 번을 말했는데 아직도 안 되냐"): 아이템 탭에서 Shift 클릭을
+		// 하면 바닐라가 그 아이템 한 묶음을 커서에 집어 준다(인벤토리로 안 넣는다 - 26.2 바이트코드 확인). 그래서 첫 칸부터 "커서에 들고 있음"이
+		// 되어 끌기가 바로 멈췄다(49-311차가 한 번도 안 돈 이유). 아이템 탭에선 커서에 든 것을 인벤토리 빈 칸에 넣고 커서를 비운 뒤 계속 끈다.
+		boolean itemTab = down && want && creative() && !creativeOk();
+		if (!down || !want || (!itemTab && holdingStack())) {
 			if (dragging) {
 				dragging = false;
 				handled.clear();
@@ -213,6 +217,9 @@ public class MouseTweaksModule extends Module {
 			dragScreen = screen;
 			handled.clear();
 			lastSlot = null;
+		}
+		if (itemTab && holdingStack()) {
+			pocketCursor();
 		}
 
 		Slot slot = focusedSlot(screen);
@@ -324,6 +331,41 @@ public class MouseTweaksModule extends Module {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("mouseTweaks:creativeGive", t);
 			return false;
+		}
+	}
+
+	/** 49-315차: 크리에이티브 아이템 탭 - 커서에 든 묶음을 인벤토리 빈 칸에 넣고 커서를 비운다(빈 칸이 없으면 그대로 둔다). */
+	private void pocketCursor() {
+		try {
+			ItemStack c = LunaCompat.cursorStack(client.player);
+			if (c == null || c.isEmpty() || !giveCreative(c)) {
+				return;
+			}
+			Object screen = client.currentScreen;
+			if (screen instanceof HandledScreen<?> hs) {
+				setCursor(hs.getScreenHandler(), ItemStack.EMPTY);
+			}
+			setCursor(LunaCompat.getFieldValue(client.player, "currentScreenHandler", "container"), ItemStack.EMPTY);
+			Object inv = LunaCompat.getPlayerInventory(client.player);
+			if (inv != null) {
+				setCursor(inv, ItemStack.EMPTY);   // ≤1.16: 커서는 PlayerInventory에 있다
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("mouseTweaks:pocket", t);
+		}
+	}
+
+	/** setCursorStack(ItemStack) - 1.17+ 화면 핸들러, ≤1.16 PlayerInventory. 없으면 조용히. */
+	private static void setCursor(Object owner, ItemStack stack) {
+		if (owner == null) {
+			return;
+		}
+		try {
+			java.lang.reflect.Method m = LunaCompat.findMethod(owner.getClass(), "setCursorStack", ItemStack.class);
+			if (m != null) {
+				m.invoke(owner, stack);
+			}
+		} catch (Throwable ignored) {
 		}
 	}
 

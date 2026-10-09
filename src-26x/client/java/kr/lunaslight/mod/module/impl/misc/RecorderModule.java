@@ -116,8 +116,8 @@ public class RecorderModule extends Module {
 			text = (s / 3600 > 0 ? (s / 3600) + ":" : "")
 				+ String.format(java.util.Locale.ROOT, "%02d:%02d", (s / 60) % 60, s % 60);
 			dot = true;
-		} else if (indicator.get() && LunaRecorder.error != null) {
-			text = "§c" + LunaRecorder.error;
+		} else if (indicator.get() && LunaRecorder.recentError() != null) {
+			text = "§c" + LunaRecorder.recentError();
 		} else {
 			return;
 		}

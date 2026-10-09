@@ -8,6 +8,15 @@
    "chars": [
     "\ue100"
    ]
+  },
+  {
+   "type": "bitmap",
+   "file": "lunaslight:font/lunazzz.png",
+   "ascent": 7,
+   "height": 7,
+   "chars": [
+    "\ue101"
+   ]
   }
  ]
 }

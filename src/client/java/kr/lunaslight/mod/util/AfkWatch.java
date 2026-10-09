@@ -32,6 +32,9 @@ public final class AfkWatch {
 		double x, y, z;
 		float yaw, pitch, head;
 		boolean sneak;
+		/** 49-316차: 기준 자리/시점 - 여기서 조금 밀리거나(3블록 안) 시점이 몇 도 흔들리는 건 "움직임"으로 안 친다. */
+		double ax, ay, az;
+		float ryaw, rpitch, rhead;
 		long rotAt;    // 시점이 마지막으로 바뀐 때(0 = 본 적 없음)
 		long actAt;    // 뭐든 마지막으로 한 때(0 = 본 적 없음)
 		long seenAt;
@@ -73,12 +76,30 @@ public final class AfkWatch {
 			if (b == null) {
 				b = new Body();
 				BODIES.put(k, b);
+				b.ax = x;
+				b.ay = y;
+				b.az = z;
+				b.ryaw = yaw;
+				b.rpitch = pitch;
+				b.rhead = head;
 			} else {
-				boolean rot = yaw != b.yaw || pitch != b.pitch || head != b.head;
-				boolean act = rot || sneak != b.sneak || swinging(p) || usingItem(p)
-						|| Math.abs(x - b.x) > 1e-3 || Math.abs(y - b.y) > 1e-3 || Math.abs(z - b.z) > 1e-3;
+				// 49-316차(사용자: "잠수가 누가 건들어도 끝나고 고개를 떨어트리고 있지 않아"): 예전엔 틱마다 조금이라도 바뀌면 움직임이었다 -
+				// 누가 밀거나 때리면 위치가 바뀌고, 서버가 보내는 시점 값의 반올림(1.4도)도 틱마다 흔들려 깨어난 걸로 봤다.
+				// 이제 기준에서 시점이 4도 넘게 돌거나, 3블록 넘게 옮겨지거나, 손을 휘두르거나, 아이템을 쓰거나, 웅크리기를 바꿀 때만 움직임.
+				boolean rot = angle(yaw, b.ryaw) > 4f || Math.abs(pitch - b.rpitch) > 4f || angle(head, b.rhead) > 4f;
+				double dx = x - b.ax, dy = y - b.ay, dz = z - b.az;
+				boolean far = dx * dx + dy * dy + dz * dz > 9.0;
+				boolean act = rot || far || sneak != b.sneak || swinging(p) || usingItem(p);
 				if (rot) {
 					b.rotAt = now;
+					b.ryaw = yaw;
+					b.rpitch = pitch;
+					b.rhead = head;
+				}
+				if (far) {
+					b.ax = x;
+					b.ay = y;
+					b.az = z;
 				}
 				if (act) {
 					b.actAt = now;
@@ -96,6 +117,12 @@ public final class AfkWatch {
 		if (++ticks % 200 == 0) {
 			BODIES.values().removeIf(b -> now - b.seenAt > 10L * 60_000L);
 		}
+	}
+
+	/** 두 각도의 차이(0~180도). */
+	private static float angle(float a, float b) {
+		float d = Math.abs((a - b) % 360f);
+		return d > 180f ? 360f - d : d;
 	}
 
 	/** 손을 휘두르는 중인가(LivingEntity.handSwinging). */
@@ -231,17 +258,35 @@ public final class AfkWatch {
 		}
 	}
 
-	/** 머리 위 이름 뒤에 붙는 회색 " AFK". */
-	public static Text label(Text name) {
-		Text tag = LunaCompat.coloredText(" AFK", 0xAAAAAA);
-		if (name == null) {
-			return LunaCompat.coloredText("AFK", 0xAAAAAA);
-		}
-		return name.getString().endsWith(" AFK") ? name : LunaCompat.join(name, tag);
+	/**
+	 * 49-317차(사용자: "AFK 글이 이름과 구분 잘되게 - 지금 너무 비슷"): 회색 " AFK"가 이름과 거의 같아 보였다. 이제 따뜻한 노란색 굵은
+	 * "AFK"를 대괄호로 감싸 따로 보이게 한다(§l 굵게 - 글꼴이 글자 안의 서식 코드를 그대로 읽는다).
+	 */
+	public static Text tag() {
+		return LunaCompat.coloredText("§l[AFK]", 0xFFC14D);
 	}
 
-	/** 탭 목록에서 노바 별 대신 붙는 회색 "ZZZ". */
+	/** 머리 위 이름 뒤에 AFK 표(이름이 없으면 표만). */
+	public static Text label(Text name) {
+		if (name == null) {
+			return tag();
+		}
+		return name.getString().endsWith("[AFK]") ? name : LunaCompat.join(name, LunaCompat.textLiteral(" "), tag());
+	}
+
+	/**
+	 * 탭 목록에서 노바 별 대신 붙는 "ZZZ". 49-318차(사용자: "잠수할 때 ZZZ 크기 점점 작아지게"): 글자 대신 그림 한 글자(lunastar 글꼴의
+	 * \uE101 = lunazzz.png) - 큰 Z, 조금 작은 Z, 작은 Z가 오른쪽 위로 올라가며 작아진다(옅은 회색, 가장자리 반투명).
+	 * 글꼴을 못 쓰는 옛 버전은 회색 "Zzz" 글자.
+	 */
 	public static Text tabBadge() {
-		return LunaCompat.coloredText("ZZZ", 0xAAAAAA);
+		try {
+			Text z = LunaCompat.styledText("\uE101", LunaCompat.styleWithFontNamed("lunastar"));
+			if (z != null) {
+				return z;
+			}
+		} catch (Throwable ignored) {
+		}
+		return LunaCompat.coloredText("Zzz", 0xAAAAAA);
 	}
 }

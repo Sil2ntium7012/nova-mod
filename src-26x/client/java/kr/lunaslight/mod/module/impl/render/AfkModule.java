@@ -165,8 +165,9 @@ public class AfkModule extends Module {
 			lastSig = sig;
 		}
 		seen.put(sig, now);
-		if (Math.abs(x - lastX) > 1e-4 || Math.abs(y - lastY) > 1e-4 || Math.abs(z - lastZ) > 1e-4
-				|| slot != lastSlot || sneak != lastSneak || AfkWatch.swinging(p) || p.isUsingItem()) {
+		// 49-316차(사용자: "잠수가 누가 건들어도 끝나고 고개를 떨어트리고 있지 않아"): 위치가 바뀐 것(남이 밀거나 때림, 물에 떠밀림)은
+		// 움직임으로 안 친다 - 내가 누른 이동/공격/사용 키, 핫바 칸, 웅크리기, 휘두르기, 아이템 쓰기만 본다(매크로도 키를 누르므로 잡힌다).
+		if (inputHeld() || slot != lastSlot || sneak != lastSneak || AfkWatch.swinging(p) || p.isUsingItem()) {
 			any = true;
 		}
 		lastX = x;
@@ -181,6 +182,41 @@ public class AfkModule extends Module {
 			seen.values().removeIf(t -> now - t >= WAIT_MS);
 		}
 	}
+
+	/** 49-316차: 이동(앞뒤좌우, 점프, 웅크리기, 달리기), 공격, 사용 키 중 하나라도 눌려 있는가. */
+	private boolean inputHeld() {
+		try {
+			for (Object k : LunaCompat.movementKeys(client)) {
+				if (k != null && LunaCompat.isKeyBindingPressed(k)) {
+					return true;
+				}
+			}
+			if (attackUse == null) {
+				Object[] out = new Object[2];
+				String[][] names = {{"attackKey", "keyAttack"}, {"useKey", "keyUse"}};
+				for (int i = 0; i < 2; i++) {
+					for (String n : names[i]) {
+						java.lang.reflect.Field f = LunaCompat.findField(client.options.getClass(), n);
+						if (f != null) {
+							out[i] = f.get(client.options);
+							break;
+						}
+					}
+				}
+				attackUse = out;
+			}
+			for (Object k : attackUse) {
+				if (k != null && LunaCompat.isKeyBindingPressed(k)) {
+					return true;
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("afk:keys", t);
+		}
+		return false;
+	}
+
+	private Object[] attackUse;
 
 	/** 채팅 화면이면 입력 중인 글자(치는 것도 사람 손길). 아니면 빈 글자. */
 	private static String chatText(Object screen) {

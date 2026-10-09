@@ -89,7 +89,10 @@ public final class PlayerStateHook {
 		if (AfkWatch.droop(e, name)) {
 			state.xRot = AfkWatch.DROOP_PITCH;
 		}
-		if (state.nameTag != null) {
+		// 49-317차: 서버 점수 줄이 없으면 AFK를 이름 아래 따로 한 줄로(머리 바로 위 - 이름과 섞이지 않게), 있으면 이름 뒤에 붙인다
+		if (state.nameTag != null && state.scoreText == null) {
+			state.scoreText = AfkWatch.tag();
+		} else if (state.nameTag != null) {
 			state.nameTag = AfkWatch.label(state.nameTag);
 		}
 	}

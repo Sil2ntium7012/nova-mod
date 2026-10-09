@@ -38,6 +38,8 @@ public final class HangulInput {
 	public static boolean synthetic;
 
 	private static boolean korean;
+	/** 49-315차: 마지막으로 한/영을 바꾼 때(표시 애니메이션). */
+	private static long toggledAt;
 	private static final HangulComposer COMP = new HangulComposer();
 	private static boolean shiftDown;
 	private static Object lastScreen;
@@ -125,6 +127,7 @@ public final class HangulInput {
 		boolean typing = textFocused();
 		if (action == 1 && (hangulKey(key, scancode) || (key == HangulInputModule.toggleKey() && key != -1))) {
 			korean = !korean;
+			toggledAt = System.nanoTime();
 			COMP.reset();
 			return typing;
 		}
@@ -338,36 +341,75 @@ public final class HangulInput {
 
 	// ==================== 한/A 표시 ====================
 
-	/** 화면을 다 그린 뒤: 입력칸에 초점이 있으면 한/A 표시(채팅은 입력줄 오른쪽 끝, 그 밖은 입력칸 오른쪽 위, 못 찾으면 화면 오른쪽 아래). */
 	public static void drawIndicator(Object screen, GuiGraphicsExtractor ctx) {
 		if (!on() || !HangulInputModule.showIndicator() || !(screen instanceof Screen sc) || !textFocused()) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		String label = korean ? "한" : "A";
-		int w = 13;
-		int h = 11;
-		int x;
-		int y;
+		net.minecraft.client.gui.Font font = mc.font;
+		int anchorRight;
+		int anchorTop;
 		if (screen instanceof ChatScreen) {
-			x = sc.width - 2 - w - 1;
-			y = sc.height - 14 + 1;
+			anchorRight = sc.width - 2;
+			anchorTop = sc.height - 14;
 		} else {
 			Object box = focusedBox(screen);
 			if (box instanceof AbstractWidget aw) {
-				x = aw.getX() + aw.getWidth() - w;
-				y = aw.getY() - h - 1;
-				if (y < 0) {
-					y = aw.getY() + aw.getHeight() + 1;
-				}
+				anchorRight = aw.getX() + aw.getWidth();
+				anchorTop = aw.getY();
 			} else {
-				x = sc.width - w - 4;
-				y = sc.height - h - 4;
+				anchorRight = sc.width - 4;
+				anchorTop = sc.height - 4;
 			}
 		}
-		int bg = korean ? (LunaDraw.ACCENT | 0xFF000000) : 0xCC2A2F36;
-		LunaDraw.roundRect(ctx, x, y, w, h, 3, bg);
-		int tw = LunaDraw.width(mc.font, label);
-		LunaDraw.text(ctx, mc.font, label, x + (w - tw) / 2, y + 2, 0xFFFFFFFF);
+		drawBadge(ctx, font, anchorRight, anchorTop);
 	}
+
+	/**
+	 * 49-315차(사용자: "채팅 끝에도 표시해 주고 좀 예쁘게 - 지금 너무 밋밋하고 A 한 이게 뭐야"): 입력칸 오른쪽 끝 바로 위에 뜨는 작은 알약.
+	 * 한글이면 테마색 그라데이션 + 밝은 테두리 + 흰 점과 "한글", 영어면 어두운 유리 + 회색 점과 "영어". 바꾸는 순간 0.18초 동안 색과 폭이
+	 * 부드럽게 넘어가고 살짝 떠올랐다 내려앉는다. 아래에 옅은 그림자. 채팅은 입력줄 오른쪽 끝 위에 붙는다(입력 글자를 안 가린다).
+	 */
+	private static void drawBadge(GuiGraphicsExtractor ctx, net.minecraft.client.gui.Font font, int right, int top) {
+		float t = Math.min(1f, (System.nanoTime() - toggledAt) / 180_000_000f);
+		float e = 1f - (1f - t) * (1f - t) * (1f - t);   // 끝에서 느려지게
+		boolean ko = korean;
+		String label = ko ? "한글" : "영어";
+		String prevLabel = ko ? "영어" : "한글";
+		int h = 11;
+		int dot = 3;
+		int padL = 5;
+		int padR = 5;
+		int gap = 3;
+		int wNow = padL + dot + gap + LunaDraw.width(font, label) + padR;
+		int wPrev = padL + dot + gap + LunaDraw.width(font, prevLabel) + padR;
+		int w = Math.round(wPrev + (wNow - wPrev) * e);
+		int lift = t < 1f ? Math.round((float) Math.sin(t * Math.PI) * 2f) : 0;
+		int x = right - w;
+		int y = top - h - 2 - lift;
+		if (y < 0) {
+			y = top + 14 + 2;
+		}
+		int accent = LunaDraw.ACCENT | 0xFF000000;
+		int koTop = LunaDraw.lerpColor(accent, 0xFFFFFFFF, 0.20f);
+		int koBottom = LunaDraw.lerpColor(accent, 0xFF000000, 0.15f);
+		int koBorder = LunaDraw.lerpColor(accent, 0xFFFFFFFF, 0.45f);
+		int enTop = 0xF22C3038;
+		int enBottom = 0xF21B1E24;
+		int enBorder = 0x66FFFFFF;
+		float k = ko ? e : 1f - e;   // 1 = 한글 색
+		int gTop = LunaDraw.lerpColor(enTop, koTop, k);
+		int gBottom = LunaDraw.lerpColor(enBottom, koBottom, k);
+		int border = LunaDraw.lerpColor(enBorder, koBorder, k);
+		int dotColor = LunaDraw.lerpColor(0xFF8E959D, 0xFFFFFFFF, k);
+		int textColor = LunaDraw.lerpColor(0xFFD5D9DE, 0xFFFFFFFF, k);
+		LunaDraw.roundRect(ctx, x, y + 1, w, h, h / 2, 0x40000000);                 // 그림자
+		LunaDraw.roundRectGradient(ctx, x, y, w, h, h / 2, gTop, gBottom);
+		LunaDraw.roundRectOutline(ctx, x, y, w, h, h / 2, border);
+		LunaDraw.roundRect(ctx, x + padL, y + (h - dot) / 2, dot, dot, 1, dotColor);   // 상태 점
+		int tx = x + padL + dot + gap;
+		int alpha = Math.round(255 * Math.min(1f, 0.35f + 0.65f * e));
+		LunaDraw.text(ctx, font, label, tx, y + 2, (textColor & 0x00FFFFFF) | (alpha << 24));
+	}
+
 }
