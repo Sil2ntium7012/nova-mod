@@ -24,6 +24,11 @@ public abstract class KeyboardKeyMixin {
 		if (event == null) {
 			return;
 		}
+		// 49-313차: 내장 한글 입력(한/영 전환, 조합 중 백스페이스)
+		if (kr.lunaslight.mod.util.HangulInput.onKey(window, event.key(), LunaInput.secondCode(event), action, event.modifiers())) {
+			ci.cancel();
+			return;
+		}
 		if (LunaCompat.textCaptureInstalled() && TextCapture.feedKey(event.key(), action, event.modifiers())) {
 			ci.cancel();
 			return;

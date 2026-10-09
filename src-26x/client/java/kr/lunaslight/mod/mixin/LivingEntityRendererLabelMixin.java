@@ -33,5 +33,9 @@ public abstract class LivingEntityRendererLabelMixin {
 		if (decided != null && decided != cir.getReturnValueZ()) {
 			cir.setReturnValue(decided);
 		}
+		// 49-312차: 내가 AFK면 3인칭에서 내 머리 위에도 이름표(+ AFK)를 띄운다(바닐라는 내 이름표를 안 그린다)
+		if (!cir.getReturnValueZ() && kr.lunaslight.mod.util.AfkWatch.selfLabel(entity)) {
+			cir.setReturnValue(true);
+		}
 	}
 }

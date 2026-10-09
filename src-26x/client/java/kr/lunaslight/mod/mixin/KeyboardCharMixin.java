@@ -17,6 +17,11 @@ public abstract class KeyboardCharMixin {
 
 	@Inject(method = "charTyped(JLnet/minecraft/client/input/CharacterEvent;)V", at = @At("HEAD"), cancellable = true, require = 0)
 	private void lunaslight$charHook(long window, net.minecraft.client.input.CharacterEvent event, CallbackInfo ci) {
+		// 49-313차: 내장 한글 입력 - 한글 상태면 영문 글자를 조합한 한글로 바꿔 다시 보낸다
+		if (event != null && kr.lunaslight.mod.util.HangulInput.onChar(window, event.codepoint())) {
+			ci.cancel();
+			return;
+		}
 		if (event != null && LunaCompat.textCaptureInstalled() && TextCapture.feedChar(event.codepoint())) {
 			ci.cancel();
 		}

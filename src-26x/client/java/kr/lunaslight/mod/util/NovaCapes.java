@@ -86,6 +86,9 @@ public final class NovaCapes {
 		if (entity == null || !CapeSmoothModule.novaCapesShown()) {
 			return null;
 		}
+		if (AfkWatch.afkEntity(entity)) {
+			return null;   // 49-312차: 자리 비움이면 치장(망토) 숨김
+		}
 		LunaSocial.load();
 		String uid;
 		try {

@@ -1447,6 +1447,7 @@ public final class LunaCompat {
 			final org.lwjgl.glfw.GLFWMouseButtonCallback[] prev = new org.lwjgl.glfw.GLFWMouseButtonCallback[1];
 			org.lwjgl.glfw.GLFWMouseButtonCallbackI ours = (win, button, action, mods) -> {
 				if (action == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+					HangulInput.mouseClicked();   // 49-313차: 커서가 옮겨졌을 수 있다 - 한글 조합 끝
 					if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 						RAW_LEFT_CLICKS.incrementAndGet();
 					} else if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
@@ -1491,6 +1492,10 @@ public final class LunaCompat {
 			long handle = ((Number) getMethodCompat(window.getClass(), "getHandle").invoke(window)).longValue();
 			final org.lwjgl.glfw.GLFWKeyCallback[] prevKey = new org.lwjgl.glfw.GLFWKeyCallback[1];
 			org.lwjgl.glfw.GLFWKeyCallbackI ourKey = (win, key, scancode, action, mods) -> {
+				// 49-313차: 내장 한글 입력(한/영 전환, 조합 중 백스페이스)이 먼저
+				if (HangulInput.onKey(win, key, scancode, action, mods)) {
+					return;
+				}
 				if (TextCapture.feedKey(key, action, mods)) {
 					return;
 				}
@@ -1502,6 +1507,10 @@ public final class LunaCompat {
 			previousKeyCallback = prevKey[0];
 			final org.lwjgl.glfw.GLFWCharModsCallback[] prevChar = new org.lwjgl.glfw.GLFWCharModsCallback[1];
 			org.lwjgl.glfw.GLFWCharModsCallbackI ourChar = (win, codepoint, mods) -> {
+				// 49-313차: 한글 상태면 영문 글자를 조합한 한글로 바꿔 emitChar로 다시 보낸다
+				if (HangulInput.onChar(win, codepoint, mods)) {
+					return;
+				}
 				if (TextCapture.feedChar(codepoint)) {
 					return;
 				}
@@ -1518,6 +1527,26 @@ public final class LunaCompat {
 			textCaptureBroken = true;
 			warnOnce("textCapture", t);
 			return false;
+		}
+	}
+
+	/** 49-313차: 감싼 콜백 뒤쪽(패널 검색창 → 마인크래프트)으로 키를 다시 보낸다(내장 한글 입력이 조합한 백스페이스). */
+	public static void emitKey(long win, int key, int scancode, int action, int mods) {
+		if (TextCapture.feedKey(key, action, mods)) {
+			return;
+		}
+		if (previousKeyCallback instanceof org.lwjgl.glfw.GLFWKeyCallback cb) {
+			cb.invoke(win, key, scancode, action, mods);
+		}
+	}
+
+	/** 49-313차: 감싼 콜백 뒤쪽으로 글자를 다시 보낸다(내장 한글 입력이 조합한 한글). */
+	public static void emitChar(long win, int codePoint, int mods) {
+		if (TextCapture.feedChar(codePoint)) {
+			return;
+		}
+		if (previousCharModsCallback instanceof org.lwjgl.glfw.GLFWCharModsCallback cb) {
+			cb.invoke(win, codePoint, mods);
 		}
 	}
 

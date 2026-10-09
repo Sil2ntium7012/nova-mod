@@ -1,6 +1,5 @@
 package kr.lunaslight.mod.util;
 
-import kr.lunaslight.mod.module.impl.render.AfkModule;
 import kr.lunaslight.mod.module.impl.render.CapeSmoothModule;
 import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
@@ -12,7 +11,7 @@ import java.util.Map;
  * 49-201차: 플레이어 렌더 상태를 만든 직후(PlayerRenderStateMixin, 1.21.2+)에 두 가지를 얹는다.
  * <ul>
  *   <li>망토 흔들림을 부드럽게(CapeSmoothModule) - 상태의 망토 각도 세 값을 시간에 따라 천천히 따라가게.</li>
- *   <li>자리 비움인 루나 유저의 머리 위 이름 뒤에 회색 "Zzz"(AfkModule + LunaSocial 접속 정보).</li>
+ *   <li>자리 비움이면 고개, 망토, 머리 위 AFK(49-312차, AfkWatch).</li>
  * </ul>
  * 상태 클래스가 버전마다 달라(1.21.2+ PlayerEntityRenderState) 필드는 이름으로 찾는다. 망토 필드는 야른 이름이 없어
  * 중간 이름(field_53536~8)이다. 못 찾으면 조용히 아무것도 안 한다.
@@ -45,9 +44,9 @@ public final class PlayerStateHook {
 			LunaCompat.warnOnce("capeSmooth", t);
 		}
 		try {
-			zzz(e, state);
+			afkLook(e, state);
 		} catch (Throwable t) {
-			LunaCompat.warnOnce("afkZzz", t);
+			LunaCompat.warnOnce("afkLook", t);
 		}
 	}
 
@@ -117,30 +116,44 @@ public final class PlayerStateHook {
 		return nameField;
 	}
 
-	/** 머리 위 이름 뒤에 "Zzz"(자리 비움인 루나 유저, 또는 나 자신이 자리 비움일 때). */
-	private static void zzz(Entity e, Object state) throws Exception {
+	private static Class<?> afkClass;
+	private static Field afkCape, afkPitch;
+
+	/**
+	 * 49-312차(사용자: "AFK가 되면 고개 떨구기 + 머리 위 AFK 표시 + 날개, 망토 같은 치장은 안 보이게. 내 화면이랑 남들 화면 둘 다",
+	 * "같은 행동을 반복하고 있으면 고개는 떨구지 말고"): 1.21.2+ 렌더 상태에서 AFK면 망토를 끄고(capeVisible - 바닐라 망토 포함),
+	 * 이름표 뒤에 회색 AFK, 잠듦이면 고개(pitch)를 아래로. 판단은 {@link AfkWatch}. 1.21.1 이하는 AfkPoseLegacyMixin + AfkPlayerMixin.
+	 */
+	private static void afkLook(Entity e, Object state) throws Exception {
 		String name = e.getName() == null ? null : e.getName().getString();
-		if (!isAfk(e, name)) {
+		if (!AfkWatch.afk(e, name)) {
 			return;
 		}
-		Field f = nameFieldOf(state.getClass());
-		if (f == null) {
-			return;
+		Class<?> c = state.getClass();
+		if (afkClass != c) {
+			afkClass = c;
+			afkCape = LunaCompat.findField(c, "capeVisible");
+			Field p = LunaCompat.findField(c, "pitch");
+			afkPitch = p != null && p.getType() == float.class ? p : null;
 		}
-		Object cur = f.get(state);
-		if (!(cur instanceof Text t) || t.getString().endsWith(" Zzz")) {
-			return;
+		if (afkCape != null && afkCape.getType() == boolean.class) {
+			afkCape.setBoolean(state, false);
 		}
-		f.set(state, LunaCompat.join(t, LunaCompat.coloredText(" Zzz", 0xAAAAAA)));
+		if (afkPitch != null && AfkWatch.droop(e, name)) {
+			afkPitch.setFloat(state, AfkWatch.DROOP_PITCH);
+		}
+		Field f = nameFieldOf(c);
+		if (f != null) {
+			Object cur = f.get(state);
+			if (cur instanceof Text t) {
+				f.set(state, AfkWatch.label(t));
+			}
+		}
 	}
 
-	/** 이 플레이어가 자리 비움인가(나 자신은 이 컴퓨터의 자리 비움 상태, 남은 루나 접속 정보). */
+	/** 이 플레이어가 자리 비움인가(49-312차: AfkWatch로). */
 	public static boolean isAfk(Object entity, String name) {
-		net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
-		if (mc != null && entity != null && entity == mc.player) {
-			return AfkModule.isAfkNow();
-		}
-		return LunaSocial.isAfkLunaPlayer(name);
+		return AfkWatch.afk(entity, name);
 	}
 
 	/**

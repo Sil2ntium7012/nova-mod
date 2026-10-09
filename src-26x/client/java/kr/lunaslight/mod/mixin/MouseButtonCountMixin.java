@@ -19,6 +19,7 @@ public abstract class MouseButtonCountMixin {
 	private void lunaslight$countClick(long window, net.minecraft.client.input.MouseButtonInfo info, int action, CallbackInfo ci) {
 		if (info != null && action == 1) {
 			LunaCompat.countRawClick(LunaInput.toGlfwButton(info.button()));
+			kr.lunaslight.mod.util.HangulInput.mouseClicked();   // 49-313차: 커서가 옮겨졌을 수 있다 - 한글 조합 끝
 		}
 	}
 }

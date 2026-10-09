@@ -103,11 +103,12 @@ public abstract class PlayerListHudMixin {
 			if (name == null) {
 				return;
 			}
-			// 49-201차: 자리 비움이면 이름 뒤에 회색 Zzz(나 자신은 이 컴퓨터의 자리 비움, 남은 루나 접속 정보)
+			// 49-201차: 자리 비움 여부(49-312차: 이름 뒤 Zzz 대신 별 자리에 ZZZ)
 			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
 			boolean self = mc != null && mc.player != null && name.equalsIgnoreCase(mc.player.getName().getString());
+			// 49-312차: AfkWatch(나 = 이 컴퓨터, 남 = 접속 정보 + 보이는 몸으로 보정)
 			boolean afk = self ? kr.lunaslight.mod.module.impl.render.AfkModule.isAfkNow()
-					: kr.lunaslight.mod.util.LunaSocial.isAfkLunaPlayer(name);
+					: kr.lunaslight.mod.util.AfkWatch.afk(null, name);
 			boolean luna = kr.lunaslight.mod.util.LunaSocial.isLunaPlayerOnServer(name);
 			net.minecraft.network.chat.Component original = cir.getReturnValue();
 			// 49-209차(사용자: "클라들끼리 별 뜨는 게 안 보이는 경우가 있어"): 탭 꾸미기 플러그인 서버는 칸마다 가짜 프로필
@@ -118,19 +119,19 @@ public abstract class PlayerListHudMixin {
 				if (shown != null) {
 					name = shown;
 					luna = true;
-					afk = afk || kr.lunaslight.mod.util.LunaSocial.isAfkLunaPlayer(shown);
+					afk = afk || kr.lunaslight.mod.util.AfkWatch.afk(null, shown);
 				}
 			}
 			if (original == null || (!luna && !afk)) {
 				return;
 			}
+			// 49-312차(사용자: "TAB 목록에서 AFK인 사람은 노바 별 대신 ZZZ로"): AFK면 별 자리에 회색 ZZZ(뒤에 붙던 Zzz는 뺐다)
 			if (afk) {
-				original = kr.lunaslight.mod.util.LunaCompat.join(original,
-						kr.lunaslight.mod.util.LunaCompat.coloredText(" Zzz", 0xAAAAAA));
-				if (!luna) {
-					cir.setReturnValue(original);
-					return;
-				}
+				net.minecraft.network.chat.Component zzz = kr.lunaslight.mod.util.AfkWatch.tabBadge();
+				net.minecraft.network.chat.Component put = kr.lunaslight.mod.util.PlayerStateHook.badgeBeforeName(original, name, zzz);
+				cir.setReturnValue(put != null ? put : kr.lunaslight.mod.util.LunaCompat.join(
+						zzz, kr.lunaslight.mod.util.LunaCompat.textLiteral(" "), original));
+				return;
 			}
 			// 49-136차(사용자: "별모양으로 해달라니까 왜 다이아몬드야, 너무 커"): 로고 글리프(icons.ttf, 크게 나옴) 대신
 			// 49-191차(사용자: "우리 로고 별 쓰라고 - 흰색에 너무 크지 않게"): 로고 가운데의 네 갈래 반짝이 별을 흰색으로

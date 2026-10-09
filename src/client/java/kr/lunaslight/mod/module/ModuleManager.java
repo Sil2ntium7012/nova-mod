@@ -160,6 +160,7 @@ public final class ModuleManager {
 		register(new ToastFilterModule());   // 49-54차(1-3): 토스트 끄기
 		// 49-157차: [일반 > 유저 차단]은 [기능 > 채팅]의 [차단] 묶음으로 합쳤다.
 		register(new WhisperAlertModule());  // 49-67차(5-5)·49-121차: 귓속말 오면 소리만
+		register(new kr.lunaslight.mod.module.impl.chat.HangulInputModule());   // 49-313차: 내장 한글 입력
 		register(new kr.lunaslight.mod.module.impl.misc.FishingAlertModule());   // 49-125차: 낚시 미끼 물면 소리
 		register(new kr.lunaslight.mod.module.impl.misc.DiscordStatusModule());  // 49-125차: 디스코드에 플레이 중 표시
 		register(new kr.lunaslight.mod.module.impl.chat.ChatFaceModule());   // 49-81차(4-48): 채팅 줄 앞에 보낸 사람 얼굴(1.20+)

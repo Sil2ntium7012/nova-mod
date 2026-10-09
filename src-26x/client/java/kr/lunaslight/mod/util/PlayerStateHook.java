@@ -1,6 +1,5 @@
 package kr.lunaslight.mod.util;
 
-import kr.lunaslight.mod.module.impl.render.AfkModule;
 import kr.lunaslight.mod.module.impl.render.CapeSmoothModule;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.network.chat.Component;
@@ -11,7 +10,7 @@ import java.util.Map;
 
 /**
  * 49-201차(26.x 판): 플레이어 렌더 상태를 만든 직후(PlayerRenderStateMixin)에 - 망토 흔들림 부드럽게(CapeSmoothModule),
- * 자리 비움인 루나 유저의 머리 위 이름 뒤에 회색 "Zzz". 26.x는 필드 이름이 그대로 보여(capeFlap, capeLean, capeLean2,
+ * 자리 비움이면 고개, 망토, 머리 위 AFK(49-312차). 26.x는 필드 이름이 그대로 보여(capeFlap, capeLean, capeLean2,
  * nameTag) 리플렉션 없이 쓴다.
  */
 public final class PlayerStateHook {
@@ -43,9 +42,9 @@ public final class PlayerStateHook {
 			LunaCompat.warnOnce("novaCape", t);
 		}
 		try {
-			zzz(e, state);
+			afkLook(e, state);
 		} catch (Throwable t) {
-			LunaCompat.warnOnce("afkZzz", t);
+			LunaCompat.warnOnce("afkLook", t);
 		}
 	}
 
@@ -76,24 +75,28 @@ public final class PlayerStateHook {
 		}
 	}
 
-	private static void zzz(Entity e, AvatarRenderState state) {
+	/**
+	 * 49-312차(사용자: "AFK가 되면 고개 떨구기 + 머리 위 AFK 표시 + 날개, 망토 같은 치장은 안 보이게. 내 화면이랑 남들 화면 둘 다",
+	 * "같은 행동을 반복하고 있으면 고개는 떨구지 말고"): AFK면 망토를 끄고(바닐라 망토 포함 - 노바 망토는 NovaCapes가 이미 뺐다)
+	 * 이름표 뒤에 회색 AFK, 잠듦이면 고개를 아래로. 판단은 {@link AfkWatch}.
+	 */
+	private static void afkLook(Entity e, AvatarRenderState state) {
 		String name = e.getName() == null ? null : e.getName().getString();
-		if (!isAfk(e, name)) {
+		if (!AfkWatch.afk(e, name)) {
 			return;
 		}
-		Component cur = state.nameTag;
-		if (cur == null || cur.getString().endsWith(" Zzz")) {
-			return;
+		state.showCape = false;
+		if (AfkWatch.droop(e, name)) {
+			state.xRot = AfkWatch.DROOP_PITCH;
 		}
-		state.nameTag = LunaCompat.join(cur, LunaCompat.coloredText(" Zzz", 0xAAAAAA));
+		if (state.nameTag != null) {
+			state.nameTag = AfkWatch.label(state.nameTag);
+		}
 	}
 
+	/** 이 플레이어가 자리 비움인가(49-312차: AfkWatch로). */
 	public static boolean isAfk(Object entity, String name) {
-		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-		if (mc != null && entity != null && entity == mc.player) {
-			return AfkModule.isAfkNow();
-		}
-		return LunaSocial.isAfkLunaPlayer(name);
+		return AfkWatch.afk(entity, name);
 	}
 
 	/**

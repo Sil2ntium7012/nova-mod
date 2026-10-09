@@ -68,7 +68,9 @@
         "CapeChainMixin",
         "PlayerRenderStateMixin",
         "AfkFpsMixin",
-        "CapeTextureMixin"
+        "CapeTextureMixin",
+        "AfkPoseLegacyMixin",
+        "AfkPlayerMixin"
     ],
     "injectors": {
         "defaultRequire": 1

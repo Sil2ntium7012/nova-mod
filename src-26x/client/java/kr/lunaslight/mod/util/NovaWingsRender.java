@@ -44,6 +44,9 @@ public final class NovaWingsRender {
 				if (p.isInvisible() || p.isSleeping() || p.isVisuallySwimming() || p.isFallFlying()) {
 					continue;
 				}
+				if (AfkWatch.afkEntity(p)) {
+					continue;   // 49-312차: 자리 비움이면 치장(날개) 숨김
+				}
 				String key = NovaWings.keyFor(p.getUUID().toString(), others);
 				if (key == null) {
 					continue;
