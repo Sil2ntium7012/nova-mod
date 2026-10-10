@@ -56,6 +56,10 @@ public final class LunaRecorder {
 
 	/** 49-320차(사용자: "녹화가 끊겼습니다 메시지가 너무 오래가"): 오류는 온 뒤 5초만 보여 준다(런처 상태 파일엔 다음 녹화 전까지 남아 있다). */
 	public static String recentError() {
+		String l = localError;
+		if (l != null && System.currentTimeMillis() - localErrorAt < 5000L) {
+			return l;
+		}
 		String e = error;
 		return e != null && System.currentTimeMillis() - errorAt < 5000L ? e : null;
 	}
@@ -74,9 +78,62 @@ public final class LunaRecorder {
 		return stateFileExists;
 	}
 
-	/** 녹화 중이면 지난 초. */
+	// ---- 49-322차(사용자: "녹화 버튼이랑 시간이 안 맞고, 눌렀을 때 켜짐/꺼짐이 바로바로 안 떠, 끝냈을 때 저장했다는 메시지"):
+	// 런처가 ffmpeg를 띄우고 상태 파일을 쓰기까지 1~2초 걸려(창 찾기 + 0.5초 확인) 그동안 HUD가 아무 반응이 없었고, 시간도 그만큼 늦게
+	// 시작했다. 이제 키를 누른 순간 우리 쪽에서 먼저 "녹화 중"(시간은 누른 때부터) / "저장하는 중"으로 바꾸고, 런처 답을 기다린다.
+	private static final int NONE = 0, STARTING = 1, STOPPING = 2;
+	private static volatile int pending = NONE;
+	private static volatile long pendingAt;
+	/** 키를 누른 때(시간은 여기서부터 센다). 0이면 런처의 시작 시각. */
+	private static volatile long pressedAt;
+	/** 런처가 알려 준 방금 저장한 파일 이름과 그때. */
+	public static volatile String saved;
+	private static volatile long savedShownAt;
+	private static volatile String lastSaved;
+	/** 시작 요청이 이 시간 안에 답이 없으면 실패로 본다. */
+	private static final long START_TIMEOUT_MS = 8000L;
+	private static volatile String localError;
+	private static volatile long localErrorAt;
+
+	/** 화면에 "녹화 중"으로 보일지(누르자마자 켜짐, 끄기를 누르자마자 꺼짐). */
+	public static boolean showRecording() {
+		checkTimeout();
+		if (pending == STARTING) {
+			return true;
+		}
+		if (pending == STOPPING) {
+			return false;
+		}
+		return recording;
+	}
+
+	/** 끄기를 누르고 런처가 파일을 닫는 중인가. */
+	public static boolean saving() {
+		return pending == STOPPING && System.currentTimeMillis() - pendingAt < 15000L;
+	}
+
+	/** 방금 저장한 파일 이름(5초 동안만). 없으면 null. */
+	public static String recentSaved() {
+		String f = saved;
+		return f != null && System.currentTimeMillis() - savedShownAt < 5000L ? f : null;
+	}
+
+	private static void checkTimeout() {
+		if (pending == STARTING && !recording && System.currentTimeMillis() - pendingAt > START_TIMEOUT_MS) {
+			pending = NONE;
+			pressedAt = 0;
+			localError = "녹화를 시작하지 못했습니다(런처 로그 참고)";
+			localErrorAt = System.currentTimeMillis();
+		}
+	}
+
+	/** 녹화 중이면 지난 초(키를 누른 때부터). */
 	public static double elapsed() {
-		return recording ? (System.currentTimeMillis() - since) / 1000.0 : 0;
+		if (!showRecording()) {
+			return 0;
+		}
+		long from = pressedAt > 0 ? pressedAt : since;
+		return Math.max(0, (System.currentTimeMillis() - from) / 1000.0);
 	}
 
 	/** 키를 눌렀을 때. 런처에게 시작/정지를 부탁한다. 부탁을 못 남겼으면 이유 문자열, 됐으면 null. */
@@ -84,18 +141,30 @@ public final class LunaRecorder {
 		if (!available()) {
 			return "Nova Client 런처로 실행해야 녹화할 수 있습니다";
 		}
-		if (!recording && !ready) {
+		boolean on = showRecording();
+		if (!on && !ready) {
 			return "런처가 ffmpeg를 아직 받는 중입니다 - 잠시 뒤 다시";
+		}
+		if (pending == STOPPING && saving()) {
+			return "저장하는 중입니다 - 잠시만요";
 		}
 		try {
 			JsonObject o = new JsonObject();
 			o.addProperty("ts", System.currentTimeMillis());
-			o.addProperty("action", recording ? "stop" : "start");
+			o.addProperty("action", on ? "stop" : "start");
 			o.addProperty("fps", 60);
 			o.addProperty("height", height);
 			Path p = gameDir().resolve(".luna-record.json");
 			Files.writeString(p, o.toString(), StandardCharsets.UTF_8);
 			lastPollMs = 0;   // 곧바로 상태를 다시 읽는다
+			long now = System.currentTimeMillis();
+			pending = on ? STOPPING : STARTING;
+			pendingAt = now;
+			if (!on) {
+				pressedAt = now;
+				localError = null;
+				saved = null;
+			}
 			return null;
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("record:request", t);
@@ -145,6 +214,30 @@ public final class LunaRecorder {
 			}
 			error = err;
 			since = o.has("since") && !o.get("since").isJsonNull() ? o.get("since").getAsLong() : since;
+			// 49-322차: 런처 답과 맞춰 본다 - 키를 누른 뒤에 런처가 쓴 상태(ts)만 답으로 친다(전에 남은 오류로 바로 꺼지지 않게)
+			long ts = o.has("ts") && !o.get("ts").isJsonNull() ? o.get("ts").getAsLong() : 0L;
+			boolean fresh = ts >= pendingAt - 200L;
+			String sv = o.has("saved") && !o.get("saved").isJsonNull() ? o.get("saved").getAsString() : null;
+			if (pending == STARTING && fresh && (recording || err != null)) {
+				pending = NONE;
+				if (!recording) {
+					pressedAt = 0;
+					localError = err;   // 시작하자마자 실패 - 오류를 5초 보여 준다
+					localErrorAt = System.currentTimeMillis();
+				}
+			} else if (pending == STOPPING && fresh && !recording) {
+				pending = NONE;
+				pressedAt = 0;
+				if (sv == null && err == null) {
+					saved = "";   // 파일 이름을 안 알려 주는 옛 런처 - "저장됨"만
+					savedShownAt = System.currentTimeMillis();
+				}
+			}
+			if (sv != null && !sv.equals(lastSaved)) {
+				lastSaved = sv;
+				saved = sv;
+				savedShownAt = System.currentTimeMillis();
+			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("record:state", t);
 		} finally {

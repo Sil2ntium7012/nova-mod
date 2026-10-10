@@ -205,6 +205,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.hud.ServerAddressHudModule());
 		register(new kr.lunaslight.mod.module.impl.hud.ItemInfoHudModule());
 		register(new kr.lunaslight.mod.module.impl.hud.MousestrokesHudModule());
+		register(new kr.lunaslight.mod.module.impl.hud.StatBoardHudModule());   // 49-323차: 상태판(인게임 UI 전용)
 		register(new kr.lunaslight.mod.module.impl.render.WeatherChangerModule());
 		register(new kr.lunaslight.mod.module.impl.render.SubtitleStyleModule());
 		// 49-61차(사용자: "다크모드는 마크 기본 UI에 포함되는 기능인데 바뀌지도 않고"): 다크 모드 삭제.

@@ -136,16 +136,9 @@ public abstract class PlayerListHudMixin {
 			// 49-136차(사용자: "별모양으로 해달라니까 왜 다이아몬드야, 너무 커"): 로고 글리프(icons.ttf, 크게 나옴) 대신
 			// 49-191차(사용자: "우리 로고 별 쓰라고 - 흰색에 너무 크지 않게"): 로고 가운데의 네 갈래 반짝이 별을 흰색으로
 			// (lunastar.png 32×32를 글자 높이 7로 줄여 그림 - 대문자 높이와 같다). 한 글자(\uE100).
-			net.minecraft.text.Text star = null;
-			try {
-				star = kr.lunaslight.mod.util.LunaCompat.styledText("\uE100",
-						kr.lunaslight.mod.util.LunaCompat.styleWithFontNamed("lunastar"));
-			} catch (Throwable ignored) {
-				// 아래 글자 별로
-			}
-			if (star == null) {
-				star = kr.lunaslight.mod.util.LunaCompat.coloredText("\u2726", 0xFFFFFFFF);   // ✦(글꼴을 못 쓰는 옛 버전)
-			}
+			// 49-321차(사용자: "그냥 별을 입력해 넣으면 안 돼? 원에 바늘 달린 거 같잖아"): 직접 그린 그림(lunastar.png) 대신 진짜 글자 ✦(U+2726)를
+			// 흰색으로. 마크 기본 글꼴(유니폰트)의 ✦라 네 끝이 곡선으로 이어진 모양 그대로 나온다.
+			net.minecraft.text.Text star = kr.lunaslight.mod.util.LunaCompat.coloredText("\u2726", 0xFFFFFFFF);
 			// 49-203차: 칭호/접두가 있으면 별을 닉네임 바로 앞에(별 뒤 한 칸). 못 찾으면 예전처럼 맨 앞.
 			net.minecraft.text.Text placed = kr.lunaslight.mod.util.PlayerStateHook.badgeBeforeName(original, name, star);
 			cir.setReturnValue(placed != null ? placed : kr.lunaslight.mod.util.LunaCompat.join(

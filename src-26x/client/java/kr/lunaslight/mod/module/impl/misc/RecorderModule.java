@@ -111,12 +111,17 @@ public class RecorderModule extends Module {
 		boolean dot = false;
 		if (notice != null && System.currentTimeMillis() < noticeUntil) {
 			text = "§7" + notice;
-		} else if (indicator.get() && LunaRecorder.recording) {
+		} else if (indicator.get() && LunaRecorder.showRecording()) {
 			int s = (int) LunaRecorder.elapsed();
 			text = (s / 3600 > 0 ? (s / 3600) + ":" : "")
 				+ String.format(java.util.Locale.ROOT, "%02d:%02d", (s / 60) % 60, s % 60);
 			dot = true;
-		} else if (indicator.get() && LunaRecorder.recentError() != null) {
+		} else if (LunaRecorder.saving()) {
+			text = "§7녹화 저장하는 중…";   // 49-322차: 끄기를 누르자마자
+		} else if (LunaRecorder.recentSaved() != null) {
+			String f = LunaRecorder.recentSaved();   // 49-322차: 런처가 파일을 닫은 뒤 5초
+			text = f.isEmpty() ? "§a녹화 저장됨 §7(clips 폴더)" : "§a녹화 저장됨 §7clips/" + f;
+		} else if (LunaRecorder.recentError() != null) {
 			text = "§c" + LunaRecorder.recentError();
 		} else {
 			return;

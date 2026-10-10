@@ -1431,6 +1431,17 @@ public final class LunaCompat {
 	private static boolean mouseHookBroken;
 	private static final java.util.concurrent.atomic.AtomicInteger RAW_LEFT_CLICKS = new java.util.concurrent.atomic.AtomicInteger();
 	private static final java.util.concurrent.atomic.AtomicInteger RAW_RIGHT_CLICKS = new java.util.concurrent.atomic.AtomicInteger();
+	/** 49-323차: 비우지 않는 누적 클릭 수(상태판이 CPS HUD와 서로 뺏지 않게 차이로 센다). */
+	private static final java.util.concurrent.atomic.AtomicLong TOTAL_LEFT_CLICKS = new java.util.concurrent.atomic.AtomicLong();
+	private static final java.util.concurrent.atomic.AtomicLong TOTAL_RIGHT_CLICKS = new java.util.concurrent.atomic.AtomicLong();
+
+	public static long totalLeftClicks() {
+		return TOTAL_LEFT_CLICKS.get();
+	}
+
+	public static long totalRightClicks() {
+		return TOTAL_RIGHT_CLICKS.get();
+	}
 	private static Object previousMouseCallback; // GC 방지 + 위임 대상
 
 	public static boolean ensureMouseClickCounter() {
@@ -1450,8 +1461,10 @@ public final class LunaCompat {
 					HangulInput.mouseClicked();   // 49-313차: 커서가 옮겨졌을 수 있다 - 한글 조합 끝
 					if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 						RAW_LEFT_CLICKS.incrementAndGet();
+						TOTAL_LEFT_CLICKS.incrementAndGet();
 					} else if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
 						RAW_RIGHT_CLICKS.incrementAndGet();
+						TOTAL_RIGHT_CLICKS.incrementAndGet();
 					}
 				}
 				if (prev[0] != null) {

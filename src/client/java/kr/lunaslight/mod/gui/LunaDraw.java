@@ -946,10 +946,15 @@ public final class LunaDraw {
 		return false;
 	}
 
-	/** 크림 스킨의 부드러운 그림자(상자 바로 아래 1~2px로 번짐). */
+	/**
+	 * 크림 스킨 상자 아래.
+	 * 49-326차(사용자: 게시판 시안 사진 + "크림 UI를 너무 입체감 말고 깔끔한 입체 UI로"): 번지는 갈색 그림자 두 겹 대신 시안처럼
+	 * 상자 아래로 2px 내려 깐 또렷한 베이지 띠(아래 두께) 하나. 그 위에 테두리와 속을 그리면 바닥에 살짝 놓인 깔끔한 카드가 된다.
+	 */
+	public static final int CREAM_LIP = 0xFFE4D5B9;
+
 	public static void softShadow(DrawContext ctx, int x, int y, int w, int h, int r) {
-		roundRect(ctx, x - 1, y + 1, w + 2, h + 2, r + 1, 0x0F5A4630);
-		roundRect(ctx, x, y + 1, w, h + 1, r, 0x1C5A4630);
+		roundRect(ctx, x, y + 2, w, h, r, CREAM_LIP);
 	}
 
 	public static void panel3d(DrawContext ctx, int x, int y, int w, int h, int r) {
@@ -957,9 +962,9 @@ public final class LunaDraw {
 			return;   // 49-279차
 		}
 		if (soft()) {
+			// 49-326차: 큰 판도 번지는 그림자 대신 3px 아래 두께 + 1px 테두리(깔끔한 입체)
 			r += 4;
-			roundRect(ctx, x - 3, y - 1, w + 6, h + 8, r + 3, 0x125A4630);
-			roundRect(ctx, x - 1, y + 1, w + 2, h + 3, r + 1, 0x1C5A4630);
+			roundRect(ctx, x, y + 3, w, h, r, 0xFFDCCAA6);
 			roundRect(ctx, x, y, w, h, r, 0xFFE3D0AE);
 			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), surfaceBg());
 			return;
@@ -1008,6 +1013,7 @@ public final class LunaDraw {
 		}
 		if (soft()) {
 			r = Math.min(r + 2, Math.min(w, h) / 2);
+			roundRect(ctx, x, y + 1, w, h, r, CREAM_LIP);   // 49-326차: 1px 아래 두께
 		} else {
 			roundRect(ctx, x, y + 1, w, h, r, surfaceEdge());
 		}
@@ -1015,7 +1021,9 @@ public final class LunaDraw {
 			: hovered ? LunaTheme.mix(surfaceLine(), 0xFF000000 | LunaTheme.TEXT, 0.15f) : surfaceLine();
 		roundRect(ctx, x, y, w, h, r, border);
 		roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), surfaceField());
-		ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(lightTheme() ? 0x0C000000 : 0x40000000));
+		if (!soft()) {
+			ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(lightTheme() ? 0x0C000000 : 0x40000000));
+		}
 	}
 
 	private static int buttonBase(int kind) {
@@ -1046,15 +1054,12 @@ public final class LunaDraw {
 			: darken(base, 0.72f);
 		int top = kind == B_NEUTRAL ? lighten(base, lightTheme() ? 0.6f : 0.05f) : lighten(base, 0.14f);
 		if (soft()) {
-			// 크림: 더 둥글게, 두께는 1px로 얇게 + 부드러운 그림자
+			// 크림: 더 둥글게. 49-326차(깔끔한 입체): 그림자, 그라데이션, 윗줄 빛 없이 단색 속 + 테두리 + 2px 아래 두께
 			r = Math.min(r + 3, h / 2);
-			softShadow(ctx, x, y, w, h, r);
-			roundRect(ctx, x, y + 1, w, h, r, kind == B_NEUTRAL ? 0xFFE0CDA8 : darken(base, 0.25f));
-			roundRect(ctx, x, y, w, h, r, kind == B_NEUTRAL ? lerpColor(0xFFE3D0AE, 0xFFD2BB92, hov) : darken(base, 0.82f));
-			roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), top, base);
-			if (w > 2 * r + 2) {
-				ctx.fill(x + r, y + 1, x + w - r, y + 2, applyAlpha(kind == B_NEUTRAL ? 0x99FFFFFF : 0x40FFFFFF));
-			}
+			int fillC = kind == B_NEUTRAL ? lerpColor(0xFFFFFDF7, 0xFFFBF3E2, hov) : base;
+			roundRect(ctx, x, y + 2, w, h, r, kind == B_NEUTRAL ? 0xFFDDCBA8 : darken(base, 0.62f));
+			roundRect(ctx, x, y, w, h, r, kind == B_NEUTRAL ? lerpColor(0xFFE6D6B8, 0xFFD6C29C, hov) : darken(base, 0.80f));
+			roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fillC);
 			return;
 		}
 		roundRect(ctx, x, y + 2, w, h, r, edge);

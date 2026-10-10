@@ -341,75 +341,79 @@ public final class HangulInput {
 
 	// ==================== 한/A 표시 ====================
 
+	/**
+	 * 49-324차(사용자: "영어 한글 뜨는 게 너무 촌스럽고 채팅에도 뜨기 해 달라고 그리고 글자 끝에 뜨게 해 달라니까"): 표시가 입력칸 오른쪽
+	 * 끝 위에 떠서(채팅은 화면 오른쪽 끝) 안 보였다. 이제 <b>친 글자 바로 뒤</b>(커서 자리 다음)에 붙는다 - 채팅, 검색창, 모루 등 모든
+	 * 입력칸(EditBox). 칸 끝까지 글자가 차면 칸 오른쪽 안쪽에 멈춘다. 여러 줄 칸, 표지판, 책, 우리 화면은 칸 위치를 알 수 없어 예전 자리(칸 오른쪽 위).
+	 */
 	public static void drawIndicator(Object screen, GuiGraphicsExtractor ctx) {
 		if (!on() || !HangulInputModule.showIndicator() || !(screen instanceof Screen sc) || !textFocused()) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
 		net.minecraft.client.gui.Font font = mc.font;
-		int anchorRight;
-		int anchorTop;
-		if (screen instanceof ChatScreen) {
-			anchorRight = sc.width - 2;
-			anchorTop = sc.height - 14;
-		} else {
-			Object box = focusedBox(screen);
-			if (box instanceof AbstractWidget aw) {
-				anchorRight = aw.getX() + aw.getWidth();
-				anchorTop = aw.getY();
-			} else {
-				anchorRight = sc.width - 4;
-				anchorTop = sc.height - 4;
-			}
+		Object box = focusedBox(screen);
+		if (box instanceof EditBox e && e.isVisible()) {
+			String value = e.getValue();
+			int disp = intField(e, "displayPos", 0);
+			disp = Math.max(0, Math.min(disp, value.length()));
+			boolean bordered = e.isBordered();
+			int tx = intField(e, "textX", bordered ? e.getX() + 4 : e.getX());
+			int ty = intField(e, "textY", bordered ? e.getY() + (e.getHeight() - 8) / 2 : e.getY());
+			int inner = Math.max(0, e.getInnerWidth());
+			int shown = Math.min(LunaDraw.width(font, value.substring(disp)), inner);
+			int x = tx + shown + LunaDraw.width(font, "_") + 2;
+			int limit = Math.min(e.getX() + e.getWidth() - (bordered ? 2 : 0), sc.width - 1);
+			drawChip(ctx, font, x, ty - 1, limit);
+			return;
 		}
-		drawBadge(ctx, font, anchorRight, anchorTop);
+		if (box instanceof AbstractWidget aw) {
+			int w = chipWidth(font);
+			drawChip(ctx, font, aw.getX() + aw.getWidth() - w, aw.getY() - 12, sc.width - 1);
+		} else {
+			int w = chipWidth(font);
+			drawChip(ctx, font, sc.width - 4 - w, sc.height - 16, sc.width - 1);
+		}
+	}
+
+	private static int intField(Object o, String name, int fallback) {
+		Object v = LunaCompat.getFieldValue(o, name);
+		return v instanceof Integer i ? i : fallback;
+	}
+
+	private static String chipLabel() {
+		return korean ? "한글" : "영어";
+	}
+
+	private static int chipWidth(net.minecraft.client.gui.Font font) {
+		return LunaDraw.width(font, chipLabel()) + 6;
 	}
 
 	/**
-	 * 49-315차(사용자: "채팅 끝에도 표시해 주고 좀 예쁘게 - 지금 너무 밋밋하고 A 한 이게 뭐야"): 입력칸 오른쪽 끝 바로 위에 뜨는 작은 알약.
-	 * 한글이면 테마색 그라데이션 + 밝은 테두리 + 흰 점과 "한글", 영어면 어두운 유리 + 회색 점과 "영어". 바꾸는 순간 0.18초 동안 색과 폭이
-	 * 부드럽게 넘어가고 살짝 떠올랐다 내려앉는다. 아래에 옅은 그림자. 채팅은 입력줄 오른쪽 끝 위에 붙는다(입력 글자를 안 가린다).
+	 * 작은 이름표 하나: 한글이면 테마색을 옅게 깐 바탕에 흰 "한글", 영어면 아주 옅은 회색 바탕에 회색 "영어". 그림자, 그라데이션,
+	 * 점, 튀는 움직임 없이 - 바꿀 때만 0.12초 동안 부드럽게 나타난다. 높이는 글자 줄과 같다(10).
 	 */
-	private static void drawBadge(GuiGraphicsExtractor ctx, net.minecraft.client.gui.Font font, int right, int top) {
-		float t = Math.min(1f, (System.nanoTime() - toggledAt) / 180_000_000f);
-		float e = 1f - (1f - t) * (1f - t) * (1f - t);   // 끝에서 느려지게
-		boolean ko = korean;
-		String label = ko ? "한글" : "영어";
-		String prevLabel = ko ? "영어" : "한글";
-		int h = 11;
-		int dot = 3;
-		int padL = 5;
-		int padR = 5;
-		int gap = 3;
-		int wNow = padL + dot + gap + LunaDraw.width(font, label) + padR;
-		int wPrev = padL + dot + gap + LunaDraw.width(font, prevLabel) + padR;
-		int w = Math.round(wPrev + (wNow - wPrev) * e);
-		int lift = t < 1f ? Math.round((float) Math.sin(t * Math.PI) * 2f) : 0;
-		int x = right - w;
-		int y = top - h - 2 - lift;
-		if (y < 0) {
-			y = top + 14 + 2;
+	private static void drawChip(GuiGraphicsExtractor ctx, net.minecraft.client.gui.Font font, int x, int y, int limitRight) {
+		String label = chipLabel();
+		int w = chipWidth(font);
+		int h = 10;
+		if (x + w > limitRight) {
+			x = limitRight - w;
 		}
-		int accent = LunaDraw.ACCENT | 0xFF000000;
-		int koTop = LunaDraw.lerpColor(accent, 0xFFFFFFFF, 0.20f);
-		int koBottom = LunaDraw.lerpColor(accent, 0xFF000000, 0.15f);
-		int koBorder = LunaDraw.lerpColor(accent, 0xFFFFFFFF, 0.45f);
-		int enTop = 0xF22C3038;
-		int enBottom = 0xF21B1E24;
-		int enBorder = 0x66FFFFFF;
-		float k = ko ? e : 1f - e;   // 1 = 한글 색
-		int gTop = LunaDraw.lerpColor(enTop, koTop, k);
-		int gBottom = LunaDraw.lerpColor(enBottom, koBottom, k);
-		int border = LunaDraw.lerpColor(enBorder, koBorder, k);
-		int dotColor = LunaDraw.lerpColor(0xFF8E959D, 0xFFFFFFFF, k);
-		int textColor = LunaDraw.lerpColor(0xFFD5D9DE, 0xFFFFFFFF, k);
-		LunaDraw.roundRect(ctx, x, y + 1, w, h, h / 2, 0x40000000);                 // 그림자
-		LunaDraw.roundRectGradient(ctx, x, y, w, h, h / 2, gTop, gBottom);
-		LunaDraw.roundRectOutline(ctx, x, y, w, h, h / 2, border);
-		LunaDraw.roundRect(ctx, x + padL, y + (h - dot) / 2, dot, dot, 1, dotColor);   // 상태 점
-		int tx = x + padL + dot + gap;
-		int alpha = Math.round(255 * Math.min(1f, 0.35f + 0.65f * e));
-		LunaDraw.text(ctx, font, label, tx, y + 2, (textColor & 0x00FFFFFF) | (alpha << 24));
+		if (y < 0) {
+			y = 0;
+		}
+		float t = Math.min(1f, (System.nanoTime() - toggledAt) / 120_000_000f);
+		float a = 0.3f + 0.7f * (1f - (1f - t) * (1f - t));
+		boolean ko = korean;
+		int bg = ko ? LunaDraw.withAlpha(LunaDraw.ACCENT, 0x70) : 0x30FFFFFF;
+		int fg = ko ? 0xFFFFFFFF : 0xFFA9B0B8;
+		LunaDraw.roundRect(ctx, x, y, w, h, 3, scaleAlpha(bg, a));
+		LunaDraw.text(ctx, font, label, x + 3, y + 1, scaleAlpha(fg, a));
 	}
 
+	private static int scaleAlpha(int argb, float f) {
+		int al = Math.round(((argb >>> 24) & 0xFF) * f);
+		return (argb & 0x00FFFFFF) | (al << 24);
+	}
 }

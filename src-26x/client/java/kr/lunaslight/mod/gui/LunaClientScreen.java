@@ -350,7 +350,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		}
 		if (LIGHT) {
 			int r = Math.min(6, h / 2);
-			LunaDraw.roundRect(ctx, x, y + 1, w, h, r, 0x145A4630);
+			LunaDraw.roundRect(ctx, x, y + 1, w, h, r, LunaDraw.CREAM_LIP);   // 49-326차: 번짐 대신 1px 아래 두께
 			LunaDraw.roundRect(ctx, x, y, w, h, r, LINE);
 			LunaDraw.roundRect(ctx, x + 1, y + 1, w - 2, h - 2, r - 1, 0xFFFFFDF7);
 			return;
@@ -376,13 +376,11 @@ public class LunaClientScreen extends LunaScreenBase {
 		}
 		if (on && LIGHT) {
 			// 49-239차: 크림 - 둥근 초록 버튼 + 얇은 두께 + 부드러운 그림자(시안의 [강화하기])
+			// 49-326차(깔끔한 입체): 그림자, 그라데이션, 윗줄 빛 없이 단색 초록 + 테두리 + 2px 아래 두께
 			int r = Math.min(7, h / 2);
-			LunaDraw.softShadow(ctx, x, y, w, h, r);
-			LunaDraw.roundRect(ctx, x, y + 1, w, h, r, 0xFF3E7424);
+			LunaDraw.roundRect(ctx, x, y + 2, w, h, r, 0xFF3E7424);
 			LunaDraw.roundRect(ctx, x, y, w, h, r, 0xFF4A8530);
-			LunaDraw.roundRectGradient(ctx, x + 1, y + 1, w - 2, h - 2, r - 1,
-				LunaDraw.lighten(0xFF79B556, 0.10f * hov), LunaDraw.lighten(0xFF5A9A3A, 0.10f * hov));
-			ctx.fill(x + r, y + 1, x + w - r, y + 2, LunaDraw.applyAlpha(0x40FFFFFF));
+			LunaDraw.roundRect(ctx, x + 1, y + 1, w - 2, h - 2, r - 1, LunaDraw.lighten(0xFF62A33F, 0.10f * hov));
 		} else if (on) {
 			LunaDraw.roundRect(ctx, x, y + 2, w, h, 4, ON_EDGE);
 			LunaDraw.roundRect(ctx, x, y, w, h, 4, ON_BORDER);

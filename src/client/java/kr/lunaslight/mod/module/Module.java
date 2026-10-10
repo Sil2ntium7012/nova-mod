@@ -490,10 +490,10 @@ public abstract class Module {
 	/** 크림 상자: 갈색 기운 그림자 + 베이지 테두리 + 크림 속(설정 화면 크림 카드와 같은 색). */
 	private static void creamBox(DrawContext context, int bx, int by, int bw, int bh, float alpha) {
 		int r = 5;
-		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx - 1, by + 1, bw + 2, bh + 2, r + 1, mulAlpha(0x145A4630, alpha));
-		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by + 1, bw, bh, r, mulAlpha(0x2E5A4630, alpha));
-		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by, bw, bh, r, mulAlpha(0xF5DCC8A4, alpha));
-		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx + 1, by + 1, bw - 2, bh - 2, r - 1, mulAlpha(0xF2FFFAF0, alpha));
+		// 49-326차(사용자: "크림 UI를 너무 입체감 말고 깔끔한 입체 UI로"): 번지는 그림자 두 겹 → 2px 아래 두께 하나 + 1px 테두리 + 속
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by + 2, bw, bh, r, mulAlpha(0xF2DDCBA8, alpha));
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx, by, bw, bh, r, mulAlpha(0xF5E6D6B8, alpha));
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(context, bx + 1, by + 1, bw - 2, bh - 2, r - 1, mulAlpha(0xF2FFFDF7, alpha));
 	}
 
 	/**
