@@ -40,13 +40,54 @@ public class SessionFixModule extends Module {
 	private long lastPoll;             // 결과 파일 폴링 간격 조절
 	private String note = "";          // 실패/안내 문구(버튼 아래)
 	private boolean clickHeld;
+	// 49-341차(사용자: "세션 새로고침 버튼을 서버 나가기 버튼 아래쪽에"): 일시정지 메뉴에서 누른 흐름.
+	// 접속 중에 토큰을 새로 받고(결과는 onTick이 기다림), 받으면 서버를 나갔다가(quitToTitle) 타이틀에 닿는 즉시 같은 서버로 다시 붙는다.
+	private boolean menuMode;
+	private String menuAddress;
+	private String pendingReconnect;
+	private static SessionFixModule instance;
 
 	public SessionFixModule() {
 		super("session_fix", "세션 복구", ModuleCategory.FEATURE,
 			"'세션이 잘못되었습니다' 화면에서 재시작 없이 세션을 새로 받아 바로 재접속");
 		// 49-122차(사용자: "세션 복구는 기능이 아니라 무조건 고정 - 기능에서 없애고 고정시켜"): 항상 켜짐 + 기능 목록에서 숨김.
 		alwaysOn();
+		instance = this;
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
+	}
+
+	/** 일시정지 메뉴 [세션 새로고침]. 멀티 서버에 있을 때만 뜻이 있다(싱글이면 아무것도 안 함). */
+	public static void refreshFromMenu() {
+		SessionFixModule m = instance;
+		if (m == null || m.client == null) {
+			return;
+		}
+		String addr = LunaCompat.currentServerAddress(m.client);
+		if (addr == null || addr.isEmpty()) {
+			LunaCompat.printLocalMessage(m.client, "§e[Nova] §f멀티 서버에 접속한 상태에서만 세션을 새로고침할 수 있어요.");
+			return;
+		}
+		m.menuMode = true;
+		m.menuAddress = addr;
+		m.startRefresh();
+		LunaCompat.printLocalMessage(m.client, "§e[Nova] §f세션을 새로 받는 중… 받으면 서버에 다시 접속해요.");
+		LunaCompat.setScreen(null);
+	}
+
+	@Override
+	public void onTick() {
+		if (menuMode && phase == WORKING) {
+			pollResult();
+		}
+		if (pendingReconnect != null && client != null && client.level == null) {
+			Object s = LunaCompat.screenOf(client);
+			// 나가기가 끝나 타이틀(또는 아무 화면도 아님)에 닿으면 다시 붙는다
+			if (s == null || s.getClass().getName().equals("net.minecraft.client.gui.screens.TitleScreen")) {
+				String a = pendingReconnect;
+				pendingReconnect = null;
+				AutoReconnectModule.reconnectTo(a);
+			}
+		}
 	}
 
 	@Override
@@ -67,8 +108,8 @@ public class SessionFixModule extends Module {
 
 	private void onScreenFrame(Object screen, GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
 		if (!isEnabled() || !(screen instanceof Screen s) || !isDisconnectedScreen(s)) {
-			// 다른 화면이면 진행 중이던 상태는 접는다(재접속 화면으로 넘어간 경우 등).
-			if (phase != 0 && !(screen instanceof Screen s2 && isDisconnectedScreen(s2))) {
+			// 다른 화면이면 진행 중이던 상태는 접는다(재접속 화면으로 넘어간 경우 등). 메뉴 흐름은 onTick이 따로 기다린다.
+			if (phase != 0 && !menuMode && !(screen instanceof Screen s2 && isDisconnectedScreen(s2))) {
 				phase = 0;
 			}
 			return;
@@ -236,6 +277,20 @@ public class SessionFixModule extends Module {
 				fail(why);
 				return;
 			}
+			if (menuMode) {
+				// 49-341차: 메뉴에서 시작한 흐름 - 서버를 나갔다가 타이틀에 닿으면 onTick이 같은 서버로 다시 붙인다
+				menuMode = false;
+				phase = 0;
+				pendingReconnect = menuAddress;
+				LunaCompat.printLocalMessage(client, "§e[Nova] §f세션을 새로 받았어요. 다시 접속합니다…");
+				try {
+					LunaCompat.quitToTitle(client);
+				} catch (Throwable t) {
+					LunaCompat.warnOnce("sessionFix:quit", t);
+					pendingReconnect = null;
+				}
+				return;
+			}
 			// 세션 교체 성공 → 마지막 서버로 재접속
 			String addr = AutoReconnectModule.lastServerAddress();
 			if (addr == null || addr.isEmpty()) {
@@ -257,6 +312,12 @@ public class SessionFixModule extends Module {
 	private void fail(String why) {
 		phase = 0;
 		note = why == null ? "실패했어요" : why;
+		if (menuMode) {
+			menuMode = false;
+			if (client != null) {
+				LunaCompat.printLocalMessage(client, "§e[Nova] §c세션 새로고침 실패: §f" + note);
+			}
+		}
 	}
 
 	private static Path gameDir() {

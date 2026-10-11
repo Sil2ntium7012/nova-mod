@@ -200,9 +200,20 @@ public class ChatEnhancementsModule extends Module {
 		kr.lunaslight.mod.util.EntityHideHook.blockedPlayers = null;
 	}
 
+	/** 지금 접속한 서버가 노바 서버(*.novaclient.kr)인가. */
+	private boolean onNovaServer() {
+		try {
+			String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(client);
+			return addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains("novaclient.kr");
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** 모든 설정을 ChatState에 연결한다(매 틱). */
 	private void sync() {
-		ChatState.timestamps = showTimestamps.get();
+		// 49-340차(사용자: "시간 뜨는 거는 mc.novaclient.kr 서버에서는 안 뜨게"): 노바 서버는 서버가 시각을 붙여 주므로 끈다
+		ChatState.timestamps = showTimestamps.get() && !onNovaServer();
 		kr.lunaslight.mod.util.ChatAnim.enabled = chatAnim.get();
 		ChatState.unlimitedHistory = unlimitedHistory.get();
 		ChatState.timestampColor = timestampColor.getArgb() & 0x00FFFFFF;

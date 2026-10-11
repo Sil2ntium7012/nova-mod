@@ -270,10 +270,13 @@ public class StatBoardHudModule extends Module {
 	//   - 칸 사이는 세로 점선(위아래 5칸 띄움). 칸은 띠 폭을 정확히 n등분.
 	// 색은 인게임 UI 팔레트: 위 띠 = 카드에 포인트 색 30%(크림이면 복숭아), 아래 띠 = 카드에 초록 16%(연두). 아이콘/글자는 기능 아이콘, 본문색.
 
-	private static final int TOP_H = 25;
-	private static final int BOT_H = 19;
-	private static final float LABEL_K = 0.6f;
-	private static final float SMALL_K = 0.8f;
+	// 49-342차(사용자: "위아래 말고 같은 라인에, 크기 조금만 줄여"): 큰 칸도 이름과 값을 한 줄에. 띠 25/19 → 21/16.
+	private static final int TOP_H = 21;
+	private static final int BOT_H = 16;
+	// 49-342차(사용자 사진, GUI 2: "글씨가 아예 안 보이는데 글 크기 조절 좀"): 0.6/0.8배로 줄인 글자가 GUI 2에서 흐리고 작아 안 읽혔다.
+	// 전부 1배(픽셀 그대로, 선명)로. 이름/단위는 흐린 색, 값은 굵게 해서 구분한다.
+	private static final float LABEL_K = 1f;
+	private static final float SMALL_K = 1f;
 
 	public void onHudRender(DrawContext ctx, RenderTickCounter tick) {
 		boolean sample = isPreview() || client.player == null;
@@ -407,7 +410,7 @@ public class StatBoardHudModule extends Module {
 		int lw = Math.round(LunaDraw.width(font, s.label) * LABEL_K);
 		int vw = LunaDraw.width(font, "§l" + v);
 		int uw = s.unit.isEmpty() ? 0 : Math.round(LunaDraw.width(font, s.unit) * LABEL_K) + 2;
-		return 5 + bigIconW(font, s) + 4 + Math.max(lw, vw + uw) + 10;
+		return 5 + bigIconW(font, s) + 4 + lw + 4 + vw + uw + 10;
 	}
 
 	private static int smallNeed(TextRenderer font, Stat s, String v) {
@@ -422,12 +425,13 @@ public class StatBoardHudModule extends Module {
 		int ix = x + 5;
 		LunaIcons.drawLarge(ctx, font, s.icon, ix, LunaDraw.iconLgY(y, TOP_H), accent);
 		int tx = ix + bigIconW(font, s) + 4;
-		scaledText(ctx, font, s.label, tx, y + 3, LABEL_K, LunaTheme.TEXT_SUB);
+		int ty = LunaDraw.textY(y, TOP_H);
+		LunaDraw.text(ctx, font, s.label, tx, ty, LunaTheme.TEXT_SUB);
 		String bold = "§l" + v;
-		int vy = y + 12;
-		LunaDraw.text(ctx, font, bold, tx, vy, LunaTheme.TEXT);
+		int vx = tx + LunaDraw.width(font, s.label) + 4;
+		LunaDraw.text(ctx, font, bold, vx, ty, LunaTheme.TEXT);
 		if (!s.unit.isEmpty()) {
-			scaledText(ctx, font, s.unit, tx + LunaDraw.width(font, bold) + 2, vy + 3, LABEL_K, LunaTheme.TEXT_SUB);
+			LunaDraw.text(ctx, font, s.unit, vx + LunaDraw.width(font, bold) + 2, ty, LunaTheme.TEXT_SUB);
 		}
 	}
 
@@ -436,13 +440,13 @@ public class StatBoardHudModule extends Module {
 		int ix = x + 5;
 		LunaIcons.draw(ctx, font, s.icon, ix, LunaDraw.iconY(y, BOT_H), accent);
 		int lx = ix + smallIconW(font, s) + 3;
-		float ty = y + (BOT_H - 8 * SMALL_K) / 2f;
+		float ty = LunaDraw.textY(y, BOT_H);
 		scaledText(ctx, font, s.label, lx, ty, SMALL_K, LunaTheme.TEXT_SUB);
 		String bold = "§l" + v;
 		int vx = lx + Math.round(LunaDraw.width(font, s.label) * SMALL_K) + 3;
 		scaledText(ctx, font, bold, vx, ty, SMALL_K, LunaTheme.TEXT);
 		if (!s.unit.isEmpty()) {
-			scaledText(ctx, font, s.unit, vx + Math.round(LunaDraw.width(font, bold) * SMALL_K) + 1, ty + 1.5f, LABEL_K, LunaTheme.TEXT_SUB);
+			scaledText(ctx, font, s.unit, vx + Math.round(LunaDraw.width(font, bold) * SMALL_K) + 1, ty, LABEL_K, LunaTheme.TEXT_SUB);
 		}
 	}
 

@@ -145,9 +145,14 @@ public class LunaPauseScreen extends LunaScreenBase {
 
 	// ---- 레이아웃(렌더/클릭이 같은 계산을 쓰도록 한 곳에 모음) ----
 
-	/** 큰 버튼 3개 + 구분선 + 나가기 버튼의 총 높이(상수). */
+	/** 큰 버튼 3개 + 구분선 + 나가기 버튼 + 세션 새로고침 버튼의 총 높이(상수). */
 	private int menuHeight() {
-		return 3 * (BTN_H + BTN_GAP) + SEP_GAP + BTN_H;
+		return 3 * (BTN_H + BTN_GAP) + SEP_GAP + BTN_H + BTN_GAP + BTN_H;
+	}
+
+	/** 49-341차(사용자: "세션 새로고침 버튼을 마크 버튼이랑 똑같게 해서 서버 나가기 버튼 아래쪽에"): 나가기 바로 아래, 같은 모양. */
+	private int refreshY() {
+		return quitY() + BTN_H + BTN_GAP;
 	}
 
 	/** 콘텐츠(브랜드+메뉴) 위쪽 y - 세로 중앙, 어떤 GUI 배율에서도 화면 안에 들어오게 클램프. */
@@ -240,6 +245,11 @@ public class LunaPauseScreen extends LunaScreenBase {
 		Entry quitEntry = new Entry(LunaIcons.POWER, "게임 나가기", KIND_DANGER, this::quit);
 		boolean qHover = LunaDraw.in(mouseX, mouseY, bx, qy, BTN_W, BTN_H);
 		drawButton(ctx, quitEntry, bx, qy, LunaDraw.anim("pb:quit", qHover ? 1f : 0f, 18f));
+		// 49-341차: 세션 새로고침(나가기와 같은 모양의 버튼, 바로 아래)
+		int ry = refreshY() + rise;
+		Entry refreshEntry = new Entry(LunaIcons.RESET, "세션 새로고침", KIND_NORMAL, kr.lunaslight.mod.module.impl.misc.SessionFixModule::refreshFromMenu);
+		boolean rHover = LunaDraw.in(mouseX, mouseY, bx, ry, BTN_W, BTN_H);
+		drawButton(ctx, refreshEntry, bx, ry, LunaDraw.anim("pb:refresh", rHover ? 1f : 0f, 18f));
 
 		LunaDraw.setAlpha(1f);
 	}
@@ -306,6 +316,10 @@ public class LunaPauseScreen extends LunaScreenBase {
 		}
 		if (LunaDraw.in(mouseX, mouseY, bx, quitY(), BTN_W, BTN_H)) {
 			quit();
+			return true;
+		}
+		if (LunaDraw.in(mouseX, mouseY, bx, refreshY(), BTN_W, BTN_H)) {
+			kr.lunaslight.mod.module.impl.misc.SessionFixModule.refreshFromMenu();   // 49-341차
 			return true;
 		}
 		return true; // 일시정지 화면에선 다른 클릭 흡수

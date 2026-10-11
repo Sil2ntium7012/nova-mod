@@ -72,6 +72,10 @@ public class ItemTooltipInfoModule extends Module {
 	// itemGroup.* 이라 언어와 무관하게 찾아낸다.
 	private final BooleanSetting hideItemGroup = register(new BooleanSetting(
 			"hide_item_group", "분류 줄 숨김", "크리에이티브에서 이름 아래에 뜨는 파란 분류 줄을 숨깁니다.", true));
+	// 49-339차(사용자 사진: 이름이 빈 아이템에 검은 빈 상자만 뜸 - "아예 안 보이게 가능해?"): 서버 메뉴의 채우기용 유리판처럼
+	// 이름이 공백이고 설명도 없는 아이템은 툴팁을 아예 안 띄운다(줄을 다 비우면 바닐라가 상자를 안 그린다).
+	private final BooleanSetting hideBlank = register(new BooleanSetting(
+			"hide_blank", "빈 툴팁 숨김", "이름이 공백이고 설명도 없는 아이템(서버 메뉴 채우기 칸 등)은 툴팁을 띄우지 않습니다.", true));
 	private final BooleanSetting attackDamage = register(new BooleanSetting(
 			"attack_damage", "공격 피해", "무기의 공격 피해를 한 줄로 표시합니다.", true));
 	private final BooleanSetting attackSpeed = register(new BooleanSetting(
@@ -455,12 +459,31 @@ public class ItemTooltipInfoModule extends Module {
 
 	// ==================== 툴팁 ====================
 
+	/** 모든 줄이 공백(또는 비어 있음)인가. 서식 코드만 있는 줄도 공백으로 본다. */
+	private static boolean allBlank(List<Text> lines) {
+		for (Text line : lines) {
+			String t = line == null ? "" : line.getString();
+			if (t == null) {
+				continue;
+			}
+			t = t.replaceAll("\u00a7.", "");
+			if (!t.isBlank()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private void onTooltip(ItemStack stack, List<Text> lines) {
 		if (stack.isEmpty()) {
 			return;
 		}
 		syncFrame();
 		LunaTooltipFrame.noteStack(stack);
+		if (hideBlank.get() && allBlank(lines)) {
+			lines.clear();   // 49-339차
+			return;
+		}
 
 		List<LunaCompat.EnchantInfo> enchants = (enchantNumbers.get() || dps.get()
 				|| attackDamage.get() || compactEnchants.get())

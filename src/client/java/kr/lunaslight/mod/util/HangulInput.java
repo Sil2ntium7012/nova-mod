@@ -448,6 +448,9 @@ public final class HangulInput {
 		if (!visibleNow(box != null ? box : screen, typedValue)) {
 			return;
 		}
+		if (screen instanceof ChatScreen && typedValue != null && typedValue.startsWith("/")) {
+			return;   // 49-340차(사용자: "명령어 쓸 때에는 안 뜨게 - 어차피 영어인데"): 채팅에서 /로 시작하면 표시 안 함
+		}
 		int bw = box == null ? 0 : intOf(box, "getWidth", "width");
 		if (box instanceof TextFieldWidget && bw > 0) {
 			Object tv = LunaCompat.callNoArg(box, "getText");
