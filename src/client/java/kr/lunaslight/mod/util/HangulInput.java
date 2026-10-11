@@ -307,6 +307,16 @@ public final class HangulInput {
 			if (boxFocused(f)) {
 				return f;
 			}
+			// 49-338차(사용자: 서버 대화 상자(닉네임 입력)에서 "이 화면에서 한글이 안 돼"): 입력칸이 레이아웃/스크롤 컨테이너 안에 있는 화면은
+			// getFocused가 컨테이너를 돌려준다. 초점 사슬을 따라 내려가고, 그래도 없으면 자식 트리를 훑는다(ParentElement.children, 리플렉션).
+			Object deep = deepFocus(f, 0);
+			if (deep != null) {
+				return deep;
+			}
+			deep = findFocusedBox(screen, 0);
+			if (deep != null) {
+				return deep;
+			}
 			for (Field fd : fieldsOf(screen.getClass())) {
 				Object v = fd.get(screen);
 				if (boxFocused(v)) {
@@ -323,6 +333,43 @@ public final class HangulInput {
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("hangul:focus", t);
+		}
+		return null;
+	}
+
+	/** 초점 사슬(컨테이너 → 그 안의 초점 → …)을 따라 입력칸까지. */
+	private static Object deepFocus(Object o, int depth) {
+		if (o == null || depth > 8) {
+			return null;
+		}
+		if (boxFocused(o)) {
+			return o;
+		}
+		Object next = LunaCompat.callNoArg(o, "getFocused");
+		return next == null || next == o ? null : deepFocus(next, depth + 1);
+	}
+
+	/** 자식 트리 전체에서 초점 받은 입력칸(깊이 6, 500개까지). */
+	private static Object findFocusedBox(Object o, int depth) {
+		if (o == null || depth > 6) {
+			return null;
+		}
+		Object kids = LunaCompat.callNoArg(o, "children");
+		if (!(kids instanceof java.util.List<?> list)) {
+			return null;
+		}
+		int n = 0;
+		for (Object child : list) {
+			if (++n > 500) {
+				break;
+			}
+			if (boxFocused(child)) {
+				return child;
+			}
+			Object r = findFocusedBox(child, depth + 1);
+			if (r != null) {
+				return r;
+			}
 		}
 		return null;
 	}
