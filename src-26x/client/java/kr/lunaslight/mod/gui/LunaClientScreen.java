@@ -86,6 +86,9 @@ public class LunaClientScreen extends LunaScreenBase {
 	private double scroll;
 	private double scrollTarget;
 	private int maxScroll;
+	/** 49-328차: 오른쪽 스크롤 막대를 잡고 끄는 중(잡은 자리 = 막대 위에서 몇 px). */
+	private boolean scrollDragging;
+	private double scrollGrab;
 	private String search = "";
 	private boolean searchFocused;
 	// 49-188차(사용자: "검색에서 중간 수정이 안 돼"): 글자 사이 커서(←→, Home/End, Delete, 클릭한 자리)와 길 때 보이는 시작 위치
@@ -2772,6 +2775,37 @@ public class LunaClientScreen extends LunaScreenBase {
 		}
 	}
 
+	/** 49-328차: 지금 화면의 스크롤 막대 x(모드 목록은 목록 오른쪽, 나머지는 내용 오른쪽 바깥). */
+	private int scrollbarX() {
+		return modsView ? contentX + (contentW - MODS_DETAIL_W - PAD) + 2 : contentX + contentW + 6;
+	}
+
+	private int thumbH() {
+		return Math.max(24, contentH * contentH / (contentH + Math.max(1, maxScroll)));
+	}
+
+	private int thumbY(int th) {
+		return contentY + (int) ((contentH - th) * (scroll / Math.max(1, maxScroll)));
+	}
+
+	/** 막대 둘레(좌우 4px 여유, 위아래는 내용 높이 전체 = 트랙). */
+	private boolean scrollbarHit(double mx, double my) {
+		if (maxScroll <= 0) {
+			return false;
+		}
+		int sx = scrollbarX();
+		return mx >= sx - 4 && mx < sx + 8 && my >= contentY && my < contentY + contentH;
+	}
+
+	private void scrollDragTo(double my) {
+		int th = thumbH();
+		int room = Math.max(1, contentH - th);
+		double r = (my - scrollGrab - contentY) / room;
+		double v = Math.max(0, Math.min(1, r)) * maxScroll;
+		scroll = v;
+		scrollTarget = v;
+	}
+
 	private void renderScrollbar(GuiGraphicsExtractor ctx) {
 		if (maxScroll <= 0) {
 			return;
@@ -4139,6 +4173,15 @@ public class LunaClientScreen extends LunaScreenBase {
 		if (handleActionMenuClick(mouseX, mouseY)) {
 			return true;
 		}
+		if (button == 0 && scrollbarHit(mouseX, mouseY)) {
+			// 49-328차(사용자: "오른쪽 휠 잡고 내리기 올리기가 안 돼"): 막대를 잡으면 그 자리를 붙잡고, 막대 밖 트랙을 누르면 그리로 옮겨 잡는다.
+			int th = thumbH();
+			int ty = thumbY(th);
+			scrollGrab = mouseY >= ty && mouseY < ty + th ? mouseY - ty : th / 2.0;
+			scrollDragging = true;
+			scrollDragTo(mouseY);
+			return true;
+		}
 		commitPriceEdit();   // 49-110차: 가격 편집 중 다른 곳을 누르면 확정(아래 handleSettingClick이 필요하면 다시 연다)
 		editingString = null;
 		editingHex = null;
@@ -4588,6 +4631,10 @@ public class LunaClientScreen extends LunaScreenBase {
 
 	@SuppressWarnings({"rawtypes"})
 	private boolean lunaMouseDragged0(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+		if (scrollDragging) {
+			scrollDragTo(mouseY);
+			return true;
+		}
 		if (draggingSetting != null) {
 			applySliderDrag((Setting) draggingSetting, mouseX);
 			return true;
@@ -4600,6 +4647,7 @@ public class LunaClientScreen extends LunaScreenBase {
 	}
 
 	private boolean lunaMouseReleased0(double mouseX, double mouseY, int button) {
+		scrollDragging = false;
 		draggingSetting = null;
 		colorDragChannel = -1;
 		return false;

@@ -1321,7 +1321,10 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		int mask = 0;
 		for (int f = 0; f < 6; f++) {
 			int[] d = FACE_DIRS[f];
-			double px = tx + 0.5 + d[0] * 0.49, py = ty + 0.5 + d[1] * 0.49, pz = tz + 0.5 + d[2] * 0.49;
+			// 49-334차(사용자: "각도에 따라 홀로그램에 푸른색이 빠진다"): 면 점이 블록 안쪽(0.49)이라, 낮은 각도로 보면 카메라에서 그 점까지
+			// 가는 광선이 옆 홀로그램 블록의 윗부분(0.01 두께)을 스쳐 지나 "막힘"이 돼 평평한 바닥/벽의 파란 면이 통째로 빠졌다.
+			// 점을 면 바로 바깥(0.51)에 둔다 - 광선이 면 위 공기를 지나므로 옆 블록에 안 걸린다(앞 칸이 홀로그램이면 안쪽 면이라 원래 숨김).
+			double px = tx + 0.5 + d[0] * 0.51, py = ty + 0.5 + d[1] * 0.51, pz = tz + 0.5 + d[2] * 0.51;
 			if ((cx - px) * d[0] + (cy - py) * d[1] + (cz - pz) * d[2] <= 0) {
 				continue;   // 뒷면
 			}

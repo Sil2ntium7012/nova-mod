@@ -116,6 +116,11 @@ public class LunaHarvestScreen extends LunaScreenBase {
 	private double scroll;
 	/** 가격을 고치는 중인 아이템 id(없으면 null). */
 	private String editing;
+	/** 49-330차: [+ 추가] 목록(아직 표에 없는 후보)이 열려 있는지. */
+	private boolean picking;
+	private static final int ADD_H = 20;
+	private static final int PICK_COLS = 3;
+	private static final int PICK_CELL = 22;
 	private String editBuffer = "";
 
 	public LunaHarvestScreen(Screen parent) {
@@ -434,11 +439,21 @@ public class LunaHarvestScreen extends LunaScreenBase {
 		ly += CHIPS_H;
 		lh -= CHIPS_H;
 		Map<String, Double> table = prices();
-		int y = ly + 2 - (int) scroll;
-		if (table.isEmpty()) {
-			LunaDraw.text(ctx, textRenderer, "설정의 [가격표 등록]에서 추가하세요", lx + 8, y + 6, LunaDraw.TEXT_DIM);
+		// 49-330차(사용자: "추가하는 방식이 깔끔하지가 않아"): 설정 페이지로 보내지 않고 여기서 바로. 머리줄 = 안내 + [+ 추가] 버튼.
+		// [+ 추가]를 누르면 아래가 후보 목록(아이콘 + 이름, 아직 표에 없는 것)으로 바뀌고, 하나 고르면 가격 0으로 들어가며 바로 가격 입력.
+		String hint = picking ? "추가할 아이템을 고르세요" : table.isEmpty() ? "아직 등록한 것이 없습니다" : "가격을 누르면 고칠 수 있습니다";
+		LunaDraw.text(ctx, textRenderer, hint, lx + 2, LunaDraw.textY(ly, ADD_H), LunaDraw.TEXT_DIM);
+		String addLabel = picking ? "닫기" : "+ 추가";
+		int aw = LunaDraw.width(textRenderer, addLabel) + 18;
+		boolean ah = LunaDraw.in(mouseX, mouseY, lx + lw - aw, ly, aw, ADD_H - 2);
+		LunaDraw.button3d(ctx, textRenderer, lx + lw - aw, ly, aw, ADD_H - 2, addLabel, picking ? LunaDraw.B_NEUTRAL : LunaDraw.B_PRIMARY, ah ? 1f : 0f);
+		ly += ADD_H + 2;
+		lh -= ADD_H + 2;
+		if (picking) {
+			renderPickGrid(ctx, lx, ly, lw, lh, mouseX, mouseY, table);
 			return;
 		}
+		int y = ly + 2 - (int) scroll;
 		for (Map.Entry<String, Double> e : table.entrySet()) {
 			if (y > ly + lh) {
 				break;
@@ -446,7 +461,11 @@ public class LunaHarvestScreen extends LunaScreenBase {
 			if (y + ROW_H >= ly) {
 				boolean hov = LunaDraw.in(mouseX, mouseY, lx, y, lw, ROW_H - 2);
 				LunaDraw.card3d(ctx, lx, y, lw, ROW_H - 2, hov ? 1f : 0f, false);   // 49-227차
-				LunaDraw.text(ctx, textRenderer, nameOf(e.getKey()), lx + 8, LunaDraw.textY(y, ROW_H - 2), LunaDraw.TEXT);
+				ItemStack st = stackOf(e.getKey());
+				if (!st.isEmpty()) {
+					ctx.drawItem(st, lx + 4, y + (ROW_H - 2 - 16) / 2);   // 49-330차: 아이콘
+				}
+				LunaDraw.text(ctx, textRenderer, nameOf(e.getKey()), lx + 24, LunaDraw.textY(y, ROW_H - 2), LunaDraw.TEXT);
 				boolean edit = e.getKey().equals(editing);
 				// 49-68차(4-13): "개당"을 적어 둔다 - 이 숫자가 한 개 값인지 총액인지가 화면에 없었다
 				String value = (edit ? editBuffer : HarvestLog.trim(e.getValue())) + "원";
@@ -463,6 +482,51 @@ public class LunaHarvestScreen extends LunaScreenBase {
 					delHover ? 0xFFEF4444 : LunaDraw.TEXT_DIM);
 			}
 			y += ROW_H;
+		}
+	}
+
+	private static ItemStack stackOf(String id) {
+		Item it = LunaCompat.itemById(id);
+		return it == null ? ItemStack.EMPTY : new ItemStack(it);
+	}
+
+	/** 아직 표에 없는 후보. */
+	private List<String> candidates(Map<String, Double> table) {
+		HarvestTrackerModule m = module();
+		List<String> out = new ArrayList<>();
+		if (m == null) {
+			return out;
+		}
+		for (String id : m.pickList()) {
+			if (!table.containsKey(id)) {
+				out.add(id);
+			}
+		}
+		return out;
+	}
+
+	/** 49-330차: 후보 격자(3열, 아이콘 + 이름). 누르면 표에 들어간다. */
+	private void renderPickGrid(DrawContext ctx, int lx, int ly, int lw, int lh, int mouseX, int mouseY, Map<String, Double> table) {
+		List<String> ids = candidates(table);
+		if (ids.isEmpty()) {
+			LunaDraw.text(ctx, textRenderer, "이 표의 아이템은 전부 등록돼 있습니다", lx + 8, ly + 6, LunaDraw.TEXT_DIM);
+			return;
+		}
+		int cellW = lw / PICK_COLS;
+		for (int i = 0; i < ids.size(); i++) {
+			int cx = lx + (i % PICK_COLS) * cellW;
+			int cy = ly + (i / PICK_COLS) * PICK_CELL - (int) scroll;
+			if (cy + PICK_CELL < ly || cy > ly + lh) {
+				continue;
+			}
+			boolean hov = LunaDraw.in(mouseX, mouseY, cx, cy, cellW - 3, PICK_CELL - 3) && mouseY >= ly && mouseY < ly + lh;
+			LunaDraw.card3d(ctx, cx, cy, cellW - 3, PICK_CELL - 3, hov ? 1f : 0f, false);
+			ItemStack st = stackOf(ids.get(i));
+			if (!st.isEmpty()) {
+				ctx.drawItem(st, cx + 3, cy + (PICK_CELL - 3 - 16) / 2);
+			}
+			LunaDraw.text(ctx, textRenderer, LunaDraw.ellipsize(textRenderer, nameOf(ids.get(i)), cellW - 30), cx + 23,
+				LunaDraw.textY(cy, PICK_CELL - 3), hov ? LunaDraw.TEXT : LunaDraw.TEXT_SUB);
 		}
 	}
 
@@ -517,6 +581,33 @@ public class LunaHarvestScreen extends LunaScreenBase {
 			}
 			ly += CHIPS_H;
 			Map<String, Double> table = prices();
+			// 49-330차: [+ 추가]/[닫기] 버튼과 후보 격자
+			String addLabel = picking ? "닫기" : "+ 추가";
+			int aw = LunaDraw.width(textRenderer, addLabel) + 18;
+			if (LunaDraw.in(mouseX, mouseY, lx + lw - aw, ly, aw, ADD_H - 2)) {
+				commitEdit();
+				picking = !picking;
+				scroll = 0;
+				return true;
+			}
+			ly += ADD_H + 2;
+			if (picking) {
+				List<String> cands = candidates(table);
+				int cellW = lw / PICK_COLS;
+				int c = (int) ((mouseX - lx) / cellW);
+				int r = (int) ((mouseY - ly + scroll) / PICK_CELL);
+				int idx = r * PICK_COLS + c;
+				if (mouseY >= ly && c >= 0 && c < PICK_COLS && idx >= 0 && idx < cands.size()) {
+					String id = cands.get(idx);
+					table.put(id, 0.0);
+					savePrices(table);
+					picking = false;
+					scroll = 0;
+					editing = id;
+					editBuffer = "";
+				}
+				return true;
+			}
 			List<String> ids = new ArrayList<>(table.keySet());
 			int index = (int) ((mouseY - (ly + 2) + scroll) / ROW_H);
 			if (index >= 0 && index < ids.size()) {

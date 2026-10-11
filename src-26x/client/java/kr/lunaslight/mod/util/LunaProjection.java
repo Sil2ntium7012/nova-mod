@@ -331,8 +331,17 @@ public final class LunaProjection {
 		double cx = scrX(c), cy = scrY(c), dx = scrX(d), dy = scrY(d);
 		double m00 = ((bx - ax) + (cx - dx)) / 2, m10 = ((by - ay) + (cy - dy)) / 2;   // 가로 변
 		double m01 = ((dx - ax) + (cx - bx)) / 2, m11 = ((dy - ay) + (cy - by)) / 2;   // 세로 변
-		if (Math.abs(m00 * m11 - m01 * m10) < 0.5) {
+		double det = m00 * m11 - m01 * m10;
+		if (Math.abs(det) < 0.5) {
 			return false;   // 거의 옆에서 보는 면 - 안 보인다
+		}
+		if (det < 0) {
+			// 49-334차(사용자: "각도에 따라 홀로그램에 푸른색이 빠진다"): 화면에서 뒤집힌(거울) 평행사변형은 행렬의 행렬식이 음수라
+			// 그린 사각형의 꼭짓점 순서가 뒤집히고, 26.x GUI 파이프라인은 뒷면을 버린다(cull 기본 켜짐) - 그 면이 통째로 사라졌다.
+			// 가로/세로 기준축을 맞바꾸면(대각선 대칭) 같은 자리를 덮으면서 순서가 바로 선다. 한 색 채우기는 모양이 같고,
+			// 그림은 대각선으로 뒤집혀 보이지만 안 보이는 것보단 낫다.
+			double t0 = m00; m00 = m01; m01 = t0;
+			double t1 = m10; m10 = m11; m11 = t1;
 		}
 		double ox = (ax + bx + cx + dx) / 4 - (m00 + m01) / 2;
 		double oy = (ay + by + cy + dy) / 4 - (m10 + m11) / 2;
@@ -353,9 +362,15 @@ public final class LunaProjection {
 	 * 49-264차: 화면 점 o에서 가로 변 (ex, ey), 세로 변 (fx, fy)가 되도록 행렬을 건다 - 그 뒤 (0,0)~(size,size)가 그 평행사변형.
 	 * 거의 선이면 false(행렬 안 걸림).
 	 */
+	/** 49-334차: 거울상(행렬식 음수)이면 기준축을 맞바꿔 뒷면 버리기를 피한다(pushQuad와 같은 이유). */
 	private boolean pushAffine(GuiGraphicsExtractor ctx, double ox, double oy, double m00, double m10, double m01, double m11, float size) {
-		if (Math.abs(m00 * m11 - m01 * m10) < 0.05) {
+		double det = m00 * m11 - m01 * m10;
+		if (Math.abs(det) < 0.05) {
 			return false;
+		}
+		if (det < 0) {
+			double t0 = m00; m00 = m01; m01 = t0;
+			double t1 = m10; m10 = m11; m11 = t1;
 		}
 		double e = (m00 + m11) / 2, f = (m00 - m11) / 2, g = (m10 + m01) / 2, hh = (m10 - m01) / 2;
 		double q = Math.sqrt(e * e + hh * hh), r = Math.sqrt(f * f + g * g);

@@ -5,9 +5,6 @@ import kr.lunaslight.mod.gui.LunaIcons;
 import kr.lunaslight.mod.module.Module;
 import kr.lunaslight.mod.module.ModuleCategory;
 import kr.lunaslight.mod.module.setting.EnumSetting;
-import kr.lunaslight.mod.module.setting.HudPosition;
-import kr.lunaslight.mod.module.setting.InfoSetting;
-import kr.lunaslight.mod.module.setting.PositionSetting;
 import kr.lunaslight.mod.util.LunaCompat;
 import kr.lunaslight.mod.util.LunaTheme;
 import net.minecraft.client.DeltaTracker;
@@ -57,8 +54,23 @@ public class StatBoardHudModule extends Module {
 		}
 	}
 
+	public enum Corner {
+		TOP_LEFT("왼쪽 위"), TOP_RIGHT("오른쪽 위");
+
+		final String label;
+
+		Corner(String label) {
+			this.label = label;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
 	private final EnumSetting<Stat>[] slots;
-	private final PositionSetting position;
+	private final EnumSetting<Corner> corner;
 
 	// ---- 값 ----
 	private final java.util.ArrayDeque<Long> leftTimes = new java.util.ArrayDeque<>();
@@ -76,17 +88,16 @@ public class StatBoardHudModule extends Module {
 	@SuppressWarnings("unchecked")
 	public StatBoardHudModule() {
 		super("stat_board", "상태판", ModuleCategory.HUD, "원하는 정보 5가지를 카드로 (인게임 UI 전용)");
-		register(new InfoSetting("ui", "인게임 UI", () -> unlocked()
-				? "쓰는 중: " + LunaTheme.skin() + " (이 색을 따라갑니다)"
-				: "인게임 UI가 있어야 보입니다(런처 상점에서 사고 착용)"));
+		// 49-337차(사용자: "상태판에 인게임 UI ~~ 이거 치워 주고"): 안내 줄 삭제
 		slots = new EnumSetting[5];
 		String[] names = {"큰 칸 1", "큰 칸 2", "작은 칸 1", "작은 칸 2", "작은 칸 3"};
 		Stat[] defs = {Stat.FPS, Stat.CPS, Stat.PING, Stat.DIRECTION, Stat.PLAYTIME};
 		for (int i = 0; i < 5; i++) {
 			slots[i] = register(new EnumSetting<>("slot" + (i + 1), names[i], "이 칸에 띄울 정보입니다. 없음이면 칸을 뺍니다.", defs[i], Stat.class));
 		}
-		position = register(new PositionSetting("position", "위치", "상태판이 뜨는 자리입니다.",
-				HudPosition.of(HudPosition.Anchor.TOP_LEFT, 4, 16)));
+		// 49-337차(사용자: "켜면 무조건 왼쪽 위 고정, 위치는 오른쪽 위랑 왼쪽 위만, 오른쪽이면 모양 반대"): 자유 위치 대신 둘 중 하나
+		corner = register(new EnumSetting<>("corner", "자리", "왼쪽 위 또는 오른쪽 위에 붙습니다. 오른쪽이면 모양이 거울처럼 뒤집힙니다.", Corner.TOP_LEFT, Corner.class));
+		settingsPage(kr.lunaslight.mod.module.SettingsPage.INGAME_UI);   // 49-328차: [일반] 아래 [인게임 UI] 페이지
 	}
 
 	/** 인게임 UI를 쓰는 중인가(가졌고, 착용했고, [코스메틱]에서 끄지 않음). */
@@ -248,14 +259,20 @@ public class StatBoardHudModule extends Module {
 	}
 
 	// ==================== 그리기 ====================
+	// 49-336차(사용자: "제대로 오랫동안 해도 되니까 제대로, 인게임에서 똑같거나 완전 비슷한 수준까지"): 사진을 픽셀 단위로 재서 그대로.
+	// 사진(1px = 1칸)에서 잰 것:
+	//   - 위 띠 25칸, 아래 띠 19칸, 사이 틈 없음. 둘 다 같은 폭. 왼쪽은 화면 끝에 붙어 각지고 오른쪽 끝은 반원(반지름 = 높이/2).
+	//   - 테두리 없음. 띠마다 위에 1칸 밝은 줄(속보다 밝게), 아래에 1칸 어두운 줄만(살짝 입체).
+	//   - 큰 칸: 큰 아이콘(왼쪽 5칸, 세로 가운데) + 위 아주 작은 이름(0.6배, y+3) + 굵은 값(1배, y+12) + 작은 단위(0.6배).
+	//   - 작은 칸: 작은 아이콘 + 이름(0.8배) + 굵은 값(0.8배) + 단위(0.6배), 세로 가운데 한 줄.
+	//   - 칸 사이는 세로 점선(위아래 5칸 띄움). 칸은 띠 폭을 정확히 n등분.
+	// 색은 인게임 UI 팔레트: 위 띠 = 카드에 포인트 색 30%(크림이면 복숭아), 아래 띠 = 카드에 초록 16%(연두). 아이콘/글자는 기능 아이콘, 본문색.
 
-	private static final int PAD = 4;
-	private static final int GAP = 3;
-	private static final int BIG_H = 28;
-	private static final int SMALL_H = 14;
-	private static final int W = 204;
+	private static final int TOP_H = 25;
+	private static final int BOT_H = 19;
+	private static final float LABEL_K = 0.6f;
+	private static final float SMALL_K = 0.8f;
 
-	@Override
 	public void onHudRender(GuiGraphicsExtractor ctx, DeltaTracker tick) {
 		boolean sample = isPreview() || client.player == null;
 		Font font = client.font;
@@ -265,99 +282,166 @@ public class StatBoardHudModule extends Module {
 			if (isPreview()) {
 				String msg = "인게임 UI가 있어야 보입니다";
 				int w = LunaDraw.width(font, msg) + 12;
-				int x = position.get().resolveX(sw, w);
-				int y = position.get().resolveY(sh, 14);
+				int x = corner.get() == Corner.TOP_RIGHT ? sw - w : 0;
+				int y = 0;
 				LunaDraw.roundRect(ctx, x, y, w, 14, 4, 0xC0101215);
 				LunaDraw.text(ctx, font, msg, x + 6, y + 3, 0xFFB0B6BE);
 			}
 			return;
 		}
-		Stat[] big = {slots[0].get(), slots[1].get()};
-		java.util.List<Stat> small = new java.util.ArrayList<>();
-		for (int i = 2; i < 5; i++) {
-			if (slots[i].get() != Stat.NONE) {
-				small.add(slots[i].get());
-			}
-		}
 		java.util.List<Stat> bigs = new java.util.ArrayList<>();
-		for (Stat s : big) {
-			if (s != Stat.NONE) {
-				bigs.add(s);
+		java.util.List<Stat> small = new java.util.ArrayList<>();
+		for (int i = 0; i < 5; i++) {
+			Stat st = slots[i].get();
+			if (st != Stat.NONE) {
+				(i < 2 ? bigs : small).add(st);
 			}
 		}
 		if (bigs.isEmpty() && small.isEmpty()) {
 			return;
 		}
-		int h = PAD * 2 + (bigs.isEmpty() ? 0 : BIG_H) + (small.isEmpty() ? 0 : SMALL_H) + (!bigs.isEmpty() && !small.isEmpty() ? GAP : 0);
-		int x = position.get().resolveX(sw, W);
-		int y = position.get().resolveY(sh, h);
+		String[] bigV = new String[bigs.size()];
+		String[] smallV = new String[small.size()];
+		int topNeed = 0, botNeed = 0;
+		for (int i = 0; i < bigs.size(); i++) {
+			bigV[i] = value(bigs.get(i), sample);
+			topNeed = Math.max(topNeed, bigNeed(font, bigs.get(i), bigV[i]));
+		}
+		for (int i = 0; i < small.size(); i++) {
+			smallV[i] = value(small.get(i), sample);
+			botNeed = Math.max(botNeed, smallNeed(font, small.get(i), smallV[i]));
+		}
+		// 칸을 n등분하므로 가장 넓은 칸 × n. 오른쪽 반원 안에는 글자를 안 놓으므로 그만큼 더.
+		int w = Math.max(bigs.isEmpty() ? 0 : topNeed * bigs.size() + TOP_H / 2, small.isEmpty() ? 0 : botNeed * small.size() + BOT_H / 2);
+		int h = (bigs.isEmpty() ? 0 : TOP_H) + (small.isEmpty() ? 0 : BOT_H);
+		// 49-337차: 왼쪽 위 또는 오른쪽 위에 딱 붙는다(오른쪽이면 거울 모양)
+		boolean mirror = corner.get() == Corner.TOP_RIGHT;
+		int x = mirror ? sw - w : 0;
+		int y = 0;
+		boolean flushLeft = !mirror, flushRight = mirror;
 
-		int panel = 0xF0000000 | (LunaTheme.PANEL & 0x00FFFFFF);
+		// 49-337차(사용자: "테마색 말고 인게임 UI 색을 따라가게 - 크림이면 크림색이 나와야지"): 포인트 색(크림은 초록)을 섞지 않고
+		// 스킨 팔레트의 판/카드 색 그대로. 위 띠 = 판 색을 테두리 색 쪽으로 조금 진하게, 아래 띠 = 카드 색. 아이콘/글자는 본문색.
+		boolean light = LunaTheme.light();
+		int panel = 0xFF000000 | (LunaTheme.PANEL & 0x00FFFFFF);
 		int card = 0xFF000000 | (LunaTheme.CARD & 0x00FFFFFF);
-		int border = LunaTheme.PANEL_BORDER_LIVE;
-		int accent = LunaTheme.ACCENT | 0xFF000000;
-		// 판: 그림자 + 위가 조금 밝은 그라데이션 + 테두리
-		LunaDraw.roundRect(ctx, x, y + 1, W, h, 7, 0x40000000);
-		LunaDraw.roundRectGradient(ctx, x, y, W, h, 7, LunaDraw.lerpColor(panel, 0xFFFFFFFF, 0.06f), panel);
-		LunaDraw.roundRectOutline(ctx, x, y, W, h, 7, border);
+		int line = 0xFF000000 | (LunaTheme.CARD_BORDER & 0x00FFFFFF);
+		int topFill = LunaDraw.lerpColor(panel, line, light ? 0.35f : 0.25f);
+		int botFill = card;
+		int accent = 0xFF000000 | (LunaTheme.TEXT_SUB & 0x00FFFFFF);
+		int divider = 0x55000000 | (LunaTheme.TEXT & 0x00FFFFFF);
 
-		int cy = y + PAD;
+		int cy = y;
 		if (!bigs.isEmpty()) {
-			int n = bigs.size();
-			int cw = (W - PAD * 2 - GAP * (n - 1)) / n;
-			for (int i = 0; i < n; i++) {
-				drawBig(ctx, font, x + PAD + i * (cw + GAP), cy, cw, bigs.get(i), value(bigs.get(i), sample), card, accent);
+			bar(ctx, x, cy, w, TOP_H, topFill, light, mirror, flushLeft || flushRight);
+			int cx = mirror ? x + TOP_H / 2 : x;
+			int cellW = (w - TOP_H / 2) / bigs.size();
+			for (int i = 0; i < bigs.size(); i++) {
+				if (i > 0) {
+					dots(ctx, cx, cy + 5, TOP_H - 10, divider);
+				}
+				drawBig(ctx, font, cx, cy, bigs.get(i), bigV[i], accent);
+				cx += cellW;
 			}
-			cy += BIG_H + GAP;
+			cy += TOP_H;
 		}
 		if (!small.isEmpty()) {
-			int n = small.size();
-			int cw = (W - PAD * 2 - GAP * (n - 1)) / n;
-			for (int i = 0; i < n; i++) {
-				drawSmall(ctx, font, x + PAD + i * (cw + GAP), cy, cw, small.get(i), value(small.get(i), sample), card, accent);
+			bar(ctx, x, cy, w, BOT_H, botFill, light, mirror, flushLeft || flushRight);
+			int cx = mirror ? x + BOT_H / 2 : x;
+			int cellW = (w - BOT_H / 2) / small.size();
+			for (int i = 0; i < small.size(); i++) {
+				if (i > 0) {
+					dots(ctx, cx, cy + 4, BOT_H - 8, divider);
+				}
+				drawSmall(ctx, font, cx, cy, small.get(i), smallV[i], accent);
+				cx += cellW;
 			}
 		}
 	}
 
-	/** 큰 칸: 둥근 카드 + 왼쪽 아이콘 동그라미 + 위 작은 이름(포인트 색) + 아래 큰 값(1.35배) + 단위. */
-	private void drawBig(GuiGraphicsExtractor ctx, Font font, int x, int y, int w, Stat s, String v, int card, int accent) {
-		LunaDraw.roundRectBordered(ctx, x, y, w, BIG_H, 6, card, LunaTheme.CARD_BORDER);
-		int ic = 18;
-		int ix = x + 5, iy = y + (BIG_H - ic) / 2;
-		LunaDraw.roundRect(ctx, ix, iy, ic, ic, ic / 2, LunaDraw.lerpColor(card, accent, 0.22f));
-		LunaIcons.drawInBox(ctx, font, s.icon, ix, iy, ic, accent);
-		int tx = ix + ic + 6;
-		scaledText(ctx, font, s.label, tx, y + 4, 0.75f, LunaDraw.lerpColor(accent, LunaTheme.TEXT, 0.35f));
-		float vs = 1.35f;
-		int avail = x + w - 6 - tx;
-		int unitW = s.unit.isEmpty() ? 0 : Math.round(LunaDraw.width(font, s.unit) * 0.75f) + 2;
-		int vw = LunaDraw.width(font, v);
-		if (vw * vs > avail - unitW) {
-			vs = Math.max(0.6f, (avail - unitW) / (float) Math.max(1, vw));
+	/**
+	 * 띠 하나: 끝 반원(pill - roundRect는 둥글기를 4로 자른다) + 벽 쪽은 각지게(벽에 안 붙었으면 살짝 둥글게 3) + 위 밝은 줄 + 아래 어두운 줄.
+	 * mirror면 반원이 왼쪽. 줄은 반원 안까지 들어가지 않는다.
+	 */
+	private static void bar(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int fill, boolean light, boolean mirror, boolean flush) {
+		int r = h / 2;
+		LunaDraw.pill(ctx, x, y, w, h, fill);
+		int fw = Math.min(w / 2, h);
+		if (flush) {
+			// 벽 쪽을 각지게: 그 반쪽을 네모로 덮는다(벽 밖까지 4칸 더 - 화면 끝에 모서리가 안 보이게)
+			if (mirror) {
+				ctx.fill(x + w - fw, y, x + w + 4, y + h, LunaDraw.applyAlpha(fill));
+			} else {
+				ctx.fill(x - 4, y, x + fw, y + h, LunaDraw.applyAlpha(fill));
+			}
+		} else {
+			LunaDraw.roundRect(ctx, mirror ? x + w - fw : x, y, fw, h, 3, fill);
 		}
-		scaledText(ctx, font, v, tx, y + 12, vs, LunaTheme.TEXT);
-		if (!s.unit.isEmpty()) {
-			scaledText(ctx, font, s.unit, tx + Math.round(vw * vs) + 2, y + 12 + Math.round(8 * vs) - 7, 0.75f, LunaTheme.TEXT_SUB);
+		int hi = LunaDraw.lerpColor(fill, 0xFFFFFFFF, light ? 0.45f : 0.18f);
+		int lo = LunaDraw.lerpColor(fill, 0xFF000000, light ? 0.18f : 0.35f);
+		int lx0 = mirror ? x + r : x + (flush ? -4 : 3);
+		int lx1 = mirror ? x + w + (flush ? 4 : -3) : x + w - r;
+		ctx.fill(lx0, y, lx1, y + 1, LunaDraw.applyAlpha(hi));
+		ctx.fill(lx0, y + h - 1, lx1, y + h, LunaDraw.applyAlpha(lo));
+	}
+
+	/** 세로 점선(한 칸 걸러 1칸). */
+	private static void dots(GuiGraphicsExtractor ctx, int x, int y, int h, int color) {
+		int c = LunaDraw.applyAlpha(color);
+		for (int i = 0; i < h; i += 2) {
+			ctx.fill(x, y + i, x + 1, y + i + 1, c);
 		}
 	}
 
-	/** 작은 칸: 알약 + 작은 아이콘 + 이름(흐림) + 오른쪽 끝 값. */
-	private void drawSmall(GuiGraphicsExtractor ctx, Font font, int x, int y, int w, Stat s, String v, int card, int accent) {
-		LunaDraw.roundRectBordered(ctx, x, y, w, SMALL_H, SMALL_H / 2, LunaDraw.lerpColor(card, 0xFFFFFFFF, 0.04f), LunaTheme.CARD_BORDER);
-		int ic = 10;
-		LunaIcons.drawInBox(ctx, font, s.icon, x + 4, y + (SMALL_H - ic) / 2, ic, accent);
-		int lx = x + 4 + ic + 3;
-		scaledText(ctx, font, s.label, lx, y + 4, 0.7f, LunaTheme.TEXT_SUB);
-		String full = s.unit.isEmpty() ? v : v + s.unit;
-		int labelW = Math.round(LunaDraw.width(font, s.label) * 0.7f);
-		int avail = x + w - 6 - (lx + labelW + 3);
-		float vs = 0.85f;
-		int vw = LunaDraw.width(font, full);
-		if (vw * vs > avail) {
-			vs = Math.max(0.5f, avail / (float) Math.max(1, vw));
+	private static int bigIconW(Font font, Stat s) {
+		return Math.max(8, LunaIcons.width(font, s.icon, true));
+	}
+
+	private static int smallIconW(Font font, Stat s) {
+		return Math.max(6, LunaIcons.width(font, s.icon, false));
+	}
+
+	private static int bigNeed(Font font, Stat s, String v) {
+		int lw = Math.round(LunaDraw.width(font, s.label) * LABEL_K);
+		int vw = LunaDraw.width(font, "§l" + v);
+		int uw = s.unit.isEmpty() ? 0 : Math.round(LunaDraw.width(font, s.unit) * LABEL_K) + 2;
+		return 5 + bigIconW(font, s) + 4 + Math.max(lw, vw + uw) + 10;
+	}
+
+	private static int smallNeed(Font font, Stat s, String v) {
+		int lw = Math.round(LunaDraw.width(font, s.label) * SMALL_K);
+		int vw = Math.round(LunaDraw.width(font, "§l" + v) * SMALL_K);
+		int uw = s.unit.isEmpty() ? 0 : Math.round(LunaDraw.width(font, s.unit) * LABEL_K) + 1;
+		return 5 + smallIconW(font, s) + 3 + lw + 3 + vw + uw + 9;
+	}
+
+	/** 큰 칸: 큰 아이콘(왼쪽 5, 세로 가운데) + 위 작은 이름 + 아래 굵은 값 + 작은 단위. */
+	private void drawBig(GuiGraphicsExtractor ctx, Font font, int x, int y, Stat s, String v, int accent) {
+		int ix = x + 5;
+		LunaIcons.drawLarge(ctx, font, s.icon, ix, LunaDraw.iconLgY(y, TOP_H), accent);
+		int tx = ix + bigIconW(font, s) + 4;
+		scaledText(ctx, font, s.label, tx, y + 3, LABEL_K, LunaTheme.TEXT_SUB);
+		String bold = "§l" + v;
+		int vy = y + 12;
+		LunaDraw.text(ctx, font, bold, tx, vy, LunaTheme.TEXT);
+		if (!s.unit.isEmpty()) {
+			scaledText(ctx, font, s.unit, tx + LunaDraw.width(font, bold) + 2, vy + 3, LABEL_K, LunaTheme.TEXT_SUB);
 		}
-		int vx = x + w - 6 - Math.round(vw * vs);
-		scaledText(ctx, font, full, vx, y + (SMALL_H - Math.round(8 * vs)) / 2 + 1, vs, LunaTheme.TEXT);
+	}
+
+	/** 작은 칸: 작은 아이콘 + 이름 + 굵은 값 + 단위, 세로 가운데 한 줄. */
+	private void drawSmall(GuiGraphicsExtractor ctx, Font font, int x, int y, Stat s, String v, int accent) {
+		int ix = x + 5;
+		LunaIcons.draw(ctx, font, s.icon, ix, LunaDraw.iconY(y, BOT_H), accent);
+		int lx = ix + smallIconW(font, s) + 3;
+		float ty = y + (BOT_H - 8 * SMALL_K) / 2f;
+		scaledText(ctx, font, s.label, lx, ty, SMALL_K, LunaTheme.TEXT_SUB);
+		String bold = "§l" + v;
+		int vx = lx + Math.round(LunaDraw.width(font, s.label) * SMALL_K) + 3;
+		scaledText(ctx, font, bold, vx, ty, SMALL_K, LunaTheme.TEXT);
+		if (!s.unit.isEmpty()) {
+			scaledText(ctx, font, s.unit, vx + Math.round(LunaDraw.width(font, bold) * SMALL_K) + 1, ty + 1.5f, LABEL_K, LunaTheme.TEXT_SUB);
+		}
 	}
 
 	private static void scaledText(GuiGraphicsExtractor ctx, Font font, String s, float x, float y, float k, int color) {

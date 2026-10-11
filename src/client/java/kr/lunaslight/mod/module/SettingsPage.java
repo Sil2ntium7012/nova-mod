@@ -30,6 +30,8 @@ package kr.lunaslight.mod.module;
  */
 public enum SettingsPage {
 	GENERAL("일반"),
+	/** 49-328차(사용자: "일반 아래 따로 인게임 UI 창 만들어서"): 인게임 UI(화면 스킨)를 가진 사람용 - 상태판 등. */
+	INGAME_UI("인게임 UI"),
 	UI("UI"),
 	GRAPHICS("그래픽"),
 	/** 49-89차(8-8): 단축키 - 내 단축키(하나씩 추가) + 마인크래프트 보조 키. */

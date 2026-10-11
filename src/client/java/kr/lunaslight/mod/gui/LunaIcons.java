@@ -177,6 +177,7 @@ public final class LunaIcons {
 	public static String forPage(kr.lunaslight.mod.module.SettingsPage p) {
 		return switch (p) {
 			case GENERAL -> "\uE95C";
+			case INGAME_UI -> LAYOUT;   // 49-328차
 			case UI -> "\uE94D";
 			case GRAPHICS -> "\uE940";
 			case KEYS -> KEYBOARD;   // 49-89차(8-8)

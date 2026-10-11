@@ -40,6 +40,8 @@ public final class HangulInput {
 	private static boolean korean;
 	/** 49-315차: 마지막으로 한/영을 바꾼 때(표시 애니메이션). */
 	private static long toggledAt;
+	/** 49-327차: 글자를 친 입력칸(이 칸에서 글자를 치기 전에는 한글/영어 표시를 안 띄운다). */
+	private static Object typedFor;
 	private static final HangulComposer COMP = new HangulComposer();
 	private static boolean shiftDown;
 	private static Object lastScreen;
@@ -157,7 +159,11 @@ public final class HangulInput {
 			return false;
 		}
 		window = win;
-		if (!korean || !textFocused()) {
+		boolean typing = textFocused();
+		if (typing) {
+			typedFor = focusKey();
+		}
+		if (!korean || !typing) {
 			COMP.reset();
 			return false;
 		}
@@ -353,6 +359,10 @@ public final class HangulInput {
 		Minecraft mc = Minecraft.getInstance();
 		net.minecraft.client.gui.Font font = mc.font;
 		Object box = focusedBox(screen);
+		String typedValue = box instanceof EditBox eb ? eb.getValue() : null;
+		if (!visibleNow(box != null ? box : screen, typedValue)) {
+			return;
+		}
 		if (box instanceof EditBox e && e.isVisible()) {
 			String value = e.getValue();
 			int disp = intField(e, "displayPos", 0);
@@ -362,9 +372,9 @@ public final class HangulInput {
 			int ty = intField(e, "textY", bordered ? e.getY() + (e.getHeight() - 8) / 2 : e.getY());
 			int inner = Math.max(0, e.getInnerWidth());
 			int shown = Math.min(LunaDraw.width(font, value.substring(disp)), inner);
-			int x = tx + shown + LunaDraw.width(font, "_") + 2;
+			int x = tx + shown + 1;   // 49-327차: 글자 끝의 오른쪽 위 대각선
 			int limit = Math.min(e.getX() + e.getWidth() - (bordered ? 2 : 0), sc.width - 1);
-			drawChip(ctx, font, x, ty - 1, limit);
+			drawChip(ctx, font, x, ty - CHIP_H - 2, limit);
 			return;
 		}
 		if (box instanceof AbstractWidget aw) {
@@ -376,44 +386,74 @@ public final class HangulInput {
 		}
 	}
 
+	/** 지금 표시의 진하기(0 = 안 띄움). drawChip이 곱한다. */
+	private static float chipFade = 1f;
+
+	/**
+	 * 49-327차(사용자: "채팅이나 글 치기 전까지는 영어 한글 안 뜨게"): 칸이 열리기만 해서는 안 띄운다. 그 칸에서 글자를 쳤고(칸에 글자가
+	 * 남아 있을 때 - 다 지우면 다시 숨김) 그때만 띄운다. 한/영을 바꾼 직후 1.5초는 글자를 안 쳤어도 잠깐 띄웠다가 흐려지며 사라진다.
+	 */
+	private static boolean visibleNow(Object focus, String value) {
+		boolean typed = typedFor != null && typedFor == focus && (value == null || !value.isEmpty());
+		if (typed) {
+			chipFade = 1f;
+			return true;
+		}
+		long since = System.nanoTime() - toggledAt;
+		if (toggledAt == 0 || since >= 1_500_000_000L) {
+			return false;
+		}
+		chipFade = since <= 1_200_000_000L ? 1f : (1_500_000_000L - since) / 300_000_000f;
+		return true;
+	}
+
 	private static int intField(Object o, String name, int fallback) {
 		Object v = LunaCompat.getFieldValue(o, name);
 		return v instanceof Integer i ? i : fallback;
 	}
 
 	private static String chipLabel() {
-		return korean ? "한글" : "영어";
+		return korean ? "한글" : "ENG";
 	}
 
 	private static int chipWidth(net.minecraft.client.gui.Font font) {
-		return LunaDraw.width(font, chipLabel()) + 6;
+		return LunaDraw.width(font, chipLabel()) + 8;
 	}
 
+	private static final int CHIP_H = 11;
+
 	/**
-	 * 작은 이름표 하나: 한글이면 테마색을 옅게 깐 바탕에 흰 "한글", 영어면 아주 옅은 회색 바탕에 회색 "영어". 그림자, 그라데이션,
-	 * 점, 튀는 움직임 없이 - 바꿀 때만 0.12초 동안 부드럽게 나타난다. 높이는 글자 줄과 같다(10).
+	 * 49-327차(사용자: "오른대각에 뜨게, 배경은 인게임 UI 따라서 깔끔하게, 영어는 ENG, 한글은 한글, 색은 같고"): 작은 카드 하나 -
+	 * 지금 화면 스킨의 카드 색, 테두리, 아래 두께(크림 = 깔끔한 입체, 미드나잇/네온 = 그 스킨 카드)를 그대로 쓰고 글자는 본문색 하나.
+	 * 바꿀 때 0.12초 동안 나타나고, 한/영 직후 잠깐 띄울 때는 흐려지며 사라진다(chipFade). 칸 위가 화면 밖이면 칸 아래로.
 	 */
 	private static void drawChip(GuiGraphicsExtractor ctx, net.minecraft.client.gui.Font font, int x, int y, int limitRight) {
 		String label = chipLabel();
 		int w = chipWidth(font);
-		int h = 10;
+		int h = CHIP_H;
 		if (x + w > limitRight) {
 			x = limitRight - w;
 		}
 		if (y < 0) {
-			y = 0;
+			y = y + h + 16;
 		}
 		float t = Math.min(1f, (System.nanoTime() - toggledAt) / 120_000_000f);
-		float a = 0.3f + 0.7f * (1f - (1f - t) * (1f - t));
-		boolean ko = korean;
-		int bg = ko ? LunaDraw.withAlpha(LunaDraw.ACCENT, 0x70) : 0x30FFFFFF;
-		int fg = ko ? 0xFFFFFFFF : 0xFFA9B0B8;
-		LunaDraw.roundRect(ctx, x, y, w, h, 3, scaleAlpha(bg, a));
-		LunaDraw.text(ctx, font, label, x + 3, y + 1, scaleAlpha(fg, a));
+		float a = (0.3f + 0.7f * (1f - (1f - t) * (1f - t))) * Math.max(0f, Math.min(1f, chipFade));
+		float prev = LunaDraw.alpha();
+		LunaDraw.setAlpha(prev * a);
+		try {
+			int r = 3;
+			int fill = LunaDraw.surfaceCard();
+			int line = LunaDraw.surfaceLine();
+			if (!LunaDraw.skinCard(ctx, x, y, w, h, r, fill, line)) {
+				LunaDraw.roundRect(ctx, x, y + 1, w, h, r, LunaDraw.soft() ? LunaDraw.CREAM_LIP : LunaDraw.surfaceEdge());
+				LunaDraw.roundRect(ctx, x, y, w, h, r, line);
+				LunaDraw.roundRect(ctx, x + 1, y + 1, w - 2, h - 2, r - 1, fill);
+			}
+			LunaDraw.text(ctx, font, label, x + 4, LunaDraw.textY(y, h), LunaDraw.TEXT);
+		} finally {
+			LunaDraw.setAlpha(prev);
+		}
 	}
 
-	private static int scaleAlpha(int argb, float f) {
-		int al = Math.round(((argb >>> 24) & 0xFF) * f);
-		return (argb & 0x00FFFFFF) | (al << 24);
-	}
 }

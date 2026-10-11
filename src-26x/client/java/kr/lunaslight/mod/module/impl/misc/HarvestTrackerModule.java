@@ -61,9 +61,9 @@ public class HarvestTrackerModule extends Module {
 	private final StringSetting activeTable = register(new StringSetting(
 			"active_table", "가격표", "", HarvestLog.DEFAULT_TABLES[0]).hidden());
 	private final IntSetting idleMinutes = register(new IntSetting(
-			"idle_minutes", "휴식 시간", "이 시간 동안 아무것도 안 캐면 한 판을 닫고 기록에 남깁니다(분).", 1, 1, 10, 1));
+			"idle_minutes", "휴식 시간", "이 시간 동안 아무것도 안 캐면 한 판을 닫고 기록에 남깁니다.", 1, 1, 10, 1).unit("분"));   // 49-330차: 단위 표시
 	private final IntSetting minMinutes = register(new IntSetting(
-			"min_minutes", "최소 기록 시간", "이보다 짧은 판은 기록에 남기지 않습니다(분).", 1, 0, 10, 1));
+			"min_minutes", "최소 기록 시간", "이보다 짧은 판은 기록에 남기지 않습니다.", 1, 0, 10, 1).unit("분"));
 	// 49-122차(사용자: "등록하지도 않은 나무 판자가 왜 떠 · 등록한 것만 떠야지"): 가격표에 등록한 것만 센다(고정).
 	// 예전 [가격표 항목만] 토글(기본 꺼짐)이 헷갈렸다 - 이제 항상 등록 항목만 세므로 토글을 없앴다.
 	private final BooleanSetting showList = register(new BooleanSetting(
@@ -93,6 +93,11 @@ public class HarvestTrackerModule extends Module {
 			"minecraft:amethyst_shard", "minecraft:ancient_debris", "minecraft:obsidian",
 			"minecraft:raw_iron_block",
 	};
+
+	/** 49-330차: [작물 계산기] 화면의 [가격표] 탭 [+ 추가]가 보여 줄 후보(지금 표 기준). */
+	public java.util.List<String> pickList() {
+		return pickListFor(activeTable());
+	}
 
 	/** 지금 고른 표에 맞는 피커 목록. "작물" 표면 작물만, "광물" 표면 광물만, 그 밖(사용자 표)이면 둘 다. */
 	private java.util.List<String> pickListFor(String table) {
@@ -178,8 +183,8 @@ public class HarvestTrackerModule extends Module {
 			return;
 		}
 		try {
-			if (!countableBlock(state)) {
-				return;
+			if (!countableBlock(state) || immatureCrop(state)) {
+				return;   // 49-330차: 덜 자란 작물을 깬 건 캔 횟수로 안 센다
 			}
 			if (session == null) {
 				session = new HarvestLog.Session();
@@ -234,6 +239,59 @@ public class HarvestTrackerModule extends Module {
 			return table.keySet();
 		}
 		return pickListFor(activeTable());
+	}
+
+	/** 익어야 열매가 나오는 작물(블록 asItem id). 사탕수수/대나무/선인장/켈프의 age는 자람 시계라 여기 안 넣는다. */
+	private static final java.util.Set<String> AGE_CROPS = java.util.Set.of(
+			"minecraft:wheat_seeds", "minecraft:carrot", "minecraft:potato", "minecraft:beetroot_seeds", "minecraft:nether_wart",
+			"minecraft:cocoa_beans", "minecraft:sweet_berries", "minecraft:torchflower_seeds", "minecraft:pitcher_pod");
+
+	/**
+	 * 49-330차(사용자: "캔 횟수가 제대로 계산되는지 체크"): 덜 자란 작물(age < 최대)을 깬 건 캔 게 아니다(씨앗만 나온다). 상태의 "age"
+	 * 속성을 리플렉션으로 읽는다(값 목록의 최대와 비교). 단 베리 덤불은 age 2부터 열매가 나오니 2 미만만 덜 자란 것.
+	 */
+	private static boolean immatureCrop(Object state) {
+		try {
+			Object block = LunaCompat.callNoArg(state, "getBlock");
+			Object item = block == null ? null : LunaCompat.callNoArg(block, "asItem");
+			Identifier id = item instanceof Item it ? LunaCompat.getItemId(it) : null;
+			if (id == null || !AGE_CROPS.contains(id.toString())) {
+				return false;
+			}
+			Object map = LunaCompat.callNoArg(state, "getValues");
+			if (map == null) {
+				map = LunaCompat.callNoArg(state, "getEntries");
+			}
+			if (!(map instanceof Map<?, ?> m)) {
+				return false;
+			}
+			for (Map.Entry<?, ?> e : m.entrySet()) {
+				Object prop = e.getKey();
+				if (!"age".equals(LunaCompat.callNoArg(prop, "getName"))) {
+					continue;
+				}
+				Object vals = LunaCompat.callNoArg(prop, "getPossibleValues");
+				if (vals == null) {
+					vals = LunaCompat.callNoArg(prop, "getValues");
+				}
+				int max = -1;
+				if (vals instanceof java.util.Collection<?> c) {
+					for (Object v : c) {
+						if (v instanceof Integer i) {
+							max = Math.max(max, i);
+						}
+					}
+				}
+				if (!(e.getValue() instanceof Integer cur) || max < 0) {
+					return false;
+				}
+				int need = "minecraft:sweet_berries".equals(id.toString()) ? 2 : max;
+				return cur < need;
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("harvest:age", t);
+		}
+		return false;
 	}
 
 	/** 블록 아이템 id → 깨면 나오는 아이템 id들(asItem과 다른 것만). */

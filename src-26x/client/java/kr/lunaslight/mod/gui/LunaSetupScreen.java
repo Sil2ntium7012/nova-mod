@@ -114,7 +114,6 @@ public class LunaSetupScreen extends LunaScreenBase {
 	private static final String[] PAGE_TITLES = {"화면", "목록과 HUD", "조작과 창"};
 	private static final String[] FONTS = {"마크 폰트", "갈무리 폰트", "모던"};
 	private static final String[] GUI = {"자동", "1", "2", "3", "4"};
-	private static final String[] TILES = {"큰 박스", "작은 박스", "상세"};
 	private static final String[] HUD = {"둥근", "네모난", "없음"};
 	private static final String[] WINDOW = {"창 화면", "전체 화면", "테두리 없는 전체 화면"};
 
@@ -193,10 +192,7 @@ public class LunaSetupScreen extends LunaScreenBase {
 				});
 			}
 			case 1 -> {
-				y = row(ctx, "기능 보기", TILES, tile, y, mouseX, mouseY, i -> {
-					tile = i;
-					FirstSetup.setTileView(i);
-				});
+				// 49-328차(사용자: "처음 설정할 때 모드 큰 박스 작은 박스 없애 줘"): [기능 보기] 줄을 뺀다(지금 값 그대로 저장).
 				int after = row(ctx, "HUD 배경", HUD, hud, y, mouseX, mouseY, i -> {
 					hud = i;
 					FirstSetup.setHudShape(i);
