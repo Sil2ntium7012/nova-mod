@@ -126,8 +126,13 @@ public final class LunaProjection {
 			if (client == null || client.gameRenderer == null || client.player == null) {
 				return null;
 			}
-			net.minecraft.client.renderer.state.GameRenderState grs = client.gameRenderer.gameRenderState();
-			if (grs == null || grs.levelRenderState == null || grs.levelRenderState.cameraRenderState == null) {
+			// 49-350차: 26.1.x는 getGameRenderState(), 26.2+는 gameRenderState() - 이름이 달라 리플렉션으로 둘 다
+			Object raw = LunaCompat.callNoArg(client.gameRenderer, "gameRenderState");
+			if (raw == null) {
+				raw = LunaCompat.callNoArg(client.gameRenderer, "getGameRenderState");
+			}
+			if (!(raw instanceof net.minecraft.client.renderer.state.GameRenderState grs)
+					|| grs.levelRenderState == null || grs.levelRenderState.cameraRenderState == null) {
 				return null;
 			}
 			net.minecraft.client.renderer.state.level.CameraRenderState crs = grs.levelRenderState.cameraRenderState;
