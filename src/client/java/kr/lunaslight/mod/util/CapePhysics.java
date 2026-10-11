@@ -27,6 +27,8 @@ public final class CapePhysics {
 	}
 
 	public static final int SEGMENTS = 16;
+	/** 49-343차: 마디 하나가 윗마디 대비 꺾일 수 있는 최대 각(도). */
+	private static final float MAX_BEND = 9f;
 
 	private static final class Sim {
 		final float[] a = new float[SEGMENTS];
@@ -104,8 +106,17 @@ public final class CapePhysics {
 			} else if (ang > 120f) {
 				ang = 120f;
 			}
-			s.out[i] = (ang - prev) * 0.017453292f;
-			prev = ang;
+			// 49-343차(사용자: "움직일 때 망토 몸이랑 끝부분 벌어지는 것"): 걷기 시작/멈출 때 바닐라가 주는 맨 윗마디 각도는 바로
+			// 튀는데 아랫마디는 관성으로 늦게 따라와, 마디 사이가 한 번에 수십 도 꺾여 몸에 붙은 윗부분과 아랫자락 사이가 벌어져 보였다.
+			// 이제 마디 하나가 윗마디보다 MAX_BEND도 넘게 꺾이지 못한다(남은 차이는 다음 마디들이 나눠 받아 매끈한 곡선).
+			float delta = ang - prev;
+			if (delta > MAX_BEND) {
+				delta = MAX_BEND;
+			} else if (delta < -MAX_BEND) {
+				delta = -MAX_BEND;
+			}
+			s.out[i] = delta * 0.017453292f;
+			prev = prev + delta;
 		}
 		s.out[0] = 0f;
 		return s.out;

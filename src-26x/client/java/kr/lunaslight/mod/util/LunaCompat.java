@@ -1276,6 +1276,90 @@ public final class LunaCompat {
 		}
 	}
 
+	// ==================== 49-344차: 화면 init 뒤 콜백 + 바닐라 버튼 얹기 ====================
+	// 사용자(끊김 화면 사진): "세션 재접속 버튼은 [서버 목록으로 돌아가기] 아래에, 마크 버튼이랑 똑같게". 바닐라 ButtonWidget을
+	// Fabric Screens.getButtons(screen)에 넣는다(모든 버전 공통). 버튼 생성은 버전별 - builder(1.19.3+) / 생성자(Text, 1.16~1.19.2) /
+	// 생성자(String, 1.14~1.15).
+
+	public interface ScreenInitHandler {
+		void afterInit(Object screen);
+	}
+
+	public static void registerScreenAfterInit(ScreenInitHandler handler) {
+		try {
+			Class<?> eventsClass = Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents");
+			Class<?> afterInitClass = Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterInit");
+			Object initProxy = Proxy.newProxyInstance(afterInitClass.getClassLoader(), new Class<?>[]{afterInitClass},
+					(InvocationHandler) (p, method, args) -> {
+						if (method.getDeclaringClass() == Object.class) {
+							return proxyObjectMethod(p, method, args);
+						}
+						String mn = method.getName();
+						if (!("afterInit".equals(mn) || "onInit".equals(mn)) || args == null || args.length < 2) {
+							return null;
+						}
+						try {
+							handler.afterInit(args[1]);
+						} catch (Throwable t) {
+							warnOnce("screenAfterInit", t);
+						}
+						return null;
+					});
+			Object initEvent = getFieldCompat(eventsClass, "AFTER_INIT").get(null);
+			invokeRegister(initEvent, initProxy);
+		} catch (Throwable t) {
+			kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 화면 init 콜백 등록 실패(이 버전엔 Screen API 없음)", t);
+		}
+	}
+
+	/** Fabric Screens.getButtons(screen) - 그 화면의 버튼 목록(바꿀 수 있음). 없으면 null. */
+	@SuppressWarnings("unchecked")
+	public static java.util.List<Object> screenButtons(Object screen) {
+		try {
+			Class<?> screens = Class.forName("net.fabricmc.fabric.api.client.screen.v1.Screens");
+			Object list = screens.getMethod("getButtons", net.minecraft.client.gui.screens.Screen.class).invoke(null, screen);
+			return list instanceof java.util.List<?> l ? (java.util.List<Object>) l : null;
+		} catch (Throwable t) {
+			warnOnce("screenButtons", t);
+			return null;
+		}
+	}
+
+	/** 위젯의 x, y, 폭(getX/getY/getWidth 또는 x/y/width 필드). */
+	public static int widgetInt(Object w, String getter, String field) {
+		Object v = callNoArg(w, getter);
+		if (v instanceof Integer i) {
+			return i;
+		}
+		v = getFieldValue(w, field);
+		return v instanceof Integer i ? i : 0;
+	}
+
+	/** 바닐라 버튼 하나를 만들어 화면에 얹는다. 만든 버튼(없으면 null). */
+	public static Object addVanillaButton(Object screen, int x, int y, int w, int h, String label, Runnable action) {
+		try {
+			net.minecraft.client.gui.components.Button btn = net.minecraft.client.gui.components.Button
+					.builder(textLiteral(label), b -> action.run()).bounds(x, y, w, h).build();
+			java.util.List<Object> buttons = screenButtons(screen);
+			if (buttons == null) {
+				return null;
+			}
+			buttons.add(btn);
+			return btn;
+		} catch (Throwable t) {
+			warnOnce("addVanillaButton", t);
+			return null;
+		}
+	}
+
+	/** 버튼 글자 바꾸기 / 누를 수 있게 하기. */
+	public static void setButton(Object btn, String label, boolean active) {
+		if (btn instanceof net.minecraft.client.gui.components.Button b) {
+			b.setMessage(textLiteral(label));
+			b.active = active;
+		}
+	}
+
 	/** Proxy가 받은 Object 기본 메서드(hashCode/equals/toString) 처리. */
 	private static Object proxyObjectMethod(Object proxy, Method method, Object[] args) {
 		return switch (method.getName()) {

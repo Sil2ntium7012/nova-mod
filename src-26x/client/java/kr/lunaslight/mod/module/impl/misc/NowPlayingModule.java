@@ -50,7 +50,7 @@ public class NowPlayingModule extends Module {
 			"text_color", "글자 색", "곡 제목의 색입니다.", 0xFFECECF1));
 	// 49-177차(사용자: "멜론 스포티파이 유튜브뮤직 유튜브 숲 이런 플랫폼별 색으로 입혀주라")
 	private final BooleanSetting platformColor = register(new BooleanSetting(
-			"platform_color", "플랫폼 색", "멜론, Spotify, YouTube Music, YouTube는 막대와 윤곽선을 그 플랫폼 색으로 표시합니다(배경이 꺼져 있으면 막대만).", true));
+			"platform_color", "플랫폼 색", "멜론, Spotify, YouTube Music, YouTube는 막대(와 [윤곽선]을 켰으면 윤곽선)를 그 플랫폼 색으로 표시합니다.", true));
 
 	// 49-184차(사용자: "노래 표시에도 그림자 넣어주고"): 상자 아래 그림자 + 막대에도 글자처럼 1px 그림자
 	private final BooleanSetting shadow = register(new BooleanSetting(

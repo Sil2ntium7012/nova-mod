@@ -100,31 +100,35 @@ public class RecorderModule extends Module {
 
 	@Override
 	public void onHudRender(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
-		if (isPreview()) {
-			if (indicator.get()) {   // 49-88차(8-12): 표시를 껐으면 미리보기도 빈다
-				drawDot(context, previewCenterX() - 18, previewCenterY() - 4, "0:03");
-			}
-			return;
-		}
-		LunaRecorder.poll();
 		String text;
 		boolean dot = false;
-		if (notice != null && System.currentTimeMillis() < noticeUntil) {
-			text = "§7" + notice;
-		} else if (indicator.get() && LunaRecorder.showRecording()) {
-			int s = (int) LunaRecorder.elapsed();
-			text = (s / 3600 > 0 ? (s / 3600) + ":" : "")
-				+ String.format(java.util.Locale.ROOT, "%02d:%02d", (s / 60) % 60, s % 60);
+		if (isPreview()) {
+			if (!indicator.get()) {   // 49-88차(8-12): 표시를 껐으면 미리보기도 빈다
+				return;
+			}
+			// 49-347차(사용자: "녹화 HUD 설정도 서로 이상한 데에 떠"): 미리보기를 칸 가운데 고정으로 그려서 HUD 편집기(칸 = 화면 전체)에선
+			// 빨간 점이 화면 한가운데, 이름표는 위치 설정 자리에 따로 떴다 → 실제와 같이 위치 설정으로 자리를 잡는다(미리보기 칸은 위치를 칸 가운데로 옮겨 준다).
+			text = "0:03";
 			dot = true;
-		} else if (LunaRecorder.saving()) {
-			text = "§7녹화 저장하는 중…";   // 49-322차: 끄기를 누르자마자
-		} else if (LunaRecorder.recentSaved() != null) {
-			String f = LunaRecorder.recentSaved();   // 49-322차: 런처가 파일을 닫은 뒤 5초
-			text = f.isEmpty() ? "§a녹화 저장됨 §7(clips 폴더)" : "§a녹화 저장됨 §7clips/" + f;
-		} else if (LunaRecorder.recentError() != null) {
-			text = "§c" + LunaRecorder.recentError();
 		} else {
-			return;
+			LunaRecorder.poll();
+			if (notice != null && System.currentTimeMillis() < noticeUntil) {
+				text = "§7" + notice;
+			} else if (indicator.get() && LunaRecorder.showRecording()) {
+				int s = (int) LunaRecorder.elapsed();
+				text = (s / 3600 > 0 ? (s / 3600) + ":" : "")
+					+ String.format(java.util.Locale.ROOT, "%02d:%02d", (s / 60) % 60, s % 60);
+				dot = true;
+			} else if (LunaRecorder.saving()) {
+				text = "§7녹화 저장하는 중…";   // 49-322차: 끄기를 누르자마자
+			} else if (LunaRecorder.recentSaved() != null) {
+				String f = LunaRecorder.recentSaved();   // 49-322차: 런처가 파일을 닫은 뒤 5초
+				text = f.isEmpty() ? "§a녹화 저장됨 §7(clips 폴더)" : "§a녹화 저장됨 §7clips/" + f;
+			} else if (LunaRecorder.recentError() != null) {
+				text = "§c" + LunaRecorder.recentError();
+			} else {
+				return;
+			}
 		}
 		int w = (dot ? 11 : 0) + LunaCompat.getTextWidth(client.font, text);
 		int h = 16;

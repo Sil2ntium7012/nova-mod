@@ -235,6 +235,23 @@ public final class LunaSocial {
 		}
 	}
 
+	/** 49-347차: 참/거짓 칸(없거나 null이면 null, "true"/"false" 글자도 읽는다). */
+	private static Boolean bool(JsonObject o, String key) {
+		try {
+			JsonElement e = o.get(key);
+			if (e == null || e.isJsonNull()) {
+				return null;
+			}
+			if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isBoolean()) {
+				return e.getAsBoolean();
+			}
+			String v = e.getAsString();
+			return "true".equalsIgnoreCase(v) || "1".equals(v) ? Boolean.TRUE : "false".equalsIgnoreCase(v) || "0".equals(v) ? Boolean.FALSE : null;
+		} catch (Throwable ignored) {
+			return null;
+		}
+	}
+
 	private static String str(JsonObject o, String key) {
 		try {
 			JsonElement e = o.get(key);
@@ -329,6 +346,7 @@ public final class LunaSocial {
 			return CompletableFuture.completedFuture(List.of());
 		}
 		String me = siteId;
+		String gameUuid = currentUuid(Minecraft.getInstance());
 		if (viaSite()) {
 			JsonObject body = new JsonObject();
 			body.addProperty("other", otherId);
@@ -343,8 +361,25 @@ public final class LunaSocial {
 						continue;
 					}
 					JsonObject w = e.getAsJsonObject();
-					String sender = firstNonEmpty(str(w, "sender_uuid"), str(w, "from"));
-					out.add(new Whisper(normalize(sender).equals(normalize(me)), firstNonEmpty(str(w, "message"), str(w, "text")), str(w, "created_at")));
+					// 49-347차(사용자: "인게임 귓말 구분도 안 됨"): 사이트 whisper-list는 줄마다 fromMe(참/거짓)와 createdAt을 준다(런처가 그대로 쓴다).
+					// 예전엔 sender_uuid만 찾아서 전부 "상대 것"으로 보였다 → fromMe가 있으면 그걸, 없으면 보낸 이를 사이트 id/게임 uuid와 비교.
+					Boolean fromMe = bool(w, "fromMe");
+					if (fromMe == null) {
+						fromMe = bool(w, "from_me");
+					}
+					if (fromMe == null) {
+						fromMe = bool(w, "mine");
+					}
+					boolean mine;
+					if (fromMe != null) {
+						mine = fromMe;
+					} else {
+						String sender = firstNonEmpty(str(w, "sender_uuid"), str(w, "senderUuid"), str(w, "from"));
+						String ns = normalize(sender);
+						mine = !ns.isEmpty() && (ns.equals(normalize(me)) || ns.equals(normalize(gameUuid)));
+					}
+					out.add(new Whisper(mine, firstNonEmpty(str(w, "message"), str(w, "text")),
+						firstNonEmpty(str(w, "created_at"), str(w, "createdAt"))));
 				}
 				if (out.size() > 1 && parseIso(out.get(0).at()) > parseIso(out.get(out.size() - 1).at())) {
 					java.util.Collections.reverse(out);   // 화면은 오래된 순

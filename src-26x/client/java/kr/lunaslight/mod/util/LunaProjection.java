@@ -115,6 +115,44 @@ public final class LunaProjection {
 		}
 	}
 
+	/**
+	 * 49-346차: 26.x는 HUD가 월드보다 먼저 뽑혀(extract) 기록된 흔들림 행렬이 한 프레임 전 것이다. 지금 프레임의 카메라 상태로
+	 * bobHurt + bobView를 직접 돌려 같은 행렬을 만든다(GameRendererBobMixin). 못 만들면 null(기록된 것으로 폴백).
+	 */
+	private static final float[] FRESH = new float[16];
+
+	private static float[] freshBob(Minecraft client) {
+		try {
+			if (client == null || client.gameRenderer == null || client.player == null) {
+				return null;
+			}
+			net.minecraft.client.renderer.state.GameRenderState grs = client.gameRenderer.gameRenderState();
+			if (grs == null || grs.levelRenderState == null || grs.levelRenderState.cameraRenderState == null) {
+				return null;
+			}
+			net.minecraft.client.renderer.state.level.CameraRenderState crs = grs.levelRenderState.cameraRenderState;
+			com.mojang.blaze3d.vertex.PoseStack ps = new com.mojang.blaze3d.vertex.PoseStack();
+			kr.lunaslight.mod.mixin.GameRendererBobMixin inv = (kr.lunaslight.mod.mixin.GameRendererBobMixin) client.gameRenderer;
+			inv.lunaslight$bobHurt(crs, ps);
+			if (Boolean.TRUE.equals(client.options.bobView().get())) {
+				inv.lunaslight$bobView(crs, ps);
+			}
+			ps.last().pose().get(FRESH);
+			boolean identity = true;
+			for (int i = 0; i < 16; i++) {
+				float want = (i % 5 == 0) ? 1f : 0f;
+				if (Math.abs(FRESH[i] - want) > 1e-5f) {
+					identity = false;
+					break;
+				}
+			}
+			return identity ? null : FRESH.clone();
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("proj:freshBob", t);
+			return null;
+		}
+	}
+
 	/** 이번 프레임 월드가 쓴 흔들림 행렬(HUD 콜백은 beginFrame으로 번호를 하나 올린 뒤라 직전 번호). 단위 행렬이면 null. */
 	private static float[] currentBob() {
 		if (bobSerial != frameSerial - 1 && bobSerial != frameSerial) {
@@ -158,7 +196,7 @@ public final class LunaProjection {
 			if (pos != null && pos.x == cached.camX && pos.y == cached.camY && pos.z == cached.camZ
 					&& cam.yRot() == cached.yawDeg && cam.xRot() == cached.pitchDeg && cam.getFov() == cached.fovKey
 					&& client.getWindow().getGuiScaledWidth() == cached.sw && client.getWindow().getGuiScaledHeight() == cached.sh
-					&& cachedSerial >= frameSerial - 1) {
+					&& cachedSerial == frameSerial) {   // 49-346차: 새 프레임이면 다시(흔들림 행렬이 바뀐다)
 				cachedSerial = frameSerial;
 				return cached;
 			}
@@ -218,7 +256,8 @@ public final class LunaProjection {
 			int sw = client.getWindow().getGuiScaledWidth();
 			int sh = client.getWindow().getGuiScaledHeight();
 			double aspect = (double) client.getWindow().getWidth() / Math.max(1, client.getWindow().getHeight());
-			LunaProjection p = new LunaProjection(cam.position(), cam.yRot(), cam.xRot(), fov, sw, sh, aspect, currentBob());
+			float[] bob = freshBob(client);
+			LunaProjection p = new LunaProjection(cam.position(), cam.yRot(), cam.xRot(), fov, sw, sh, aspect, bob != null ? bob : currentBob());
 			p.yawDeg = cam.yRot();
 			p.pitchDeg = cam.xRot();
 			p.fovKey = cam.getFov();

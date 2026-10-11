@@ -114,7 +114,8 @@ public class FishingAlertModule extends Module {
 
 	@Override
 	public void onHudRender(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
-		if (!flash.get() || client == null || client.player == null) {
+		// 49-347차(사용자: "낚시 알림도 미리보기좀"): 미리보기 칸에선 월드 밖이어도 '물었다!'를 칸 가운데에 보여 준다
+		if (!flash.get() || client == null || (!isPreview() && client.player == null)) {
 			return;
 		}
 		long age = System.currentTimeMillis() - bitAtMs;
@@ -126,10 +127,15 @@ public class FishingAlertModule extends Module {
 		float alpha = age < 1100 ? 1f : 1f - (age - 1100) / 400f;
 		String text = "물었다!";
 		int tw = LunaCompat.getTextWidth(client.font, text);
-		int cx = client.getWindow().getGuiScaledWidth() / 2;
-		int y = client.getWindow().getGuiScaledHeight() - 64;
+		int cx = isPreview() ? previewCenterX() : client.getWindow().getGuiScaledWidth() / 2;
+		int y = isPreview() ? previewCenterY() - 4 : client.getWindow().getGuiScaledHeight() - 64;
 		int a = Math.max(0, Math.min(255, Math.round(255 * alpha)));
 		drawHudBox(context, cx - tw / 2 - 6, y - 3, tw + 12, 14, alpha);   // 49-156차: 이 기능의 [배경] 설정대로
 		LunaCompat.drawHudText(context, client.font, text, cx - tw / 2, y, (a << 24) | 0xFFD75E);
+	}
+
+	@Override
+	public boolean hasPreview() {
+		return true;   // 49-347차
 	}
 }

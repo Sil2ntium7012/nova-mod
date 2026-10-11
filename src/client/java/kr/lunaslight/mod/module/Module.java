@@ -340,7 +340,50 @@ public abstract class Module {
 		hudBox(context, bx, by, bw, bh, 1f);
 	}
 
+	// 49-348차(사용자: "이런 설정 바닥에 좀 붙이게 해주고", "HUD 편집기에서 실제 크기랑 옮기는 오브제랑 안 맞는 것도 있어"):
+	// 위치(resolveX/Y)에 적히는 사각형은 글자 크기이고, 실제로 그려지는 배경 상자는 그보다 넓을 수 있다(drawHudPanel/drawHudLine은
+	// 사방 4px, 제 크기로 그리는 기능은 0). 편집기가 "보이는 상자" 그대로 테두리를 치고 화면 끝에도 그 상자 기준으로 붙이도록,
+	// 한 프레임에 hudBox로 그린 상자들의 합집합을 기록해 둔다.
+	private boolean hudBoxSeen;
+	private int hudBoxL, hudBoxT, hudBoxR, hudBoxB;
+
+	private void noteHudBox(int bx, int by, int bw, int bh) {
+		if (!hudBoxSeen) {
+			hudBoxL = bx;
+			hudBoxT = by;
+			hudBoxR = bx + bw;
+			hudBoxB = by + bh;
+			hudBoxSeen = true;
+			return;
+		}
+		hudBoxL = Math.min(hudBoxL, bx);
+		hudBoxT = Math.min(hudBoxT, by);
+		hudBoxR = Math.max(hudBoxR, bx + bw);
+		hudBoxB = Math.max(hudBoxB, by + bh);
+	}
+
+	/**
+	 * 보이는 상자가 위치 사각형(getLastX/Y/Width/Height, 화면 px) 밖으로 더 나간 만큼 {왼, 위, 오른, 아래}(화면 px, 0 이상).
+	 * 상자를 안 그렸거나 위치 설정이 없으면 전부 0. 배율이 걸린 기능은 상자 좌표가 배율 전 좌표라 배율을 곱한다.
+	 */
+	public int[] hudBoxInsets() {
+		kr.lunaslight.mod.module.setting.PositionSetting ps = positionSetting();
+		if (!hudBoxSeen || ps == null) {
+			return new int[4];
+		}
+		kr.lunaslight.mod.module.setting.HudPosition p = ps.get();
+		float s = hudScale();
+		float right = p.getLastX() + p.getLastWidth() / s;
+		float bottom = p.getLastY() + p.getLastHeight() / s;
+		return new int[]{
+			Math.max(0, Math.round((p.getLastX() - hudBoxL) * s)),
+			Math.max(0, Math.round((p.getLastY() - hudBoxT) * s)),
+			Math.max(0, Math.round((hudBoxR - right) * s)),
+			Math.max(0, Math.round((hudBoxB - bottom) * s))};
+	}
+
 	private void hudBox(DrawContext context, int bx, int by, int bw, int bh, float alpha) {
+		noteHudBox(bx, by, bw, bh);
 		if (hudBg == null) {
 			return;
 		}
@@ -388,9 +431,11 @@ public abstract class Module {
 			shape = HUD_BOX_ROUND;
 		}
 		int radius = shape == HUD_BOX_SQUARE ? 0 : 4;
-		// 49-179차: 기능이 윤곽선 색을 잠깐 바꿔 줄 수 있다(듣고 있는 노래의 플랫폼 색). 배경도 윤곽선도 꺼져 있으면 안 그린다.
+		// 49-179차: 기능이 윤곽선 색을 잠깐 바꿔 줄 수 있다(듣고 있는 노래의 플랫폼 색).
+		// 49-347차(사용자: "듣고 있는 노래 윤곽선이 이상하고 안 사라져"): 예전엔 플랫폼 색이 있으면 [윤곽선]을 꺼도 윤곽선을 억지로
+		// 그렸다 → 색만 바꾸고, 그릴지는 [윤곽선] 설정만 따른다.
 		int override = hudOutlineOverride;
-		boolean outline = hudBgOutline.get() || (override != 0 && hudBg.get());
+		boolean outline = hudBgOutline.get();
 		if (hudBg.get()) {
 			// 49-180차: 윤곽선이 있으면 배경도 윤곽선과 같은 계단 모서리로(부드러운 모서리는 윤곽선 밖으로 삐져나옴)
 			if (outline) {
@@ -828,6 +873,7 @@ public abstract class Module {
 		kr.lunaslight.mod.gui.LunaDraw.beginHud();
 		boolean prevCream = kr.lunaslight.mod.util.LunaCompat.hudCream;
 		kr.lunaslight.mod.util.LunaCompat.hudCream = usesCreamHud();   // 49-257차: 크림 상자면 글자를 짙게
+		hudBoxSeen = false;   // 49-348차: 이 프레임에 그리는 상자로 다시 판단
 		try {
 			renderHud0(context, tickCounter);
 		} finally {

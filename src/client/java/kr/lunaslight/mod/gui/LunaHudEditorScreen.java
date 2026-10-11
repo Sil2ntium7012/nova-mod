@@ -52,6 +52,7 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 	private Module dragging;
 	private PositionSetting dragSetting;
 	private int dragW, dragH;
+	private int[] dragIn = new int[4];   // 49-348차: 끄는 요소의 보이는 상자 여백 {왼, 위, 오른, 아래}
 	private double grabDx, grabDy; // 49-24차: 소수 좌표(부드러운 드래그)
 
 	// 49-24차: 우클릭 메뉴
@@ -107,7 +108,26 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 	private boolean resizeLeft, resizeTop;      // 잡은 모서리가 왼쪽/위쪽인지
 	private float resizeUnitW, resizeUnitH;   // 배율 1일 때의 폭/높이
 
-	private record Element(Module module, PositionSetting setting, int x, int y, int w, int h) {
+	/**
+	 * x/y/w/h = 위치에 적힌 사각형(글자 크기, 드래그·앵커 계산용). in = 보이는 배경 상자가 그 밖으로 더 나간 {왼, 위, 오른, 아래}
+	 * (49-348차, 사용자: "실제 크기랑 옮기는 오브제랑 안 맞는 것도 있어") - 테두리·클릭·겹침·정렬·화면 끝은 보이는 상자(vx…) 기준.
+	 */
+	private record Element(Module module, PositionSetting setting, int x, int y, int w, int h, int[] in) {
+		int vx() {
+			return x - in[0];
+		}
+
+		int vy() {
+			return y - in[1];
+		}
+
+		int vw() {
+			return w + in[0] + in[2];
+		}
+
+		int vh() {
+			return h + in[1] + in[3];
+		}
 	}
 
 	public LunaHudEditorScreen(Screen parent, Module highlight) {
@@ -221,7 +241,7 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 				x = p.resolveX(width, w);
 				y = p.resolveY(height, h);
 			}
-			out.add(new Element(m, ps, x, y, w, h));
+			out.add(new Element(m, ps, x, y, w, h, p.hasRecentBounds() ? m.hudBoxInsets() : new int[4]));
 		}
 		elementsCache = out;
 		cacheFrame = frameSerial;
@@ -332,8 +352,8 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 				Element a = all.get(i);
 				for (int j = i + 1; j < all.size(); j++) {
 					Element b = all.get(j);
-					if (a.x() < b.x() + b.w() && b.x() < a.x() + a.w()
-							&& a.y() < b.y() + b.h() && b.y() < a.y() + a.h()) {
+					if (a.vx() < b.vx() + b.vw() && b.vx() < a.vx() + a.vw()
+							&& a.vy() < b.vy() + b.vh() && b.vy() < a.vy() + a.vh()) {
 						overlapping.add(a.module());
 						overlapping.add(b.module());
 					}
@@ -344,10 +364,10 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 			boolean isSel = e.module() == selected;
 			boolean isHover = (hover != null && hover.module() == e.module()) || e.module() == dragging;
 			boolean isOverlap = overlapping.contains(e.module());
-			int bx = e.x() - BOX_PAD;
-			int by = e.y() - BOX_PAD;
-			int bw = e.w() + BOX_PAD * 2;
-			int bh = e.h() + BOX_PAD * 2;
+			int bx = e.vx() - BOX_PAD;
+			int by = e.vy() - BOX_PAD;
+			int bw = e.vw() + BOX_PAD * 2;
+			int bh = e.vh() + BOX_PAD * 2;
 			float hov = LunaDraw.anim("edh:" + e.module().getId(), isSel || isHover ? 1f : 0f, 18f);
 			int line = isOverlap
 				? LunaDraw.lerpColor(0x8CFF6B5E, 0xFFFF8B7E, hov)
@@ -462,8 +482,8 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 		if (selEl != null && dragging == null && Math.abs(selEl.setting().get().scale - 1f) > 0.001f) {
 			String sc = "×" + trimScale(selEl.setting().get().scale);
 			int sw2 = LunaDraw.width(textRenderer, sc) + 8;
-			LunaDraw.roundRect(ctx, selEl.x() + selEl.w() + BOX_PAD - sw2, selEl.y() - BOX_PAD - 12, sw2, 11, 3, 0xD0000000);
-			LunaDraw.text(ctx, textRenderer, sc, selEl.x() + selEl.w() + BOX_PAD - sw2 + 4, selEl.y() - BOX_PAD - 10, LunaDraw.ACCENT);
+			LunaDraw.roundRect(ctx, selEl.vx() + selEl.vw() + BOX_PAD - sw2, selEl.vy() - BOX_PAD - 12, sw2, 11, 3, 0xD0000000);
+			LunaDraw.text(ctx, textRenderer, sc, selEl.vx() + selEl.vw() + BOX_PAD - sw2 + 4, selEl.vy() - BOX_PAD - 10, LunaDraw.ACCENT);
 		}
 		renderMenu(ctx, mouseX, mouseY);
 	}
@@ -704,7 +724,7 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 		// 나중에 그려진(위에 있는) 것부터
 		for (int i = list.size() - 1; i >= 0; i--) {
 			Element e = list.get(i);
-			if (LunaDraw.in(mx, my, e.x() - BOX_PAD, e.y() - BOX_PAD, e.w() + BOX_PAD * 2, e.h() + BOX_PAD * 2)) {
+			if (LunaDraw.in(mx, my, e.vx() - BOX_PAD, e.vy() - BOX_PAD, e.vw() + BOX_PAD * 2, e.vh() + BOX_PAD * 2)) {
 				return e;
 			}
 		}
@@ -784,8 +804,8 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 					if ((pass == 0) != (se.module() == selected)) {
 						continue;
 					}
-					int bx = se.x() - BOX_PAD, by = se.y() - BOX_PAD;
-					int bw = se.w() + BOX_PAD * 2, bh = se.h() + BOX_PAD * 2;
+					int bx = se.vx() - BOX_PAD, by = se.vy() - BOX_PAD;
+					int bw = se.vw() + BOX_PAD * 2, bh = se.vh() + BOX_PAD * 2;
 					for (int c = 0; c < 4; c++) {
 						int hx = (c % 2 == 0 ? bx : bx + bw) - HANDLE / 2;
 						int hy = (c < 2 ? by : by + bh) - HANDLE / 2;
@@ -831,6 +851,7 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 		grabDy = mouseY - e.y();
 		dragW = e.w();
 		dragH = e.h();
+		dragIn = e.in();
 		return true;
 	}
 
@@ -843,14 +864,13 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 	 *
 	 * <p>자동 정렬(스냅) 뒤에도 다시 조인다 - 스냅은 다른 요소 선에 맞추느라 클램프를 넘어설 수 있다.
 	 */
+	// 49-348차(사용자: "이런 설정 바닥에 좀 붙이게"): 여백은 기능마다 - 보이는 상자가 위치 사각형보다 넓은 만큼(dragIn)만 안쪽에서 멈춘다.
 	private float clampX(float x) {
-		int pad = kr.lunaslight.mod.module.Module.HUD_BOX_PAD;
-		return Math.max(pad, Math.min(width - dragW - pad, x));
+		return Math.max(dragIn[0], Math.min(width - dragW - dragIn[2], x));
 	}
 
 	private float clampY(float y) {
-		int pad = kr.lunaslight.mod.module.Module.HUD_BOX_PAD;
-		return Math.max(pad, Math.min(height - dragH - pad, y));
+		return Math.max(dragIn[1], Math.min(height - dragH - dragIn[3], y));
 	}
 
 	@Override
@@ -910,6 +930,21 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 			ny = ccy - dragH / 2;
 			snapped = true;
 		}
+		// 49-348차(사용자: "이런 설정 바닥에 좀 붙이게 해주고"): 화면 끝 가까이 오면 끝에 딱 붙는다(보이는 상자 기준).
+		int[] edgesX = {dragIn[0], width - dragW - dragIn[2]};
+		for (int ex : edgesX) {
+			if (Math.abs(nx - ex) <= SNAP) {
+				nx = ex;
+				snapped = true;
+			}
+		}
+		int[] edgesY = {dragIn[1], height - dragH - dragIn[3]};
+		for (int ey : edgesY) {
+			if (Math.abs(ny - ey) <= SNAP) {
+				ny = ey;
+				snapped = true;
+			}
+		}
 		// 49-22차: 다른 요소의 선(왼/오른/가운데, 위/아래/가운데)에 자동 정렬
 		int bestDx = Integer.MAX_VALUE, bestDy = Integer.MAX_VALUE;
 		int snapX = nx, snapY = ny, gx = Integer.MIN_VALUE, gy = Integer.MIN_VALUE;
@@ -917,8 +952,10 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 			if (o.module() == dragging) {
 				continue;
 			}
-			int[] mineX = {nx, nx + dragW, nx + dragW / 2};
-			int[] theirX = {o.x(), o.x() + o.w(), o.x() + o.w() / 2};
+			// 49-348차: 정렬은 보이는 상자끼리
+			int vx = nx - dragIn[0], vw = dragW + dragIn[0] + dragIn[2];
+			int[] mineX = {vx, vx + vw, vx + vw / 2};
+			int[] theirX = {o.vx(), o.vx() + o.vw(), o.vx() + o.vw() / 2};
 			for (int a = 0; a < 3; a++) {
 				for (int b = 0; b < 3; b++) {
 					int d = theirX[b] - mineX[a];
@@ -929,8 +966,9 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 					}
 				}
 			}
-			int[] mineY = {ny, ny + dragH, ny + dragH / 2};
-			int[] theirY = {o.y(), o.y() + o.h(), o.y() + o.h() / 2};
+			int vy = ny - dragIn[1], vh = dragH + dragIn[1] + dragIn[3];
+			int[] mineY = {vy, vy + vh, vy + vh / 2};
+			int[] theirY = {o.vy(), o.vy() + o.vh(), o.vy() + o.vh() / 2};
 			for (int a = 0; a < 3; a++) {
 				for (int b = 0; b < 3; b++) {
 					int d = theirY[b] - mineY[a];

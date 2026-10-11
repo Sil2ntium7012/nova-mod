@@ -101,6 +101,7 @@ public final class ModuleManager {
 		register(new FireOverlayModule());        // 49-69차(2-3 앞 절반): 타는 중 불꽃 높이
 		register(new ShieldOffsetModule());       // 49-75차(2-3 뒤 절반): 1인칭 방패 높이
 		register(new FreeLookModule());
+		register(new FreeViewModule());          // 49-349차: 자유 시점(배그식 ALT 둘러보기)
 
 		// ---- 인벤토리 ----
 		// 49-157차: [인벤토리 > 아이템 개수](손에 든 것)는 [HUD > 아이템 개수]의 [손에 든 아이템]으로 합쳤다.

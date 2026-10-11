@@ -1,6 +1,5 @@
 package kr.lunaslight.mod.module.impl.misc;
 
-import kr.lunaslight.mod.util.WindowAccess;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import kr.lunaslight.mod.LunaClientMod;
@@ -12,7 +11,6 @@ import kr.lunaslight.mod.util.LunaSocial;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import org.lwjgl.glfw.GLFW;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -42,55 +40,14 @@ public class SessionFixModule extends Module {
 	private long deadline;              // 결과 대기 마감(ms)
 	private long lastPoll;             // 결과 파일 폴링 간격 조절
 	private String note = "";          // 실패/안내 문구(버튼 아래)
-	private boolean clickHeld;
-	// 49-341차(사용자: "세션 새로고침 버튼을 서버 나가기 버튼 아래쪽에"): 일시정지 메뉴에서 누른 흐름.
-	// 접속 중에 토큰을 새로 받고(결과는 onTick이 기다림), 받으면 서버를 나갔다가(quitToTitle) 타이틀에 닿는 즉시 같은 서버로 다시 붙는다.
-	private boolean menuMode;
-	private String menuAddress;
-	private String pendingReconnect;
-	private static SessionFixModule instance;
 
 	public SessionFixModule() {
 		super("session_fix", "세션 복구", ModuleCategory.FEATURE,
 			"'세션이 잘못되었습니다' 화면에서 재시작 없이 세션을 새로 받아 바로 재접속");
 		// 49-122차(사용자: "세션 복구는 기능이 아니라 무조건 고정 - 기능에서 없애고 고정시켜"): 항상 켜짐 + 기능 목록에서 숨김.
 		alwaysOn();
-		instance = this;
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
-	}
-
-	/** 일시정지 메뉴 [세션 새로고침]. 멀티 서버에 있을 때만 뜻이 있다(싱글이면 아무것도 안 함). */
-	public static void refreshFromMenu() {
-		SessionFixModule m = instance;
-		if (m == null || m.client == null) {
-			return;
-		}
-		String addr = LunaCompat.currentServerAddress(m.client);
-		if (addr == null || addr.isEmpty()) {
-			LunaCompat.printLocalMessage(m.client, "§e[Nova] §f멀티 서버에 접속한 상태에서만 세션을 새로고침할 수 있어요.");
-			return;
-		}
-		m.menuMode = true;
-		m.menuAddress = addr;
-		m.startRefresh();
-		LunaCompat.printLocalMessage(m.client, "§e[Nova] §f세션을 새로 받는 중… 받으면 서버에 다시 접속해요.");
-		LunaCompat.setScreen(null);
-	}
-
-	@Override
-	public void onTick() {
-		if (menuMode && phase == WORKING) {
-			pollResult();
-		}
-		if (pendingReconnect != null && client != null && client.world == null) {
-			Object s = client.currentScreen;
-			// 나가기가 끝나 타이틀(또는 아무 화면도 아님)에 닿으면 다시 붙는다
-			if (s == null || s.getClass().getName().equals("net.minecraft.client.gui.screen.TitleScreen")) {
-				String a = pendingReconnect;
-				pendingReconnect = null;
-				AutoReconnectModule.reconnectTo(a);
-			}
-		}
+		LunaCompat.registerScreenAfterInit(this::onScreenInit);   // 49-344차
 	}
 
 	@Override
@@ -111,8 +68,8 @@ public class SessionFixModule extends Module {
 
 	private void onScreenFrame(Object screen, DrawContext ctx, int mouseX, int mouseY) {
 		if (!isEnabled() || !(screen instanceof Screen s) || !isDisconnectedScreen(s)) {
-			// 다른 화면이면 진행 중이던 상태는 접는다(재접속 화면으로 넘어간 경우 등). 메뉴 흐름은 onTick이 따로 기다린다.
-			if (phase != 0 && !menuMode && !(screen instanceof Screen s2 && isDisconnectedScreen(s2))) {
+			// 다른 화면이면 진행 중이던 상태는 접는다(재접속 화면으로 넘어간 경우 등).
+			if (phase != 0 && !(screen instanceof Screen s2 && isDisconnectedScreen(s2))) {
 				phase = 0;
 			}
 			return;
@@ -120,101 +77,65 @@ public class SessionFixModule extends Module {
 		if (phase == WORKING) {
 			pollResult();
 		}
-
-		// 49-197차(사용자: "세션 로그인 후 재접속 버튼이 너무 초라해 - 색도 좀 있고 입체감도 있어야"): 납작한 한 가지 색 판 →
-		// 입체 버튼. 테마색 위→아래 그라데이션 + 아래쪽 두꺼운 어두운 턱(누르면 내려앉음) + 위 가장자리 밝은 줄 + 그림자,
-		// 마우스를 올리면 밝아지고 1px 떠오르며, 가만히 있을 때 2.6초마다 빛이 한 번 쓸고 지나간다. 앞에 새로고침 아이콘.
-		int bw = 236;
-		int bh = 26;
-		int lip = 3;
-		int bx = (s.width - bw) / 2;
-		int by = s.height - 60;   // 자동 재접속 안내줄(height-24)보다 위
-		boolean hover = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh + lip;
-		boolean clickable = phase == 0;
-		boolean pressed = clickable && hover && WindowAccess.of(client) != null
-			&& GLFW.glfwGetMouseButton(WindowAccess.of(client).getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-
+		// 49-344차(사용자, 끊김 화면 사진: "세션 재접속 버튼은 [서버 목록으로 돌아가기] 아래에, 마크 버튼이랑 똑같게"): 직접 그리던
+		// 초록 입체 버튼(49-197차)을 없애고 onScreenInit이 얹은 바닐라 버튼을 쓴다. 여기서는 글자/활성만 맞추고 안내 글을 그 아래에 쓴다.
 		String label = switch (phase) {
 			case WORKING -> "세션 새로 받는 중…";
 			case RECONNECT -> "다시 접속하는 중…";
 			default -> "세션 새로고침 후 재접속";
 		};
-
-		int accent = LunaDraw.ACCENT | 0xFF000000;
-		int face = clickable ? accent : LunaDraw.lerpColor(accent, 0xFF2A2F36, 0.55f);
-		if (clickable && hover && !pressed) {
-			face = LunaDraw.lerpColor(face, 0xFFFFFFFF, 0.14f);
-		}
-		int top = LunaDraw.lerpColor(face, 0xFFFFFFFF, 0.22f);
-		int bottom = LunaDraw.lerpColor(face, 0xFF000000, 0.10f);
-		int lipColor = LunaDraw.lerpColor(face, 0xFF000000, 0.45f);
-		int lift = pressed ? lip : (clickable && hover ? -1 : 0);   // 누르면 턱만큼 내려앉고, 올리면 1px 떠오른다
-		int fy = by + lift;
-		// 그림자와 턱(버튼 아래 두께)
-		LunaDraw.shadow(ctx, bx, by + lip, bw, bh, 6);
-		LunaDraw.roundRect(ctx, bx, by + lip, bw, bh, 6, lipColor);
-		// 윗면
-		LunaDraw.roundRectGradient(ctx, bx, fy, bw, bh, 6, top, bottom);
-		ctx.fill(bx + 5, fy + 1, bx + bw - 5, fy + 2, LunaDraw.withAlpha(0xFFFFFFFF, 0x55));   // 위 가장자리 반짝임
-		// 빛이 쓸고 지나감(가만히 있을 때만)
-		long now = System.currentTimeMillis();
-		if (clickable && !pressed) {
-			float t = (now % 2600L) / 900f;   // 0..1 동안만 지나가고 나머지는 쉼
-			if (t <= 1f) {
-				int bandW = 26;
-				int cx = bx - bandW + Math.round((bw + bandW * 2) * t);
-				for (int k = -bandW / 2; k <= bandW / 2; k++) {
-					int px = cx + k;
-					if (px < bx + 4 || px >= bx + bw - 4) {
-						continue;
-					}
-					int a = Math.round(70 * (1f - Math.abs(k) / (bandW / 2f)));
-					ctx.fill(px, fy + 2, px + 1, fy + bh - 2, LunaDraw.withAlpha(0xFFFFFFFF, a));
-				}
+		if (button != null && buttonScreen == screen) {
+			LunaCompat.setButton(button, label, phase == 0);
+			if (note != null && !note.isEmpty()) {
+				int nw = LunaCompat.getTextWidth(client.textRenderer, note);
+				int by = LunaCompat.widgetInt(button, "getY", "y");
+				LunaDraw.text(ctx, client.textRenderer, note, (s.width - nw) / 2, by + 24, LunaDraw.TEXT_DIM);
 			}
 		}
-		// 진행 중이면 아래쪽에 흐르는 줄
-		if (!clickable) {
-			int seg = 40;
-			int off = (int) ((now / 12L) % (bw + seg)) - seg;
-			int x0 = Math.max(bx + 4, bx + off);
-			int x1 = Math.min(bx + bw - 4, bx + off + seg);
-			if (x1 > x0) {
-				ctx.fill(x0, fy + bh - 3, x1, fy + bh - 1, LunaDraw.withAlpha(accent, 0xE0));
+	}
+
+	/** 얹은 바닐라 버튼과 그 화면(화면이 다시 init되면 새로 얹는다). */
+	private Object button;
+	private Object buttonScreen;
+
+	/** 끊김 화면 init 뒤: 맨 아래 버튼([서버 목록으로 돌아가기]) 바로 밑에 같은 폭의 바닐라 버튼을 얹는다. */
+	private void onScreenInit(Object screen) {
+		button = null;
+		buttonScreen = null;
+		if (!isEnabled() || !(screen instanceof Screen s) || !isDisconnectedScreen(s)) {
+			return;
+		}
+		java.util.List<Object> buttons = LunaCompat.screenButtons(screen);
+		if (buttons == null || buttons.isEmpty()) {
+			return;
+		}
+		Object last = null;
+		int lastY = Integer.MIN_VALUE;
+		for (Object b : buttons) {
+			int y = LunaCompat.widgetInt(b, "getY", "y");
+			if (y > lastY) {
+				lastY = y;
+				last = b;
 			}
 		}
-		// 글자색: 밝은 테마색 위엔 검정, 어두운 색 위엔 흰색
-		int lum = (((face >> 16) & 0xFF) * 299 + ((face >> 8) & 0xFF) * 587 + (face & 0xFF) * 114) / 1000;
-		int tc = !clickable ? 0xFFE6E9ED : (lum > 150 ? 0xFF0A0F0C : 0xFFFFFFFF);
-		int tw = LunaCompat.getTextWidth(client.textRenderer, label);
-		int iconW = clickable ? kr.lunaslight.mod.gui.LunaIcons.SIZE + 4 : 0;
-		int tx = bx + (bw - tw - iconW) / 2 + iconW;
-		int ty = LunaDraw.textY(fy, bh);
-		if (clickable) {
-			kr.lunaslight.mod.gui.LunaIcons.draw(ctx, client.textRenderer, kr.lunaslight.mod.gui.LunaIcons.RESET, tx - iconW,
-				LunaDraw.iconY(fy, bh), tc);
+		if (last == null) {
+			return;
 		}
-		// 글자 아래 한 칸 그림자(밝은 판 위에선 흰 그림자, 어두운 판 위에선 검은 그림자)
-		LunaDraw.text(ctx, client.textRenderer, label, tx, ty + 1, LunaDraw.withAlpha(tc == 0xFF0A0F0C ? 0xFFFFFFFF : 0xFF000000, 0x40));
-		LunaDraw.text(ctx, client.textRenderer, label, tx, ty, tc);
-		int bh2 = bh + lip;   // 아래 안내 글 자리 계산용(턱 포함)
-
-		if (note != null && !note.isEmpty()) {
-			int nw = LunaCompat.getTextWidth(client.textRenderer, note);
-			LunaDraw.text(ctx, client.textRenderer, note, (s.width - nw) / 2, by + bh2 + 5, LunaDraw.TEXT_DIM);
+		int x = LunaCompat.widgetInt(last, "getX", "x");
+		int w = LunaCompat.widgetInt(last, "getWidth", "width");
+		int h = LunaCompat.widgetInt(last, "getHeight", "height");
+		if (w <= 0) {
+			w = 200;
 		}
-
-		// 클릭(GLFW 폴링, 눌린 순간 한 번)
-		boolean down = WindowAccess.of(client) != null
-			&& GLFW.glfwGetMouseButton(WindowAccess.of(client).getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		if (down && !clickHeld) {
-			clickHeld = true;
-			if (clickable && hover) {
+		if (h <= 0) {
+			h = 20;
+		}
+		button = LunaCompat.addVanillaButton(screen, x, lastY + h + 4, w, h, "세션 새로고침 후 재접속", () -> {
+			if (phase == 0) {
 				startRefresh();
 			}
-		} else if (!down) {
-			clickHeld = false;
-		}
+		});
+		buttonScreen = button == null ? null : screen;
 	}
 
 	private void startRefresh() {
@@ -280,20 +201,6 @@ public class SessionFixModule extends Module {
 				fail(why);
 				return;
 			}
-			if (menuMode) {
-				// 49-341차: 메뉴에서 시작한 흐름 - 서버를 나갔다가 타이틀에 닿으면 onTick이 같은 서버로 다시 붙인다
-				menuMode = false;
-				phase = 0;
-				pendingReconnect = menuAddress;
-				LunaCompat.printLocalMessage(client, "§e[Nova] §f세션을 새로 받았어요. 다시 접속합니다…");
-				try {
-					LunaCompat.quitToTitle(client);
-				} catch (Throwable t) {
-					LunaCompat.warnOnce("sessionFix:quit", t);
-					pendingReconnect = null;
-				}
-				return;
-			}
 			// 세션 교체 성공 → 마지막 서버로 재접속
 			String addr = AutoReconnectModule.lastServerAddress();
 			if (addr == null || addr.isEmpty()) {
@@ -315,12 +222,6 @@ public class SessionFixModule extends Module {
 	private void fail(String why) {
 		phase = 0;
 		note = why == null ? "실패했어요" : why;
-		if (menuMode) {
-			menuMode = false;
-			if (client != null) {
-				LunaCompat.printLocalMessage(client, "§e[Nova] §c세션 새로고침 실패: §f" + note);
-			}
-		}
 	}
 
 	private static Path gameDir() {

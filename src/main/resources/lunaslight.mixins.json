@@ -11,6 +11,8 @@
         "ScoreboardDisplayMixin",
         "GameRendererFovMixin",
         "ViewBobCaptureMixin",
+        "EntityTurnMixin",
+        "CameraFreeViewMixin",
         "CrosshairHideMixin",
         "HudElementHideMixin",
         "ChatHudMixin",

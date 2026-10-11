@@ -20,6 +20,8 @@ public final class LunaVScale {
 	private boolean on, scisPose;
 	private float k = 1f, px = 2f;
 	private int realW, realH;
+	/** 들어가 있는 동안 screen.width/height에 넣어 둔 가상 크기(나올 때 바뀌었는지 본다). */
+	private int vW, vH;
 	private int initW = -1, initH = -1;
 	/** 마지막 그리기에서 행렬을 쓸 수 있었는지(배치 때는 그리기 도구가 없어서 이 값을 본다). */
 	private static boolean xformOk;
@@ -67,6 +69,8 @@ public final class LunaVScale {
 		}
 		screen.width = Math.round(realW * k);
 		screen.height = Math.round(realH * k);
+		vW = screen.width;
+		vH = screen.height;
 		on = true;
 		return true;
 	}
@@ -74,8 +78,16 @@ public final class LunaVScale {
 	public void exit(boolean entered) {
 		if (entered) {
 			on = false;
-			screen.width = realW;
-			screen.height = realH;
+			if (screen.width == vW && screen.height == vH) {
+				screen.width = realW;
+				screen.height = realH;
+			} else {
+				// 49-345차(사용자, 처음 설정 사진: "GUI 비율 바꾸면 창이 난리쳐"): 들어가 있는 동안 화면이 다시 크기 조정됐다
+				// ([GUI 크기] 클릭 → resizeGui → Screen.resize가 width/height를 실제 값으로 새로 넣고 init). 예전 실제 크기로 되돌리면
+				// 새 크기가 사라져 그 뒤 배율과 배치가 전부 어긋났다. 지금 값(새 실제 크기)을 그대로 두고 다음 그리기에서 다시 배치한다.
+				initW = -1;
+				initH = -1;
+			}
 		}
 	}
 
