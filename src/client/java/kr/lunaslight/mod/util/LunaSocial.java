@@ -1211,6 +1211,7 @@ public final class LunaSocial {
 	}
 
 	/** 5분마다(10-08: 15초 → 5분, 서버를 옮기면 바로) site_presence에서 같은 서버·최근 접속한 루나 유저의 닉네임을 모은다. */
+	private static volatile boolean badgeNarrowFailed;   // 10-12
 	public static void pollServerBadges(MinecraftClient client) {
 		if (client == null || client.world == null) {
 			serverLunaNames = java.util.Collections.emptySet();
@@ -1244,8 +1245,16 @@ public final class LunaSocial {
 			return;
 		}
 		String sinceIso = java.time.Instant.ofEpochMilli(now - AWAY_WINDOW_MS).toString();
-		rest("/site_presence?updated_at=gte." + enc(sinceIso) + "&server_address=not.is.null&select=*")   // 10-08: 게임 중인 사람만
-				.exceptionally(t -> null)
+		// 10-12(Supabase 전송량): 줄 전체(select=*) 대신 별에 쓰는 칸만. 칸이 없는 옛 표면(400) 예전처럼 전체로
+		String badgeCols = badgeNarrowFailed ? "*" : "mc_name,server_address,game_afk,updated_at";
+		rest("/site_presence?updated_at=gte." + enc(sinceIso) + "&server_address=not.is.null&select=" + badgeCols)   // 10-08: 게임 중인 사람만
+				.exceptionally(t -> {
+					if (!badgeNarrowFailed && String.valueOf(t).contains("Supabase 400")) {
+						badgeNarrowFailed = true;
+						lastBadgePollMs = 0L;   // 다음 틱에 전체로 다시
+					}
+					return null;
+				})
 				.thenAccept(arr -> {
 					if (arr == null || !arr.isJsonArray()) {
 						return;
