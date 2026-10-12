@@ -41,79 +41,173 @@ public final class NovaWings {
 
 	public static final String[] KEYS = {"butterfly"};
 
-	// ==================== 소유 ====================
+	// ==================== 소유(칸마다) ====================
+	// 49-351차(사용자: "토끼가방으로 치장에 추가해줘"): 날개와 같은 구조의 두 번째 칸 [가방]. 칸마다 서명 종류(kind), key 목록, Supabase 칸,
+	// 내 것(서명)과 남의 것(캐시)을 따로 갖는다. 그리기는 둘 다 같은 자산 형식(NovaWingsRender).
 
-	private static volatile String mineKey, mineSig;
-	private static volatile long mineTs;
-	private static volatile String mineOkFor;
-	private static volatile boolean mineOk;
+	public static final class Slot {
+		public final String kind;        // 런처 서명 종류이자 .luna-launch.json cosmetics.<kind>, 값 접두("wing-")
+		public final String column;      // nova_player_tiers 칸
+		public final String[] keys;
+		private final Map<String, String> names;
+		private final java.util.function.BooleanSupplier mineOn;
+
+		private volatile String mineKey, mineSig;
+		private volatile long mineTs;
+		private volatile String mineOkFor;
+		private volatile boolean mineOk;
+		private final Map<String, String> others = new ConcurrentHashMap<>();
+		private final Map<String, Long> fetched = new ConcurrentHashMap<>();
+		private final Set<String> want = ConcurrentHashMap.newKeySet();
+		private volatile boolean inFlight;
+		private volatile long lastFetch;
+
+		Slot(String kind, String column, String[] keys, Map<String, String> names, java.util.function.BooleanSupplier mineOn) {
+			this.kind = kind;
+			this.column = column;
+			this.keys = keys;
+			this.names = names;
+			this.mineOn = mineOn;
+		}
+
+		/** LunaSocial이 .luna-launch.json의 cosmetics.<kind>를 읽어 넘긴다(끼지 않았으면 key null). */
+		public void setMineSigned(String key, long ts, String sig) {
+			mineKey = valid(key);
+			mineTs = ts;
+			mineSig = sig;
+			mineOkFor = null;
+		}
+
+		public String valid(String key) {
+			if (key == null) {
+				return null;
+			}
+			String k = key.trim().toLowerCase(Locale.ROOT);
+			if (k.startsWith(kind + "-")) {
+				k = k.substring(kind.length() + 1);
+			}
+			if (k.endsWith("_" + kind + "s")) {
+				k = k.substring(0, k.length() - kind.length() - 2);
+			}
+			for (String x : keys) {
+				if (x.equals(k)) {
+					return x;
+				}
+			}
+			return null;
+		}
+
+		/** 내 것(서명 확인된 것만). */
+		private String mine(String selfUuid) {
+			String k = mineKey;
+			if (k == null || selfUuid.isEmpty()) {
+				return null;
+			}
+			String tag = k + "|" + selfUuid + "|" + mineTs;
+			if (!tag.equals(mineOkFor)) {
+				mineOk = kr.lunaslight.mod.LunaClientMod.verifySig2(kind, mineTs, k + "|" + selfUuid, mineSig, false);
+				mineOkFor = tag;
+				if (!mineOk) {
+					LunaCompat.warnOnce(kind + "s:sig", new IllegalStateException(kind + " 서명이 맞지 않아 그리지 않음"));
+				}
+			}
+			return mineOk ? k : null;
+		}
+
+		/** 내가 낀 것(서명 확인된 것, 없으면 null) - [코스메틱] 페이지 표시용. */
+		public String mineKey() {
+			return mine(selfId());
+		}
+
+		/** key → 보이는 이름. */
+		public String nameOf(String key) {
+			if (key == null) {
+				return null;
+			}
+			String n = names.get(key);
+			return n == null ? key : n;
+		}
+
+		/** 이 uuid(대시 있든 없든)가 낀 것의 key(없으면 null). 남의 것은 모르면 조회를 예약한다. */
+		public String keyFor(String uuid, boolean withOthers) {
+			String uid = norm(uuid);
+			if (uid.isEmpty()) {
+				return null;
+			}
+			LunaSocial.load();
+			if (uid.equals(selfId())) {
+				return mineOn.getAsBoolean() ? mine(uid) : null;   // 49-282차: [코스메틱] 쓰기 스위치
+			}
+			if (!withOthers) {
+				return null;
+			}
+			String k = others.get(uid);
+			Long at = fetched.get(uid);
+			if (at == null || System.currentTimeMillis() - at > TTL) {
+				want.add(uid);
+				maybeFetch();
+			}
+			return k == null || k.isEmpty() ? null : k;
+		}
+
+		private void maybeFetch() {
+			long now = System.currentTimeMillis();
+			if (inFlight || want.isEmpty() || now - lastFetch < 5000L || !LunaSocial.available()) {
+				return;
+			}
+			inFlight = true;
+			lastFetch = now;
+			List<String> batch = new ArrayList<>();
+			for (String u : want) {
+				batch.add(u);
+				if (batch.size() >= 60) {
+					break;
+				}
+			}
+			want.removeAll(batch);
+			try {
+				LunaSocial.fetchCosmeticColumn(batch, column).whenComplete((map, err) -> {
+					long t = System.currentTimeMillis();
+					for (String u : batch) {
+						String k = map == null ? null : valid(map.get(u));
+						others.put(u, k == null ? "" : k);
+						fetched.put(u, err == null ? t : t - TTL + 60_000L);
+					}
+					inFlight = false;
+				});
+			} catch (Throwable t) {
+				inFlight = false;
+			}
+		}
+	}
+
+	/** 날개 칸. */
+	public static final Slot WING = new Slot("wing", "cosmetic_wing", KEYS, Map.of("butterfly", "나비 날개"),
+			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.wingsOn());
+	/** 49-351차: 가방 칸(첫 번째 = 토끼 가방). 서명 글자 "NovaSig|v1|bag|ts|key|내 uuid", Supabase nova_player_tiers.cosmetic_bag. */
+	public static final String[] BAG_KEYS = {"bunny"};
+	public static final Slot BAG = new Slot("bag", "cosmetic_bag", BAG_KEYS, Map.of("bunny", "토끼 가방"),
+			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.bagOn());
 
 	/** LunaSocial이 .luna-launch.json의 cosmetics.wing을 읽어 넘긴다(끼지 않았으면 key null). */
 	public static void setMineSigned(String key, long ts, String sig) {
-		mineKey = valid(key);
-		mineTs = ts;
-		mineSig = sig;
-		mineOkFor = null;
-	}
-
-	private static String valid(String key) {
-		if (key == null) {
-			return null;
-		}
-		String k = key.trim().toLowerCase(Locale.ROOT);
-		if (k.startsWith("wing-")) {
-			k = k.substring(5);
-		}
-		if (k.endsWith("_wings")) {
-			k = k.substring(0, k.length() - 6);
-		}
-		for (String x : KEYS) {
-			if (x.equals(k)) {
-				return x;
-			}
-		}
-		return null;
+		WING.setMineSigned(key, ts, sig);
 	}
 
 	private static String norm(String id) {
 		return id == null ? "" : id.replace("-", "").toLowerCase(Locale.ROOT);
 	}
 
-	/** 내 날개(서명 확인된 것만). */
-	private static String mine(String selfUuid) {
-		String k = mineKey;
-		if (k == null || selfUuid.isEmpty()) {
-			return null;
-		}
-		String tag = k + "|" + selfUuid + "|" + mineTs;
-		if (!tag.equals(mineOkFor)) {
-			mineOk = kr.lunaslight.mod.LunaClientMod.verifySig2("wing", mineTs, k + "|" + selfUuid, mineSig, false);
-			mineOkFor = tag;
-			if (!mineOk) {
-				LunaCompat.warnOnce("wings:sig", new IllegalStateException("날개 서명이 맞지 않아 그리지 않음"));
-			}
-		}
-		return mineOk ? k : null;
-	}
-
 	/** 49-271차: 내가 낀 날개(서명 확인된 것, 없으면 null) - [코스메틱] 페이지 표시용. */
 	public static String mineKey() {
-		return mine(selfId());
+		return WING.mineKey();
 	}
 
-	/** key → 보이는 이름. */
+	/** key → 보이는 이름(날개). */
 	public static String nameOf(String key) {
-		if (key == null) {
-			return null;
-		}
-		return "butterfly".equals(key) ? "나비 날개" : key;
+		return WING.nameOf(key);
 	}
 
-	private static final Map<String, String> OTHERS = new ConcurrentHashMap<>();
-	private static final Map<String, Long> FETCHED = new ConcurrentHashMap<>();
-	private static final Set<String> WANT = ConcurrentHashMap.newKeySet();
-	private static volatile boolean inFlight;
-	private static volatile long lastFetch;
 	private static final long TTL = 10 * 60_000L;   // 10-08(Supabase 요청 수): 1분 → 10분, 없는 사람도 같이 기억
 	private static String selfId = "";
 	private static long selfAt;
@@ -132,54 +226,7 @@ public final class NovaWings {
 
 	/** 이 uuid(대시 있든 없든)가 낀 날개 key(없으면 null). 남의 것은 모르면 조회를 예약한다. */
 	public static String keyFor(String uuid, boolean others) {
-		String uid = norm(uuid);
-		if (uid.isEmpty()) {
-			return null;
-		}
-		LunaSocial.load();
-		if (uid.equals(selfId())) {
-			return kr.lunaslight.mod.module.impl.misc.CosmeticsModule.wingsOn() ? mine(uid) : null;   // 49-282차: [코스메틱] 날개 쓰기
-		}
-		if (!others) {
-			return null;
-		}
-		String k = OTHERS.get(uid);
-		Long at = FETCHED.get(uid);
-		if (at == null || System.currentTimeMillis() - at > TTL) {
-			WANT.add(uid);
-			maybeFetch();
-		}
-		return k == null || k.isEmpty() ? null : k;
-	}
-
-	private static void maybeFetch() {
-		long now = System.currentTimeMillis();
-		if (inFlight || WANT.isEmpty() || now - lastFetch < 5000L || !LunaSocial.available()) {
-			return;
-		}
-		inFlight = true;
-		lastFetch = now;
-		List<String> batch = new ArrayList<>();
-		for (String u : WANT) {
-			batch.add(u);
-			if (batch.size() >= 60) {
-				break;
-			}
-		}
-		WANT.removeAll(batch);
-		try {
-			LunaSocial.fetchWings(batch).whenComplete((map, err) -> {
-				long t = System.currentTimeMillis();
-				for (String u : batch) {
-					String k = map == null ? null : valid(map.get(u));
-					OTHERS.put(u, k == null ? "" : k);
-					FETCHED.put(u, err == null ? t : t - TTL + 60_000L);
-				}
-				inFlight = false;
-			});
-		} catch (Throwable t) {
-			inFlight = false;
-		}
+		return WING.keyFor(uuid, others);
 	}
 
 	// ==================== 자산(암호화된 묶음) ====================
@@ -191,7 +238,8 @@ public final class NovaWings {
 		String name;
 		int parent = -1;
 		float[] pivot = new float[3];
-		final List<float[]> cubes = new ArrayList<>();   // x0 y0 z0 x1 y1 z1 u v sx sy sz(Bedrock 크기)
+		final List<float[]> cubes = new ArrayList<>();   // x0 y0 z0 x1 y1 z1 u v sx sy sz(Bedrock 크기) [+ 49-351차: 면마다 uv 24개 = 북 남 동 서 위 아래 × (x1 y1 x2 y2)]
+		float[] rot;   // 49-351차: Blockbench 요소 자체 회전(도, 없으면 null) - 열쇠틀 없이 고정
 		float[] keyT;
 		float[][] keyRot;   // Blockbench 좌표의 각도(도)
 	}
@@ -345,6 +393,10 @@ public final class NovaWings {
 
 	private static void parseGeo(Asset a, String text) {
 		JsonObject root = json(text);
+		if (root.has("elements") && !root.has("minecraft:geometry")) {
+			parseBlockbench(a, root);   // 49-351차
+			return;
+		}
 		JsonArray geos = root.getAsJsonArray("minecraft:geometry");
 		JsonObject g = geos.get(0).getAsJsonObject();
 		JsonObject d = g.getAsJsonObject("description");
@@ -386,6 +438,113 @@ public final class NovaWings {
 			Integer pi = parents.get(i) == null ? null : index.get(parents.get(i));
 			a.bones.get(i).parent = pi == null ? -1 : pi;
 		}
+	}
+
+	/**
+	 * 49-351차(토끼 가방): Blockbench 저장 파일(.bbmodel, elements + outliner)을 그대로 읽는다 - Bedrock 내보내기는 상자 UV만 되는데
+	 * 가방은 면마다 UV를 따로 찍어 뒀다. 좌표는 Blockbench 그대로(앞 = -Z, 픽셀), 요소마다 from/to/faces(uv [x1 y1 x2 y2], Blockbench 면 이름
+	 * north/south/east/west/up/down = -Z/+Z/+X/-X/+Y/-Y)와 자체 회전(origin + rotation). 그룹(outliner)은 뼈: origin이 피벗, rotation은 고정 회전.
+	 * 애니메이션은 안 붙인다(bbmodel 애니메이션은 안 읽음 - 가방은 가만히 있는다).
+	 */
+	private static void parseBlockbench(Asset a, JsonObject root) {
+		JsonObject res = root.getAsJsonObject("resolution");
+		if (res != null) {
+			a.texW = res.get("width").getAsFloat();
+			a.texH = res.get("height").getAsFloat();
+		}
+		Map<String, JsonObject> elements = new HashMap<>();
+		for (JsonElement e : root.getAsJsonArray("elements")) {
+			JsonObject el = e.getAsJsonObject();
+			if (el.has("uuid") && (!el.has("type") || "cube".equals(el.get("type").getAsString()))) {
+				elements.put(el.get("uuid").getAsString(), el);
+			}
+		}
+		Set<String> placed = new java.util.HashSet<>();
+		if (root.has("outliner")) {
+			for (JsonElement e : root.getAsJsonArray("outliner")) {
+				bbNode(a, e, -1, elements, placed);
+			}
+		}
+		for (Map.Entry<String, JsonObject> e : elements.entrySet()) {
+			if (!placed.contains(e.getKey())) {
+				bbCube(a, e.getValue(), -1);
+			}
+		}
+	}
+
+	private static void bbNode(Asset a, JsonElement node, int parent, Map<String, JsonObject> elements, Set<String> placed) {
+		if (node.isJsonPrimitive()) {
+			JsonObject el = elements.get(node.getAsString());
+			if (el != null) {
+				placed.add(node.getAsString());
+				bbCube(a, el, parent);
+			}
+			return;
+		}
+		if (!node.isJsonObject()) {
+			return;
+		}
+		JsonObject g = node.getAsJsonObject();
+		Bone b = new Bone();
+		b.name = g.has("name") ? g.get("name").getAsString() : "group";
+		b.pivot = vec(g.get("origin"));
+		float[] r = vec(g.get("rotation"));
+		if (r[0] != 0 || r[1] != 0 || r[2] != 0) {
+			b.rot = r;
+		}
+		b.parent = parent;
+		int idx = a.bones.size();
+		a.bones.add(b);
+		if (g.has("children")) {
+			for (JsonElement c : g.getAsJsonArray("children")) {
+				bbNode(a, c, idx, elements, placed);
+			}
+		}
+	}
+
+	private static final String[] BB_FACES = {"north", "south", "east", "west", "up", "down"};
+
+	/** 요소 하나 = 뼈 하나(자체 회전이 있을 수 있어서) + 상자 하나. */
+	private static void bbCube(Asset a, JsonObject el, int parent) {
+		float[] from = vec(el.get("from"));
+		float[] to = vec(el.get("to"));
+		Bone b = new Bone();
+		b.name = el.has("name") ? el.get("name").getAsString() : "cube";
+		b.parent = parent;
+		b.pivot = el.has("origin") ? vec(el.get("origin")) : from.clone();
+		float[] r = vec(el.get("rotation"));
+		if (r[0] != 0 || r[1] != 0 || r[2] != 0) {
+			b.rot = r;
+		}
+		float[] c = new float[11 + 24];
+		c[0] = Math.min(from[0], to[0]);
+		c[1] = Math.min(from[1], to[1]);
+		c[2] = Math.min(from[2], to[2]);
+		c[3] = Math.max(from[0], to[0]);
+		c[4] = Math.max(from[1], to[1]);
+		c[5] = Math.max(from[2], to[2]);
+		JsonObject faces = el.getAsJsonObject("faces");
+		for (int f = 0; f < 6; f++) {
+			float[] uv = {0, 0, 0, 0};
+			boolean has = false;
+			if (faces != null && faces.has(BB_FACES[f]) && faces.get(BB_FACES[f]).isJsonObject()) {
+				JsonObject fo = faces.getAsJsonObject(BB_FACES[f]);
+				if (fo.has("uv") && fo.get("uv").isJsonArray()) {
+					JsonArray ua = fo.getAsJsonArray("uv");
+					for (int i = 0; i < 4 && i < ua.size(); i++) {
+						uv[i] = ua.get(i).getAsFloat();
+					}
+					has = !(fo.has("texture") && fo.get("texture").isJsonNull());
+				}
+			}
+			if (!has) {
+				uv[2] = uv[0];   // 폭 0 = 안 그림
+			}
+			System.arraycopy(uv, 0, c, 11 + f * 4, 4);
+		}
+		b.cubes.add(c);
+		a.quadCount += 6;
+		a.bones.add(b);
 	}
 
 	private static void parseAnim(Asset a, String text) {
@@ -519,6 +678,9 @@ public final class NovaWings {
 			Bone b = a.bones.get(i);
 			double[] local = translate(0, 0, 0);
 			float[] r = rotAt(b, t);
+			if (r == null) {
+				r = b.rot;   // 49-351차: 고정 회전(Blockbench 요소/그룹)
+			}
 			if (r != null) {
 				double[] rot = mul(rotZ(Math.toRadians(r[2])), mul(rotY(Math.toRadians(r[1])), rotX(Math.toRadians(r[0]))));
 				local = mul(translate(b.pivot[0], b.pivot[1], b.pivot[2]), mul(rot, translate(-b.pivot[0], -b.pivot[1], -b.pivot[2])));
@@ -538,6 +700,17 @@ public final class NovaWings {
 
 	private static int cube(double[] m, float[] c, float tw, float th, float[] out, int n) {
 		float x0 = c[0], y0 = c[1], z0 = c[2], x1 = c[3], y1 = c[4], z1 = c[5];
+		if (c.length >= 35) {
+			// 49-351차: 면마다 UV(Blockbench). 바깥에서 봤을 때 왼쪽 위 꼭짓점이 uv (x1, y1) - 자바 블록 모델과 같은 방향
+			// (위: 북쪽이 위, 서쪽이 왼쪽 / 아래: 남쪽이 위, 서쪽이 왼쪽).
+			n = quadUv(m, out, n, tw, th, 0, 0, -1, x1, y1, z0, x0, y1, z0, x0, y0, z0, x1, y0, z0, c, 11);
+			n = quadUv(m, out, n, tw, th, 0, 0, 1, x0, y1, z1, x1, y1, z1, x1, y0, z1, x0, y0, z1, c, 15);
+			n = quadUv(m, out, n, tw, th, 1, 0, 0, x1, y1, z1, x1, y1, z0, x1, y0, z0, x1, y0, z1, c, 19);
+			n = quadUv(m, out, n, tw, th, -1, 0, 0, x0, y1, z0, x0, y1, z1, x0, y0, z1, x0, y0, z0, c, 23);
+			n = quadUv(m, out, n, tw, th, 0, 1, 0, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, c, 27);
+			n = quadUv(m, out, n, tw, th, 0, -1, 0, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, c, 31);
+			return n;
+		}
 		float u = c[6], v = c[7], w = c[8], h = c[9], d = c[10];
 		// Bedrock 상자 UV: 위(u+d, v) 아래(u+d+w, v) 옆(u, v+d) 앞=북(u+d, v+d) 옆(u+d+w, v+d) 뒤=남(u+d+w+d, v+d)
 		// 북(z0): 밖에서 보면 왼쪽 = +x / 남(z1): 왼쪽 = -x
@@ -554,6 +727,17 @@ public final class NovaWings {
 		n = quad(m, out, n, tw, th, 0, -1, 0,
 				x1, y0, z0, x0, y0, z0, x0, y0, z1, x1, y0, z1, u + d + w, v, w, d);
 		return n;
+	}
+
+	/** 49-351차: 면 UV [x1 y1 x2 y2](픽셀, 뒤집힌 값도 그대로 - 거울 면). 폭이나 높이가 0이면 안 그린다. */
+	private static int quadUv(double[] m, float[] out, int n, float tw, float th, float nx, float ny, float nz,
+			float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float dx, float dy, float dz,
+			float[] c, int o) {
+		float u0 = c[o], v0 = c[o + 1], u1 = c[o + 2], v1 = c[o + 3];
+		if (u0 == u1 || v0 == v1) {
+			return n;
+		}
+		return quad(m, out, n, tw, th, nx, ny, nz, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, u0, v0, u1 - u0, v1 - v0);
 	}
 
 	/** 네 꼭짓점(왼쪽 위, 오른쪽 위, 오른쪽 아래, 왼쪽 아래)과 그림 영역(픽셀). */

@@ -152,13 +152,11 @@ public class LunaSocialScreen extends LunaScreenBase {
 	}
 
 	public LunaSocialScreen(Screen parent, int mode) {
-		super(kr.lunaslight.mod.util.LunaCompat.textLiteral(mode == MODE_PROFILE ? "프로필" : "소셜"));
+		super(kr.lunaslight.mod.util.LunaCompat.textLiteral("프로필"));
 		this.parent = parent;
-		this.mode = mode;
+		// 1.0.13: 친구 · 귓속말 삭제 - 늘 프로필(계정 전환)만
+		this.mode = MODE_PROFILE;
 		LunaDraw.resetAnim("social");
-		if (mode == MODE_FRIENDS) {
-			refresh();
-		}
 	}
 
 	private void refresh() {

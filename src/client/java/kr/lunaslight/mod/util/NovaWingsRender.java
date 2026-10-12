@@ -35,6 +35,11 @@ public final class NovaWingsRender {
 
 	/** 이번 프레임 날개들. flush = 이벤트 밖(1.15.2 믹스인)이라 끝나고 바로 그려 비운다. */
 	public static void draw(Object context, boolean others, boolean flush) {
+		draw(context, others, flush, NovaWings.WING);
+	}
+
+	/** 49-351차: 칸(날개/가방)을 골라 그린다 - 가방 모듈은 NovaWings.BAG으로 부른다. */
+	public static void draw(Object context, boolean others, boolean flush, NovaWings.Slot slot) {
 		if (broken) {
 			return;
 		}
@@ -66,7 +71,7 @@ public final class NovaWingsRender {
 				if (AfkWatch.afkEntity(p)) {
 					continue;   // 49-312차: 자리 비움이면 치장(날개) 숨김
 				}
-				String key = NovaWings.keyFor(p.getUuid().toString(), others);
+				String key = slot.keyFor(p.getUuid().toString(), others);
 				if (key == null) {
 					continue;
 				}

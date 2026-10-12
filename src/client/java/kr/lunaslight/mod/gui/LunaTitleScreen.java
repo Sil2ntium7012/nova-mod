@@ -173,7 +173,6 @@ public class LunaTitleScreen extends LunaScreenBase {
 
 		// 49-25차: 왼쪽 위 [내 얼굴 · 닉네임] 프로필 서랍, 오른쪽 위 [소셜] 친구 서랍
 		renderProfileChip(ctx, mouseX, mouseY);
-		renderSocialChip(ctx, mouseX, mouseY);
 		renderTopIcons(ctx, mouseX, mouseY);
 
 		// 49-32차: 왼쪽 아래는 [게임 종료] 아이콘.
@@ -250,26 +249,19 @@ public class LunaTitleScreen extends LunaScreenBase {
 		return 5 + face() + 7 + LunaDraw.width(textRenderer, LunaDraw.ellipsize(textRenderer, profileName(), 90)) + 10;
 	}
 
-	private String socialLabel() {
-		return "소셜";
-	}
-
-	private int socialChipWidth() {
-		return 12 + 12 + 7 + LunaDraw.width(textRenderer, socialLabel()) + 12;
-	}
-
 	/** 프로필 칩의 x. 뒤집으면 오른쪽 끝으로 간다(49-74차, 5-1). */
 	private int profileChipX() {
 		return chipX();
 	}
 
-	private int socialChipX() {
-		return width - chipX() - socialChipWidth();
+	private int rightEdgeX() {
+		// 1.0.13: 소셜 칩 삭제 - 아이콘이 오른쪽 끝으로
+		return width - chipX();
 	}
 
 	/** 소셜 칩 옆에 아이콘 두 개가 놓이는 쪽의 시작 x(뒤집으면 칩 오른쪽). */
 	private int iconSideX(boolean outer) {
-		return outer ? socialChipX() - TOP_GAP - topIcon() * 2 - TOP_GAP : socialChipX() - TOP_GAP - topIcon();
+		return outer ? rightEdgeX() - topIcon() * 2 - TOP_GAP : rightEdgeX() - topIcon();
 	}
 
 	/** 왼쪽 위: 스킨 얼굴 + 닉네임 → 프로필 서랍(계정 전환). */
@@ -288,42 +280,6 @@ public class LunaTitleScreen extends LunaScreenBase {
 		int ty = LunaDraw.textY(chipY(), chipH());
 		LunaDraw.text(ctx, textRenderer, LunaDraw.ellipsize(textRenderer, profileName(), 90), fx + face() + 7, ty,
 			LunaDraw.buttonText(LunaDraw.B_NEUTRAL, hov));
-	}
-
-	/**
-	 * 49-130차(사용자: "소셜에 따로 확인할 게 없는데 초록 동그라미가 떠 있어"): 예전엔 런처 계정에 로그인만 돼
-	 * 있어도 초록 점을 찍어 "새 소식"처럼 보였다. 이제 받은 친구 요청이 있을 때만 점을 찍는다(30초마다 확인).
-	 */
-	private static volatile int pendingRequests;
-	private static long pendingCheckedAt;
-
-	private static void refreshPendingRequests() {
-		long now = System.currentTimeMillis();
-		if (now - pendingCheckedAt < 30_000L || !kr.lunaslight.mod.util.LunaSocial.signedIn()) {
-			return;
-		}
-		pendingCheckedAt = now;
-		try {
-			kr.lunaslight.mod.util.LunaSocial.fetchRequests().thenAccept(list -> pendingRequests = list == null ? 0 : list.size());
-		} catch (Throwable ignored) {
-		}
-	}
-
-	/** 오른쪽 위: [소셜] → 친구 서랍. 받은 친구 요청이 있으면 초록 점. */
-	private void renderSocialChip(DrawContext ctx, int mouseX, int mouseY) {
-		int w = socialChipWidth();
-		int x = socialChipX();
-		boolean hovered = LunaDraw.in(mouseX, mouseY, x, chipY(), w, chipH());
-		float hov = LunaDraw.anim("tb:social", hovered ? 1f : 0f, 18f);
-		LunaDraw.button3d(ctx, x, chipY(), w, chipH(), 4, LunaDraw.B_NEUTRAL, hov);   // 49-227차: 입체 버튼
-		int ty = LunaDraw.textY(chipY(), chipH());
-		LunaIcons.draw(ctx, textRenderer, LunaIcons.USERS, x + 12, LunaDraw.iconBesideText(ty),
-			LunaDraw.lerpColor(LunaDraw.ACCENT, 0xFFF2F4F6, hov * 0.3f));
-		LunaDraw.text(ctx, textRenderer, socialLabel(), x + 12 + 12 + 7, ty, LunaDraw.buttonText(LunaDraw.B_NEUTRAL, hov));
-		refreshPendingRequests();
-		if (kr.lunaslight.mod.util.LunaSocial.signedIn() && pendingRequests > 0) {
-			LunaDraw.circle(ctx, x + w - 4, chipY() - 1, 5, 0xFF5AD86E);
-		}
 	}
 
 	/** 오른쪽 위: 소셜 칩 왼쪽에 [Luna 설정] [마인크래프트 설정] 아이콘 버튼. */
@@ -389,10 +345,6 @@ public class LunaTitleScreen extends LunaScreenBase {
 	protected boolean lunaMouseClicked(double mouseX, double mouseY, int button) {
 		if (LunaDraw.in(mouseX, mouseY, profileChipX(), chipY(), profileChipWidth(), chipH())) {
 			kr.lunaslight.mod.util.LunaCompat.setScreen(new LunaSocialScreen(this, LunaSocialScreen.MODE_PROFILE));
-			return true;
-		}
-		if (LunaDraw.in(mouseX, mouseY, socialChipX(), chipY(), socialChipWidth(), chipH())) {
-			kr.lunaslight.mod.util.LunaCompat.setScreen(new LunaSocialScreen(this, LunaSocialScreen.MODE_FRIENDS));
 			return true;
 		}
 		if (LunaDraw.in(mouseX, mouseY, lunaSettingsX(), chipY(), topIcon(), topIcon())) {

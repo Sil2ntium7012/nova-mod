@@ -131,6 +131,18 @@ public final class LunaSocial {
 					} else {
 						NovaWings.setMineSigned(null, 0, null);
 					}
+					// 49-351차: 노바 가방 cosmetics.bag = { key, ts, sig } - 서명 종류 "bag"
+					if (cos.has("bag") && cos.get("bag").isJsonObject()) {
+						JsonObject bg = cos.getAsJsonObject("bag");
+						long bts = 0;
+						try {
+							bts = bg.has("ts") ? bg.get("ts").getAsLong() : 0;
+						} catch (Throwable ignored) {
+						}
+						NovaWings.BAG.setMineSigned(firstNonEmpty(str(bg, "key"), str(bg, "id")), bts, str(bg, "sig"));
+					} else {
+						NovaWings.BAG.setMineSigned(null, 0, null);
+					}
 					if (cos.has("theme") && cos.get("theme").isJsonObject()) {
 						JsonObject th = cos.getAsJsonObject("theme");
 						mode = firstNonEmpty(str(th, "mode"), str(th, "id"));
@@ -515,6 +527,11 @@ public final class LunaSocial {
 
 	/** 49-270차: 남의 노바 날개 - nova_player_tiers.cosmetic_wing(망토와 따로 묻는다: 칸이 없으면 날개만 안 보이게). */
 	public static CompletableFuture<java.util.Map<String, String>> fetchWings(java.util.Collection<String> ids) {
+		return fetchCosmeticColumn(ids, "cosmetic_wing");
+	}
+
+	/** 49-351차: 남의 치장 칸 하나(cosmetic_wing, cosmetic_bag …) - uuid → 값("" = 안 낌). */
+	public static CompletableFuture<java.util.Map<String, String>> fetchCosmeticColumn(java.util.Collection<String> ids, String column) {
 		load();
 		if (!available() || ids == null || ids.isEmpty()) {
 			return CompletableFuture.completedFuture(java.util.Collections.emptyMap());
@@ -530,7 +547,7 @@ public final class LunaSocial {
 			}
 			in.append('"').append(n).append("\",\"").append(dashed(n)).append('"');
 		}
-		return rest("/nova_player_tiers?mc_uuid=in." + enc("(" + in + ")") + "&select=mc_uuid,cosmetic_wing").thenApply(arr -> {
+		return rest("/nova_player_tiers?mc_uuid=in." + enc("(" + in + ")") + "&select=mc_uuid," + column).thenApply(arr -> {
 			java.util.Map<String, String> out = new java.util.HashMap<>();
 			if (arr != null && arr.isJsonArray()) {
 				for (JsonElement e : arr.getAsJsonArray()) {
@@ -539,7 +556,7 @@ public final class LunaSocial {
 					}
 					JsonObject r = e.getAsJsonObject();
 					String u = normalize(str(r, "mc_uuid"));
-					String k = r.has("cosmetic_wing") && !r.get("cosmetic_wing").isJsonNull() ? str(r, "cosmetic_wing") : "";
+					String k = r.has(column) && !r.get(column).isJsonNull() ? str(r, column) : "";
 					if (!u.isEmpty()) {
 						out.put(u, k == null ? "" : k);
 					}

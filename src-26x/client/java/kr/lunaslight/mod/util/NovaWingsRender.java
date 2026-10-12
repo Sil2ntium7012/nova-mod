@@ -26,6 +26,11 @@ public final class NovaWingsRender {
 	}
 
 	public static void draw(Object context, boolean others, boolean flush) {
+		draw(context, others, flush, NovaWings.WING);
+	}
+
+	/** 49-351차: 칸(날개/가방)을 골라 그린다 - 가방 모듈은 NovaWings.BAG으로 부른다. */
+	public static void draw(Object context, boolean others, boolean flush, NovaWings.Slot slot) {
 		if (broken || !(context instanceof BlueprintWorld.Ctx c)) {
 			return;
 		}
@@ -47,7 +52,7 @@ public final class NovaWingsRender {
 				if (AfkWatch.afkEntity(p)) {
 					continue;   // 49-312차: 자리 비움이면 치장(날개) 숨김
 				}
-				String key = NovaWings.keyFor(p.getUUID().toString(), others);
+				String key = slot.keyFor(p.getUUID().toString(), others);
 				if (key == null) {
 					continue;
 				}

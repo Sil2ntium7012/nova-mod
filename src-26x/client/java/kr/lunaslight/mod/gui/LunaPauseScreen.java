@@ -106,9 +106,6 @@ public class LunaPauseScreen extends LunaScreenBase {
 			topEntries.add(new IconEntry(LunaIcons.WIFI, "랜 서버 열기", () -> LunaCompat.openVanillaScreenByName(
 				"net.minecraft.client.gui.screens.ShareToLanScreen", this)));
 		}
-		// 49-41차(사용자): 프로필 자리에 소셜, 프로필은 메인 화면처럼 왼쪽 위 얼굴 칩으로
-		topEntries.add(new IconEntry(LunaIcons.USERS, "소셜",
-			() -> kr.lunaslight.mod.util.LunaCompat.setScreen(new LunaSocialScreen(this, LunaSocialScreen.MODE_FRIENDS))));
 	}
 
 	private int topRowX(int index) {

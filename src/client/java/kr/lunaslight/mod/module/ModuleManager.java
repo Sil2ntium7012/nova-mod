@@ -90,6 +90,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.render.VignetteModule());   // 49-195차: 비네팅 끄기([그래픽])
 		register(new kr.lunaslight.mod.module.impl.render.CapeSmoothModule());   // 49-201차: 망토 흔들림 부드럽게
 		register(new kr.lunaslight.mod.module.impl.render.WingsModule());   // 49-270차: 노바 날개(산 사람만, 애니메이션)
+		register(new kr.lunaslight.mod.module.impl.render.BagsModule());    // 49-351차: 노바 가방(토끼 가방)
 		register(new kr.lunaslight.mod.module.impl.misc.CosmeticsModule());   // 49-271차: [코스메틱] 착용한 것 보기(바꾸기는 런처)
 		register(new EntityHideModule());   // 49-59차(3-4): 이름으로 엔티티 가리기
 		register(new EntityCullModule());   // 49-60차(3-11·3-6): 겹친·먼 엔티티 안 그리기
