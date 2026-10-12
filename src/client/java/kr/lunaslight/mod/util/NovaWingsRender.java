@@ -56,6 +56,7 @@ public final class NovaWingsRender {
 			}
 			float td = tickDelta(mc);
 			boolean firstPerson = firstPerson(mc);
+			float lift = slot == NovaWings.BAG ? kr.lunaslight.mod.module.impl.render.BagsModule.lift() : 0f;   // 49-352차
 			double time = (System.nanoTime() / 1e9);
 			java.util.Set<Object> used = flush ? new java.util.HashSet<>() : null;
 			for (Object o : mc.world.getPlayers()) {
@@ -97,7 +98,7 @@ public final class NovaWingsRender {
 				// 49-272차: 웅크린 "자세"만 본다(쉬프트를 눌러도 날거나 자리가 좁으면 자세가 다르다). 자세 메서드가 없을 때만 쉬프트.
 				Object pose = LunaCompat.callNoArg(p, "isInSneakingPose");
 				boolean sneak = pose instanceof Boolean b ? b : flag(p, "isSneaking");
-				int n = NovaWings.build(a, time + (p.getUuid().hashCode() & 0xFF) / 97.0, by, sneak, px - cam.x, py - cam.y, pz - cam.z, BUF);
+				int n = NovaWings.build(a, time + (p.getUuid().hashCode() & 0xFF) / 97.0, by, sneak, px - cam.x, py - cam.y, pz - cam.z, lift, BUF);
 				if (n == 0) {
 					continue;
 				}

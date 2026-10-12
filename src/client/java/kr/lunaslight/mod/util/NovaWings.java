@@ -663,6 +663,11 @@ public final class NovaWings {
 	 * (ox, oy, oz) = 플레이어 발 위치 - 카메라, bodyYaw = 몸 방향(도), sneak = 웅크림.
 	 */
 	public static int build(Asset a, double timeSec, float bodyYaw, boolean sneak, double ox, double oy, double oz, float[] out) {
+		return build(a, timeSec, bodyYaw, sneak, ox, oy, oz, 0f, out);
+	}
+
+	/** 49-352차: liftPx = 모델 전체를 위로 올리는 픽셀(가방 [높이 보정] 설정, 음수면 내림) - 몸 기울기(웅크림) 안에서 옮긴다. */
+	public static int build(Asset a, double timeSec, float bodyYaw, boolean sneak, double ox, double oy, double oz, float liftPx, float[] out) {
 		int nb = a.bones.size();
 		double[][] world = new double[nb][];
 		float t = (float) (timeSec % a.length);
@@ -674,6 +679,9 @@ public final class NovaWings {
 		double s = 1 / 16.0;
 		double[] place = mul(translate(ox, oy, oz), mul(rotY(Math.toRadians(180 - bodyYaw)), new double[]{s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0}));
 		double[] base = mul(place, body);
+		if (liftPx != 0f) {
+			base = mul(base, translate(0, liftPx, 0));
+		}
 		for (int i = 0; i < nb; i++) {
 			Bone b = a.bones.get(i);
 			double[] local = translate(0, 0, 0);

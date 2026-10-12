@@ -15,6 +15,9 @@ public class BagsModule extends Module {
 
 	private final BooleanSetting others = register(new BooleanSetting(
 			"others_bags", "다른 사람 가방", "다른 Nova 유저가 낀 노바 가방도 보여줍니다.", true));
+	// 49-352차(사용자: "가방 높이가 안 맞아"): 가방 전체를 위아래로 옮기는 보정(픽셀, 몸 기준). 내 화면의 모든 가방에 적용.
+	private final kr.lunaslight.mod.module.setting.IntSetting height = register(new kr.lunaslight.mod.module.setting.IntSetting(
+			"height", "높이 보정", "가방을 위(+)나 아래(-)로 옮깁니다. 1 = 스킨 한 픽셀.", 0, -16, 16, 1).unit("px"));
 
 	public BagsModule() {
 		super("bags", "가방", ModuleCategory.VIEW, "런처에서 산 노바 가방");
@@ -25,6 +28,12 @@ public class BagsModule extends Module {
 	public static boolean shown() {
 		BagsModule m = instance;
 		return m != null && m.isEnabled();
+	}
+
+	/** 49-352차: 높이 보정(픽셀, 위가 +). */
+	public static float lift() {
+		BagsModule m = instance;
+		return m == null ? 0f : m.height.get();
 	}
 
 	public static boolean othersShown() {

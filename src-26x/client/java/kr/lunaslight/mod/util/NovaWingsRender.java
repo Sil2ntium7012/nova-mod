@@ -41,6 +41,7 @@ public final class NovaWingsRender {
 		try {
 			float td = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 			boolean firstPerson = mc.options.getCameraType().isFirstPerson();
+			float lift = slot == NovaWings.BAG ? kr.lunaslight.mod.module.impl.render.BagsModule.lift() : 0f;   // 49-352차
 			double time = System.nanoTime() / 1e9;
 			for (AbstractClientPlayer p : mc.level.players()) {
 				if (p == mc.player && firstPerson && mc.getCameraEntity() == p) {
@@ -76,7 +77,7 @@ public final class NovaWingsRender {
 				}
 				float by = p.yBodyRotO + d * td;
 				float[] buf = new float[Math.max(32, a.maxVertices() * 8)];
-				int n = NovaWings.build(a, time + (p.getUUID().hashCode() & 0xFF) / 97.0, by, p.isCrouching(), dx, py - c.cam.y, dz, buf);
+				int n = NovaWings.build(a, time + (p.getUUID().hashCode() & 0xFF) / 97.0, by, p.isCrouching(), dx, py - c.cam.y, dz, lift, buf);
 				if (n == 0) {
 					continue;
 				}
