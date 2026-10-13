@@ -72,10 +72,7 @@ public final class NovaWingsRender {
 				if (AfkWatch.afkEntity(p)) {
 					continue;   // 49-312차: 자리 비움이면 치장(날개) 숨김
 				}
-				String key = slot.keyFor(p.getUuid().toString(), others);
-				if (key == null) {
-					continue;
-				}
+				for (String key : slot.keysFor(p.getUuid().toString(), others)) {   // 49-355차: 모자는 한 사람이 2개까지
 				NovaWings.Asset a = slot.asset(key);   // 49-353차: 칸마다 묶음 이름(모자 = hat-<key>)
 				Identifier tex = NovaWings.texture(a);
 				if (tex == null) {
@@ -137,6 +134,7 @@ public final class NovaWingsRender {
 				}
 				if (used != null) {
 					used.add(layer);
+				}
 				}
 			}
 			if (used != null) {

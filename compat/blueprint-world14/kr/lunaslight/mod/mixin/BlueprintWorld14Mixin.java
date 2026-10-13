@@ -41,10 +41,18 @@ public abstract class BlueprintWorld14Mixin {
 			BlueprintWorld.fail(t);
 			LunaCompat.warnOnce("blueprint:mixin14", t);
 		}
-		// 49-270차: 노바 날개(1.14.4는 GL로 직접 - NovaWingsGl14)
+		// 49-270차: 노바 날개(1.14.4는 GL로 직접 - NovaWingsGl14). 49-355차: 가방, 모자도(예전엔 날개만 불러 둘이 안 보였다)
 		try {
-			if (kr.lunaslight.mod.module.impl.render.WingsModule.shown() && kr.lunaslight.mod.LunaClientMod.launchOk()) {
-				kr.lunaslight.mod.util.NovaWingsGl14.draw(kr.lunaslight.mod.module.impl.render.WingsModule.othersShown());
+			if (kr.lunaslight.mod.LunaClientMod.launchOk()) {
+				if (kr.lunaslight.mod.module.impl.render.WingsModule.shown()) {
+					kr.lunaslight.mod.util.NovaWingsGl14.draw(kr.lunaslight.mod.module.impl.render.WingsModule.othersShown(), kr.lunaslight.mod.util.NovaWings.WING);
+				}
+				if (kr.lunaslight.mod.module.impl.render.BagsModule.shown()) {
+					kr.lunaslight.mod.util.NovaWingsGl14.draw(kr.lunaslight.mod.module.impl.render.BagsModule.othersShown(), kr.lunaslight.mod.util.NovaWings.BAG);
+				}
+				if (kr.lunaslight.mod.module.impl.render.HatsModule.shown()) {
+					kr.lunaslight.mod.util.NovaWingsGl14.draw(kr.lunaslight.mod.module.impl.render.HatsModule.othersShown(), kr.lunaslight.mod.util.NovaWings.HAT);
+				}
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("wings:mixin14", t);

@@ -52,10 +52,21 @@ public final class NovaWings {
 		private final Map<String, String> names;
 		private final java.util.function.BooleanSupplier mineOn;
 
-		private volatile String mineKey, mineSig;
-		private volatile long mineTs;
-		private volatile String mineOkFor;
-		private volatile boolean mineOk;
+		/** 내 것(런처 서명) 하나. 49-355차: 모자는 2개까지라 목록으로. */
+		private static final class Signed {
+			final String key, sig;
+			final long ts;
+			String okFor;
+			boolean ok;
+
+			Signed(String key, long ts, String sig) {
+				this.key = key;
+				this.ts = ts;
+				this.sig = sig;
+			}
+		}
+
+		private volatile List<Signed> mine = List.of();
 		private final Map<String, String> others = new ConcurrentHashMap<>();
 		private final Map<String, Long> fetched = new ConcurrentHashMap<>();
 		private final Set<String> want = ConcurrentHashMap.newKeySet();
@@ -83,10 +94,20 @@ public final class NovaWings {
 
 		/** LunaSocial이 .luna-launch.json의 cosmetics.<kind>를 읽어 넘긴다(끼지 않았으면 key null). */
 		public void setMineSigned(String key, long ts, String sig) {
-			mineKey = valid(key);
-			mineTs = ts;
-			mineSig = sig;
-			mineOkFor = null;
+			String k = valid(key);
+			mine = k == null ? List.of() : List.of(new Signed(k, ts, sig));
+		}
+
+		/** 49-355차: 여러 개(cosmetics.hats = [{key, ts, sig}, …]). 세 배열은 같은 길이. */
+		public void setMineSignedAll(String[] keysIn, long[] ts, String[] sigs) {
+			List<Signed> list = new ArrayList<>();
+			for (int i = 0; i < keysIn.length; i++) {
+				String k = valid(keysIn[i]);
+				if (k != null) {
+					list.add(new Signed(k, ts[i], sigs[i]));
+				}
+			}
+			mine = List.copyOf(list);
 		}
 
 		public String valid(String key) {
@@ -108,21 +129,42 @@ public final class NovaWings {
 			return null;
 		}
 
-		/** 내 것(서명 확인된 것만). */
-		private String mine(String selfUuid) {
-			String k = mineKey;
-			if (k == null || selfUuid.isEmpty()) {
-				return null;
+		/** 내 것(서명 확인된 것만, 낀 순서대로). */
+		private List<String> mine(String selfUuid) {
+			List<Signed> list = mine;
+			if (list.isEmpty() || selfUuid.isEmpty()) {
+				return List.of();
 			}
-			String tag = k + "|" + selfUuid + "|" + mineTs;
-			if (!tag.equals(mineOkFor)) {
-				mineOk = kr.lunaslight.mod.LunaClientMod.verifySig2(kind, mineTs, k + "|" + selfUuid, mineSig, false);
-				mineOkFor = tag;
-				if (!mineOk) {
-					LunaCompat.warnOnce(kind + "s:sig", new IllegalStateException(kind + " 서명이 맞지 않아 그리지 않음"));
+			List<String> out = new ArrayList<>(list.size());
+			for (Signed e : list) {
+				String tag = e.key + "|" + selfUuid + "|" + e.ts;
+				if (!tag.equals(e.okFor)) {
+					e.ok = kr.lunaslight.mod.LunaClientMod.verifySig2(kind, e.ts, e.key + "|" + selfUuid, e.sig, false);
+					e.okFor = tag;
+					if (!e.ok) {
+						LunaCompat.warnOnce(kind + "s:sig", new IllegalStateException(kind + " 서명이 맞지 않아 그리지 않음"));
+					}
+				}
+				if (e.ok && !out.contains(e.key)) {
+					out.add(e.key);
 				}
 			}
-			return mineOk ? k : null;
+			return out;
+		}
+
+		/** 쉼표로 이은 값("bunny,xxx") → 아는 key들. */
+		private List<String> parseList(String raw) {
+			if (raw == null || raw.isEmpty()) {
+				return List.of();
+			}
+			List<String> out = new ArrayList<>(2);
+			for (String part : raw.split(",")) {
+				String k = valid(part);
+				if (k != null && !out.contains(k)) {
+					out.add(k);
+				}
+			}
+			return out;
 		}
 
 		/** 49-353차: 묶음 파일 이름 = 칸 접두 + key(가방 bunny와 모자 bunny가 안 겹치게 모자는 "hat-bunny"). */
@@ -130,9 +172,26 @@ public final class NovaWings {
 			return key == null ? null : NovaWings.asset(assetPrefix + key);
 		}
 
-		/** 내가 낀 것(서명 확인된 것, 없으면 null) - [코스메틱] 페이지 표시용. */
+		/** 내가 낀 것(서명 확인된 것 중 첫째, 없으면 null). */
 		public String mineKey() {
-			return mine(selfId());
+			List<String> m = mine(selfId());
+			return m.isEmpty() ? null : m.get(0);
+		}
+
+		/** 49-355차: 내가 낀 것들의 이름(", "로 이음, 없으면 null) - [코스메틱] 페이지 표시용. */
+		public String mineNames() {
+			List<String> m = mine(selfId());
+			if (m.isEmpty()) {
+				return null;
+			}
+			StringBuilder sb = new StringBuilder();
+			for (String k : m) {
+				if (sb.length() > 0) {
+					sb.append(", ");
+				}
+				sb.append(nameOf(k));
+			}
+			return sb.toString();
 		}
 
 		/** key → 보이는 이름. */
@@ -144,18 +203,27 @@ public final class NovaWings {
 			return n == null ? key : n;
 		}
 
-		/** 이 uuid(대시 있든 없든)가 낀 것의 key(없으면 null). 남의 것은 모르면 조회를 예약한다. */
+		/** 이 uuid(대시 있든 없든)가 낀 것의 key(첫째, 없으면 null). */
 		public String keyFor(String uuid, boolean withOthers) {
+			List<String> ks = keysFor(uuid, withOthers);
+			return ks.isEmpty() ? null : ks.get(0);
+		}
+
+		/**
+		 * 49-355차: 이 uuid가 낀 것들(모자는 2개까지 - 런처가 내 것은 cosmetics.hats 목록, 남의 것은 cosmetic_hat "bunny,xxx"로 준다).
+		 * 남의 것은 모르면 조회를 예약한다.
+		 */
+		public List<String> keysFor(String uuid, boolean withOthers) {
 			String uid = norm(uuid);
 			if (uid.isEmpty()) {
-				return null;
+				return List.of();
 			}
 			LunaSocial.load();
 			if (uid.equals(selfId())) {
-				return mineOn.getAsBoolean() ? mine(uid) : null;   // 49-282차: [코스메틱] 쓰기 스위치
+				return mineOn.getAsBoolean() ? mine(uid) : List.of();   // 49-282차: [코스메틱] 쓰기 스위치
 			}
 			if (!withOthers) {
-				return null;
+				return List.of();
 			}
 			String k = others.get(uid);
 			Long at = fetched.get(uid);
@@ -163,7 +231,7 @@ public final class NovaWings {
 				want.add(uid);
 				maybeFetch();
 			}
-			return k == null || k.isEmpty() ? null : k;
+			return parseList(k);
 		}
 
 		private void maybeFetch() {
@@ -185,8 +253,8 @@ public final class NovaWings {
 				LunaSocial.fetchCosmeticColumn(batch, column).whenComplete((map, err) -> {
 					long t = System.currentTimeMillis();
 					for (String u : batch) {
-						String k = map == null ? null : valid(map.get(u));
-						others.put(u, k == null ? "" : k);
+						List<String> ks = map == null ? List.of() : parseList(map.get(u));
+						others.put(u, String.join(",", ks));
 						fetched.put(u, err == null ? t : t - TTL + 60_000L);
 					}
 					inFlight = false;

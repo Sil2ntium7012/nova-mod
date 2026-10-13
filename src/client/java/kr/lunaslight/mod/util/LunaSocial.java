@@ -145,7 +145,32 @@ public final class LunaSocial {
 						NovaWings.BAG.setMineSigned(null, 0, null);
 					}
 					// 49-353차: 노바 모자 cosmetics.hat = { key, ts, sig } - 서명 종류 "hat"
-					if (cos.has("hat") && cos.get("hat").isJsonObject()) {
+					// 49-355차(사용자: "모자 자체가 없음으로 떠"): 런처는 모자를 2개까지라 cosmetics.hats = [{key, ts, sig, …}, …] 목록으로 보낸다
+					if (cos.has("hats") && cos.get("hats").isJsonArray()) {
+						com.google.gson.JsonArray ha = cos.getAsJsonArray("hats");
+						java.util.List<String> hk = new java.util.ArrayList<>();
+						java.util.List<Long> htsl = new java.util.ArrayList<>();
+						java.util.List<String> hsig = new java.util.ArrayList<>();
+						for (JsonElement he : ha) {
+							if (!he.isJsonObject()) {
+								continue;
+							}
+							JsonObject ho = he.getAsJsonObject();
+							long t = 0;
+							try {
+								t = ho.has("ts") ? ho.get("ts").getAsLong() : 0;
+							} catch (Throwable ignored) {
+							}
+							hk.add(firstNonEmpty(str(ho, "key"), str(ho, "id")));
+							htsl.add(t);
+							hsig.add(str(ho, "sig"));
+						}
+						long[] tsArr = new long[htsl.size()];
+						for (int i = 0; i < tsArr.length; i++) {
+							tsArr[i] = htsl.get(i);
+						}
+						NovaWings.HAT.setMineSignedAll(hk.toArray(new String[0]), tsArr, hsig.toArray(new String[0]));
+					} else if (cos.has("hat") && cos.get("hat").isJsonObject()) {
 						JsonObject ht = cos.getAsJsonObject("hat");
 						long hts = 0;
 						try {

@@ -47,7 +47,7 @@ public class CosmeticsModule extends Module {
 		register(new InfoSetting("bag", "가방", () -> kr.lunaslight.mod.util.NovaWings.BAG.nameOf(kr.lunaslight.mod.util.NovaWings.BAG.mineKey())));
 		useBag = register(new BooleanSetting("use_bag", "가방 쓰기", "끄면 내 가방을 안 그립니다. 런처에서 낀 것은 그대로입니다.", true));
 		// 49-353차(사용자: "토끼모자 추가좀 해줘")
-		register(new InfoSetting("hat", "모자", () -> kr.lunaslight.mod.util.NovaWings.HAT.nameOf(kr.lunaslight.mod.util.NovaWings.HAT.mineKey())));
+		register(new InfoSetting("hat", "모자", () -> kr.lunaslight.mod.util.NovaWings.HAT.mineNames()));
 		useHat = register(new BooleanSetting("use_hat", "모자 쓰기", "끄면 내 모자를 안 그립니다. 런처에서 낀 것은 그대로입니다.", true));
 		register(new InfoSetting("theme", "테마", () -> kr.lunaslight.mod.util.LunaSocial.cosmeticThemeName));
 		register(new InfoSetting("color", "포인트 색", () -> kr.lunaslight.mod.util.LunaSocial.cosmeticColorName));

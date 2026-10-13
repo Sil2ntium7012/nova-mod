@@ -21,7 +21,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public abstract class BlueprintWorldMixin {
 
-	private static Module lunaslight$blueprint, lunaslight$wings;
+	private static Module lunaslight$blueprint;
+	private static final String[] lunaslight$cosIds = {"wings", "bags", "hats"};
+	private static final Module[] lunaslight$cos = new Module[3];
 
 	@Inject(method = "submitEntities(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/state/level/LevelRenderState;Lnet/minecraft/client/renderer/SubmitNodeCollector;)V",
 			at = @At("TAIL"), require = 0)
@@ -43,16 +45,19 @@ public abstract class BlueprintWorldMixin {
 			BlueprintWorld.fail(t);
 			LunaCompat.warnOnce("blueprint:mixin", t);
 		}
-		// 49-270차: 노바 날개도 같은 자리에서(26.x엔 우리가 쓰던 월드 그리기 이벤트가 없다)
-		try {
-			if (lunaslight$wings == null) {
-				lunaslight$wings = ModuleManager.get().find("wings").orElse(null);
+		// 49-270차: 노바 날개도 같은 자리에서. 49-355차(사용자: "가방이 보이지가 않아"): 가방, 모자도 - 예전엔 날개 모듈만 불러 둘이 안 그려졌다.
+		for (int i = 0; i < lunaslight$cosIds.length; i++) {
+			try {
+				if (lunaslight$cos[i] == null) {
+					lunaslight$cos[i] = ModuleManager.get().find(lunaslight$cosIds[i]).orElse(null);
+				}
+				Module m = lunaslight$cos[i];
+				if (m != null && m.isEnabled()) {
+					m.onWorldRender(ctx);
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("wings:mixin:" + lunaslight$cosIds[i], t);
 			}
-			if (lunaslight$wings != null && lunaslight$wings.isEnabled()) {
-				lunaslight$wings.onWorldRender(ctx);
-			}
-		} catch (Throwable t) {
-			LunaCompat.warnOnce("wings:mixin", t);
 		}
 	}
 }

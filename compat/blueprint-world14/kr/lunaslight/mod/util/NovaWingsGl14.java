@@ -19,10 +19,15 @@ public final class NovaWingsGl14 {
 	private NovaWingsGl14() {
 	}
 
-	private static final float[] BUF = new float[8 * 4 * 64];
+	private static float[] BUF = new float[8 * 4 * 64];   // 49-355차: 모양마다 늘린다(모자 = 사각형 288개)
 	private static boolean broken;
 
 	public static void draw(boolean others) {
+		draw(others, NovaWings.WING);
+	}
+
+	/** 49-355차: 칸(날개/가방/모자)을 골라 그린다. 모자는 머리 방향과 숙임을 따른다. */
+	public static void draw(boolean others, NovaWings.Slot slot) {
 		if (broken) {
 			return;
 		}
@@ -45,11 +50,8 @@ public final class NovaWingsGl14 {
 				if (p.isInvisible() || p.isSleeping() || flag(p, "isInSwimmingPose") || flag(p, "isFallFlying")) {
 					continue;
 				}
-				String key = NovaWings.keyFor(p.getUuid().toString(), others);
-				if (key == null) {
-					continue;
-				}
-				NovaWings.Asset a = NovaWings.asset(key);
+				for (String key : slot.keysFor(p.getUuid().toString(), others)) {   // 49-355차: 모자는 한 사람이 2개까지
+				NovaWings.Asset a = slot.asset(key);
 				Identifier tex = NovaWings.texture(a);
 				if (tex == null) {
 					continue;
@@ -74,7 +76,24 @@ public final class NovaWingsGl14 {
 				float by = p.field_6220 + d * td;
 				Object pose = LunaCompat.callNoArg(p, "isInSneakingPose");   // 49-272차: 웅크린 자세만(쉬프트 아님)
 				boolean sneak = pose instanceof Boolean b ? b : p.isSneaking();
-				int n = NovaWings.build(a, time + (p.getUuid().hashCode() & 0xFF) / 97.0, by, sneak, px - cam.x, py - cam.y, pz - cam.z, BUF);
+				float pitch = 0f;
+				if (slot.head) {
+					float hd = (p.headYaw - p.prevHeadYaw) % 360f;
+					if (hd >= 180f) {
+						hd -= 360f;
+					}
+					if (hd < -180f) {
+						hd += 360f;
+					}
+					by = p.prevHeadYaw + hd * td;
+					pitch = p.getPitch(td);
+				}
+				if (BUF.length < a.maxVertices() * 8) {
+					BUF = new float[a.maxVertices() * 8];
+				}
+				float lift = slot == NovaWings.BAG ? kr.lunaslight.mod.module.impl.render.BagsModule.lift() : 0f;
+				int n = NovaWings.build(a, time + (p.getUuid().hashCode() & 0xFF) / 97.0, by, sneak, px - cam.x, py - cam.y, pz - cam.z,
+						lift, slot.head, pitch, BUF);
 				if (n == 0) {
 					continue;
 				}
@@ -100,6 +119,7 @@ public final class NovaWingsGl14 {
 				Tessellator.getInstance().draw();
 				GlStateManager.enableCull();
 				GlStateManager.disableBlend();
+				}
 			}
 		} catch (Throwable t) {
 			broken = true;
