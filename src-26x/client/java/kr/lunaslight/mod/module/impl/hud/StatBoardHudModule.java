@@ -319,7 +319,26 @@ public class StatBoardHudModule extends Module {
 		int h = (bigs.isEmpty() ? 0 : TOP_H) + (small.isEmpty() ? 0 : BOT_H);
 		// 49-337차: 왼쪽 위 또는 오른쪽 위에 딱 붙는다(오른쪽이면 거울 모양)
 		boolean mirror = corner.get() == Corner.TOP_RIGHT;
-		int x = mirror ? sw - w : 0;
+		// 49-357차(사용자: "왼쪽 위 HUD 묶음을 화면의 1/4 길이 정도로 줄이고 크기 자체를 거기에 맞춰"): 폭이 화면 폭의 1/4이 되게
+		// 묶음 전체(띠 높이, 아이콘, 글자)를 같은 배율로 키우거나 줄인다. 붙은 모서리를 기준으로 늘린다. 배율을 못 쓰는 버전은 그대로.
+		float k = Math.max(0.5f, Math.min(4f, (sw / 4f) / Math.max(1, w)));
+		boolean scaled = Math.abs(k - 1f) > 0.01f && LunaCompat.guiTransformSupported(ctx);
+		if (scaled) {
+			LunaCompat.guiPush(ctx);
+			LunaCompat.guiTranslate(ctx, mirror ? sw - w * k : 0f, 0f);
+			LunaCompat.guiScale(ctx, k, k);
+		}
+		try {
+			drawBoard(ctx, font, scaled ? 0 : (mirror ? sw - w : 0), w, mirror, bigs, small, bigV, smallV);
+		} finally {
+			if (scaled) {
+				LunaCompat.guiPop(ctx);
+			}
+		}
+	}
+
+	private void drawBoard(GuiGraphicsExtractor ctx, Font font, int x, int w, boolean mirror, java.util.List<Stat> bigs, java.util.List<Stat> small,
+			String[] bigV, String[] smallV) {
 		int y = 0;
 		boolean flushLeft = !mirror, flushRight = mirror;
 
