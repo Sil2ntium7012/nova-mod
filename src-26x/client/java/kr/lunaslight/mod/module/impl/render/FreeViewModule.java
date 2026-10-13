@@ -22,6 +22,10 @@ public class FreeViewModule extends Module {
 	private final BooleanSetting thirdPerson = register(new BooleanSetting(
 			"third_person", "3인칭으로", "누르는 동안 뒤에서 보는 3인칭이 됩니다(떼면 원래 시점).", true));
 
+	// 49-354차(사용자: "자유시점 시점 돌리면 그 방향에 맞게 방향키도 다르게 되게 해줘")
+	private final BooleanSetting cameraMove = register(new BooleanSetting(
+			"camera_move", "카메라 방향으로 이동", "둘러보는 동안 WASD가 카메라가 보는 방향 기준으로 움직입니다(끄면 몸 방향 기준).", true));
+
 	private boolean active;
 	private Object savedPerspective;
 
@@ -36,6 +40,7 @@ public class FreeViewModule extends Module {
 
 	@Override
 	public void onTick() {
+		FreeView.moveWithCamera = cameraMove.get();
 		boolean down = client.player != null && LunaCompat.screenOf(client) == null && key.isDown(client);
 		if (down && !active) {
 			start();

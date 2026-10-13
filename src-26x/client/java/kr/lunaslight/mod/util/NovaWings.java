@@ -62,7 +62,18 @@ public final class NovaWings {
 		private volatile boolean inFlight;
 		private volatile long lastFetch;
 
+		/** 49-353차: 머리에 붙나(모자 - 머리 방향/숙임을 따른다). 아니면 몸(날개, 가방). */
+		public final boolean head;
+		private final String assetPrefix;
+
 		Slot(String kind, String column, String[] keys, Map<String, String> names, java.util.function.BooleanSupplier mineOn) {
+			this(kind, column, keys, names, mineOn, false, "");
+		}
+
+		Slot(String kind, String column, String[] keys, Map<String, String> names, java.util.function.BooleanSupplier mineOn,
+				boolean head, String assetPrefix) {
+			this.head = head;
+			this.assetPrefix = assetPrefix;
 			this.kind = kind;
 			this.column = column;
 			this.keys = keys;
@@ -112,6 +123,11 @@ public final class NovaWings {
 				}
 			}
 			return mineOk ? k : null;
+		}
+
+		/** 49-353차: 묶음 파일 이름 = 칸 접두 + key(가방 bunny와 모자 bunny가 안 겹치게 모자는 "hat-bunny"). */
+		public Asset asset(String key) {
+			return key == null ? null : NovaWings.asset(assetPrefix + key);
 		}
 
 		/** 내가 낀 것(서명 확인된 것, 없으면 null) - [코스메틱] 페이지 표시용. */
@@ -188,6 +204,10 @@ public final class NovaWings {
 	public static final String[] BAG_KEYS = {"bunny"};
 	public static final Slot BAG = new Slot("bag", "cosmetic_bag", BAG_KEYS, Map.of("bunny", "토끼 가방"),
 			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.bagOn());
+	/** 49-353차(사용자: "토끼모자 추가좀 해줘"): 모자 칸(첫 번째 = 토끼 모자). 서명 "NovaSig|v1|hat|ts|key|내 uuid", Supabase nova_player_tiers.cosmetic_hat. */
+	public static final String[] HAT_KEYS = {"bunny"};
+	public static final Slot HAT = new Slot("hat", "cosmetic_hat", HAT_KEYS, Map.of("bunny", "토끼 모자"),
+			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.hatOn(), true, "hat-");
 
 	/** LunaSocial이 .luna-launch.json의 cosmetics.wing을 읽어 넘긴다(끼지 않았으면 key null). */
 	public static void setMineSigned(String key, long ts, String sig) {
@@ -538,7 +558,7 @@ public final class NovaWings {
 				}
 			}
 			if (!has) {
-				uv[2] = uv[0];   // 폭 0 = 안 그림
+				uv[0] = Float.NaN;   // 그림 없는 면 = 안 그림(49-353차: 폭 0은 이제 한 줄로 그린다)
 			}
 			System.arraycopy(uv, 0, c, 11 + f * 4, 4);
 		}
@@ -668,17 +688,38 @@ public final class NovaWings {
 
 	/** 49-352차: liftPx = 모델 전체를 위로 올리는 픽셀(가방 [높이 보정] 설정, 음수면 내림) - 몸 기울기(웅크림) 안에서 옮긴다. */
 	public static int build(Asset a, double timeSec, float bodyYaw, boolean sneak, double ox, double oy, double oz, float liftPx, float[] out) {
+		return build(a, timeSec, bodyYaw, sneak, ox, oy, oz, liftPx, false, 0f, out);
+	}
+
+	/** 바닐라 플레이어 렌더러가 모델 전체에 거는 배율(PlayerRenderer/AvatarRenderer.scale, 1.14.4~26.3 같음). */
+	private static final double PLAYER_SCALE = 0.9375;
+
+	/**
+	 * 49-353차: onHead = 머리에 붙인다(모자) - yaw는 머리 방향, pitch = 머리 숙임(도, 아래가 +). 몸에 붙는 것은 yaw = 몸 방향, pitch 무시.
+	 */
+	public static int build(Asset a, double timeSec, float yaw, boolean sneak, double ox, double oy, double oz, float liftPx,
+			boolean onHead, float pitch, float[] out) {
 		int nb = a.bones.size();
 		double[][] world = new double[nb][];
 		float t = (float) (timeSec % a.length);
-		// 몸: 웅크리면 바닐라처럼 목(서 있을 때 위 24px)을 중심으로 앞으로 0.5 라디안 숙이고, 몸통이 3.2px(1.16+ body pivotY 3.2,
-		// 1.15 이하 모델 0.2블록 내림) + 플레이어 전체가 2px(렌더 위치 -0.125) 내려간다.
-		// 49-272차: 예전엔 20.8px을 중심으로 돌려 날개가 몸보다 3.2px 높이 떠 있었다.
-		double[] body = sneak ? mul(translate(0, 24 - 3.2 - 2, 0), mul(rotX(-0.5), translate(0, -24, 0))) : translate(0, 0, 0);
-		// 모델(픽셀, 앞 = -Z) → 월드(블록): 1/16, 몸 방향으로 돌림(바닐라와 같은 180 - bodyYaw)
+		double[] part;
+		if (onHead) {
+			// 머리: 목(24px)을 중심으로 숙인다. 웅크리면 바닐라처럼 머리가 4.2px 내려간다(head.y = 4.2, 몸처럼 기울지는 않음).
+			double[] tilt = mul(rotX(Math.toRadians(-pitch)), translate(0, -24, 0));
+			part = mul(translate(0, sneak ? 24 - 4.2 : 24, 0), tilt);
+		} else {
+			// 몸: 웅크리면 바닐라처럼 목(서 있을 때 위 24px)을 중심으로 앞으로 0.5 라디안 숙이고 몸통이 3.2px 내려간다(body.y = 3.2).
+			// 49-272차: 예전엔 20.8px을 중심으로 돌려 날개가 몸보다 3.2px 높이 떠 있었다.
+			part = sneak ? mul(translate(0, 24 - 3.2, 0), mul(rotX(-0.5), translate(0, -24, 0))) : translate(0, 0, 0);
+		}
+		// 모델(픽셀, 앞 = -Z) → 월드(블록): 1/16, 방향으로 돌림(바닐라와 같은 180 - yaw).
+		// 49-353차(사용자: "가방 높이가 안 맞아"): 바닐라는 플레이어 모델을 발을 중심으로 0.9375배로 줄여 그린다(몸 위 = 22.5px, 머리 위 = 30px) -
+		// 예전엔 이 배율 없이 그려 가방, 날개가 몸보다 크고 1.5px 높았다(모자는 3px). 웅크림의 렌더 위치 -2px(-0.125블록)는 배율 밖이다.
 		double s = 1 / 16.0;
-		double[] place = mul(translate(ox, oy, oz), mul(rotY(Math.toRadians(180 - bodyYaw)), new double[]{s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0}));
-		double[] base = mul(place, body);
+		double[] place = mul(translate(ox, oy, oz), mul(rotY(Math.toRadians(180 - yaw)), new double[]{s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0}));
+		double k = PLAYER_SCALE;
+		double[] scaleM = {k, 0, 0, 0, 0, k, 0, 0, 0, 0, k, 0};
+		double[] base = mul(mul(place, mul(translate(0, sneak ? -2 : 0, 0), scaleM)), part);
 		if (liftPx != 0f) {
 			base = mul(base, translate(0, liftPx, 0));
 		}
@@ -737,13 +778,22 @@ public final class NovaWings {
 		return n;
 	}
 
-	/** 49-351차: 면 UV [x1 y1 x2 y2](픽셀, 뒤집힌 값도 그대로 - 거울 면). 폭이나 높이가 0이면 안 그린다. */
+	/**
+	 * 49-351차: 면 UV [x1 y1 x2 y2](픽셀, 뒤집힌 값도 그대로 - 거울 면). 그림 없는 면(NaN)은 안 그린다.
+	 * 49-353차: 폭이나 높이가 0인 UV(얇은 판의 옆면, 상자 UV가 내림한 0.3px 두께)는 Blockbench처럼 그 줄 한 칸을 늘여 그린다.
+	 */
 	private static int quadUv(double[] m, float[] out, int n, float tw, float th, float nx, float ny, float nz,
 			float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float dx, float dy, float dz,
 			float[] c, int o) {
 		float u0 = c[o], v0 = c[o + 1], u1 = c[o + 2], v1 = c[o + 3];
-		if (u0 == u1 || v0 == v1) {
+		if (Float.isNaN(u0)) {
 			return n;
+		}
+		if (u0 == u1) {
+			u1 = u0 + 0.001f;
+		}
+		if (v0 == v1) {
+			v1 = v0 + 0.001f;
 		}
 		return quad(m, out, n, tw, th, nx, ny, nz, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, u0, v0, u1 - u0, v1 - v0);
 	}

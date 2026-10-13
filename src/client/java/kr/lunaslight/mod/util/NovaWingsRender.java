@@ -21,12 +21,12 @@ public final class NovaWingsRender {
 	private NovaWingsRender() {
 	}
 
-	private static final float[] BUF = new float[8 * 4 * 64];
+	private static float[] BUF = new float[8 * 4 * 64];   // 49-353차: 모자(사각형 288개)는 이보다 커서 모양마다 늘린다
 	private static final Map<Identifier, Object> LAYERS = new HashMap<>();
 	private static boolean broken;
 	private static Method getBuffer, vertex, next, entryMatrix, getLight, drawLayer;
 	private static boolean vertexEntry;
-	private static Field lastX, lastY, lastZ, bodyYaw, prevBodyYaw;
+	private static Field lastX, lastY, lastZ, bodyYaw, prevBodyYaw, headYaw, prevHeadYaw;
 
 	public static void fail(Throwable t) {
 		broken = true;
@@ -76,7 +76,7 @@ public final class NovaWingsRender {
 				if (key == null) {
 					continue;
 				}
-				NovaWings.Asset a = NovaWings.asset(key);
+				NovaWings.Asset a = slot.asset(key);   // 49-353차: 칸마다 묶음 이름(모자 = hat-<key>)
 				Identifier tex = NovaWings.texture(a);
 				if (tex == null) {
 					continue;
@@ -98,7 +98,19 @@ public final class NovaWingsRender {
 				// 49-272차: 웅크린 "자세"만 본다(쉬프트를 눌러도 날거나 자리가 좁으면 자세가 다르다). 자세 메서드가 없을 때만 쉬프트.
 				Object pose = LunaCompat.callNoArg(p, "isInSneakingPose");
 				boolean sneak = pose instanceof Boolean b ? b : flag(p, "isSneaking");
-				int n = NovaWings.build(a, time + (p.getUuid().hashCode() & 0xFF) / 97.0, by, sneak, px - cam.x, py - cam.y, pz - cam.z, lift, BUF);
+				float pitch = 0f;
+				if (slot.head) {
+					// 49-353차: 모자는 머리 방향과 숙임을 따른다(바닐라 머리와 같은 보간)
+					float hy = headYaw == null ? yaw : headYaw.getFloat(p);
+					float hp = prevHeadYaw == null ? hy : prevHeadYaw.getFloat(p);
+					by = hp + wrap(hy - hp) * td;
+					pitch = p.getPitch(td);
+				}
+				if (BUF.length < a.maxVertices() * 8) {
+					BUF = new float[a.maxVertices() * 8];
+				}
+				int n = NovaWings.build(a, time + (p.getUuid().hashCode() & 0xFF) / 97.0, by, sneak, px - cam.x, py - cam.y, pz - cam.z, lift,
+						slot.head, pitch, BUF);
 				if (n == 0) {
 					continue;
 				}
@@ -204,6 +216,8 @@ public final class NovaWingsRender {
 		if (living != null) {
 			bodyYaw = field(living, "bodyYaw", "field_6283");
 			prevBodyYaw = field(living, "lastBodyYaw", "prevBodyYaw", "field_6220");
+			headYaw = field(living, "headYaw");   // 49-353차: 모자
+			prevHeadYaw = field(living, "lastHeadYaw", "prevHeadYaw");
 		}
 	}
 

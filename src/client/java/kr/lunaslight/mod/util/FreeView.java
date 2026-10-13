@@ -96,6 +96,25 @@ public final class FreeView {
 		return u * u;
 	}
 
+	/** 49-354차(사용자: "자유시점 시점 돌리면 그 방향에 맞게 방향키도 다르게"): 켜져 있으면 WASD를 카메라가 보는 방향 기준으로. 모듈이 매 틱 넣는다. */
+	public static volatile boolean moveWithCamera = true;
+
+	/**
+	 * 49-354차: 이동 입력(x = 왼쪽, z = 앞)을 돌릴 각도(도). 안 돌리면 0 - 자유 시점이 꺼졌고 제자리로 돌아오는 중도 아니거나,
+	 * [카메라 방향으로 이동]이 꺼졌거나, 내 플레이어가 아니면. 바닐라 입력 → 속도 변환이 몸 yaw로 돌리므로, 카메라 yaw = 몸 yaw + 오프셋만큼 더 돌린다.
+	 */
+	public static float moveYaw(Object entity) {
+		if (!moveWithCamera) {
+			return 0f;
+		}
+		float off = yawOffset();
+		if (off == 0f) {
+			return 0f;
+		}
+		MinecraftClient mc = MinecraftClient.getInstance();
+		return mc != null && mc.player != null && mc.player == entity ? off : 0f;
+	}
+
 	/** 카메라 pitch(플레이어 pitch + 오프셋)를 ±90 안으로. */
 	public static float clampPitch(float pitch) {
 		return Math.max(-90f, Math.min(90f, pitch));

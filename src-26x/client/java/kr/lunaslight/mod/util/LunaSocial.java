@@ -143,6 +143,18 @@ public final class LunaSocial {
 					} else {
 						NovaWings.BAG.setMineSigned(null, 0, null);
 					}
+					// 49-353차: 노바 모자 cosmetics.hat = { key, ts, sig } - 서명 종류 "hat"
+					if (cos.has("hat") && cos.get("hat").isJsonObject()) {
+						JsonObject ht = cos.getAsJsonObject("hat");
+						long hts = 0;
+						try {
+							hts = ht.has("ts") ? ht.get("ts").getAsLong() : 0;
+						} catch (Throwable ignored) {
+						}
+						NovaWings.HAT.setMineSigned(firstNonEmpty(str(ht, "key"), str(ht, "id")), hts, str(ht, "sig"));
+					} else {
+						NovaWings.HAT.setMineSigned(null, 0, null);
+					}
 					if (cos.has("theme") && cos.get("theme").isJsonObject()) {
 						JsonObject th = cos.getAsJsonObject("theme");
 						mode = firstNonEmpty(str(th, "mode"), str(th, "id"));

@@ -57,7 +57,7 @@ public final class NovaWingsRender {
 				if (key == null) {
 					continue;
 				}
-				NovaWings.Asset a = NovaWings.asset(key);
+				NovaWings.Asset a = slot.asset(key);   // 49-353차: 칸마다 묶음 이름(모자 = hat-<key>)
 				Identifier tex = NovaWings.texture(a);
 				if (tex == null) {
 					continue;
@@ -76,8 +76,22 @@ public final class NovaWingsRender {
 					d += 360f;
 				}
 				float by = p.yBodyRotO + d * td;
+				float pitch = 0f;
+				if (slot.head) {
+					// 49-353차: 모자는 머리 방향과 숙임을 따른다(바닐라 머리와 같은 보간)
+					float hd = (p.yHeadRot - p.yHeadRotO) % 360f;
+					if (hd >= 180f) {
+						hd -= 360f;
+					}
+					if (hd < -180f) {
+						hd += 360f;
+					}
+					by = p.yHeadRotO + hd * td;
+					pitch = p.getViewXRot(td);
+				}
 				float[] buf = new float[Math.max(32, a.maxVertices() * 8)];
-				int n = NovaWings.build(a, time + (p.getUUID().hashCode() & 0xFF) / 97.0, by, p.isCrouching(), dx, py - c.cam.y, dz, lift, buf);
+				int n = NovaWings.build(a, time + (p.getUUID().hashCode() & 0xFF) / 97.0, by, p.isCrouching(), dx, py - c.cam.y, dz, lift,
+						slot.head, pitch, buf);
 				if (n == 0) {
 					continue;
 				}
