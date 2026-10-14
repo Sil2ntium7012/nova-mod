@@ -133,6 +133,14 @@ public abstract class PlayerListHudMixin {
 						zzz, kr.lunaslight.mod.util.LunaCompat.textLiteral(" "), original));
 				return;
 			}
+			// 49-358차(사용자: "우리 서버에서는 탭에 별도 안 뜨게"): 노바 서버(*.novaclient.kr)는 다 노바 유저라 별을 안 붙인다(자리 비움 ZZZ는 위에서 그대로)
+			try {
+				String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(mc);
+				if (addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains("novaclient.kr")) {
+					return;
+				}
+			} catch (Throwable ignored) {
+			}
 			// 49-136차(사용자: "별모양으로 해달라니까 왜 다이아몬드야, 너무 커"): 로고 글리프(icons.ttf, 크게 나옴) 대신
 			// 49-191차(사용자: "우리 로고 별 쓰라고 - 흰색에 너무 크지 않게"): 로고 가운데의 네 갈래 반짝이 별을 흰색으로
 			// (lunastar.png 32×32를 글자 높이 7로 줄여 그림 - 대문자 높이와 같다). 한 글자(\uE100).
