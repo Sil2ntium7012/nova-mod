@@ -243,6 +243,9 @@ public class AppleSkinHudModule extends Module {
 			renderPreviewBar(context);
 			return;
 		}
+		if (novaServerNow()) {
+			return;   // 49-359차: 노바 서버에서는 금지
+		}
 		if (client.player == null) {
 			return;
 		}

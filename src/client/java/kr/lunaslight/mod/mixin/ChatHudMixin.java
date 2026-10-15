@@ -96,6 +96,9 @@ public abstract class ChatHudMixin {
 		}
 		try {
 			String plain = message.getString();
+			if (plain.trim().isEmpty()) {
+				return message;   // 49-360차: 빈 줄엔 [시각]을 안 붙인다
+			}
 			if (plain.startsWith("[") && plain.length() > 7 && plain.charAt(3) == ':' && plain.charAt(6) == ']') {
 				return message; // 이미 [HH:mm] 접두가 있음
 			}

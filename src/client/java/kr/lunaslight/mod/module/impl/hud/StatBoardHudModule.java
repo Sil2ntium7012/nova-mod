@@ -279,6 +279,9 @@ public class StatBoardHudModule extends Module {
 	private static final float SMALL_K = 1f;
 
 	public void onHudRender(DrawContext ctx, RenderTickCounter tick) {
+		if (!isPreview() && novaServerNow()) {
+			return;   // 49-359차(사용자: "우리 서버에서는 왼쪽 위 HUD 금지"): 노바 서버에서는 안 그린다(설정 미리보기는 그대로)
+		}
 		boolean sample = isPreview() || client.player == null;
 		TextRenderer font = client.textRenderer;
 		int sw = WindowAccess.of(client).getScaledWidth();

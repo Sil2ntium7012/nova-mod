@@ -93,6 +93,25 @@ public abstract class Module {
 		return alwaysOn || enabled;
 	}
 
+	// 49-359차(사용자: "우리 서버에서는 왼쪽 위 HUD, 포만감 기능도 금지"): 노바 서버(*.novaclient.kr)에서 막을 기능이 쓰는 판정. 1초마다 한 번만 주소를 본다.
+	private static volatile boolean novaServerCached;
+	private static volatile long novaServerAt;
+
+	/** 지금 접속한 서버가 노바 서버(*.novaclient.kr)인가. */
+	public static boolean novaServerNow() {
+		long now = System.currentTimeMillis();
+		if (now - novaServerAt > 1000L) {
+			novaServerAt = now;
+			try {
+				String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(net.minecraft.client.Minecraft.getInstance());
+				novaServerCached = addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains("novaclient.kr");
+			} catch (Throwable t) {
+				novaServerCached = false;
+			}
+		}
+		return novaServerCached;
+	}
+
 	/**
 	 * 49-34차(사용자: "루나 글꼴 키고 끄는 기능은 왜 있는 거야 그냥 고르게만 하면 되지"):
 	 * 켜고 끄는 개념이 없는 "설정 묶음"(글꼴 등). 항상 켜져 있고, 설정 화면에도 켜기 행이 안 뜬다.
