@@ -100,7 +100,8 @@ public abstract class Module {
 	// 49-365차(사용자: "내 서버에 118.43.69.37:25566도 추가", "지금 novaclient.kr은 잠시 빼고"): 내 서버 판정을 한곳에.
 	// novaclient.kr은 잠시 뺐다 - 다시 넣으려면 NOVA_DOMAIN = true.
 	private static final boolean NOVA_DOMAIN = false;
-	private static final String[] MY_SERVERS = {"118.43.69.37:25566"};
+	// 49-366차: 같은 PC에서 서버를 켜고 들어가면 주소가 localhost:25566(게임 로그 "Connecting to localhost, 25566")이라 같이 넣는다
+	private static final String[] MY_SERVERS = {"118.43.69.37:25566", "localhost:25566", "127.0.0.1:25566"};
 
 	/** 이 주소가 내 서버인가(탭 별, 왼쪽 위 HUD, 포만감, 채팅 시간, 채팅 탭이 이 판정을 쓴다). */
 	public static boolean isMyServer(String addr) {
