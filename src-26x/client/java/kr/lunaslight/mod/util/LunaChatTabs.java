@@ -337,6 +337,14 @@ public final class LunaChatTabs {
 	/** 상자가 보일 때 채팅 줄 아래 여백(바닐라 40 → 입력칸 바로 위). ChatTabsMixin이 바꿔 끼운다. */
 	// 49-376차(사용자 사진: 채팅을 열면 줄이 아래로 내려가 닫혔을 때와 높이가 달랐다 - "이 채팅이랑 높이 맞춰줘"): 바닐라와 같은 40으로 되돌림
 	public static final int PANEL_BOTTOM_MARGIN = 40;
+	// 49-379차(사용자 사진: 채팅 줄은 올라갔는데 아래 채널 상자·입력칸은 화면 맨 아래에 남아 사이가 떴다 - "이 밑에 부분도 올려야지"):
+	// 채널 상자·입력칸 줄을 채팅 줄 바로 아래로 올린다. 명령어 추천 목록·사용법도 같이(ChatSuggestLiftMixin).
+	public static final int INPUT_LIFT = 24;
+
+	/** 채널 상자 줄 위쪽 y(바닐라 입력칸 배경 높이 - 2 - INPUT_LIFT). */
+	private static int rowY(int sh) {
+		return sh - 14 - INPUT_LIFT;
+	}
 
 	/** 채팅창(ChatScreen)이 열려 있고 이 서버에서 탭이 켜졌나 - 상자를 그리고 바닐라 줄 배경·입력칸 배경을 끈다. */
 	public static boolean panelShowing() {
@@ -451,6 +459,10 @@ public final class LunaChatTabs {
 	/** ChatTabsMixin(ChatScreen.extractRenderState 맨 앞): 채팅 줄보다 먼저 상자·탭 줄·채널 상자를 깐다. */
 	public static void drawPanel(Screen s, GuiGraphicsExtractor g, int mx, int my) {
 		if (!active) {
+			EditBox in = input(s);
+			if (in != null && in.getY() != s.height - 12) {
+				in.setY(s.height - 12);   // 49-379차: 탭이 꺼지면 입력칸을 바닐라 자리로
+			}
 			return;
 		}
 		try {
@@ -463,25 +475,30 @@ public final class LunaChatTabs {
 			int pw = p[2];
 			int bw = boxW(f);
 			int bx = px + 2;
-			int by = sh - 14;
+			int by = rowY(sh);
+			int pb = sh - INPUT_LIFT;   // 상자 아래 끝(테두리 줄)
 
-			// 입력칸: 채널 상자 오른쪽 ~ 상자 오른쪽 끝
+			// 입력칸: 채널 상자 오른쪽 ~ 상자 오른쪽 끝, 채널 상자와 같은 줄
 			EditBox in = input(s);
 			if (in != null) {
 				int ix = bx + bw + 4;
 				int iw = Math.max(20, px + pw - ix - 2);
+				int iy = sh - 12 - INPUT_LIFT;
 				if (in.getX() != ix || in.getWidth() != iw) {
 					in.setX(ix);
 					in.setWidth(iw);
 				}
+				if (in.getY() != iy) {
+					in.setY(iy);
+				}
 			}
 
 			// 바탕 상자 + 테두리
-			g.fill(px, py, px + pw, sh - 1, PANEL);
+			g.fill(px, py, px + pw, pb - 1, PANEL);
 			g.fill(px, py - 1, px + pw, py, PANEL_EDGE);
-			g.fill(px, sh - 1, px + pw, sh, PANEL_EDGE);
-			g.fill(px - 1, py - 1, px, sh, PANEL_EDGE);
-			g.fill(px + pw, py - 1, px + pw + 1, sh, PANEL_EDGE);
+			g.fill(px, pb - 1, px + pw, pb, PANEL_EDGE);
+			g.fill(px - 1, py - 1, px, pb, PANEL_EDGE);
+			g.fill(px + pw, py - 1, px + pw + 1, pb, PANEL_EDGE);
 			g.fill(px, py + TAB_H, px + pw, py + TAB_H + 1, ROW_LINE);   // 탭 줄 아래 가는 선
 
 			// 탭 줄: 고른 탭만 금색 칸, 나머지는 글씨만
@@ -542,7 +559,7 @@ public final class LunaChatTabs {
 			int sh = s.height;
 			int bw = boxW(f);
 			int bx = panel(mc, f, sh)[0] + 2;
-			int by = sh - 14;
+			int by = rowY(sh);
 			g.nextStratum();
 			List<String> ch = channels();
 			int dy = by - 1 - ch.size() * ITEM_H;
@@ -575,7 +592,7 @@ public final class LunaChatTabs {
 			int[] p = panel(mc, f, sh);
 			int bw = boxW(f);
 			int bx = p[0] + 2;
-			int by = sh - 14;
+			int by = rowY(sh);
 			if (dropdown) {
 				List<String> ch = channels();
 				int dy = by - 1 - ch.size() * ITEM_H;

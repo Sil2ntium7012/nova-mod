@@ -90,8 +90,13 @@ public abstract class Module {
 	}
 
 	public boolean isEnabled() {
-		if (serverLock && !keepOnMyServer()) {
-			return false;   // 49-377차: 내 서버에서는 기능을 다 끈다
+		if (serverLock) {
+			if (forceOnMyServer()) {
+				return true;    // 49-378차: 나침반은 내 서버에서 무조건 켠다
+			}
+			if (!keepOnMyServer()) {
+				return false;   // 49-377차: 내 서버에서는 기능을 다 끈다
+			}
 		}
 		return alwaysOn || enabled;
 	}
@@ -109,6 +114,13 @@ public abstract class Module {
 	private static volatile boolean serverLock;
 	private static final java.util.Set<String> KEEP_ON_MY_SERVER = java.util.Set.of(
 			"session_fix", "interface_style", "borderless_window", "patch_note_alert");
+	// 49-378차(사용자: "그 나침반은 켜줘 무조건 내 서버에서"): 내 서버에서는 사용자가 꺼 뒀어도 켜는 기능.
+	private static final java.util.Set<String> FORCE_ON_MY_SERVER = java.util.Set.of("compass_hud");
+
+	/** 내 서버에서는 무조건 켜는 기능인가. */
+	public boolean forceOnMyServer() {
+		return FORCE_ON_MY_SERVER.contains(id) && isVersionSupported();
+	}
 
 	/** 지금 내 서버라 기능이 꺼져 있나. */
 	public static boolean serverLocked() {
@@ -128,6 +140,16 @@ public abstract class Module {
 		}
 		if (want) {
 			for (Module m : modules) {
+				if (m.forceOnMyServer()) {
+					if (!(m.alwaysOn || m.enabled)) {
+						try {
+							m.onEnable();
+						} catch (Throwable t) {
+							kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 내 서버 기능 켜기 오류: " + m.id, t);
+						}
+					}
+					continue;
+				}
 				if (!m.keepOnMyServer() && (m.alwaysOn || m.enabled)) {
 					try {
 						m.onDisable();
@@ -141,6 +163,16 @@ public abstract class Module {
 		} else {
 			serverLock = false;
 			for (Module m : modules) {
+				if (m.forceOnMyServer()) {
+					if (!(m.alwaysOn || m.enabled)) {
+						try {
+							m.onDisable();
+						} catch (Throwable t) {
+							kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 기능 끄기 오류: " + m.id, t);
+						}
+					}
+					continue;
+				}
 				if (!m.keepOnMyServer() && (m.alwaysOn || m.enabled)) {
 					try {
 						m.onEnable();
@@ -846,7 +878,7 @@ public abstract class Module {
 			return;
 		}
 		this.enabled = target;
-		if (serverLock && !keepOnMyServer()) {
+		if (serverLock && (!keepOnMyServer() || forceOnMyServer())) {
 			return;   // 49-377차: 내 서버에서는 켜고 끈 값만 기억하고, 나올 때 반영
 		}
 		if (target) {
