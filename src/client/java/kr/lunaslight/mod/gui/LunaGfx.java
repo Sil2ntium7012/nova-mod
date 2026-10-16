@@ -233,6 +233,10 @@ public final class LunaGfx {
 	 * 있고, 마크 폰트 모드/실패 시 null(호출부가 겹쳐 그리기로 굵게).
 	 */
 	public static Object titleText(String s) {
+		if (LunaCompat.fontMode() == LunaCompat.FONT_MC) {
+			Object jua = LunaCompat.fontStyle("jua");   // 49-372차: 주아는 원래 굵은 글꼴이라 제목도 그대로
+			return jua == null ? null : LunaCompat.styledText(s == null ? "" : s, jua);
+		}
 		if (LunaCompat.fontMode() != LunaCompat.FONT_MODERN) {
 			return null;
 		}

@@ -93,6 +93,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.render.BagsModule());    // 49-351차: 노바 가방(토끼 가방)
 		register(new kr.lunaslight.mod.module.impl.render.HatsModule());    // 49-353차: 노바 모자(토끼 모자)
 		register(new kr.lunaslight.mod.module.impl.render.TrailsModule());  // 49-364차: 노바 발자취(별가루, 벚꽃)
+		register(new kr.lunaslight.mod.module.impl.misc.LunaFestivalModule());   // 49-374차: LUNA FESTIVAL C/X 키(26.x만)
 		register(new kr.lunaslight.mod.module.impl.misc.CosmeticsModule());   // 49-271차: [코스메틱] 착용한 것 보기(바꾸기는 런처)
 		register(new EntityHideModule());   // 49-59차(3-4): 이름으로 엔티티 가리기
 		register(new EntityCullModule());   // 49-60차(3-11·3-6): 겹친·먼 엔티티 안 그리기

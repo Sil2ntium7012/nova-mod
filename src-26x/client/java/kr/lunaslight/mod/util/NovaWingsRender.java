@@ -92,6 +92,7 @@ public final class NovaWingsRender {
 				if (n == 0) {
 					continue;
 				}
+				scaleAbout(buf, n, dx, py - c.cam.y, dz, p.getScale());   // 49-370차
 				int light = mc.getEntityRenderDispatcher().getPackedLightCoords(p, td);
 				RenderType type = RenderTypes.entityTranslucent(tex);
 				final int count = n;
@@ -143,6 +144,19 @@ public final class NovaWingsRender {
 			}
 		} catch (Throwable t) {
 			fail(t);
+		}
+	}
+
+	/** 49-370차(사용자: "치장이 마크 캐릭 크기가 달라지면 같아지게"): 몸 크기(배율 속성, LivingEntity#getScale)만큼 발 기준으로 늘리거나 줄인다. */
+	private static void scaleAbout(float[] b, int n, double ox, double oy, double oz, float s) {
+		if (Float.isNaN(s) || s <= 0.01f || Math.abs(s - 1f) < 1e-3) {
+			return;
+		}
+		for (int i = 0; i < n; i++) {
+			int k = i * 8;
+			b[k] = (float) (ox + (b[k] - ox) * s);
+			b[k + 1] = (float) (oy + (b[k + 1] - oy) * s);
+			b[k + 2] = (float) (oz + (b[k + 2] - oz) * s);
 		}
 	}
 

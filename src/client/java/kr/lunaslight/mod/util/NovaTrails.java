@@ -24,7 +24,9 @@ public final class NovaTrails {
 
 	public static final int STRIDE = 9;
 	public static final String ASSET = "trail-fx";
-	private static final int MAX = 900;
+	private static final int MAX = 2500;   // 49-367차: 남는 시간을 늘리면 입자도 많아져 늘림
+	/** 49-367차: 남는 시간 배율 - [코스메틱] [발자취 시간](초) / 2초. CosmeticsModule이 틱마다 넣는다. */
+	public static volatile float lifeScale = 1f;
 	private static final double STEP = 0.45;
 	private static final double FAR = 48;
 
@@ -36,12 +38,13 @@ public final class NovaTrails {
 	private static final class P {
 		double x, y, z, px, py, pz, vx, vy, vz, ground;
 		float size, rot, prot, vrot, phase;
+		float k = 1f;   // 49-370차: 그 사람 몸 크기(배율 속성) - 흔들림, 떨어지는 속도도 같이
 		int age, life, sprite, color;
 		boolean petal, rest;
 	}
 
 	private static final class Walker {
-		double sx, sz, lastY;
+		double sx, sy, sz, lastX, lastY, lastZ;
 		boolean side;
 		boolean seen;
 	}
@@ -72,12 +75,12 @@ public final class NovaTrails {
 			}
 			if (p.petal) {
 				// 꽃잎: 톡 튀었다가 살랑살랑 좌우로 흔들리며 천천히 내려앉는다
-				p.vy = Math.max(-0.022, p.vy - 0.0026);
+				p.vy = Math.max(-0.022 * p.k, p.vy - 0.0026 * p.k);
 				p.vx *= 0.94;
 				p.vz *= 0.94;
-				double sway = Math.sin(p.age * 0.28 + p.phase) * 0.006;
+				double sway = Math.sin(p.age * 0.28 + p.phase) * 0.006 * p.k;
 				p.x += p.vx + sway;
-				p.z += p.vz + Math.cos(p.age * 0.23 + p.phase) * 0.004;
+				p.z += p.vz + Math.cos(p.age * 0.23 + p.phase) * 0.004 * p.k;
 				p.y += p.vy;
 				p.rot += p.vrot;
 				double rest = p.ground + p.size * 0.7;
@@ -89,7 +92,7 @@ public final class NovaTrails {
 				// 별가루: 천천히 떠오르고(별), 가루는 톡 튀었다가 느려진다
 				p.vx *= 0.93;
 				p.vz *= 0.93;
-				p.vy = p.sprite == STAR ? p.vy * 0.97 : p.vy * 0.92 + 0.0004;
+				p.vy = p.sprite == STAR ? p.vy * 0.97 : p.vy * 0.92 + 0.0004 * p.k;
 				p.x += p.vx;
 				p.y += p.vy;
 				p.z += p.vz;
@@ -100,6 +103,17 @@ public final class NovaTrails {
 
 	/** 틱마다 플레이어 하나(보이는 사람만). 발자국 거리만큼 걸었으면 발밑에 찍는다. */
 	public static void player(String uuid, double x, double y, double z, boolean others) {
+		player(uuid, x, y, z, others, 1f);
+	}
+
+	/** 49-370차(사용자: "치장이 마크 캐릭 크기가 달라지면 같아지게"): scale = 그 사람 몸 크기(LivingEntity#getScale) - 발자국 간격, 크기, 퍼지는 거리가 같이 바뀐다. */
+	public static void player(String uuid, double x, double y, double z, boolean others, float scale) {
+		player(uuid, x, y, z, others, scale, -1);
+	}
+
+	/** 49-371차: onGround = 1 땅, 0 공중, -1 모름(한 틱 위아래 움직임으로 짐작). 공중이면 꽃잎이 그 높이에 내려앉지 않는다. */
+	public static void player(String uuid, double x, double y, double z, boolean others, float scale, int onGround) {
+		float sc = (Float.isNaN(scale) || scale <= 0.01f) ? 1f : Math.min(16f, scale);
 		if (uuid == null) {
 			return;
 		}
@@ -107,36 +121,69 @@ public final class NovaTrails {
 		if (w == null) {
 			w = new Walker();
 			w.sx = x;
+			w.sy = y;
 			w.sz = z;
+			w.lastX = x;
 			w.lastY = y;
+			w.lastZ = z;
 			WALKERS.put(uuid, w);
 		}
 		w.seen = true;
-		double dx = x - w.sx, dz = z - w.sz;
-		double d2 = dx * dx + dz * dz;
-		double dy = Math.abs(y - w.lastY);
+		double dx = x - w.sx, dy3 = y - w.sy, dz = z - w.sz;
+		double h2 = dx * dx + dz * dz;
+		double d2 = h2 + dy3 * dy3;   // 49-371차(사용자: "발자취가 공중에서 잘 안 나와"): 위아래로 움직인 것도 센다
+		double dyTick = Math.abs(y - w.lastY);
+		double tx = x - w.lastX, tz = z - w.lastZ;
+		w.lastX = x;
 		w.lastY = y;
-		if (d2 > 9) {   // 순간이동 - 이어 찍지 않는다
+		w.lastZ = z;
+		if (tx * tx + dyTick * dyTick + tz * tz > 16) {   // 한 틱에 4칸 넘게 = 순간이동 - 이어 찍지 않는다(겉날개 비행은 이보다 느리다)
 			w.sx = x;
+			w.sy = y;
 			w.sz = z;
 			return;
 		}
-		if (d2 < STEP * STEP || dy > 0.06) {
-			return;   // 덜 걸었거나 뛰는/떨어지는 중(내려앉으면 그 자리에 찍힌다)
+		double step = Math.max(0.12, STEP * sc);
+		if (d2 < step * step) {
+			return;
 		}
+		// 땅을 딛고 있나(한 틱 위아래 움직임이 작으면) - 공중이면 꽃잎이 그 높이에 내려앉지 않고 떨어지며 사라진다
+		boolean air = onGround == 0 || (onGround < 0 && dyTick > 0.06 * Math.max(1f, sc));
 		List<String> keys = NovaWings.TRAIL.keysFor(uuid, others);
 		if (keys.isEmpty()) {
 			w.sx = x;
+			w.sy = y;
 			w.sz = z;
 			return;
 		}
-		double len = Math.sqrt(d2);
-		double nx = -dz / len, nz = dx / len;   // 걷는 방향의 옆 - 왼발 오른발 번갈아
-		double off = (w.side ? 0.13 : -0.13);
+		double len = Math.sqrt(h2);
+		double nx = len > 1e-3 ? -dz / len : 0, nz = len > 1e-3 ? dx / len : 0;   // 걷는 방향의 옆 - 왼발 오른발 번갈아(바로 위아래면 가운데)
+		double off = (w.side ? 0.13 : -0.13) * sc;
 		w.side = !w.side;
 		w.sx = x;
+		w.sy = y;
 		w.sz = z;
+		int before = PS.size();
 		spawn(keys.get(0), x + nx * off, y, z + nz * off);
+		if (air) {
+			for (int i = before; i < PS.size(); i++) {
+				PS.get(i).ground = Double.NEGATIVE_INFINITY;
+			}
+		}
+		if (Math.abs(sc - 1f) > 1e-3) {
+			double cx = x + nx * off, cz = z + nz * off;
+			for (int i = before; i < PS.size(); i++) {
+				P p = PS.get(i);
+				p.x = p.px = cx + (p.x - cx) * sc;
+				p.y = p.py = y + (p.y - y) * sc;
+				p.z = p.pz = cz + (p.z - cz) * sc;
+				p.vx *= sc;
+				p.vy *= sc;
+				p.vz *= sc;
+				p.size *= sc;
+				p.k = sc;
+			}
+		}
 	}
 
 	/** 틱 끝: 이번 틱에 안 보인 사람은 잊는다. */
@@ -165,7 +212,7 @@ public final class NovaTrails {
 				p.sprite = R.nextBoolean() ? PETAL_A : PETAL_B;
 				p.color = PETAL_COLORS[R.nextInt(PETAL_COLORS.length)];
 				p.size = (float) rnd(0.075, 0.11);
-				p.life = 40 + R.nextInt(25);
+				p.life = life(40 + R.nextInt(25));
 				p.vx = rnd(-0.025, 0.025);
 				p.vz = rnd(-0.025, 0.025);
 				p.vy = rnd(0.03, 0.055);
@@ -181,7 +228,7 @@ public final class NovaTrails {
 		s.sprite = STAR;
 		s.color = STAR_COLORS[R.nextInt(STAR_COLORS.length)];
 		s.size = (float) rnd(0.085, 0.13);
-		s.life = 24 + R.nextInt(14);
+		s.life = life(24 + R.nextInt(14));
 		s.vx = rnd(-0.008, 0.008);
 		s.vz = rnd(-0.008, 0.008);
 		s.vy = rnd(0.012, 0.024);
@@ -193,12 +240,16 @@ public final class NovaTrails {
 			p.sprite = DOT;
 			p.color = DUST_COLORS[R.nextInt(DUST_COLORS.length)];
 			p.size = (float) rnd(0.03, 0.05);
-			p.life = 16 + R.nextInt(14);
+			p.life = life(16 + R.nextInt(14));
 			p.vx = rnd(-0.03, 0.03);
 			p.vz = rnd(-0.03, 0.03);
 			p.vy = rnd(0.035, 0.06);
 			PS.add(p);
 		}
+	}
+
+	private static int life(int ticks) {
+		return Math.max(4, Math.round(ticks * Math.max(0.1f, lifeScale)));
 	}
 
 	private static P base(double x, double y, double z, double ground) {

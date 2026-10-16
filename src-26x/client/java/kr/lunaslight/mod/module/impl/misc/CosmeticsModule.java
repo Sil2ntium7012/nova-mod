@@ -28,6 +28,7 @@ public class CosmeticsModule extends Module {
 	private final BooleanSetting useBag;   // 49-351차
 	private final BooleanSetting useHat;   // 49-353차
 	private final BooleanSetting useTrail;   // 49-364차
+	private final kr.lunaslight.mod.module.setting.FloatSetting trailTime;   // 49-367차
 
 	public CosmeticsModule() {
 		super("cosmetics", "착용 중", ModuleCategory.FEATURE, "바꾸기는 Nova Client 런처에서");
@@ -53,6 +54,9 @@ public class CosmeticsModule extends Module {
 		// 49-364차: 발자취
 		register(new InfoSetting("trail", "발자취", () -> kr.lunaslight.mod.util.NovaWings.TRAIL.nameOf(kr.lunaslight.mod.util.NovaWings.TRAIL.mineKey())));
 		useTrail = register(new BooleanSetting("use_trail", "발자취 쓰기", "끄면 내 발자취를 안 남깁니다. 런처에서 낀 것은 그대로입니다.", true));
+		// 49-367차(사용자: "코스메틱에서 발자취 남는 시간을 설정할 수 있게"): 내 화면에 보이는 발자취(내 것, 남의 것)가 남아 있는 시간
+		trailTime = register(new kr.lunaslight.mod.module.setting.FloatSetting("trail_time", "발자취 시간",
+				"발자취가 남아 있는 시간입니다. 내 화면에 보이는 모든 발자취에 적용됩니다.", 2f, 0.5f, 10f, 0.5f).unit("초"));
 		register(new InfoSetting("theme", "테마", () -> kr.lunaslight.mod.util.LunaSocial.cosmeticThemeName));
 		register(new InfoSetting("color", "포인트 색", () -> kr.lunaslight.mod.util.LunaSocial.cosmeticColorName));
 	}
@@ -67,6 +71,7 @@ public class CosmeticsModule extends Module {
 	@Override
 	public void onTick() {
 		applyUi();   // 설정 파일을 읽은 직후에도 맞도록(값이 같으면 아무것도 안 한다)
+		kr.lunaslight.mod.util.NovaTrails.lifeScale = trailTime.get() / 2f;   // 49-367차
 	}
 
 	/** 내 노바 망토를 그릴지. */

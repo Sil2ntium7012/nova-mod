@@ -4449,7 +4449,7 @@ public final class LunaCompat {
 	}
 
 	// ==================== 49-13차: 폰트 모드(사용자 선택) ====================
-	// 0 = 마크 기본 폰트(동봉 폰트 미적용 - Style null), 1 = 마크 + 한글 픽셀(갈무리7 서브셋),
+	// 0 = 주아(49-372차, 예전 마크 기본 폰트 자리 - 배민 주아체 서브셋 jua.ttf, 없는 글자는 Pretendard), 1 = 마크 + 한글 픽셀(갈무리7 서브셋),
 	// 2 = 모던(Pretendard). InterfaceStyleModule이 setFontModeSupplier로 설정을 연결.
 	public static final int FONT_MC = 0;
 	public static final int FONT_MC_HANGUL = 1;
@@ -4564,7 +4564,7 @@ public final class LunaCompat {
 			UI_STYLE_CACHE.clear(); // 모드·크기가 바뀌면 캐시된 Style 폐기(즉시 반영)
 		}
 		return switch (mode) {
-			case FONT_MC -> null;
+			case FONT_MC -> fontStyle("jua");   // 49-372차: 마크 폰트 → 주아
 			case FONT_MC_HANGUL -> fontStyle(pixelBase());
 			default -> fontStyle("ui");
 		};
@@ -4590,13 +4590,14 @@ public final class LunaCompat {
 	}
 
 	public static float textBandTop() {
-		return fontMode() == FONT_MODERN ? 0.3f : 0f;
+		int m = fontMode();
+		return m == FONT_MODERN || m == FONT_MC ? 0.3f : 0f;   // 49-372차: 주아도 모던과 같은 띠(구운 높이를 맞춤)
 	}
 
 	public static float textBandBottom() {
 		int mode = fontMode();
-		if (mode == FONT_MODERN) {
-			return 8.5f;
+		if (mode == FONT_MODERN || mode == FONT_MC) {
+			return 8.5f;   // 49-372차: 주아(size 11, 베이스라인 7.5)도 한글 0..8.8, 영문 0.6..8.5
 		}
 		// 49-80차: 갈무리 9·11은 잉크가 0..9 / 0..11 - 베이스라인을 그만큼 내려 구웠으니(shift 2 / 4) 밴드도 따라간다
 		return mode == FONT_MC_HANGUL ? pixelSize() : 7f;
@@ -4612,7 +4613,7 @@ public final class LunaCompat {
 	 * 잉크가 한 줄 더 내려와 중심이 0.5px 아래다. 제목처럼 아이콘 옆에 놓는 글은 이 문자열별 중심으로 맞춘다.
 	 */
 	public static float textVisualCenter(String s) {
-		if (s != null && fontMode() == FONT_MC) {
+		if (s != null && fontMode() == FONT_MC && uiStyle() == null) {   // 49-372차: 바닐라 글꼴일 때만(주아는 해당 없음)
 			for (int i = 0; i < s.length(); i++) {
 				char c = s.charAt(i);
 				if (c >= 0xAC00 && c <= 0xD7A3) {
@@ -4722,7 +4723,7 @@ public final class LunaCompat {
 	}
 
 	private static Component packSplitText(String text) {
-		if (text == null || text.isEmpty() || fontMode() != FONT_MC) {
+		if (text == null || text.isEmpty() || fontMode() != FONT_MC || uiStyle() != null) {   // 49-372차: 주아로 바뀌어 바닐라 글꼴일 때(1.15 이하)만
 			return null;   // 49-168차: [마크 기본] 글꼴일 때만(그때만 팩 글꼴이 Luna 글자에 보인다)
 		}
 		boolean any = false;

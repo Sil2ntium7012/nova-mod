@@ -45,7 +45,7 @@ public class TrailsModule extends Module {
 			NovaTrails.beginTick();
 			for (Object o : mc.world.getPlayers()) {
 				if (!(o instanceof Entity p) || p.isInvisible() || flag(p, "isSpectator") || flag(p, "isSleeping")
-						|| flag(p, "isInSwimmingPose") || flag(p, "isFallFlying") || flag(p, "isGliding") || p.hasVehicle()) {
+						|| flag(p, "isInSwimmingPose") || p.hasVehicle()) {
 					continue;
 				}
 				if (AfkWatch.afkEntity(p)) {
@@ -53,13 +53,30 @@ public class TrailsModule extends Module {
 				}
 				Vec3d v = LunaCompat.getPos(p);
 				if (v != null) {
-					NovaTrails.player(p.getUuid().toString(), v.x, v.y, v.z, others.get());
+					NovaTrails.player(p.getUuid().toString(), v.x, v.y, v.z, others.get(),
+							kr.lunaslight.mod.util.NovaWingsRender.bodyScale(p), ground(p));   // 49-370차: 몸 크기, 49-371차: 땅/공중
 				}
 			}
 			NovaTrails.endTick();
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("trails:tick", t);
 		}
+	}
+
+	/** 49-371차: 땅을 딛고 있나 - 1.16+ isOnGround(), 그 전은 onGround 필드. 못 읽으면 -1(움직임으로 짐작). */
+	private static int ground(Object p) {
+		Object v = LunaCompat.callNoArg(p, "isOnGround");
+		if (v instanceof Boolean b) {
+			return b ? 1 : 0;
+		}
+		try {
+			java.lang.reflect.Field f = LunaCompat.findField(p.getClass(), "onGround");
+			if (f != null && f.getType() == boolean.class) {
+				return f.getBoolean(p) ? 1 : 0;
+			}
+		} catch (Throwable ignored) {
+		}
+		return -1;
 	}
 
 	private static boolean flag(Object e, String name) {

@@ -20,7 +20,7 @@ import kr.lunaslight.mod.util.LunaCompat;
 public class InterfaceStyleModule extends Module {
 
 	public enum FontStyle {
-		MC("마크 폰트"),   // 49-120차(사용자): "마크 기본 폰트" → "마크 폰트"로 이름 변경
+		MC("주아 폰트"),   // 49-120차(사용자): "마크 기본 폰트" → "마크 폰트"로 이름 변경. 49-372차(사용자): 마크 폰트 자리를 배민 주아체로 교체(저장 이름 MC는 그대로)
 		MC_HANGUL("갈무리 폰트"),
 		MODERN("모던 (Pretendard)");
 
@@ -97,7 +97,7 @@ public class InterfaceStyleModule extends Module {
 		// 49-120차(사용자: "기본 폰트 마크 폰트로 해주라"): 기본값을 갈무리 → 마크 폰트로.
 		// 49-151차(사용자: "폰트 관련 설정 다 기본으로 되돌려"): 저장 이름에 _v2를 붙여 예전에 바꿔 둔 값이 무시되고
 		// 기본값(마크 폰트 / 보통 / 리소스팩 글꼴 우선 켬)으로 새로 시작한다.
-		font = register(new EnumSetting<>("font_v2", "글꼴", "마크, 갈무리, 모던 중에서 고릅니다.",
+		font = register(new EnumSetting<>("font_v2", "글꼴", "주아, 갈무리, 모던 중에서 고릅니다.",
 			FontStyle.MC, FontStyle.class).vertical());
 		// 49-80차(5-2) → 49-84차: 갈무리를 골랐을 때만 뜻이 있는 설정 - 다른 글꼴이면 어둡게 잠근다(disabledWhen)
 		pixelSize = register(new EnumSetting<>("pixel_size_v2", "글씨 크기",

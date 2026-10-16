@@ -94,7 +94,8 @@ public final class LunaChatTabs {
 				}
 				dropdown = false;
 				ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> !click(s, e.x(), e.y(), e.button()));
-				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !key(s, e.key(), e.modifiers()));
+				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !key(s, e.key(), e.hasControlDown()));
+				ScreenKeyboardEvents.allowKeyRelease(screen).register((s, e) -> !keyUp(e.key()));   // 49-374차: Ctrl 단독 = 채널 전환
 			});
 		} catch (Throwable t) {
 			LunaClientMod.LOGGER.info("[Nova] 채팅 탭 화면 훅 등록 실패: " + t);
@@ -562,6 +563,7 @@ public final class LunaChatTabs {
 
 	/** 처리했으면 true(바닐라로 안 넘김). */
 	private static boolean click(Screen s, double mx, double my, int button) {
+		ctrlArmed = false;   // 49-374차: Ctrl 누른 채 클릭하면 채널 전환 안 함
 		if (!active || button != 0) {
 			return false;
 		}
@@ -608,16 +610,51 @@ public final class LunaChatTabs {
 		return false;
 	}
 
+	/** 49-374차: Ctrl을 눌렀고 아직 다른 키가 안 눌렸나(떼면 채널 전환). */
+	private static boolean ctrlArmed;
+
+	private static boolean isCtrl(int key) {
+		return key == com.mojang.blaze3d.platform.InputConstants.KEY_LCONTROL || key == com.mojang.blaze3d.platform.InputConstants.KEY_RCONTROL;
+	}
+
+	/** 이 서버(내 서버 + 꼬리표나 luna:chat을 받은 연결)인가 - LunaFest(C/X 키, 핫바 칸 건너뛰기)가 쓴다. */
+	public static boolean isActive() {
+		return active;
+	}
+
+	/**
+	 * 49-374차(요청서 luna-chat-ctrl.md): 채팅창에서 왼쪽/오른쪽 Ctrl만 눌렀다 떼면 /채널 전환(일반 ↔ 팀, 서버가 luna:chat으로 표시를 바꾼다).
+	 * 누르는 동안 다른 키(Ctrl+A/C/V 등)나 마우스를 눌렀으면 안 보낸다. 입력 중인 글자는 그대로.
+	 */
+	private static boolean keyUp(int key) {
+		if (!active || !isCtrl(key)) {
+			return false;
+		}
+		boolean fire = ctrlArmed;
+		ctrlArmed = false;
+		if (fire) {
+			command("채널 전환");
+		}
+		return false;   // 떼는 것 자체는 바닐라로 그대로 넘긴다
+	}
+
 	/** Ctrl+←/→ = 앞/뒤 탭(입력칸이 비었을 때만 - 글을 쓰는 중엔 단어 이동 그대로). Esc = 채널 목록 닫기. */
-	private static boolean key(Screen s, int key, int mods) {
+	private static boolean key(Screen s, int key, boolean ctrl) {
 		if (!active) {
 			return false;
 		}
-		if (key == 256 && dropdown) {
+		// 49-374차: Ctrl 단독 누름 추적 - Ctrl이면 시작, 다른 키면 취소
+		ctrlArmed = isCtrl(key);
+		if (ctrlArmed) {
+			return false;
+		}
+		if (key == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE && dropdown) {
 			dropdown = false;
 			return true;
 		}
-		if ((mods & 2) == 0 || (key != 262 && key != 263)) {
+		boolean left = key == com.mojang.blaze3d.platform.InputConstants.KEY_LEFT;
+		boolean right = key == com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT;
+		if (!ctrl || (!left && !right)) {
 			return false;
 		}
 		EditBox in = input(s);
@@ -626,7 +663,7 @@ public final class LunaChatTabs {
 		}
 		List<Tab> l = tabs();
 		int i = Math.max(0, l.indexOf(cur));
-		i = (i + (key == 262 ? 1 : -1) + l.size()) % l.size();
+		i = (i + (right ? 1 : -1) + l.size()) % l.size();
 		select(l.get(i), true);
 		return true;
 	}

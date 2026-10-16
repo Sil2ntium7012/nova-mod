@@ -42,13 +42,13 @@ public class TrailsModule extends Module {
 			}
 			NovaTrails.beginTick();
 			for (AbstractClientPlayer p : mc.level.players()) {
-				if (p.isInvisible() || p.isSpectator() || p.isSleeping() || p.isVisuallySwimming() || p.isFallFlying() || p.isPassenger()) {
+				if (p.isInvisible() || p.isSpectator() || p.isSleeping() || p.isVisuallySwimming() || p.isPassenger()) {
 					continue;
 				}
 				if (AfkWatch.afkEntity(p)) {
 					continue;
 				}
-				NovaTrails.player(p.getUUID().toString(), p.getX(), p.getY(), p.getZ(), others.get());
+				NovaTrails.player(p.getUUID().toString(), p.getX(), p.getY(), p.getZ(), others.get(), p.getScale(), p.onGround() ? 1 : 0);   // 49-370차: 몸 크기
 			}
 			NovaTrails.endTick();
 		} catch (Throwable t) {

@@ -5,7 +5,7 @@ import net.minecraft.client.Minecraft;
 /**
  * 49-349차(사용자: "배그처럼 자유시점도 가능하게 해줘 기본키 ALT로"): 키를 누르는 동안 <b>몸(플레이어 시선)은 그대로 두고 카메라만</b>
  * 마우스로 둘러본다. 마우스 움직임이 Entity.turn(플레이어 회전)으로 가기 전에 가로채 카메라 각도 오프셋에 쌓고, 카메라가 플레이어
- * 각도를 읽는 자리(Camera.alignWithEntity의 getViewYRot/getViewXRot)에 그 오프셋을 더한다. 떼면 0.15초 동안 부드럽게 제자리로.
+ * 각도를 읽는 자리(Camera.alignWithEntity의 getViewYRot/getViewXRot)에 그 오프셋을 더한다. 떼면 바로 제자리로(49-373차).
  * 상태는 모듈(FreeViewModule)이 켜고 끈다.
  */
 public final class FreeView {
@@ -37,9 +37,10 @@ public final class FreeView {
 			pitchOff = 0f;
 			releasedAt = 0L;
 		} else {
-			relYaw = yawOff;
-			relPitch = pitchOff;
-			releasedAt = System.currentTimeMillis();
+			// 49-373차(사용자: "자유 시점 화면 돌아갈 때 부드럽게 하지 말고 바로 돌아가게"): 떼면 바로 제자리(되돌아가는 애니메이션 없음)
+			relYaw = 0f;
+			relPitch = 0f;
+			releasedAt = 0L;
 			yawOff = 0f;
 			pitchOff = 0f;
 		}

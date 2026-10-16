@@ -111,6 +111,7 @@ public final class NovaWingsRender {
 				if (n == 0) {
 					continue;
 				}
+				scaleAbout(BUF, n, px - cam.x, py - cam.y, pz - cam.z, bodyScale(p));   // 49-370차
 				Object layer = layer(tex);
 				if (layer == null) {
 					return;
@@ -196,6 +197,25 @@ public final class NovaWingsRender {
 		} catch (Throwable t) {
 			fail(t);
 		}
+	}
+
+	/** 49-370차(사용자: "치장이 마크 캐릭 크기가 달라지면 같아지게"): 몸 크기(배율 속성, LivingEntity#getScale)만큼 발 기준으로 늘리거나 줄인다. */
+	private static void scaleAbout(float[] b, int n, double ox, double oy, double oz, float s) {
+		if (Float.isNaN(s) || s <= 0.01f || Math.abs(s - 1f) < 1e-3) {
+			return;
+		}
+		for (int i = 0; i < n; i++) {
+			int k = i * 8;
+			b[k] = (float) (ox + (b[k] - ox) * s);
+			b[k + 1] = (float) (oy + (b[k + 1] - oy) * s);
+			b[k + 2] = (float) (oz + (b[k + 2] - oz) * s);
+		}
+	}
+
+	/** 49-370차: 몸 크기(1.20.5+ 배율 속성 LivingEntity#getScale). 그 전 버전은 1. */
+	public static float bodyScale(Object p) {
+		Object v = LunaCompat.callNoArg(p, "getScale");
+		return v instanceof Float f && f > 0.01f ? f : 1f;
 	}
 
 	private static double lerp(float t, double a, double b) {
