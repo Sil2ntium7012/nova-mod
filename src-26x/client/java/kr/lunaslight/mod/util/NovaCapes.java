@@ -83,7 +83,7 @@ public final class NovaCapes {
 
 	/** 이 플레이어가 낀 노바 망토 텍스처(없으면 null). 남의 것은 모르면 조회를 예약한다. */
 	public static Identifier textureFor(Object entity) {
-		if (entity == null || !CapeSmoothModule.novaCapesShown()) {
+		if (entity == null || kr.lunaslight.mod.module.Module.serverLocked() || !CapeSmoothModule.novaCapesShown()) {   // 49-377차: 내 서버면 노바 망토도 끔
 			return null;
 		}
 		if (AfkWatch.afkEntity(entity)) {

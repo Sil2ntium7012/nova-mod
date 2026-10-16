@@ -335,7 +335,8 @@ public final class LunaChatTabs {
 	private static final int BOX_EDGE = 0xFF8C8E96;
 	private static final int GEAR_W = 14;
 	/** 상자가 보일 때 채팅 줄 아래 여백(바닐라 40 → 입력칸 바로 위). ChatTabsMixin이 바꿔 끼운다. */
-	public static final int PANEL_BOTTOM_MARGIN = 17;
+	// 49-376차(사용자 사진: 채팅을 열면 줄이 아래로 내려가 닫혔을 때와 높이가 달랐다 - "이 채팅이랑 높이 맞춰줘"): 바닐라와 같은 40으로 되돌림
+	public static final int PANEL_BOTTOM_MARGIN = 40;
 
 	/** 채팅창(ChatScreen)이 열려 있고 이 서버에서 탭이 켜졌나 - 상자를 그리고 바닐라 줄 배경·입력칸 배경을 끈다. */
 	public static boolean panelShowing() {

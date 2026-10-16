@@ -1055,7 +1055,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		List<Module> list = currentModules();
 		int on = 0;
 		for (Module m : list) {
-			if (m.isEnabled() && m.isVersionSupported()) {
+			if (m.isEnabledStored() && m.isVersionSupported()) {
 				on++;
 			}
 		}
@@ -1096,7 +1096,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			card(ctx, backX(), by, 20, 20, 4, LunaDraw.lerpColor(CARD_HOV, LunaTheme.mix(CARD_HOV, WHITE, 0.06f), bh ? 1f : 0f),
 				bh ? LunaTheme.mix(LINE, ACC, 0.6f) : LINE_HOV);
 			LunaIcons.drawInBox(ctx, font, LunaIcons.BACK, backX(), by, 20, bh ? ACC : WHITE);   // 49-245차: 칸(20) 정가운데 - 예전 +2/+3은 1px 아래였다
-			float mon = LunaDraw.anim("t:" + m.getId(), m.isEnabled() && m.isVersionSupported() ? 1f : 0f, 14f);
+			float mon = LunaDraw.anim("t:" + m.getId(), m.isEnabledStored() && m.isVersionSupported() ? 1f : 0f, 14f);
 			iconTile(ctx, LunaIcons.forModule(m.getId(), m.getCategory()), backX() + 25, by, 20, mon,
 				LunaDraw.lerpColor(GRAY, ACC, mon));
 			int nx = backX() + BACK_W;
@@ -1105,7 +1105,7 @@ public class LunaClientScreen extends LunaScreenBase {
 				int sx = bigSwitchX();
 				int sy = bigSwitchY();
 				boolean sh = LunaDraw.in(mouseX, mouseY, sx - 3, sy - 3, BIG_SW_W + 6, BIG_SW_H + 6);
-				btn3d(ctx, sx, sy, BIG_SW_W, BIG_SW_H, m.isEnabled() ? "켜짐" : "켜기", m.isEnabled(),
+				btn3d(ctx, sx, sy, BIG_SW_W, BIG_SW_H, m.isEnabledStored() ? "켜짐" : "켜기", m.isEnabledStored(),
 					LunaDraw.anim("bigsw", sh ? 1f : 0f, 18f));
 			} else if (!m.isVersionSupported()) {
 				String need = m.getVersionRequirementLabel();
@@ -1349,7 +1349,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		List<Module> mods = currentModules();
 		int on = 0;
 		for (Module m : mods) {
-			if (m.isEnabled()) {
+			if (m.isEnabledStored()) {
 				on++;
 			}
 		}
@@ -2483,7 +2483,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			surface(ctx, contentX, y, w, boxH, cardSolid());
 
 			boolean headHover = inContent && LunaDraw.in(mouseX, mouseY, contentX, y, w, PAGE_HEAD_H);
-			boolean on = m.isEnabled();
+			boolean on = m.isEnabledStored();
 			// 49-226차(사진 시안): 머리 줄 = 아이콘 칸 + 이름, 설정 줄마다 작은 카드
 			int its = Math.min(18, PAGE_HEAD_H - 6);
 			float pon = LunaDraw.anim("pt:" + m.getId(), on ? 1f : 0f, 14f);
@@ -2631,7 +2631,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		String here = supported ? m.unavailableHere() : null;
 		boolean dim = !supported || here != null;
 		float hov = LunaDraw.anim("ch:" + m.getId(), hovered ? 1f : 0f, 18f);
-		float on = LunaDraw.anim("t:" + m.getId(), m.isEnabled() && !dim ? 1f : 0f, 14f);
+		float on = LunaDraw.anim("t:" + m.getId(), m.isEnabledStored() && !dim ? 1f : 0f, 14f);
 		glass(ctx, x, y, w, TILE_H, hov, supported ? on : 0f);
 
 		int iconColor = dim ? GRAY_DIM : LunaDraw.lerpColor(LunaDraw.lerpColor(OFF_TXT, GRAY, hov), ACC, on);
@@ -2692,7 +2692,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		int[] b = toggleRect(x, y, w);
 		if (supported && !m.isAlwaysOn()) {
 			boolean bh = LunaDraw.in(mouseX, mouseY, b[0], b[1], b[2], b[3]);
-			btn3d(ctx, b[0], b[1], b[2], b[3], m.isEnabled() ? "켜짐" : "켜기", m.isEnabled() && here == null,
+			btn3d(ctx, b[0], b[1], b[2], b[3], m.isEnabledStored() ? "켜짐" : "켜기", m.isEnabledStored() && here == null,
 				LunaDraw.anim("tb:" + m.getId(), bh ? 1f : 0f, 18f));
 		} else if (supported) {
 			btn3d(ctx, b[0], b[1], b[2], b[3], "열기", false, hov);   // 늘 켜진 기능(계산기 등) - 누르면 전용 화면/설정
@@ -3116,7 +3116,7 @@ public class LunaClientScreen extends LunaScreenBase {
 	 * 스위치가 없으니 제외. 기능 상세 패널(카드 → 설정, openModule)에서는 켜기 전에 미리 맞춰 둘 수 있게 안 막는다.
 	 */
 	private boolean ownerDisabled() {
-		return rowOwner != null && !rowOwner.isAlwaysOn() && !rowOwner.isEnabled();
+		return rowOwner != null && !rowOwner.isAlwaysOn() && !rowOwner.isEnabledStored();
 	}
 
 	private void renderSettingRow(GuiGraphicsExtractor ctx, Setting<?> s, int x, int y, int w, int mouseX, int mouseY,
@@ -4227,10 +4227,10 @@ public class LunaClientScreen extends LunaScreenBase {
 			}
 			int[] tb = toggleRect(r[0], y, r[2]);   // 49-226차: 카드 아래 [켜짐] 버튼
 			if (m.isVersionSupported() && !m.isAlwaysOn() && LunaDraw.in(mouseX, mouseY, tb[0], tb[1], tb[2], tb[3])) {
-				boolean wasOn = m.isEnabled();
+				boolean wasOn = m.isEnabledStored();
 				ModuleManager.get().toggleWithConflictResolution(m);
 				// 49-21차: 켜는 순간 설정으로(사용자: "원하는 기능을 켜면 무조건 설정창이 뜨게")
-				if (!wasOn && m.isEnabled() && !visibleSettings(m).isEmpty()) {
+				if (!wasOn && m.isEnabledStored() && !visibleSettings(m).isEmpty()) {
 					openSettings(m);
 				}
 				return true;

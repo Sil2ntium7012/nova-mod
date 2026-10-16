@@ -90,7 +90,67 @@ public abstract class Module {
 	}
 
 	public boolean isEnabled() {
+		if (serverLock && !keepOnMyServer()) {
+			return false;   // 49-377차: 내 서버에서는 기능을 다 끈다
+		}
 		return alwaysOn || enabled;
+	}
+
+	/** 49-377차: 내 서버 잠금과 상관없이 사용자가 켜 둔 값(설정 저장, 설정 화면 표시용). */
+	public boolean isEnabledStored() {
+		return alwaysOn || enabled;
+	}
+
+	// ==================== 49-377차: 내 서버에서는 기능 전부 끄기 ====================
+	// 사용자: "내 서버에서는 기능들 다 안 되게 해줘" + 질문 답 "내 서버 전용 기능만 살린다".
+	// 내 서버(isMyServer)에 들어가면 켜져 있던 기능의 onDisable을 한 번 부르고 isEnabled가 false를 돌려준다(틱, HUD, 믹스인 전부).
+	// 나오면 onEnable을 불러 원래대로. 살려 두는 것: [서버] 분류(서버 전용 기능), 그리고 게임 기능이 아닌 바탕 몇 개
+	// (세션 복구, 글꼴과 테마, 창 모드, 패치노트 알림). 채팅 탭, C/X 키, 핫바 칸 건너뛰기는 기능 목록 밖이라 그대로 돈다.
+	private static volatile boolean serverLock;
+	private static final java.util.Set<String> KEEP_ON_MY_SERVER = java.util.Set.of(
+			"session_fix", "interface_style", "borderless_window", "patch_note_alert");
+
+	/** 지금 내 서버라 기능이 꺼져 있나. */
+	public static boolean serverLocked() {
+		return serverLock;
+	}
+
+	/** 내 서버에서도 켜 두는 기능인가. */
+	public boolean keepOnMyServer() {
+		return category == ModuleCategory.SERVER || KEEP_ON_MY_SERVER.contains(id);
+	}
+
+	/** ModuleManager가 틱마다: 내 서버에 들어가고 나올 때 기능들을 끄고 다시 켠다. */
+	static void updateServerLock(java.util.Collection<Module> modules) {
+		boolean want = novaServerNow();
+		if (want == serverLock) {
+			return;
+		}
+		if (want) {
+			for (Module m : modules) {
+				if (!m.keepOnMyServer() && (m.alwaysOn || m.enabled)) {
+					try {
+						m.onDisable();
+					} catch (Throwable t) {
+						kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 내 서버 기능 끄기 오류: " + m.id, t);
+					}
+				}
+			}
+			serverLock = true;
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 내 서버 - 기능을 끕니다(서버 전용 기능만 남김)");
+		} else {
+			serverLock = false;
+			for (Module m : modules) {
+				if (!m.keepOnMyServer() && (m.alwaysOn || m.enabled)) {
+					try {
+						m.onEnable();
+					} catch (Throwable t) {
+						kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 기능 다시 켜기 오류: " + m.id, t);
+					}
+				}
+			}
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 내 서버에서 나옴 - 기능을 다시 켭니다");
+		}
 	}
 
 	// 49-359차(사용자: "우리 서버에서는 왼쪽 위 HUD, 포만감 기능도 금지"): 노바 서버(*.novaclient.kr)에서 막을 기능이 쓰는 판정. 1초마다 한 번만 주소를 본다.
@@ -786,6 +846,9 @@ public abstract class Module {
 			return;
 		}
 		this.enabled = target;
+		if (serverLock && !keepOnMyServer()) {
+			return;   // 49-377차: 내 서버에서는 켜고 끈 값만 기억하고, 나올 때 반영
+		}
 		if (target) {
 			onEnable();
 		} else {

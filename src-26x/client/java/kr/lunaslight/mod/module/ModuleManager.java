@@ -234,6 +234,7 @@ public final class ModuleManager {
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			kr.lunaslight.mod.util.LunaPerf.tick(client); // 49-7차: 성능 진단 지표 수집(1초 단위 샘플)
+			Module.updateServerLock(byId.values());   // 49-377차: 내 서버면 기능 전부 끄기
 			for (Module module : byId.values()) {
 				if (module.isEnabled()) {
 					try {
@@ -241,7 +242,7 @@ public final class ModuleManager {
 					} catch (Exception e) {
 						kr.lunaslight.mod.LunaClientMod.LOGGER.error("[Nova] 모듈 tick 오류: " + module.getId(), e);
 					}
-				} else if (module instanceof BackgroundTick bt) {
+				} else if (module instanceof BackgroundTick bt && !(Module.serverLocked() && !module.keepOnMyServer())) {
 					// 49-194차: 꺼져 있어도 다른 기능을 위해 돌아야 하는 일(아이템 찾기의 상자 기록 → 블록 정보 내용물)
 					try {
 						bt.backgroundTick();

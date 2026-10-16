@@ -65,6 +65,9 @@ public class SimpleHealthHudModule extends Module {
 
 	/** HealthBarMixin에서: 한 줄로 그릴 상황이면 바닐라 대신 그리고 true. */
 	private boolean replaceHealthBar(Object ctxObj, int x, int y, float maxHealth, int lastHealth, int health, int absorption) {
+		if (novaServerNow()) {
+			return true;   // 49-375차(사용자: "내 서버에서 이 체력도 안 뜨게"): 서버가 체력을 따로 보여 주니 하트 줄을 아예 안 그린다(바닐라도 취소)
+		}
 		if (!isEnabled() || !(ctxObj instanceof DrawContext ctx) || client == null || client.player == null) {
 			return false;
 		}

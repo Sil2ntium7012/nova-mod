@@ -276,7 +276,7 @@ public final class LunaClientConfig {
 		root.addProperty(DEFAULTS_KEY, DEFAULTS_VERSION);
 		for (Module module : ModuleManager.get().all()) {
 			JsonObject moduleObj = new JsonObject();
-			moduleObj.addProperty("enabled", module.isEnabled());
+			moduleObj.addProperty("enabled", module.isEnabledStored());   // 49-377차: 내 서버에서 꺼 둔 상태로 저장되지 않게
 			JsonObject settingsObj = new JsonObject();
 			for (Setting<?> setting : module.getSettings()) {
 				settingsObj.add(setting.getId(), setting.toJson());
