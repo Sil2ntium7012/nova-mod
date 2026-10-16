@@ -204,7 +204,7 @@ public class ChatEnhancementsModule extends Module {
 	private boolean onNovaServer() {
 		try {
 			String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(client);
-			return addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains("novaclient.kr");
+			return kr.lunaslight.mod.module.Module.isMyServer(addr);   // 49-365차: 내 서버 목록
 		} catch (Throwable t) {
 			return false;
 		}

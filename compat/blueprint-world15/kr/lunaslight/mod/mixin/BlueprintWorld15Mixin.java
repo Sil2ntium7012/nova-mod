@@ -25,8 +25,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class BlueprintWorld15Mixin {
 
 	private static Module lunaslight$blueprint;
-	private static final String[] lunaslight$cosIds = {"wings", "bags", "hats"};
-	private static final Module[] lunaslight$cos = new Module[3];
+	private static final String[] lunaslight$cosIds = {"wings", "bags", "hats", "trails"};   // 49-364차: 발자취
+	private static final Module[] lunaslight$cos = new Module[4];
 
 	@Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;FJZLnet/minecraft/client/render/Camera;Lnet/minecraft/client/render/GameRenderer;Lnet/minecraft/client/render/LightmapTextureManager;Lnet/minecraft/client/util/math/Matrix4f;)V",
 			at = @At("TAIL"), require = 0)

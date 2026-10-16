@@ -127,6 +127,56 @@ public final class NovaWingsGl14 {
 		}
 	}
 
+	/** 49-364차: 발자취 입자(NovaTrails 사각형, 꼭짓점마다 색). 반투명이라 깊이는 안 쓴다. */
+	public static void drawTrails() {
+		if (broken || !NovaTrails.any()) {
+			return;
+		}
+		MinecraftClient mc = MinecraftClient.getInstance();
+		if (mc == null || mc.world == null || mc.gameRenderer == null) {
+			return;
+		}
+		try {
+			Identifier tex = NovaWings.texture(NovaWings.asset(NovaTrails.ASSET));
+			if (tex == null) {
+				return;
+			}
+			Vec3d cam = mc.gameRenderer.getCamera().getPos();
+			int n = NovaTrails.build(cam.x, cam.y, cam.z, mc.getTickDelta());
+			if (n == 0) {
+				return;
+			}
+			float[] buf = NovaTrails.buffer();
+			mc.getTextureManager().bindTexture(tex);
+			BufferBuilder bb = Tessellator.getInstance().getBuffer();
+			bb.begin(7, VertexFormats.POSITION_TEXTURE_COLOR);
+			for (int i = 0; i < n; i++) {
+				int b = i * NovaTrails.STRIDE;
+				int c = NovaTrails.color(buf[b + 8]);
+				bb.vertex(buf[b], buf[b + 1], buf[b + 2]).texture(buf[b + 3], buf[b + 4])
+						.color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, (c >>> 24) & 0xFF).next();
+			}
+			GlStateManager.enableTexture();
+			GlStateManager.disableLighting();
+			GlStateManager.enableBlend();
+			GlStateManager.blendFuncSeparate(770, 771, 1, 0);
+			GlStateManager.enableDepthTest();
+			GlStateManager.depthMask(false);
+			GlStateManager.disableCull();
+			GlStateManager.enableAlphaTest();
+			GlStateManager.alphaFunc(516, 0.003F);
+			GlStateManager.color4f(1f, 1f, 1f, 1f);
+			Tessellator.getInstance().draw();
+			GlStateManager.depthMask(true);
+			GlStateManager.alphaFunc(516, 0.1F);
+			GlStateManager.enableCull();
+			GlStateManager.disableBlend();
+		} catch (Throwable t) {
+			broken = true;
+			LunaCompat.warnOnce("trails:gl14", t);
+		}
+	}
+
 	private static boolean flag(Object e, String name) {
 		return Boolean.TRUE.equals(LunaCompat.callNoArg(e, name));
 	}

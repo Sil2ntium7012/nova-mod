@@ -273,9 +273,14 @@ public final class NovaWings {
 	public static final Slot BAG = new Slot("bag", "cosmetic_bag", BAG_KEYS, Map.of("bunny", "토끼 가방"),
 			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.bagOn());
 	/** 49-353차(사용자: "토끼모자 추가좀 해줘"): 모자 칸(첫 번째 = 토끼 모자). 서명 "NovaSig|v1|hat|ts|key|내 uuid", Supabase nova_player_tiers.cosmetic_hat. */
-	public static final String[] HAT_KEYS = {"bunny"};
-	public static final Slot HAT = new Slot("hat", "cosmetic_hat", HAT_KEYS, Map.of("bunny", "토끼 모자"),
+	// 49-363차: 원숭이 모자(원숭이 귀 + 머리 위 바나나, 사용자 monkey.bbmodel) - 묶음 "hat-monkey" → cos/d973a4f55e1c8134.bin
+	public static final String[] HAT_KEYS = {"bunny", "monkey"};
+	public static final Slot HAT = new Slot("hat", "cosmetic_hat", HAT_KEYS, Map.of("bunny", "토끼 모자", "monkey", "원숭이 모자"),
 			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.hatOn(), true, "hat-");
+	/** 49-364차: 발자취 칸(별가루 / 벚꽃, 모양 묶음 없음 - NovaTrails가 입자로 그린다). 서명 "NovaSig|v1|trail|ts|key|내 uuid", Supabase nova_player_tiers.cosmetic_trail. */
+	public static final String[] TRAIL_KEYS = {"stardust", "petal"};
+	public static final Slot TRAIL = new Slot("trail", "cosmetic_trail", TRAIL_KEYS, Map.of("stardust", "별가루 발자취", "petal", "벚꽃 발자취"),
+			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.trailOn());
 
 	/** LunaSocial이 .luna-launch.json의 cosmetics.wing을 읽어 넘긴다(끼지 않았으면 key null). */
 	public static void setMineSigned(String key, long ts, String sig) {

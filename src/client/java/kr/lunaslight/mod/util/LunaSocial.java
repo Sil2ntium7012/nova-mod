@@ -181,6 +181,18 @@ public final class LunaSocial {
 					} else {
 						NovaWings.HAT.setMineSigned(null, 0, null);
 					}
+					// 49-364차: 노바 발자취 cosmetics.trail = { key, ts, sig } - 서명 종류 "trail"
+					if (cos.has("trail") && cos.get("trail").isJsonObject()) {
+						JsonObject tr = cos.getAsJsonObject("trail");
+						long tts = 0;
+						try {
+							tts = tr.has("ts") ? tr.get("ts").getAsLong() : 0;
+						} catch (Throwable ignored) {
+						}
+						NovaWings.TRAIL.setMineSigned(firstNonEmpty(str(tr, "key"), str(tr, "id")), tts, str(tr, "sig"));
+					} else {
+						NovaWings.TRAIL.setMineSigned(null, 0, null);
+					}
 					if (cos.has("theme") && cos.get("theme").isJsonObject()) {
 						JsonObject th = cos.getAsJsonObject("theme");
 						mode = firstNonEmpty(str(th, "mode"), str(th, "id"));

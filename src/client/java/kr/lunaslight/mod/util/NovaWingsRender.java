@@ -147,6 +147,57 @@ public final class NovaWingsRender {
 		}
 	}
 
+	/** 49-364차: 발자취 입자(NovaTrails가 카메라 기준으로 만든 사각형, 꼭짓점마다 색). 밝기는 늘 최대(반짝이). */
+	public static void drawTrails(Object context, boolean flush) {
+		if (broken || !NovaTrails.any()) {
+			return;
+		}
+		MinecraftClient mc = MinecraftClient.getInstance();
+		if (mc == null || mc.world == null) {
+			return;
+		}
+		try {
+			MatrixStack matrices = LunaCompat.getMatrices(context);
+			Vec3d cam = LunaCompat.getWorldRenderCameraPos(context);
+			Object consumers = LunaCompat.call(context, "consumers");
+			if (matrices == null || cam == null || consumers == null) {
+				return;
+			}
+			Identifier tex = NovaWings.texture(NovaWings.asset(NovaTrails.ASSET));
+			if (tex == null) {
+				return;
+			}
+			int n = NovaTrails.build(cam.x, cam.y, cam.z, tickDelta(mc));
+			if (n == 0) {
+				return;
+			}
+			float[] buf = NovaTrails.buffer();
+			Object layer = layer(tex);
+			VertexConsumer vc = layer == null ? null : buffer(consumers, layer);
+			if (vc == null) {
+				return;
+			}
+			for (int i = 0; i < n; i++) {
+				int b = i * NovaTrails.STRIDE;
+				int c = NovaTrails.color(buf[b + 8]);
+				vertex(vc, matrices, buf[b], buf[b + 1], buf[b + 2]);
+				vc.color(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, ((c >>> 24) & 0xFF) / 255f);
+				vc.texture(buf[b + 3], buf[b + 4]);
+				vc.overlay(655360);
+				vc.light(0xF000F0);
+				vc.normal(buf[b + 5], buf[b + 6], buf[b + 7]);
+				if (next != null) {
+					next.invoke(vc);
+				}
+			}
+			if (flush) {
+				flushLayer(consumers, layer);
+			}
+		} catch (Throwable t) {
+			fail(t);
+		}
+	}
+
 	private static double lerp(float t, double a, double b) {
 		return a + (b - a) * t;
 	}

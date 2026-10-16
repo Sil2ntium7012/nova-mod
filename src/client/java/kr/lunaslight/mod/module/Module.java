@@ -97,14 +97,36 @@ public abstract class Module {
 	private static volatile boolean novaServerCached;
 	private static volatile long novaServerAt;
 
-	/** 지금 접속한 서버가 노바 서버(*.novaclient.kr)인가. */
+	// 49-365차(사용자: "내 서버에 118.43.69.37:25566도 추가", "지금 novaclient.kr은 잠시 빼고"): 내 서버 판정을 한곳에.
+	// novaclient.kr은 잠시 뺐다 - 다시 넣으려면 NOVA_DOMAIN = true.
+	private static final boolean NOVA_DOMAIN = false;
+	private static final String[] MY_SERVERS = {"118.43.69.37:25566"};
+
+	/** 이 주소가 내 서버인가(탭 별, 왼쪽 위 HUD, 포만감, 채팅 시간, 채팅 탭이 이 판정을 쓴다). */
+	public static boolean isMyServer(String addr) {
+		if (addr == null) {
+			return false;
+		}
+		String a = addr.trim().toLowerCase(java.util.Locale.ROOT);
+		if (NOVA_DOMAIN && a.contains("novaclient.kr")) {
+			return true;
+		}
+		for (String s : MY_SERVERS) {
+			if (a.equals(s)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** 지금 접속한 서버가 내 서버인가(isMyServer). */
 	public static boolean novaServerNow() {
 		long now = System.currentTimeMillis();
 		if (now - novaServerAt > 1000L) {
 			novaServerAt = now;
 			try {
 				String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(net.minecraft.client.MinecraftClient.getInstance());
-				novaServerCached = addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains("novaclient.kr");
+				novaServerCached = isMyServer(addr);
 			} catch (Throwable t) {
 				novaServerCached = false;
 			}

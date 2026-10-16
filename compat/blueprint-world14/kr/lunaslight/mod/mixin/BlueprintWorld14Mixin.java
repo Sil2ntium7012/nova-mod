@@ -53,6 +53,9 @@ public abstract class BlueprintWorld14Mixin {
 				if (kr.lunaslight.mod.module.impl.render.HatsModule.shown()) {
 					kr.lunaslight.mod.util.NovaWingsGl14.draw(kr.lunaslight.mod.module.impl.render.HatsModule.othersShown(), kr.lunaslight.mod.util.NovaWings.HAT);
 				}
+				if (kr.lunaslight.mod.module.impl.render.TrailsModule.shown()) {
+					kr.lunaslight.mod.util.NovaWingsGl14.drawTrails();   // 49-364차: 발자취
+				}
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("wings:mixin14", t);

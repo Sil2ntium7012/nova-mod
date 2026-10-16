@@ -103,6 +103,49 @@ public final class NovaWingsRender {
 		}
 	}
 
+	/** 49-364차: 발자취 입자(NovaTrails가 카메라 기준으로 만든 사각형, 꼭짓점마다 색). 밝기는 늘 최대(반짝이). */
+	public static void drawTrails(Object context) {
+		if (broken || !NovaTrails.any() || !(context instanceof BlueprintWorld.Ctx c)) {
+			return;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc == null || mc.level == null) {
+				return;
+			}
+			Identifier tex = NovaWings.texture(NovaWings.asset(NovaTrails.ASSET));
+			if (tex == null) {
+				return;
+			}
+			float td = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+			int n = NovaTrails.build(c.cam.x, c.cam.y, c.cam.z, td);
+			if (n == 0) {
+				return;
+			}
+			final float[] copy = java.util.Arrays.copyOf(NovaTrails.buffer(), n * NovaTrails.STRIDE);
+			final int count = n;
+			c.collector.submitCustomGeometry(c.pose, RenderTypes.entityTranslucent(tex), (pose, vc) -> emitTrail(pose, vc, copy, count));
+		} catch (Throwable t) {
+			fail(t);
+		}
+	}
+
+	private static void emitTrail(PoseStack.Pose pose, VertexConsumer vc, float[] buf, int n) {
+		try {
+			for (int i = 0; i < n; i++) {
+				int b = i * NovaTrails.STRIDE;
+				vc.addVertex(pose, buf[b], buf[b + 1], buf[b + 2])
+						.setColor(NovaTrails.color(buf[b + 8]))
+						.setUv(buf[b + 3], buf[b + 4])
+						.setOverlay(655360)
+						.setLight(0xF000F0)
+						.setNormal(pose, buf[b + 5], buf[b + 6], buf[b + 7]);
+			}
+		} catch (Throwable t) {
+			fail(t);
+		}
+	}
+
 	private static void emit(PoseStack.Pose pose, VertexConsumer vc, float[] buf, int n, int light) {
 		try {
 			for (int i = 0; i < n; i++) {

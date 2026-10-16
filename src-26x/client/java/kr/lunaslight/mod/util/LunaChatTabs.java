@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import kr.lunaslight.mod.LunaClientMod;
 import kr.lunaslight.mod.gui.LunaDraw;
+import kr.lunaslight.mod.gui.LunaIcons;
 import kr.lunaslight.mod.network.LunaChatPayload;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -46,7 +47,7 @@ public final class LunaChatTabs {
 	}
 
 	public enum Tab {
-		ALL("전체"), SAY("일반"), TEAM("팀"), WHISPER("귓속말"), NOTICE("공지"), SYSTEM("시스템");
+		ALL("전체"), WHISPER("귓속말"), TEAM("팀"), NOTICE("공지"), SAY("일반"), SYSTEM("시스템");
 
 		final String label;
 
@@ -56,12 +57,10 @@ public final class LunaChatTabs {
 	}
 
 	private static final int GOLD = 0xFFE8AA2C;
-	private static final int DARK = 0xD910121A;      // #10121A 85%
-	private static final int DARK_HOVER = 0xE6232733;
 	private static final int TEXT_ON = 0xFFFFFFFF;
 	private static final int TEXT_OFF = 0xFFC4C7D0;
 	private static final int BADGE = 0xFFE62632;
-	private static final int TAB_H = 12;
+	private static final int TAB_H = 13;
 	private static final int TAB_PAD = 5;
 	private static final int TAB_GAP = 2;
 	private static final int ITEM_H = 12;
@@ -94,7 +93,6 @@ public final class LunaChatTabs {
 					return;
 				}
 				dropdown = false;
-				ScreenEvents.afterExtract(screen).register((s, g, mx, my, td) -> render(s, g, mx, my));
 				ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> !click(s, e.x(), e.y(), e.button()));
 				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !key(s, e.key(), e.modifiers()));
 			});
@@ -108,7 +106,15 @@ public final class LunaChatTabs {
 		}
 	}
 
+	/** 49-362차(사용자: "내 서버에서만 있어야 하는 기능"): 내 서버(Module.isMyServer)일 때만 켠다(꼬리표, 패킷을 보내는 다른 서버는 무시). */
+	private static boolean mine() {
+		return kr.lunaslight.mod.module.Module.novaServerNow();
+	}
+
 	private static void tick(Minecraft mc) {
+		if (active && !mine()) {
+			reset();
+		}
 		Object conn = mc.getConnection();
 		if (conn != lastConnection) {
 			boolean leaving = lastConnection != null;
@@ -187,7 +193,7 @@ public final class LunaChatTabs {
 			chat = component;
 		}
 		String tag = tagOf(original, 0);
-		if (tag != null) {
+		if (tag != null && mine()) {
 			active = true;
 		}
 		if (!active) {
@@ -289,6 +295,9 @@ public final class LunaChatTabs {
 	// ==================== 상태 패킷 ====================
 
 	public static void onState(String json) {
+		if (!mine()) {
+			return;   // 49-362차: 내 서버에서만
+		}
 		try {
 			JsonElement el = JsonParser.parseString(json);
 			if (!el.isJsonObject()) {
@@ -316,7 +325,28 @@ public final class LunaChatTabs {
 		}
 	}
 
-	// ==================== 탭 줄 / 채널 상자 ====================
+	// ==================== 채팅 상자 (사용자 사진: 위 탭 줄 + 어두운 상자 + 아래 채널 상자·입력칸) ====================
+
+	private static final int PANEL = 0xCC0B0C10;
+	private static final int PANEL_EDGE = 0x40FFFFFF;
+	private static final int ROW_LINE = 0x26FFFFFF;
+	private static final int BOX_FILL = 0xFF16171C;
+	private static final int BOX_EDGE = 0xFF8C8E96;
+	private static final int GEAR_W = 14;
+	/** 상자가 보일 때 채팅 줄 아래 여백(바닐라 40 → 입력칸 바로 위). ChatTabsMixin이 바꿔 끼운다. */
+	public static final int PANEL_BOTTOM_MARGIN = 17;
+
+	/** 채팅창(ChatScreen)이 열려 있고 이 서버에서 탭이 켜졌나 - 상자를 그리고 바닐라 줄 배경·입력칸 배경을 끈다. */
+	public static boolean panelShowing() {
+		if (!active) {
+			return false;
+		}
+		try {
+			return LunaCompat.screenOf(Minecraft.getInstance()) instanceof ChatScreen;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
 
 	private static List<Tab> tabs() {
 		List<Tab> l = new ArrayList<>();
@@ -352,17 +382,23 @@ public final class LunaChatTabs {
 	}
 
 	private static int boxW(Font f) {
-		return LunaDraw.width(f, "관리자") + 16;
+		return LunaDraw.width(f, "관리자") + 18;
 	}
 
-	/** 열린 채팅창에서 채팅 영역 맨 위 y(화면 좌표). 바닐라 extractRenderState와 같은 계산(아래 여백 40, 배율, 줄 간격). */
-	private static int chatTop(Minecraft mc, int sh) {
+	private static int tabW(Font f, Tab t) {
+		return LunaDraw.width(f, t.label) + TAB_PAD * 2;
+	}
+
+	/** 상자 자리 {x, 탭 줄 y, 폭}. 채팅 줄 영역(바닐라 계산: 배율·줄 간격·getLinesPerPage) 바로 위가 탭 줄. */
+	private static int[] panel(Minecraft mc, Font f, int sh) {
 		double scale = 1.0;
 		double spacing = 0.0;
 		int lines = 10;
+		int chatW = 320;
 		try {
 			scale = mc.options.chatScale().get();
 			spacing = mc.options.chatLineSpacing().get();
+			chatW = ChatComponent.getWidth(mc.options.chatWidth().get());
 			ChatComponent c = chat;
 			if (c != null) {
 				lines = c.getLinesPerPage();
@@ -373,21 +409,32 @@ public final class LunaChatTabs {
 			scale = 1.0;
 		}
 		int lh = (int) (9.0 * (spacing + 1.0));
-		int k = (int) Math.floor((sh - 40) / scale);
-		return (int) Math.floor((k - lines * lh) * scale);
+		int k = (int) Math.floor((sh - PANEL_BOTTOM_MARGIN) / scale);
+		int top = (int) Math.floor((k - lines * lh) * scale);
+		int need = 6 + GEAR_W;
+		for (Tab t : tabs()) {
+			need += tabW(f, t) + TAB_GAP;
+		}
+		int x = 2;
+		int w = Math.max((int) Math.ceil(chatW + 8 * scale) - 2, need);
+		int y = Math.max(1, top - TAB_H - 2);
+		return new int[]{x, y, w};
 	}
 
 	/** {탭 순번, x, y, w} 목록. */
-	private static List<int[]> layout(Minecraft mc, Font f, int sh) {
+	private static List<int[]> layout(Font f, int[] p) {
 		List<int[]> out = new ArrayList<>();
-		int y = Math.max(2, chatTop(mc, sh) - TAB_H - 3);
-		int x = 2;
+		int x = p[0] + 3;
 		for (Tab t : tabs()) {
-			int w = LunaDraw.width(f, t.label) + TAB_PAD * 2;
-			out.add(new int[]{t.ordinal(), x, y, w});
+			int w = tabW(f, t);
+			out.add(new int[]{t.ordinal(), x, p[1], w});
 			x += w + TAB_GAP;
 		}
 		return out;
+	}
+
+	private static int gearX(int[] p) {
+		return p[0] + p[2] - GEAR_W;
 	}
 
 	private static EditBox input(Screen s) {
@@ -399,74 +446,117 @@ public final class LunaChatTabs {
 		return null;
 	}
 
-	private static void render(Screen s, GuiGraphicsExtractor g, int mx, int my) {
+	/** ChatTabsMixin(ChatScreen.extractRenderState 맨 앞): 채팅 줄보다 먼저 상자·탭 줄·채널 상자를 깐다. */
+	public static void drawPanel(Screen s, GuiGraphicsExtractor g, int mx, int my) {
 		if (!active) {
 			return;
 		}
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			Font f = mc.font;
-			int sw = s.width;
 			int sh = s.height;
+			int[] p = panel(mc, f, sh);
+			int px = p[0];
+			int py = p[1];
+			int pw = p[2];
 			int bw = boxW(f);
+			int bx = px + 2;
+			int by = sh - 14;
 
-			// 입력칸을 채널 상자만큼 오른쪽으로(한 번만)
+			// 입력칸: 채널 상자 오른쪽 ~ 상자 오른쪽 끝
 			EditBox in = input(s);
-			if (in != null && in.getX() < 4 + bw + 2) {
-				in.setX(4 + bw + 2);
-				in.setWidth(Math.max(20, sw - (4 + bw + 2)));
+			if (in != null) {
+				int ix = bx + bw + 4;
+				int iw = Math.max(20, px + pw - ix - 2);
+				if (in.getX() != ix || in.getWidth() != iw) {
+					in.setX(ix);
+					in.setWidth(iw);
+				}
 			}
 
-			// 탭 줄
-			for (int[] r : layout(mc, f, sh)) {
+			// 바탕 상자 + 테두리
+			g.fill(px, py, px + pw, sh - 1, PANEL);
+			g.fill(px, py - 1, px + pw, py, PANEL_EDGE);
+			g.fill(px, sh - 1, px + pw, sh, PANEL_EDGE);
+			g.fill(px - 1, py - 1, px, sh, PANEL_EDGE);
+			g.fill(px + pw, py - 1, px + pw + 1, sh, PANEL_EDGE);
+			g.fill(px, py + TAB_H, px + pw, py + TAB_H + 1, ROW_LINE);   // 탭 줄 아래 가는 선
+
+			// 탭 줄: 고른 탭만 금색 칸, 나머지는 글씨만
+			for (int[] r : layout(f, p)) {
 				Tab t = Tab.values()[r[0]];
 				int x = r[1];
 				int y = r[2];
 				int w = r[3];
 				boolean sel = t == cur;
-				boolean hover = mx >= x && mx < x + w && my >= y && my < y + TAB_H;
-				LunaDraw.roundRect(g, x, y, w, TAB_H, 3, sel ? GOLD : (hover ? DARK_HOVER : DARK));
-				LunaDraw.text(g, f, t.label, x + TAB_PAD, LunaDraw.textY(y, TAB_H), sel ? TEXT_ON : TEXT_OFF);
+				boolean hover = !sel && mx >= x && mx < x + w && my >= y && my < y + TAB_H;
+				if (sel) {
+					g.fill(x, y, x + w, y + TAB_H, GOLD);
+				} else if (hover) {
+					g.fill(x, y, x + w, y + TAB_H, 0x22FFFFFF);
+				}
+				LunaDraw.text(g, f, t.label, x + TAB_PAD, LunaDraw.textY(y, TAB_H), sel || hover ? TEXT_ON : TEXT_OFF);
 				int n = unread[t.ordinal()];
 				if (n > 0 && !sel) {
 					String b = n > 9 ? "9+" : String.valueOf(n);
 					int bh = 9;
-					int bwid = Math.max(bh, LunaDraw.width(f, b) + 4);
-					int bx = x + w - bwid + 3;
-					int by = y - 4;
-					LunaDraw.pill(g, bx, by, bwid, bh, BADGE);
-					LunaDraw.text(g, f, b, bx + (bwid - LunaDraw.width(f, b)) / 2, LunaDraw.textY(by, bh), TEXT_ON);
+					int bwid = Math.max(8, LunaDraw.width(f, b) + 4);
+					int ax = x + w - bwid + 2;
+					int ay = y - 3;
+					LunaDraw.roundRect(g, ax, ay, bwid, bh, 1, BADGE);
+					LunaDraw.text(g, f, b, ax + (bwid - LunaDraw.width(f, b) + 1) / 2, LunaDraw.textY(ay, bh), TEXT_ON);
 				}
 			}
 
-			// 채널 상자
-			int bx = 2;
-			int by = sh - 14;
-			boolean boxHover = mx >= bx && mx < bx + bw && my >= by && my < by + 12;
-			LunaDraw.roundRect(g, bx, by, bw, 12, 2, boxHover || dropdown ? DARK_HOVER : DARK);
-			LunaDraw.text(g, f, channelLabel(say), bx + 4, LunaDraw.textY(by, 12), TEXT_ON);
-			int ax = bx + bw - 9;
-			int ay = by + 5;
-			g.fill(ax, ay, ax + 5, ay + 1, TEXT_OFF);
-			g.fill(ax + 1, ay + 1, ax + 4, ay + 2, TEXT_OFF);
-			g.fill(ax + 2, ay + 2, ax + 3, ay + 3, TEXT_OFF);
+			// 톱니(채팅 설정)
+			int gx = gearX(p);
+			boolean gh = mx >= gx && mx < gx + GEAR_W && my >= py && my < py + TAB_H;
+			LunaIcons.draw(g, f, LunaIcons.SETTINGS, gx + (GEAR_W - 10) / 2, LunaDraw.iconY(py, TAB_H), gh ? TEXT_ON : TEXT_OFF);
 
-			if (dropdown) {
-				List<String> ch = channels();
-				int dy = by - 2 - ch.size() * ITEM_H;
-				LunaDraw.roundRect(g, bx, dy - 1, bw, ch.size() * ITEM_H + 2, 2, 0xF010121A);
-				for (int i = 0; i < ch.size(); i++) {
-					int iy = dy + i * ITEM_H;
-					boolean h = mx >= bx && mx < bx + bw && my >= iy && my < iy + ITEM_H;
-					if (h) {
-						g.fill(bx + 1, iy, bx + bw - 1, iy + ITEM_H, DARK_HOVER);
-					}
-					boolean now = ch.get(i).equals(say);
-					LunaDraw.text(g, f, channelLabel(ch.get(i)), bx + 4, LunaDraw.textY(iy, ITEM_H), now ? GOLD : TEXT_OFF);
+			// 채널 상자: 회색 테두리 + 어두운 칸 + 깔때기 ▼
+			boolean boxHover = mx >= bx && mx < bx + bw && my >= by && my < by + 12;
+			g.fill(bx, by, bx + bw, by + 12, BOX_EDGE);
+			g.fill(bx + 1, by + 1, bx + bw - 1, by + 11, boxHover || dropdown ? 0xFF24262E : BOX_FILL);
+			LunaDraw.text(g, f, channelLabel(say), bx + 4, LunaDraw.textY(by, 12), TEXT_ON);
+			int fx = bx + bw - 11;
+			int fy = by + 3;
+			g.fill(fx, fy, fx + 7, fy + 1, TEXT_ON);
+			g.fill(fx + 1, fy + 1, fx + 6, fy + 2, TEXT_ON);
+			g.fill(fx + 2, fy + 2, fx + 5, fy + 3, TEXT_ON);
+			g.fill(fx + 3, fy + 3, fx + 4, fy + 6, TEXT_ON);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("chatTabs:panel", t);
+		}
+	}
+
+	/** ChatTabsMixin(ChatScreen.extractRenderState 맨 끝): 채널 목록(채팅 글씨보다 위 층). */
+	public static void drawOverlay(Screen s, GuiGraphicsExtractor g, int mx, int my) {
+		if (!active || !dropdown) {
+			return;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			Font f = mc.font;
+			int sh = s.height;
+			int bw = boxW(f);
+			int bx = panel(mc, f, sh)[0] + 2;
+			int by = sh - 14;
+			g.nextStratum();
+			List<String> ch = channels();
+			int dy = by - 1 - ch.size() * ITEM_H;
+			g.fill(bx, dy - 1, bx + bw, by - 1 + 1, BOX_EDGE);
+			g.fill(bx + 1, dy, bx + bw - 1, by - 1, BOX_FILL);
+			for (int i = 0; i < ch.size(); i++) {
+				int iy = dy + i * ITEM_H;
+				boolean h = mx >= bx && mx < bx + bw && my >= iy && my < iy + ITEM_H;
+				if (h) {
+					g.fill(bx + 1, iy, bx + bw - 1, iy + ITEM_H, 0xFF2C2F38);
 				}
+				boolean now = ch.get(i).equals(say);
+				LunaDraw.text(g, f, channelLabel(ch.get(i)), bx + 4, LunaDraw.textY(iy, ITEM_H), now ? GOLD : TEXT_ON);
 			}
 		} catch (Throwable t) {
-			LunaCompat.warnOnce("chatTabs:render", t);
+			LunaCompat.warnOnce("chatTabs:overlay", t);
 		}
 	}
 
@@ -479,15 +569,16 @@ public final class LunaChatTabs {
 			Minecraft mc = Minecraft.getInstance();
 			Font f = mc.font;
 			int sh = s.height;
+			int[] p = panel(mc, f, sh);
 			int bw = boxW(f);
-			int bx = 2;
+			int bx = p[0] + 2;
 			int by = sh - 14;
 			if (dropdown) {
 				List<String> ch = channels();
-				int dy = by - 2 - ch.size() * ITEM_H;
+				int dy = by - 1 - ch.size() * ITEM_H;
 				dropdown = false;
 				if (mx >= bx && mx < bx + bw && my >= dy && my < dy + ch.size() * ITEM_H) {
-					String pick = ch.get((int) ((my - dy) / ITEM_H));
+					String pick = ch.get(Math.min(ch.size() - 1, (int) ((my - dy) / ITEM_H)));
 					if (!pick.equals(say)) {
 						command("채널 " + channelLabel(pick));
 					}
@@ -500,7 +591,12 @@ public final class LunaChatTabs {
 				dropdown = true;
 				return true;
 			}
-			for (int[] r : layout(mc, f, sh)) {
+			int gx = gearX(p);
+			if (mx >= gx && mx < gx + GEAR_W && my >= p[1] && my < p[1] + TAB_H) {
+				LunaCompat.setScreen(new net.minecraft.client.gui.screens.options.ChatOptionsScreen(s, mc.options));
+				return true;
+			}
+			for (int[] r : layout(f, p)) {
 				if (mx >= r[1] && mx < r[1] + r[3] && my >= r[2] && my < r[2] + TAB_H) {
 					select(Tab.values()[r[0]], true);
 					return true;

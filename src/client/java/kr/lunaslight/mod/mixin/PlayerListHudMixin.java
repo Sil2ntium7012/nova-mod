@@ -136,7 +136,7 @@ public abstract class PlayerListHudMixin {
 			// 49-358차(사용자: "우리 서버에서는 탭에 별도 안 뜨게"): 노바 서버(*.novaclient.kr)는 다 노바 유저라 별을 안 붙인다(자리 비움 ZZZ는 위에서 그대로)
 			try {
 				String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(mc);
-				if (addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains("novaclient.kr")) {
+				if (kr.lunaslight.mod.module.Module.isMyServer(addr)) {   // 49-365차: 내 서버 목록
 					return;
 				}
 			} catch (Throwable ignored) {
