@@ -113,7 +113,8 @@ public abstract class Module {
 	// (세션 복구, 글꼴과 테마, 창 모드, 패치노트 알림). 채팅 탭, C/X 키, 핫바 칸 건너뛰기는 기능 목록 밖이라 그대로 돈다.
 	private static volatile boolean serverLock;
 	private static final java.util.Set<String> KEEP_ON_MY_SERVER = java.util.Set.of(
-			"session_fix", "interface_style", "borderless_window", "patch_note_alert");
+			"session_fix", "interface_style", "borderless_window", "patch_note_alert",
+			"free_view");   // 49-380차(사용자: "그 ALT 자유 시점 기능도 가능하게"): 자유 시점은 내 서버에서도 쓸 수 있게
 	// 49-378차(사용자: "그 나침반은 켜줘 무조건 내 서버에서"): 내 서버에서는 사용자가 꺼 뒀어도 켜는 기능.
 	private static final java.util.Set<String> FORCE_ON_MY_SERVER = java.util.Set.of("compass_hud");
 
