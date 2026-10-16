@@ -336,10 +336,11 @@ public final class LunaChatTabs {
 	private static final int GEAR_W = 14;
 	/** 상자가 보일 때 채팅 줄 아래 여백(바닐라 40 → 입력칸 바로 위). ChatTabsMixin이 바꿔 끼운다. */
 	// 49-376차(사용자 사진: 채팅을 열면 줄이 아래로 내려가 닫혔을 때와 높이가 달랐다 - "이 채팅이랑 높이 맞춰줘"): 바닐라와 같은 40으로 되돌림
-	public static final int PANEL_BOTTOM_MARGIN = 40;
+	public static final int PANEL_BOTTOM_MARGIN = 17;
+	// 49-381차(사용자 사진: "이거 채팅을 예전처럼 다시 바꿔줘 그게 낫더라"): 49-376차(여백 40), 49-379차(입력칸 24 올림) 되돌림 - 49-361차 모양(줄이 입력칸 바로 위, 입력칸은 화면 맨 아래)
 	// 49-379차(사용자 사진: 채팅 줄은 올라갔는데 아래 채널 상자·입력칸은 화면 맨 아래에 남아 사이가 떴다 - "이 밑에 부분도 올려야지"):
 	// 채널 상자·입력칸 줄을 채팅 줄 바로 아래로 올린다. 명령어 추천 목록·사용법도 같이(ChatSuggestLiftMixin).
-	public static final int INPUT_LIFT = 24;
+	public static final int INPUT_LIFT = 0;   // 49-381차: 0 = 바닐라 자리(ChatSuggestLiftMixin도 그대로 통과)
 
 	/** 채널 상자 줄 위쪽 y(바닐라 입력칸 배경 높이 - 2 - INPUT_LIFT). */
 	private static int rowY(int sh) {
