@@ -450,6 +450,41 @@ public final class ChatState {
 	public static volatile boolean unlimitedHistory = false;
 	/** 채팅 줄 앞에 [HH:mm] 시각 표시. */
 	public static volatile boolean timestamps = false;
+	/** 49-387차: GUI 배율 1에서 채팅 키우기(ChatBoostMixin). */
+	public static volatile boolean boostSmallGui = false;
+
+	/** 채팅 배율에 곱할 값. GUI 배율 1이면 2(배율 2와 같은 크기), 아니면 1. 폭도 같이 곱해서 줄바꿈은 그대로. */
+	public static double chatBoost() {
+		if (!boostSmallGui) {
+			return 1.0;
+		}
+		return LunaCompat.currentGuiScale() == 1 ? 2.0 : 1.0;
+	}
+
+	/** 49-387차: 지금 너굴마을(mcng.kr)인가 - 사람 채팅이 아닌 줄(공지, 안내, 알림)엔 시각을 안 붙인다. */
+	public static volatile boolean neogulServer = false;
+	/** "[전체] [칭호] 이름: 말" 꼴(채널 머리 + 칭호들 + 이름 + ":"). */
+	private static final java.util.regex.Pattern PLAYER_CHAT = java.util.regex.Pattern.compile(
+			"^\\[[^\\]\\n]{1,10}\\](\\s*\\[[^\\]\\n]{0,16}\\])*\\s*[^\\s:\\[\\]]{1,24}\\s*:\\s");
+
+	/**
+	 * 49-387차(사용자 사진 + 로그: 너굴마을 공지 "ꀀꀐꀁꑋ\\nꀀꀐꀁꑋꒂ /퀘스트와 ..."에 시각이 붙어 "공지 같은 건 시간 안 뜨게"):
+	 * 너굴마을에서 사람 채팅이 아니면 true. 서버가 줄 앞에 붙이는 그림 글자(U+A000~A4CF, 사설 영역)는 빼고 본다.
+	 */
+	public static boolean skipStamp(String plain) {
+		if (!neogulServer || plain == null) {
+			return false;
+		}
+		StringBuilder sb = new StringBuilder(plain.length());
+		for (int i = 0; i < plain.length(); i++) {
+			char c = plain.charAt(i);
+			if ((c >= 0xA000 && c <= 0xA4CF) || (c >= 0xE000 && c <= 0xF8FF)) {
+				continue;
+			}
+			sb.append(c);
+		}
+		return !PLAYER_CHAT.matcher(sb).find();
+	}
 
 	/** 49-22차: 시각 표시 색(0xRRGGBB). */
 	public static volatile int timestampColor = 0xAAAAAA;

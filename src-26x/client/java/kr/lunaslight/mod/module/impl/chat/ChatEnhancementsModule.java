@@ -64,6 +64,9 @@ public class ChatEnhancementsModule extends Module {
 			"unlimited_history", "무제한 채팅", "채팅 기록 100줄 제한을 풀어 30000줄까지 남깁니다.", true));
 	private final BooleanSetting search = register(new BooleanSetting(
 			"search", "채팅 검색", "채팅창에서 Ctrl+F로 지난 채팅을 검색합니다.", true));
+	// 49-387차(사용자: "채팅 GUI 비율 줄일수록 글씨가 잘 안 보이는데 GUI 비율 2~1이어도 잘 보이게")
+	private final BooleanSetting smallGuiChat = register(new BooleanSetting(
+			"small_gui_chat", "작은 배율에서 채팅 크게", "GUI 배율이 1이면 채팅을 배율 2와 같은 크기로 키워 글씨가 잘 보이게 합니다.", true));
 	// 49-251차(사용자: "채팅 올라올 때 애니메이션, 그 모드처럼"): 새 줄이 아래에서 부드럽게 밀고 올라온다(util.ChatAnim)
 	private final BooleanSetting chatAnim = register(new BooleanSetting(
 			"chat_anim", "올라오는 애니메이션", "새 채팅이 오면 채팅창이 아래에서 부드럽게 올라옵니다.", true));
@@ -143,6 +146,7 @@ public class ChatEnhancementsModule extends Module {
 		showTimestamps.group("기본");
 		unlimitedHistory.group("기본");
 		search.group("기본");
+		smallGuiChat.group("기본");
 		highlightOn.group("강조");
 		keywords.group("강조");
 		highlightSound.group("강조");
@@ -197,6 +201,7 @@ public class ChatEnhancementsModule extends Module {
 	@Override
 	protected void onDisable() {
 		ChatState.timestamps = false;
+		ChatState.boostSmallGui = false;
 		kr.lunaslight.mod.util.ChatAnim.enabled = false;
 		ChatState.unlimitedHistory = false;
 		ChatState.highlighter = null;
@@ -207,6 +212,24 @@ public class ChatEnhancementsModule extends Module {
 		ChatState.blockedPlayers = null;
 		ChatState.blockAnyLine = false;
 		kr.lunaslight.mod.util.EntityHideHook.blockedPlayers = null;
+	}
+
+	/** 49-387차: 지금 접속한 서버가 너굴마을(mcng.kr)인가. */
+	private boolean onNeogul() {
+		try {
+			String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(client);
+			if (addr == null) {
+				return false;
+			}
+			String a = addr.trim().toLowerCase(java.util.Locale.ROOT);
+			int colon = a.lastIndexOf(':');
+			if (colon > 0) {
+				a = a.substring(0, colon);
+			}
+			return a.equals("mcng.kr") || a.endsWith(".mcng.kr");
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** 지금 접속한 서버가 노바 서버(*.novaclient.kr)인가. */
@@ -223,6 +246,8 @@ public class ChatEnhancementsModule extends Module {
 	private void sync() {
 		// 49-340차(사용자: "시간 뜨는 거는 mc.novaclient.kr 서버에서는 안 뜨게"): 노바 서버는 서버가 시각을 붙여 주므로 끈다
 		ChatState.timestamps = showTimestamps.get() && !onNovaServer();
+		ChatState.neogulServer = onNeogul();
+		ChatState.boostSmallGui = smallGuiChat.get();
 		kr.lunaslight.mod.util.ChatAnim.enabled = chatAnim.get();
 		ChatState.unlimitedHistory = unlimitedHistory.get();
 		ChatState.timestampColor = timestampColor.getArgb() & 0x00FFFFFF;

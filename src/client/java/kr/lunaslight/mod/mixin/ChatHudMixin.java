@@ -99,6 +99,9 @@ public abstract class ChatHudMixin {
 			if (plain.trim().isEmpty()) {
 				return message;   // 49-360차: 빈 줄엔 [시각]을 안 붙인다
 			}
+			if (ChatState.skipStamp(plain)) {
+				return message;   // 49-387차: 너굴마을 공지, 안내
+			}
 			if (plain.startsWith("[") && plain.length() > 7 && plain.charAt(3) == ':' && plain.charAt(6) == ']') {
 				return message; // 이미 [HH:mm] 접두가 있음
 			}

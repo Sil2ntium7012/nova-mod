@@ -419,6 +419,10 @@ public final class LunaChatTabs {
 		if (scale <= 0) {
 			scale = 1.0;
 		}
+		// 49-387차: GUI 배율 1에서 채팅을 키우면(ChatBoostMixin) 상자도 같이
+		double boost = ChatState.chatBoost();
+		scale *= boost;
+		chatW = (int) Math.round(chatW * boost);
 		int lh = (int) (9.0 * (spacing + 1.0));
 		int k = (int) Math.floor((sh - PANEL_BOTTOM_MARGIN) / scale);
 		int top = (int) Math.floor((k - lines * lh) * scale);
