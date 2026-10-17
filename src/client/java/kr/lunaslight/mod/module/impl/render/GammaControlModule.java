@@ -16,11 +16,13 @@ import kr.lunaslight.mod.util.LunaCompat;
  *
  * <p>49-125차(사용자: "밝기(감마 기능), 서버에서는 작동 안되게"): <b>멀티플레이 서버에 있는 동안은 적용하지 않는다</b>
  * (바닐라 값으로 되돌려 둠). 싱글(통합 서버, LAN 포함)에서만 동작. 서버에서 나오면 다시 적용.
+ *
+ * <p>49-383차(사용자: "그 밝기 기능 서버에서 사용 가능하게 바꿔줘"): 49-125차 서버 막기를 뺐다 - 서버(내 서버 포함)에서도 동작.
  */
 public class GammaControlModule extends Module {
 
 	private final IntSetting brightness = register(new IntSetting(
-			"brightness", "밝기", "100%가 마인크래프트 최대이며, 그 이상은 야간투시처럼 밝아집니다. 서버에서는 작동하지 않습니다(싱글 전용).", 300, 0, 1000, 10));
+			"brightness", "밝기", "100%가 마인크래프트 최대이며, 그 이상은 야간투시처럼 밝아집니다.", 300, 0, 1000, 10));
 
 	private Double savedGamma;
 	private int ticks;
@@ -29,8 +31,7 @@ public class GammaControlModule extends Module {
 	private boolean onServer;
 
 	public GammaControlModule() {
-		super("gamma_control", "밝기", ModuleCategory.VIEW, "기본 한계를 넘는 밝기 | 싱글 전용");
-		singleOnly();   // 49-256차: 서버에 있으면 목록에서 회색
+		super("gamma_control", "밝기", ModuleCategory.VIEW, "기본 한계를 넘는 밝기");
 		brightness.onChange(this::apply);
 	}
 
@@ -70,7 +71,7 @@ public class GammaControlModule extends Module {
 	@Override
 	public void onTick() {
 		// 49-125차: 서버(통합 서버가 아닌 월드)에 들어가면 끄고, 나오면 다시 켠다.
-		boolean server = client.world != null && !LunaCompat.isSinglePlayer(client);
+		boolean server = false;   // 49-383차: 서버에서도 쓴다(예전: client.world != null && !LunaCompat.isSinglePlayer(client))
 		if (server != onServer) {
 			onServer = server;
 			if (server) {

@@ -62,6 +62,8 @@ public final class ServerPackMemory {
 	/** 이번 실행에 미리 켠 서버 키와 SHA-1들. */
 	private static String preHost;
 	private static final Set<String> PRE_HASHES = ConcurrentHashMap.newKeySet();
+	/** 49-384차: 이번 실행에 resourcepacks/에 넣은 우리 팩 이름("file/luna-server-...zip"). */
+	private static final List<String> PRE_NAMES = new CopyOnWriteArrayList<>();
 	/** 받는 중이라 파일을 찾아 기억해야 할 팩. */
 	private static final List<Pending> PENDING = new CopyOnWriteArrayList<>();
 	/** 서버 키 → 이번 접속에서 서버가 보낸 SHA-1들(예전 팩 정리용). */
@@ -247,20 +249,45 @@ public final class ServerPackMemory {
 			if (packs != null && !packs.isEmpty()) {
 				Files.createDirectories(packsDir);
 				int i = 0;
+				boolean dropped = false;
 				for (Pack p : packs) {
 					Path src = storeDir().resolve(p.file);
 					if (!Files.exists(src)) {
 						continue;
 					}
+					// 49-384차(사용자 로그: luna-server-mcng.kr-0.zip "zip END header not found" → 바닐라가 팩을 목록에서 빼고,
+					// 서버가 같은 팩을 보내면 우리는 "미리 적용함"이라 삼켜서 팩이 아예 안 들어갔다): 깨진 기억 팩은 버린다.
+					if (!validPack(src, p.hash)) {
+						kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 리소스팩 기억: " + target + " 기억 팩이 깨져 있어 버립니다 (" + p.file + ")");
+						packs.remove(p);
+						try {
+							Files.deleteIfExists(src);
+						} catch (Throwable ignored) {
+						}
+						dropped = true;
+						continue;
+					}
 					String name = PREFIX + target + "-" + (i++) + ".zip";
-					Files.copy(src, packsDir.resolve(name), StandardCopyOption.REPLACE_EXISTING);
+					Path dst = packsDir.resolve(name);
+					Path tmp = packsDir.resolve(name + ".tmp");
+					Files.copy(src, tmp, StandardCopyOption.REPLACE_EXISTING);
+					if (!validPack(tmp, "")) {
+						Files.deleteIfExists(tmp);
+						i--;
+						continue;
+					}
+					Files.move(tmp, dst, StandardCopyOption.REPLACE_EXISTING);
 					ours.add("file/" + name);
 					if (!p.hash.isEmpty()) {
 						PRE_HASHES.add(p.hash.toLowerCase(Locale.ROOT));
 					}
 				}
+				if (dropped) {
+					saveIndex();
+				}
 				if (!ours.isEmpty()) {
 					preHost = target;
+					PRE_NAMES.addAll(ours);
 				}
 			}
 			rewriteOptions(ours);
@@ -547,7 +574,7 @@ public final class ServerPackMemory {
 			OFFERED.computeIfAbsent(host, k -> ConcurrentHashMap.newKeySet()).add(hash);
 			OFFERED_AT.put(host, System.currentTimeMillis());
 		}
-		boolean same = host != null && host.equals(preHost) && !hash.isEmpty() && PRE_HASHES.contains(hash);
+		boolean same = host != null && host.equals(preHost) && !hash.isEmpty() && PRE_HASHES.contains(hash) && preAppliedActive();
 		if (same && reply(conn, id)) {
 			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 리소스팩 기억: 미리 적용한 팩과 같아서 다시 받지 않음 (" + hash + ")");
 			return true;
@@ -556,6 +583,50 @@ public final class ServerPackMemory {
 			PENDING.add(new Pending(host, url, hash, System.currentTimeMillis()));
 		}
 		return false;
+	}
+
+	/**
+	 * 49-384차: 미리 넣은 팩이 지금 실제로 켜져 있나. 바닐라가 못 열어 옵션에서 뺐으면(깨진 파일 등) false -
+	 * 그때는 서버 팩을 삼키지 않고 바닐라가 평소대로 받게 한다.
+	 */
+	@SuppressWarnings("unchecked")
+	private static boolean preAppliedActive() {
+		if (PRE_NAMES.isEmpty()) {
+			return false;
+		}
+		try {
+			Object options = MinecraftClient.getInstance().options;
+			Object v = options == null ? null : LunaCompat.getFieldValue(options, "resourcePacks");
+			if (v instanceof java.util.Collection<?> on) {
+				for (String n : PRE_NAMES) {
+					if (!on.contains(n)) {
+						kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 리소스팩 기억: 미리 넣은 팩(" + n + ")이 꺼져 있어 서버 팩을 새로 받습니다");
+						return false;
+					}
+				}
+				return true;
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("packmem:active", t);
+		}
+		return true;   // 확인 못 하면 예전처럼
+	}
+
+	/** 49-384차: 열리는 zip(pack.mcmeta 있음)이고, hash가 있으면 SHA-1도 같은가. */
+	static boolean validPack(Path f, String hash) {
+		try {
+			if (!Files.isRegularFile(f) || Files.size(f) < 22) {
+				return false;
+			}
+			try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(f.toFile())) {
+				if (z.getEntry("pack.mcmeta") == null) {
+					return false;
+				}
+			}
+			return hash == null || hash.isEmpty() || hash.equalsIgnoreCase(sha1(f));
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** 서버에 "받음(→ 내려받음) → 적용 완료"를 보낸다. 하나라도 못 만들면 false(그럼 바닐라에 맡긴다). */
@@ -751,7 +822,15 @@ public final class ServerPackMemory {
 			// 같은 주소의 옛 팩(= 서버가 팩을 갱신)은 바꾼다
 			list.removeIf(old -> !old.url.isEmpty() && old.url.equals(p.url()));
 			String name = p.host() + "-" + hash.substring(0, Math.min(12, hash.length())) + ".zip";
-			Files.copy(file, storeDir().resolve(name), StandardCopyOption.REPLACE_EXISTING);
+			// 49-384차: 임시 파일로 복사 → 검사(열리는 zip + SHA-1) → 이름 바꾸기. 깨진 팩은 기억하지 않는다.
+			Path tmp = storeDir().resolve(name + ".tmp");
+			Files.copy(file, tmp, StandardCopyOption.REPLACE_EXISTING);
+			if (!validPack(tmp, hash)) {
+				Files.deleteIfExists(tmp);
+				kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 리소스팩 기억: " + p.host() + " 팩이 온전하지 않아 기억하지 않습니다 (" + hash + ")");
+				return;
+			}
+			Files.move(tmp, storeDir().resolve(name), StandardCopyOption.REPLACE_EXISTING);
 			Pack pk = new Pack();
 			pk.hash = hash;
 			pk.url = p.url() == null ? "" : p.url();

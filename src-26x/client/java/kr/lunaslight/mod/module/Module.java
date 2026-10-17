@@ -114,7 +114,7 @@ public abstract class Module {
 	private static volatile boolean serverLock;
 	private static final java.util.Set<String> KEEP_ON_MY_SERVER = java.util.Set.of(
 			"session_fix", "interface_style", "borderless_window", "patch_note_alert",
-			"free_view");   // 49-380차(사용자: "그 ALT 자유 시점 기능도 가능하게"): 자유 시점은 내 서버에서도 쓸 수 있게
+			"free_view", "gamma_control");   // 49-380차(사용자: "그 ALT 자유 시점 기능도 가능하게"): 자유 시점은 내 서버에서도 쓸 수 있게. 49-383차: 밝기도
 	// 49-378차(사용자: "그 나침반은 켜줘 무조건 내 서버에서"): 내 서버에서는 사용자가 꺼 뒀어도 켜는 기능.
 	private static final java.util.Set<String> FORCE_ON_MY_SERVER = java.util.Set.of("compass_hud");
 

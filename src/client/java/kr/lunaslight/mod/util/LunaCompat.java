@@ -3954,6 +3954,9 @@ public final class LunaCompat {
 	private static java.lang.reflect.Field debugEnabledField;
 	private static boolean debugHudResolved;
 
+	private static java.lang.reflect.Field f3ListField;
+	private static java.lang.reflect.Method f3Enabled;
+
 	public static boolean isDebugHudShown(MinecraftClient client) {
 		if (!debugHudResolved) {
 			debugHudResolved = true; // 매 프레임 불리므로 한 번만 해석
@@ -3966,12 +3969,31 @@ public final class LunaCompat {
 			} catch (Throwable ignored) {
 				debugHudGetter = null;
 			}
+			// 49-384차: 1.21.9+ shouldShowDebugHud()는 F3을 꺼도 "항상 보이기" 디버그 항목이 있으면 true - F3을 켰는지(isF3Enabled)만 본다.
+			try {
+				f3ListField = getFieldCompat(client.getClass(), "debugHudEntryList");
+				f3ListField.setAccessible(true);
+				Object list = f3ListField.get(client);
+				f3Enabled = list == null ? null : getMethodCompat(list.getClass(), "isF3Enabled");
+			} catch (Throwable ignored) {
+				f3ListField = null;
+				f3Enabled = null;
+			}
 			try {
 				debugEnabledField = getFieldCompat(client.options.getClass(), "debugEnabled");
 				debugEnabledField.setAccessible(true);
 			} catch (Throwable ignored) {
 				debugEnabledField = null;
 			}
+		}
+		try {
+			if (f3ListField != null && f3Enabled != null) {
+				Object list = f3ListField.get(client);
+				if (list != null && f3Enabled.invoke(list) instanceof Boolean on) {
+					return on && (!client.options.hudHidden || client.currentScreen != null);
+				}
+			}
+		} catch (Throwable ignored) {
 		}
 		try {
 			if (debugHudGetter != null && debugHudShown != null) {

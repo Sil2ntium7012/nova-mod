@@ -153,7 +153,7 @@ public class CompassModule extends Module {
 			if (Math.abs(diff) > halfRange) {
 				continue;
 			}
-			String label = entry.getKey();
+			String label = serverLocked() ? korean(entry.getKey()) : entry.getKey();
 			int lw = LunaCompat.getTextWidth(client.font, label);
 			int cx = centerX + Math.round(diff * ppd);
 			if (cx < left || cx > right) {
@@ -163,6 +163,21 @@ public class CompassModule extends Module {
 			float edge = 1f - Math.min(1f, Math.abs(diff) / halfRange);
 			int a = Math.round(((color >>> 24) & 0xFF) * Math.min(1f, 0.25f + edge * 1.5f));
 			LunaCompat.drawHudText(context, client.font, label, cx - lw / 2, y, (a << 24) | (color & 0x00FFFFFF));
+		}
+	}
+
+	// 49-382차(사용자: "이거 나침반 우리 서버에서는 한글로 해줘"): 내 서버에서는 방위 글자를 한글로.
+	private static String korean(String dir) {
+		switch (dir) {
+			case "N": return "북";
+			case "E": return "동";
+			case "S": return "남";
+			case "W": return "서";
+			case "NE": return "북동";
+			case "SE": return "남동";
+			case "SW": return "남서";
+			case "NW": return "북서";
+			default: return dir;
 		}
 	}
 

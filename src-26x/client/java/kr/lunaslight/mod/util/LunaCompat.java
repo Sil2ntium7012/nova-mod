@@ -3950,6 +3950,16 @@ public final class LunaCompat {
 				debugEnabledField = null;
 			}
 		}
+		// 49-384차(사용자: "f3이 아예 안꺼지는 문제도 있어"): 26.x의 showDebugScreen()은 F3을 껐어도 "항상 보이기"로 둔
+		// 디버그 항목이 하나라도 있으면 true라, F3 화면(DebugHudStyleModule)이 안 꺼지고 다른 HUD도 숨었다.
+		// F3을 실제로 켰는지(isOverlayVisible)만 본다.
+		try {
+			var de = client.debugEntries;
+			if (de != null) {
+				return de.isOverlayVisible();
+			}
+		} catch (Throwable ignored) {
+		}
 		try {
 			if (debugHudGetter != null && debugHudShown != null) {
 				Object hud = debugHudGetter.invoke(client);

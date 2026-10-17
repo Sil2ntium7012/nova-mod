@@ -17,7 +17,8 @@ public abstract class DebugHudMixin {
 
 	@Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true, require = 0)
 	private void lunaslight$replaceDebugHud(CallbackInfo ci) {
-		if (DebugHudStyleModule.replacesVanilla()) {
+		// 49-384차: F3을 켰을 때만 바꿔 그린다. F3을 꺼도 "항상 보이기"로 둔 디버그 항목은 바닐라가 그대로 그리게.
+		if (DebugHudStyleModule.replacesVanilla() && kr.lunaslight.mod.util.LunaCompat.isDebugHudShown(net.minecraft.client.Minecraft.getInstance())) {
 			ci.cancel();
 		}
 	}
