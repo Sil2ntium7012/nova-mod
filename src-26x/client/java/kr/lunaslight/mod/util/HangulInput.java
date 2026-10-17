@@ -38,6 +38,8 @@ public final class HangulInput {
 	public static boolean synthetic;
 
 	private static boolean korean;
+	/** 49-386차: 윈도우 입력기가 붙어 있고 한글 상태(자모가 입력기에서 옴). 표시용. */
+	private static boolean osKorean;
 	/** 49-315차: 마지막으로 한/영을 바꾼 때(표시 애니메이션). */
 	private static long toggledAt;
 	/** 49-327차: 글자를 친 입력칸(이 칸에서 글자를 치기 전에는 한글/영어 표시를 안 띄운다). */
@@ -163,7 +165,19 @@ public final class HangulInput {
 		if (typing) {
 			typedFor = focusKey();
 		}
-		if (!korean || !typing) {
+		// 49-386차(사용자 사진: 채팅에 "wa ㅇㅁㅈ da ㅈㅁ" - 자모가 하나씩 따로 들어감, 표시는 ENG): 윈도우 입력기가 창에 다시 붙어
+		// (떼기가 안 먹은 경우) 한글 상태면 입력기가 자모를 하나씩 보낸다. 그 자모를 우리가 받아 조합한다.
+		// 영문 글자는 입력기가 영문 상태라는 뜻이라 예전처럼(우리 한/영 상태대로) 둔다.
+		boolean osJamo = typing && codePoint >= 0x3131 && codePoint <= 0x3163;
+		if (typing && !osJamo && codePoint >= 'A' && codePoint <= 'z') {
+			osKorean = false;
+		}
+		if (osJamo) {
+			if (!osKorean) {
+				osKorean = true;
+				toggledAt = System.nanoTime();
+			}
+		} else if (!korean || !typing) {
 			COMP.reset();
 			return false;
 		}
@@ -172,7 +186,7 @@ public final class HangulInput {
 			COMP.reset();   // Caps Lock: 영문 대문자 그대로
 			return false;
 		}
-		char jamo = HangulComposer.jamoOf(codePoint, shiftDown);
+		char jamo = osJamo ? (char) codePoint : HangulComposer.jamoOf(codePoint, shiftDown);
 		if (jamo == 0) {
 			COMP.reset();
 			return false;
@@ -462,7 +476,7 @@ public final class HangulInput {
 	}
 
 	private static String chipLabel() {
-		return korean ? "한글" : "ENG";
+		return korean || osKorean ? "한글" : "ENG";
 	}
 
 	private static int chipWidth(net.minecraft.client.gui.Font font) {

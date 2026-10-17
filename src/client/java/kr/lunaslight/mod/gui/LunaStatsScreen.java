@@ -1711,7 +1711,29 @@ public class LunaStatsScreen extends LunaScreenBase {
 
 	private int renderItems(DrawContext ctx, LunaStats.Scope s, int x, int y, int w, int mouseX, int mouseY) {
 		int y0 = y;
-		sectionTitle(ctx, x, y, w, "아이템 " + s.items.size() + "종");
+		// 49-385차(사용자 사진: 같은 이름 도구가 여러 줄): 종류와 이름이 같은 기록(인챈트만 다른 같은 도구 등)은 한 줄로 합친다
+		Map<String, Map.Entry<String, LunaStats.ItemStat>> merged = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, LunaStats.ItemStat> e : s.items.entrySet()) {
+			LunaStats.ItemStat it = e.getValue();
+			String nm = it.name != null ? it.name : e.getKey();
+			String mk = (it.base == null ? e.getKey() : it.base) + "\u0000" + nm;
+			Map.Entry<String, LunaStats.ItemStat> have = merged.get(mk);
+			LunaStats.ItemStat t;
+			if (have == null) {
+				t = new LunaStats.ItemStat();
+				t.name = it.name;
+				t.base = it.base;
+				merged.put(mk, new java.util.AbstractMap.SimpleEntry<>(e.getKey(), t));
+			} else {
+				t = have.getValue();
+			}
+			t.used += it.used;
+			t.dropped += it.dropped;
+			t.crafted += it.crafted;
+			t.mined += it.mined;
+			t.picked += it.picked;
+		}
+		sectionTitle(ctx, x, y, w, "아이템 " + merged.size() + "종");
 		y += 16;
 		// 머리글 - 49-67차(5-11): [획득] 열을 더하고, 머리글을 누르면 그 열로 정렬한다.
 		// (누를 수 있다는 걸 알리려고 지금 정렬 중인 열에 ▾를 붙이고 강조색으로 그린다)
@@ -1729,7 +1751,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
 		}
 		y += 12;
-		List<Map.Entry<String, LunaStats.ItemStat>> list = new ArrayList<>(s.items.entrySet());
+		List<Map.Entry<String, LunaStats.ItemStat>> list = new ArrayList<>(merged.values());
 		Comparator<Map.Entry<String, LunaStats.ItemStat>> cmp = Comparator.comparingLong(
 			(Map.Entry<String, LunaStats.ItemStat> e) -> sortValue(e.getValue()));
 		list.sort(itemSortDesc ? cmp.reversed() : cmp);

@@ -54,9 +54,7 @@ public class BlocksPerSecondHudModule extends Module {
 			if (isEnabled()) {
 				breakTimestamps.addLast(System.currentTimeMillis());
 			}
-			// 49-27차: 통계(아이템별 캔 횟수)
-			kr.lunaslight.mod.util.LunaStats.onBlockMined(
-					kr.lunaslight.mod.util.LunaCompat.blockId(state), kr.lunaslight.mod.util.LunaCompat.blockName(state));
+			// 49-385차: 통계(캔 블록)는 LunaStats.trackMining이 센다(서버가 캐기를 처리하는 곳도) - 여기서 세면 두 번
 		});
 	}
 
@@ -83,8 +81,6 @@ public class BlocksPerSecondHudModule extends Module {
 					if (isEnabled()) {
 						breakTimestamps.addLast(System.currentTimeMillis());
 					}
-					// 49-27차: 통계(아이템별 캔 횟수)는 이 기능이 꺼져 있어도 기록
-					noteMined(args);
 					return null;
 				}
 				// hashCode/equals/toString 기본 처리

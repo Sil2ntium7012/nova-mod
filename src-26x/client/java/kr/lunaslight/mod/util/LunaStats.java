@@ -393,6 +393,8 @@ public final class LunaStats {
 			trackKills(client);
 			trackScreens(client);
 			trackHeldItem(client);
+			trackMining(client);
+			requestServerStats(client);
 			syncVanilla(client);
 
 			dirty = true;
@@ -421,6 +423,10 @@ public final class LunaStats {
 			}
 			for (String n : names) {
 				if (n == null || n.isEmpty() || n.equals(myName)) {
+					continue;
+				}
+				// 49-385차(사용자: "같이 오래 논 사람은 클라이언트 사용 유저만!"): 노바 클라이언트를 쓰는 사람만
+				if (!LunaSocial.isLunaPlayerOnServer(n)) {
 					continue;
 				}
 				each(s -> {
@@ -662,6 +668,124 @@ public final class LunaStats {
 		}
 	}
 
+	// ---- 49-385차: 캔 블록 ----
+	// 사용자: "통계 제대로 안 쌓이는데", "엄청 많이 캤는데"(캔 블록 0). 예전엔 Fabric 블록 부수기 이벤트로만 셌는데,
+	// 서버가 캐기를 직접 처리하는 곳(강화 곡괭이·채굴 속도 플러그인 - 클라는 끝까지 못 부수고 서버가 블록을 지운다)에서는
+	// 그 이벤트가 안 와서 0이었다. 이제 "공격 키를 누른 채 조준하던 블록이 1.5초 안에 공기(또는 다른 블록)로 바뀜"을 캔 것으로 센다.
+	// 농작물을 거두고 바로 다시 심어지는 서버(같은 블록, 자란 단계가 줄어듦)도 캔 것으로 친다.
+	private static final Map<Long, Object[]> MINE_TARGETS = new LinkedHashMap<>();
+
+	private static void trackMining(Minecraft client) {
+		try {
+			if (client.level == null) {
+				return;
+			}
+			long now = System.currentTimeMillis();
+			if (!MINE_TARGETS.isEmpty()) {
+				java.util.Iterator<Map.Entry<Long, Object[]>> it = MINE_TARGETS.entrySet().iterator();
+				while (it.hasNext()) {
+					Object[] t = it.next().getValue();
+					net.minecraft.core.BlockPos pos = (net.minecraft.core.BlockPos) t[0];
+					net.minecraft.world.level.block.state.BlockState was = (net.minecraft.world.level.block.state.BlockState) t[1];
+					if (now - (Long) t[2] > 1500) {
+						it.remove();
+						continue;
+					}
+					net.minecraft.world.level.block.state.BlockState cur = client.level.getBlockState(pos);
+					if (cur == was) {
+						continue;
+					}
+					boolean mined = cur.isAir() || cur.getBlock() != was.getBlock() || cropReset(was, cur);
+					if (mined) {
+						onBlockMined(LunaCompat.blockId(was), LunaCompat.blockName(was));
+					}
+					it.remove();
+				}
+			}
+			Object target = client.hitResult;
+			if (target == null || !LunaCompat.isAttackPressed(client)) {
+				return;
+			}
+			Object type = LunaCompat.invokeNoArg(target, "getType");
+			if (!(type instanceof Enum<?> e) || !"BLOCK".equals(e.name())) {
+				return;
+			}
+			Object posObj = LunaCompat.invokeNoArg(target, "getBlockPos");
+			if (!(posObj instanceof net.minecraft.core.BlockPos pos)) {
+				return;
+			}
+			net.minecraft.world.level.block.state.BlockState state = client.level.getBlockState(pos);
+			if (state.isAir()) {
+				return;
+			}
+			long key = pos.asLong();
+			Object[] old = MINE_TARGETS.get(key);
+			if (old != null && old[1] == state) {
+				old[2] = now;
+				return;
+			}
+			MINE_TARGETS.put(key, new Object[]{pos, state, now});
+			if (MINE_TARGETS.size() > 16) {
+				MINE_TARGETS.remove(MINE_TARGETS.keySet().iterator().next());
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:mine", t);
+		}
+	}
+
+	/** 같은 블록인데 자란 단계(age)가 줄었나 - 거두고 바로 다시 심김. BlockState.toString()의 "age=7"을 읽는다(버전 무관). */
+	private static boolean cropReset(Object was, Object cur) {
+		int a = ageOf(String.valueOf(was));
+		int b = ageOf(String.valueOf(cur));
+		return a > 0 && b >= 0 && b < a;
+	}
+
+	private static int ageOf(String state) {
+		int i = state.indexOf("age=");
+		if (i < 0) {
+			return -1;
+		}
+		int j = i + 4;
+		int v = 0;
+		boolean any = false;
+		while (j < state.length() && Character.isDigit(state.charAt(j))) {
+			v = v * 10 + (state.charAt(j) - '0');
+			j++;
+			any = true;
+		}
+		return any ? v : -1;
+	}
+
+	// ---- 49-385차: 서버 통계 받기 ----
+	// 제작·획득은 마인크래프트 통계에서 읽는데, 서버는 통계 화면을 열어야만 보내 줘서 "-"로 남았다.
+	// 서버에 있는 동안 1분마다 통계를 한 번 요청한다(통계 화면을 열 때 바닐라가 보내는 것과 같은 요청).
+	private static long lastStatsRequest;
+	private static boolean statsFailed;
+	private static Object statsPacket;
+	private static java.lang.reflect.Method statsSend;
+
+	private static void requestServerStats(Minecraft client) {
+		if (statsFailed || client.player == null || LunaCompat.isSinglePlayer(client)) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now - lastStatsRequest < 60_000L) {
+			return;
+		}
+		lastStatsRequest = now;
+		try {
+			var conn = client.getConnection();
+			if (conn == null) {
+				return;
+			}
+			conn.send(new net.minecraft.network.protocol.game.ServerboundClientCommandPacket(
+					net.minecraft.network.protocol.game.ServerboundClientCommandPacket.Action.REQUEST_STATS));
+		} catch (Throwable t) {
+			statsFailed = true;
+			LunaCompat.warnOnce("stats:request", t);
+		}
+	}
+
 	// ---- 처치 ----
 
 	private static void trackKills(Minecraft client) {
@@ -675,7 +799,8 @@ public final class LunaStats {
 				if (type instanceof Enum<?> e && "ENTITY".equals(e.name())
 						&& LunaCompat.isAttackPressed(client)) {
 					Object entity = LunaCompat.invokeNoArg(target, "getEntity");
-					if (entity instanceof net.minecraft.world.entity.Entity ent) {
+					// 49-385차(사용자 사진: 잡은 생명체에 "상호 작용" 1,144 - 서버가 쓰는 상호작용·표시 엔티티를 때린 것까지 처치로 셌다): 살아 있는 몹만
+					if (entity instanceof net.minecraft.world.entity.Entity ent && ent instanceof net.minecraft.world.entity.LivingEntity && !(ent instanceof net.minecraft.world.entity.decoration.ArmorStand)) {
 						int entId = LunaCompat.entityNetworkId(ent); // 49-36차: getId(1.17+) / getEntityId(≤1.16)
 						ENGAGED.put(entId, now);
 						attacking = true;
@@ -1067,7 +1192,47 @@ public final class LunaStats {
 
 	// ==================== 외부에서 더하는 기록 ====================
 
-	/** 블록을 캤을 때(BlocksPerSecond와 같은 이벤트에서). */
+	/** 49-385차: 살아 있는 몹이 아닌 엔티티(상호작용·표시·갑옷 거치대·액자·탈것 …) id인가. */
+	static boolean nonLivingType(String id) {
+		if (id == null) {
+			return false;
+		}
+		String n = id.substring(id.indexOf(':') + 1);
+		return n.equals("interaction") || n.endsWith("_display") || n.equals("armor_stand") || n.endsWith("item_frame")
+				|| n.equals("painting") || n.endsWith("minecart") || n.endsWith("boat") || n.endsWith("raft")
+				|| n.equals("marker") || n.equals("leash_knot") || n.equals("item") || n.equals("experience_orb")
+				|| n.equals("falling_block") || n.equals("arrow") || n.equals("trident");
+	}
+
+	/** 49-385차: 예전에 처치로 잘못 센 비생물 엔티티를 기록에서 뺀다(전체 처치 수와 달별 처치 수도 그만큼). */
+	private static void dropNonLivingKills(Scope s) {
+		long wrong = 0;
+		java.util.Iterator<Map.Entry<String, Long>> it = s.killTypes.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry<String, Long> e = it.next();
+			if (nonLivingType(e.getKey())) {
+				wrong += e.getValue();
+				it.remove();
+			}
+		}
+		if (wrong <= 0) {
+			return;
+		}
+		s.kills = Math.max(0, s.kills - wrong);
+		List<String> keys = new ArrayList<>(s.months.keySet());
+		java.util.Collections.sort(keys, java.util.Collections.reverseOrder());
+		for (String k : keys) {
+			Period p = s.months.get(k);
+			long take = Math.min(p.kills, wrong);
+			p.kills -= take;
+			wrong -= take;
+			if (wrong <= 0) {
+				break;
+			}
+		}
+	}
+
+	/** 블록을 캤을 때(LunaStats.trackMining). */
 	public static void onBlockMined(String blockId, String displayName) {
 		if (blockId == null) {
 			return;
@@ -1371,6 +1536,9 @@ public final class LunaStats {
 		}
 		readLongMap(o, "days", s.days);
 		readLongMap(o, "peers", s.peers);
+		if (!o.has("peersNova")) {
+			s.peers.clear();   // 49-385차: 예전 기록은 노바 사용자 구분 없이 쌓여서 비우고 새로 센다
+		}
 		readLongMap(o, "deathCauses", s.deathCauses);
 		readLongMap(o, "interactions", s.interactions);
 		if (o.has("months") && o.get("months").isJsonObject()) {
@@ -1392,6 +1560,7 @@ public final class LunaStats {
 			}
 		}
 		readLongMap(o, "killTypes", s.killTypes);
+		dropNonLivingKills(s);
 		readDoubleMap(o, "distance", s.distance);
 		readLongMap(o, "travelMs", s.travelMs);
 		if (o.has("items") && o.get("items").isJsonObject()) {
@@ -1486,6 +1655,7 @@ public final class LunaStats {
 		o.add("hourMs", hours);
 		o.add("days", longMap(s.days));
 		o.add("peers", longMap(s.peers));
+		o.addProperty("peersNova", true);
 		o.add("deathCauses", longMap(s.deathCauses));
 		o.add("interactions", longMap(s.interactions));
 		JsonObject months = new JsonObject();
