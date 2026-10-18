@@ -144,12 +144,22 @@ public final class ModuleManager {
 		// 49-33차: 제작 도우미(조합법 검색 · 만드는 순서) - 역시 Slot 의존이라 리플렉션 등록
 		registerReflectively("kr.lunaslight.mod.module.impl.inventory.CraftingHelperModule");
 		// 49-133차: 너굴마을 - 아이템 출처 창(R 키) + 추천/핫타임 HUD
-		registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulItemsModule");
-		registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDailyModule");
+		// 49-393차(사용자: "너굴마을 기능들은 26.1.2에만 있어도 되잖아"): 너굴마을 서버 버전(26.1.2)에서만 등록
+		boolean neogulVersion = kr.lunaslight.mod.util.LunaVersion.isWithin("26.1.2", "26.1.2");
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulItemsModule");
+		}
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDailyModule");
+		}
 		// 49-148차: 너굴마을 허수아비 알림(채팅 감지 → 소리 + 타이틀)
-		registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScarecrowModule");
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScarecrowModule");
+		}
 		// 49-149차: 너굴마을 레벨 계산기(입력 > 결과 화면, 늘 켜짐)
-		registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelModule");
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelModule");
+		}
 		// 49-144차: 리소스팩 기억(서버 모드로 켜면 그 서버 팩 미리 적용)
 		registerReflectively("kr.lunaslight.mod.module.impl.misc.ServerPackMemoryModule");
 

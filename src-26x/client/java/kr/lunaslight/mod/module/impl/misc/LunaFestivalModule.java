@@ -25,7 +25,13 @@ public class LunaFestivalModule extends Module {
 	public LunaFestivalModule() {
 		super("luna_festival", "LUNA FESTIVAL", ModuleCategory.SERVER, "C 키 물약, X 키 내 능력 보기");
 		serverGroup("LUNA FESTIVAL");
-		defaultEnabled(true);
+		alwaysOn();   // 49-393차(사용자: "내 서버 기능은 왜 있는 거야 무조건 켜져 있고 기능에 따로 보이면 안 되지")
+	}
+
+	/** 49-393차: 기능 목록, 서버 분류, 검색 어디에도 안 보인다(항상 켜짐, 키는 C/X 고정). */
+	@Override
+	public boolean hiddenInList() {
+		return true;
 	}
 
 	@Override
