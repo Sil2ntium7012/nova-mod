@@ -35,10 +35,13 @@ public final class NeogulJei {
 	}
 
 	private static final int SLOT = 18;
-	private static final int TOP = 20;
+	private static final int TAB_Y = 4;
 	private static final int SEARCH_H = 14;
 
 	private static String query = "";
+	/** 49-392차(사용자: "그 카테고리 나눠서 정리해줘 오른쪽에"): 위쪽 분류 탭. "" = 전체. */
+	private static String cat = "";
+	private static int navY;
 	private static boolean focused;
 	private static Screen owner;
 	private static int page;
@@ -83,7 +86,10 @@ public final class NeogulJei {
 			return false;
 		}
 		gx = x1 - cols * SLOT;
-		gy = TOP;
+		int tabs = NeogulData.categories().size() + 1;
+		int tabRows = (tabs + cols - 1) / cols;
+		navY = TAB_Y + tabRows * SLOT + 3;
+		gy = navY + 16;
 		sy = s.height - SEARCH_H - 6;
 		rows = (sy - 4 - gy) / SLOT;
 		if (rows < 1) {
@@ -96,11 +102,15 @@ public final class NeogulJei {
 	}
 
 	private static List<NeogulData.Entry> list() {
-		if (!query.equals(filteredFor)) {
-			filteredFor = query;
+		String fk = cat + "\u0000" + query;
+		if (!fk.equals(filteredFor)) {
+			filteredFor = fk;
 			String q = NeogulData.normalize(query).toLowerCase(Locale.ROOT);
 			List<NeogulData.Entry> out = new ArrayList<>();
-			for (NeogulData.Entry e : NeogulData.items()) {
+			for (NeogulData.Entry e : NeogulData.listItems()) {
+				if (!cat.isEmpty() && !cat.equals(e.cat())) {
+					continue;
+				}
 				if (q.isEmpty() || NeogulData.normalize(e.name()).toLowerCase(Locale.ROOT).contains(q)) {
 					out.add(e);
 				}
@@ -145,8 +155,26 @@ public final class NeogulJei {
 			Font font = Minecraft.getInstance().font;
 			int pn = pages();
 			page = Math.max(0, Math.min(pn - 1, page));
-			// 맨 위: ◀ 1/5 ▶ (JEI처럼)
-			int cy = 6;
+			// 맨 위: 분류 탭(전체 + 분류들) - 고른 탭은 밝은 판
+			String tabTip = null;
+			List<NeogulData.Category> cats = NeogulData.categories();
+			for (int i = 0; i <= cats.size(); i++) {
+				String id = i == 0 ? "" : cats.get(i - 1).id();
+				int tx = gx + (i % cols) * SLOT;
+				int ty = TAB_Y + (i / cols) * SLOT;
+				boolean sel = id.equals(cat);
+				boolean th = LunaDraw.in(mx, my, tx, ty, SLOT, SLOT);
+				LunaDraw.mcPanel(g, tx, ty, SLOT, SLOT, sel ? 0xFFFFFFFF : (th ? 0xFFD8D8D8 : 0xFF9A9A9A));
+				ItemStack ic = i == 0 ? NeogulData.vanilla(List.of("minecraft:chest")) : NeogulData.icon(cats.get(i - 1));
+				if (!ic.isEmpty()) {
+					g.item(ic, tx + 1, ty + 1);
+				}
+				if (th) {
+					tabTip = i == 0 ? "전체" : cats.get(i - 1).name();
+				}
+			}
+			// ◀ 1/5 ▶ (JEI처럼)
+			int cy = navY;
 			drawButton(g, font, gx, cy, "<", LunaDraw.in(mx, my, gx, cy, 12, 12));
 			drawButton(g, font, gx + sw - 12, cy, ">", LunaDraw.in(mx, my, gx + sw - 12, cy, 12, 12));
 			String ps = (page + 1) + "/" + pn;
@@ -185,6 +213,9 @@ public final class NeogulJei {
 				int cx = sx + 4 + font.width(shownQ);
 				g.fill(cx, sy + 2, cx + 1, sy + SEARCH_H - 2, 0xFFD0D0D0);
 			}
+			if (hover == null && tabTip != null) {
+				g.setTooltipForNextFrame(font, LunaCompat.textLiteral(tabTip), mx, my);
+			}
 			if (hover != null) {
 				List<Component> tip = new ArrayList<>();
 				tip.add(LunaCompat.textLiteral(hover.name()));
@@ -216,11 +247,22 @@ public final class NeogulJei {
 				return true;
 			}
 			focus(s, false);
-			if (LunaDraw.in(mx, my, gx, 6, 12, 12)) {
+			List<NeogulData.Category> cats = NeogulData.categories();
+			for (int i = 0; i <= cats.size(); i++) {
+				int tx = gx + (i % cols) * SLOT;
+				int ty = TAB_Y + (i / cols) * SLOT;
+				if (LunaDraw.in(mx, my, tx, ty, SLOT, SLOT)) {
+					cat = i == 0 ? "" : cats.get(i - 1).id();
+					page = 0;
+					LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
+					return true;
+				}
+			}
+			if (LunaDraw.in(mx, my, gx, navY, 12, 12)) {
 				turn(-1);
 				return true;
 			}
-			if (LunaDraw.in(mx, my, gx + sw - 12, 6, 12, 12)) {
+			if (LunaDraw.in(mx, my, gx + sw - 12, navY, 12, 12)) {
 				turn(1);
 				return true;
 			}
@@ -229,7 +271,7 @@ public final class NeogulJei {
 				open(s, e.key(), button == 1);
 				return true;
 			}
-			return inArea(mx, my) && my >= gy && my < gy + rows * SLOT;   // 목록 빈칸 클릭은 아이템 던지기가 되지 않게
+			return inArea(mx, my) && my >= TAB_Y && my < gy + rows * SLOT;   // 목록 빈칸 클릭은 아이템 던지기가 되지 않게
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulJei:click", t);
 			return false;

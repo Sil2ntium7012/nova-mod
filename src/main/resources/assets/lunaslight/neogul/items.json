@@ -1,13 +1,14 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. 아이콘은 바닐라 대체 아이콘이며, 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다.",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임).",
  "stations": {
   "farm": {
    "name": "농사",
    "note": "내 섬(마인팜)에서 재배",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_1"
   },
   "scarecrow": {
    "name": "허수아비",
@@ -28,7 +29,8 @@
    "note": "스폰 낚시터 (/워프 → 낚시)",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod1"
   },
   "dodo": {
    "name": "낚시터 NPC 도토",
@@ -43,14 +45,16 @@
    "note": "채집섬 (/워프 → 비행장 NPC 소라)",
    "icon": [
     "minecraft:hay_block"
-   ]
+   ],
+   "model": "nexo:coin_farmer"
   },
   "is_ocean": {
    "name": "해양 섬",
    "note": "채집섬 (/워프 → 비행장 NPC 소라)",
    "icon": [
     "minecraft:prismarine"
-   ]
+   ],
+   "model": "nexo:coin_fisher"
   },
   "is_mud": {
    "name": "갯벌 섬",
@@ -58,14 +62,16 @@
    "icon": [
     "minecraft:mud",
     "minecraft:clay"
-   ]
+   ],
+   "model": "nexo:coin_mud"
   },
   "is_meat": {
    "name": "정육 섬",
    "note": "채집섬 (/워프 → 비행장 NPC 소라)",
    "icon": [
     "minecraft:cooked_beef"
-   ]
+   ],
+   "model": "nexo:coin_meat"
   },
   "shop": {
    "name": "채집도구 제작",
@@ -81,7 +87,8 @@
    "icon": [
     "minecraft:smoker",
     "minecraft:furnace"
-   ]
+   ],
+   "model": "nexo:food1"
   },
   "smith": {
    "name": "대장간",
@@ -102,35 +109,40 @@
    "note": "권장 Lv.1~10 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:hay_block"
-   ]
+   ],
+   "model": "nexo:dungeon_item_1"
   },
   "dg2": {
    "name": "던전 메마른 대지",
    "note": "권장 Lv.11~20 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:sand"
-   ]
+   ],
+   "model": "nexo:dungeon_item_3"
   },
   "dg3": {
    "name": "던전 얼어붙은 설원",
    "note": "권장 Lv.21~30 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:snow_block"
-   ]
+   ],
+   "model": "nexo:dungeon_item_18"
   },
   "dg4": {
    "name": "던전 울창한 숲",
    "note": "권장 Lv.31~40 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:oak_log"
-   ]
+   ],
+   "model": "nexo:dungeon_item_13"
   },
   "dg5": {
    "name": "던전 안개의 습지",
    "note": "권장 Lv.41~50 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:lily_pad"
-   ]
+   ],
+   "model": "nexo:dungeon_item_16"
   },
   "dg6": {
    "name": "던전 무릉도원",
@@ -138,21 +150,24 @@
    "icon": [
     "minecraft:bamboo",
     "minecraft:jungle_sapling"
-   ]
+   ],
+   "model": "nexo:dungeon_item_21"
   },
   "dg7": {
    "name": "던전 균사지대",
    "note": "권장 Lv.61~70 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:red_mushroom_block"
-   ]
+   ],
+   "model": "nexo:dungeon_item_24"
   },
   "dg8": {
    "name": "던전 끝없는 분화구",
    "note": "권장 Lv.71~80 (/워프 던전 NPC 우츠)",
    "icon": [
     "minecraft:magma_block"
-   ]
+   ],
+   "model": "nexo:dungeon_item_30"
   }
  },
  "categories": [
@@ -168,42 +183,48 @@
    "name": "채집",
    "icon": [
     "minecraft:shears"
-   ]
+   ],
+   "model": "nexo:farmer_tool_1"
   },
   {
    "id": "food",
    "name": "요리",
    "icon": [
     "minecraft:bread"
-   ]
+   ],
+   "model": "nexo:food1"
   },
   {
    "id": "fish",
    "name": "물고기",
    "icon": [
     "minecraft:cod"
-   ]
+   ],
+   "model": "nexo:a_fish_6"
   },
   {
    "id": "gem",
    "name": "광물",
    "icon": [
     "minecraft:diamond"
-   ]
+   ],
+   "model": "nexo:gem1"
   },
   {
    "id": "dungeon",
    "name": "던전",
    "icon": [
     "minecraft:bone"
-   ]
+   ],
+   "model": "nexo:dungeon_item_28"
   },
   {
    "id": "gear",
    "name": "장비",
    "icon": [
     "minecraft:iron_chestplate"
-   ]
+   ],
+   "model": "nexo:nm_viking_helmet"
   }
  ],
  "items": [
@@ -223,8 +244,7 @@
    "name": "벼",
    "cat": "crop",
    "icon": [
-    "minecraft:short_grass",
-    "minecraft:grass"
+    "minecraft:beetroot"
    ],
    "from": [
     "farm"
@@ -257,7 +277,7 @@
    "name": "고추",
    "cat": "crop",
    "icon": [
-    "minecraft:red_dye"
+    "minecraft:nether_wart"
    ],
    "from": [
     "farm"
@@ -324,7 +344,8 @@
    "cat": "crop",
    "icon": [
     "minecraft:hay_block"
-   ]
+   ],
+   "hidden": true
   },
   {
    "key": "gold_dust",
@@ -361,7 +382,8 @@
    "cat": "etc",
    "icon": [
     "minecraft:cobblestone"
-   ]
+   ],
+   "hidden": true
   },
   {
    "key": "stick",
@@ -369,7 +391,8 @@
    "cat": "etc",
    "icon": [
     "minecraft:stick"
-   ]
+   ],
+   "hidden": true
   },
   {
    "key": "cabbage",
@@ -1303,14 +1326,6 @@
    "model": "nexo:fish_coin_2"
   },
   {
-   "key": "rod0",
-   "name": "기본 낚싯대",
-   "cat": "gear",
-   "icon": [
-    "minecraft:fishing_rod"
-   ]
-  },
-  {
    "key": "rod1",
    "name": "낡은 낚싯대 (Lv.1)",
    "cat": "gear",
@@ -1427,7 +1442,8 @@
      "at": "mine",
      "note": "일반"
     }
-   ]
+   ],
+   "model": "nexo:gem4"
   },
   {
    "key": "aquamarine",
@@ -1441,7 +1457,8 @@
      "at": "mine",
      "note": "레어 | 보석의 이해 I (Lv.20)"
     }
-   ]
+   ],
+   "model": "nexo:gem3"
   },
   {
    "key": "ruby",
@@ -1455,7 +1472,8 @@
      "at": "mine",
      "note": "에픽 | 보석의 이해 II (Lv.40)"
     }
-   ]
+   ],
+   "model": "nexo:gem1"
   },
   {
    "key": "sapphire",
@@ -1469,7 +1487,8 @@
      "at": "mine",
      "note": "유니크 | 보석의 이해 III (Lv.60)"
     }
-   ]
+   ],
+   "model": "nexo:gem6"
   },
   {
    "key": "peridot",
@@ -1483,7 +1502,8 @@
      "at": "mine",
      "note": "희귀 | 보석의 이해 III (Lv.60)"
     }
-   ]
+   ],
+   "model": "nexo:gem2"
   },
   {
    "key": "moonstone",
@@ -1491,7 +1511,8 @@
    "cat": "gem",
    "icon": [
     "minecraft:quartz"
-   ]
+   ],
+   "model": "nexo:gem14_spark"
   },
   {
    "key": "topaz",
@@ -1499,7 +1520,8 @@
    "cat": "gem",
    "icon": [
     "minecraft:glowstone_dust"
-   ]
+   ],
+   "model": "nexo:gem11_spark"
   },
   {
    "key": "larimar",
@@ -1507,7 +1529,8 @@
    "cat": "gem",
    "icon": [
     "minecraft:prismarine_crystals"
-   ]
+   ],
+   "model": "nexo:gem12_spark"
   },
   {
    "key": "garnet",
@@ -1515,7 +1538,8 @@
    "cat": "gem",
    "icon": [
     "minecraft:nether_wart"
-   ]
+   ],
+   "model": "nexo:gem15_spark"
   },
   {
    "key": "iolite",
@@ -1524,7 +1548,8 @@
    "icon": [
     "minecraft:amethyst_shard",
     "minecraft:purple_dye"
-   ]
+   ],
+   "model": "nexo:gem10_spark"
   },
   {
    "key": "prehnite",
@@ -1532,7 +1557,8 @@
    "cat": "gem",
    "icon": [
     "minecraft:lime_dye"
-   ]
+   ],
+   "model": "nexo:gem9_spark"
   },
   {
    "key": "lavender",
@@ -1540,7 +1566,8 @@
    "cat": "gem",
    "icon": [
     "minecraft:purple_dye"
-   ]
+   ],
+   "model": "nexo:gem5_spark"
   },
   {
    "key": "feather",
@@ -3619,12 +3646,7 @@
    "at": "dodo",
    "out": "rod1",
    "n": 1,
-   "in": [
-    [
-     "rod0",
-     1
-    ]
-   ],
+   "in": [],
    "note": "힘 +3 | 미끼 +1 | 행운 +5%"
   },
   {

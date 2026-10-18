@@ -34,10 +34,10 @@ import java.util.Map;
  */
 public final class NeogulData {
 
-	public record Station(String id, String name, String note, List<String> icons) {
+	public record Station(String id, String name, String note, List<String> icons, String model) {
 	}
 
-	public record Category(String id, String name, List<String> icons) {
+	public record Category(String id, String name, List<String> icons, String model) {
 	}
 
 	/** 기본 출처 하나: 어디서(station id) + 덧붙임(몬스터, 확률 등). */
@@ -45,7 +45,7 @@ public final class NeogulData {
 	}
 
 	/** 49-391차: model = 너굴마을 리소스팩의 아이템 모델 id(예: nexo:farmer_tool_1). 있으면 그 모양으로 그린다. */
-	public record Entry(String key, String name, String cat, List<String> icons, List<Source> from, String model) {
+	public record Entry(String key, String name, String cat, List<String> icons, List<Source> from, String model, boolean hidden) {
 	}
 
 	public record Ing(String key, int count) {
@@ -173,7 +173,8 @@ public final class NeogulData {
 		if (root.has("stations")) {
 			for (Map.Entry<String, JsonElement> m : root.getAsJsonObject("stations").entrySet()) {
 				JsonObject o = m.getValue().getAsJsonObject();
-				STATIONS.put(m.getKey(), new Station(m.getKey(), str(o, "name", m.getKey()), str(o, "note", ""), strings(o.get("icon"))));
+				STATIONS.put(m.getKey(), new Station(m.getKey(), str(o, "name", m.getKey()), str(o, "note", ""), strings(o.get("icon")),
+						str(o, "model", null)));
 			}
 		}
 		if (root.has("categories")) {
@@ -181,7 +182,7 @@ public final class NeogulData {
 				JsonObject o = e.getAsJsonObject();
 				String id = str(o, "id", "");
 				CATEGORIES.removeIf(c -> c.id().equals(id));
-				CATEGORIES.add(new Category(id, str(o, "name", id), strings(o.get("icon"))));
+				CATEGORIES.add(new Category(id, str(o, "name", id), strings(o.get("icon")), str(o, "model", null)));
 			}
 		}
 		if (root.has("items")) {
@@ -192,7 +193,7 @@ public final class NeogulData {
 					continue;
 				}
 				ITEMS.put(key, new Entry(key, str(o, "name", key), str(o, "cat", ""), strings(o.get("icon")), sources(o.get("from")),
-						str(o, "model", null)));
+						str(o, "model", null), o.has("hidden") && o.get("hidden").getAsBoolean()));
 			}
 		}
 		if (root.has("recipes")) {
@@ -235,6 +236,18 @@ public final class NeogulData {
 	public static List<Entry> items() {
 		ensure();
 		return new ArrayList<>(ITEMS.values());
+	}
+
+	/** 49-392차: 목록에 보일 것만(hidden = 조약돌, 막대기 같은 바닐라 재료는 제작법 안에서만 보임). */
+	public static List<Entry> listItems() {
+		ensure();
+		List<Entry> out = new ArrayList<>();
+		for (Entry e : ITEMS.values()) {
+			if (!e.hidden()) {
+				out.add(e);
+			}
+		}
+		return out;
 	}
 
 	public static Entry get(String key) {
@@ -283,7 +296,7 @@ public final class NeogulData {
 		}
 		ItemStack base = LEARNED.get(e.key());
 		if (base == null) {
-			base = modelIcon(e);
+			base = modelIcon("i:" + e.key(), e.model());
 		}
 		if (base == null) {
 			base = ICON_CACHE.computeIfAbsent("i:" + e.key(), k -> vanilla(e.icons()));
@@ -299,15 +312,15 @@ public final class NeogulData {
 	private static long modelCheckAt;
 	private static boolean modelPackOn;
 
-	private static ItemStack modelIcon(Entry e) {
-		if (e.model() == null || e.model().isEmpty()) {
+	private static ItemStack modelIcon(String cacheKey, String model) {
+		if (model == null || model.isEmpty()) {
 			return null;
 		}
 		try {
 			long now = System.currentTimeMillis();
 			if (now - modelCheckAt > 2000) {
 				modelCheckAt = now;
-				boolean on = hasItemModel(e.model());
+				boolean on = hasItemModel(model);
 				if (on != modelPackOn) {
 					modelPackOn = on;
 					MODEL_ICONS.clear();
@@ -316,15 +329,15 @@ public final class NeogulData {
 			if (!modelPackOn) {
 				return null;
 			}
-			ItemStack st = MODEL_ICONS.get(e.key());
+			ItemStack st = MODEL_ICONS.get(cacheKey);
 			if (st == null) {
-				net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(e.model());
+				net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(model);
 				st = ItemStack.EMPTY;
-				if (id != null && hasItemModel(e.model())) {
+				if (id != null && hasItemModel(model)) {
 					st = new ItemStack(net.minecraft.world.item.Items.PAPER);
 					st.set(net.minecraft.core.component.DataComponents.ITEM_MODEL, id);
 				}
-				MODEL_ICONS.put(e.key(), st);
+				MODEL_ICONS.put(cacheKey, st);
 			}
 			return st.isEmpty() ? null : st;
 		} catch (Throwable t) {
@@ -364,14 +377,16 @@ public final class NeogulData {
 		if (s == null) {
 			return ItemStack.EMPTY;
 		}
-		return ICON_CACHE.computeIfAbsent("s:" + s.id(), k -> vanilla(s.icons()));
+		ItemStack m = modelIcon("s:" + s.id(), s.model());
+		return m != null ? m : ICON_CACHE.computeIfAbsent("s:" + s.id(), k -> vanilla(s.icons()));
 	}
 
 	public static ItemStack icon(Category c) {
 		if (c == null) {
 			return ItemStack.EMPTY;
 		}
-		return ICON_CACHE.computeIfAbsent("c:" + c.id(), k -> vanilla(c.icons()));
+		ItemStack m = modelIcon("c:" + c.id(), c.model());
+		return m != null ? m : ICON_CACHE.computeIfAbsent("c:" + c.id(), k -> vanilla(c.icons()));
 	}
 
 	/** 아무 바닐라 id 목록에서 먼저 있는 것. */
