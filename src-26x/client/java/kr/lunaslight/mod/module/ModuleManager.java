@@ -168,6 +168,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.chat.HangulInputModule());   // 49-313차: 내장 한글 입력
 		register(new kr.lunaslight.mod.module.impl.misc.FishingAlertModule());   // 49-125차: 낚시 미끼 물면 소리
 		register(new kr.lunaslight.mod.module.impl.misc.DiscordStatusModule());  // 49-125차: 디스코드에 플레이 중 표시
+		register(new kr.lunaslight.mod.module.impl.chat.UnlimitedChatModule());   // 49-388차: [채팅]과 따로
 		register(new kr.lunaslight.mod.module.impl.chat.ChatFaceModule());   // 49-81차(4-48): 채팅 줄 앞에 보낸 사람 얼굴(1.20+)
 		register(new BackgroundSoundModule());   // 49-55차(1-2): 창이 뒤로 가면 소리 줄이기
 

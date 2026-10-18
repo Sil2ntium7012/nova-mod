@@ -131,6 +131,27 @@ public class NeogulItemsScreen extends LunaScreenBase {
 	public NeogulItemsScreen(int toggleKey) {
 		super(LunaCompat.textLiteral("너굴 아이템"));
 		this.toggleKey = toggleKey;
+		this.parent = null;
+	}
+
+	/** 49-391차: 인벤토리에서 R/U(또는 목록 클릭)로 연 보기 창. 닫으면 그 인벤토리로 돌아간다. */
+	private final net.minecraft.client.gui.screens.Screen parent;
+
+	public NeogulItemsScreen(String key, boolean uses, net.minecraft.client.gui.screens.Screen parent) {
+		super(LunaCompat.textLiteral("너굴 아이템"));
+		this.toggleKey = -1;
+		this.parent = parent;
+		this.selected = key;
+		this.usesMode = uses;
+	}
+
+	@Override
+	public void onClose() {
+		if (parent != null) {
+			LunaCompat.setScreen(parent);
+			return;
+		}
+		super.onClose();
 	}
 
 	@Override
@@ -181,7 +202,11 @@ public class NeogulItemsScreen extends LunaScreenBase {
 
 	// ==================== 그리기 ====================
 
+	private int lastMouseX, lastMouseY;
+
 	private void lunaRender0(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+		lastMouseX = mouseX;
+		lastMouseY = mouseY;
 		LunaGfx.drawScreenBackdrop(this, ctx, width, height, mouseX, mouseY, delta, 0xA6000000);
 		hots.clear();
 		drawTabs(ctx, false);
@@ -527,6 +552,22 @@ public class NeogulItemsScreen extends LunaScreenBase {
 			}
 			onClose();
 			return true;
+		}
+		// 49-391차: 아이템에 마우스를 올리고 R = 얻는 법, U = 쓰임새(JEI처럼). 아이템이 아니면 R은 닫기.
+		if (!queryFocused) {
+			int rk = kr.lunaslight.mod.module.impl.misc.NeogulItemsModule.recipeKey();
+			int uk = kr.lunaslight.mod.module.impl.misc.NeogulItemsModule.usesKey();
+			if ((keyCode == rk && rk > 0) || (keyCode == uk && uk > 0)) {
+				Hot h = hotAt(lastMouseX, lastMouseY);
+				if (h != null && h.action() == ACT_ITEM && h.key() != null) {
+					open(h.key(), keyCode == uk);
+					return true;
+				}
+				if (keyCode == rk) {
+					onClose();
+					return true;
+				}
+			}
 		}
 		if (!queryFocused && keyCode == toggleKey && toggleKey > 0) {
 			onClose();

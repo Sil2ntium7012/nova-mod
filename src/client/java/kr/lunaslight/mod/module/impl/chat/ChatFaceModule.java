@@ -26,9 +26,29 @@ public class ChatFaceModule extends Module {
 		defaultEnabled(true);   // 49-121차(사용자): 기본 활성화
 	}
 
+	/**
+	 * 49-389차(사용자: "chat head 모드를 내가 내장시킬 테니까 얼굴 기능 켜면 그 모드를 켜게", 파일 이름은 chathead-버전):
+	 * Fabric은 게임 중에 모드를 켜고 끌 수 없어서, 넣을지 말지는 런처가 실행 전에 이 기능의 켜짐(modules.json chat_face.enabled)을
+	 * 보고 정한다. 모드 쪽은 Chat Heads(mod id chat_heads)가 들어와 있으면 노바 자체 얼굴을 안 그린다(두 번 그려지지 않게).
+	 */
+	private static Boolean chatHeads;
+
+	public static boolean chatHeadsLoaded() {
+		Boolean b = chatHeads;
+		if (b == null) {
+			try {
+				b = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("chat_heads");
+			} catch (Throwable t) {
+				b = false;
+			}
+			chatHeads = b;
+		}
+		return b;
+	}
+
 	@Override
 	protected void onEnable() {
-		ChatFaces.enabled = isVersionSupported();
+		ChatFaces.enabled = isVersionSupported() && !chatHeadsLoaded();
 	}
 
 	@Override

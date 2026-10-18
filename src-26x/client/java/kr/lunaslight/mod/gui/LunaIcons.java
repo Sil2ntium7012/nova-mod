@@ -37,6 +37,7 @@ public final class LunaIcons {
 		MODULE_ICONS.put("borderless_window", "\uE93A");
 		MODULE_ICONS.put("chat_enhancements", "\uE93D");
 		MODULE_ICONS.put("chat_face", "\uE964");
+		MODULE_ICONS.put("unlimited_chat", "\uE93D");
 		MODULE_ICONS.put("chat_filter", "\uE93E");
 		MODULE_ICONS.put("chat_tidy", "\uE936");
 		MODULE_ICONS.put("client_time", "\uE969");

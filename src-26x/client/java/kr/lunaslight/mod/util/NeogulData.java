@@ -44,7 +44,8 @@ public final class NeogulData {
 	public record Source(String at, String note) {
 	}
 
-	public record Entry(String key, String name, String cat, List<String> icons, List<Source> from) {
+	/** 49-391차: model = 너굴마을 리소스팩의 아이템 모델 id(예: nexo:farmer_tool_1). 있으면 그 모양으로 그린다. */
+	public record Entry(String key, String name, String cat, List<String> icons, List<Source> from, String model) {
 	}
 
 	public record Ing(String key, int count) {
@@ -113,6 +114,7 @@ public final class NeogulData {
 	public static synchronized void reload() {
 		loaded = false;
 		ICON_CACHE.clear();
+		MODEL_ICONS.clear();
 		ensure();
 	}
 
@@ -189,7 +191,8 @@ public final class NeogulData {
 				if (key == null) {
 					continue;
 				}
-				ITEMS.put(key, new Entry(key, str(o, "name", key), str(o, "cat", ""), strings(o.get("icon")), sources(o.get("from"))));
+				ITEMS.put(key, new Entry(key, str(o, "name", key), str(o, "cat", ""), strings(o.get("icon")), sources(o.get("from")),
+						str(o, "model", null)));
 			}
 		}
 		if (root.has("recipes")) {
@@ -280,9 +283,81 @@ public final class NeogulData {
 		}
 		ItemStack base = LEARNED.get(e.key());
 		if (base == null) {
+			base = modelIcon(e);
+		}
+		if (base == null) {
 			base = ICON_CACHE.computeIfAbsent("i:" + e.key(), k -> vanilla(e.icons()));
 		}
 		return withCount(base, count);
+	}
+
+	// ==================== 49-391차: 너굴마을 리소스팩 모양 ====================
+	// 사용자: "너굴마을 리소스팩 이용해서 다 적용 좀 시켜줘". 서버 아이템은 Nexo(아이템 모델 nexo:<id>)라, 자료에 적어 둔 모델 id를
+	// 종이 아이템의 item_model 부품에 넣어 그리면 서버 리소스팩이 켜져 있을 때 실제 모양으로 보인다. 팩이 없으면(다른 서버, 거절)
+	// 모델이 없어 보라·검정 칸이 되므로, 팩에 그 모델이 있는지 2초마다 한 번 보고 없으면 바닐라 대체품으로.
+	private static final Map<String, ItemStack> MODEL_ICONS = new HashMap<>();
+	private static long modelCheckAt;
+	private static boolean modelPackOn;
+
+	private static ItemStack modelIcon(Entry e) {
+		if (e.model() == null || e.model().isEmpty()) {
+			return null;
+		}
+		try {
+			long now = System.currentTimeMillis();
+			if (now - modelCheckAt > 2000) {
+				modelCheckAt = now;
+				boolean on = hasItemModel(e.model());
+				if (on != modelPackOn) {
+					modelPackOn = on;
+					MODEL_ICONS.clear();
+				}
+			}
+			if (!modelPackOn) {
+				return null;
+			}
+			ItemStack st = MODEL_ICONS.get(e.key());
+			if (st == null) {
+				net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(e.model());
+				st = ItemStack.EMPTY;
+				if (id != null && hasItemModel(e.model())) {
+					st = new ItemStack(net.minecraft.world.item.Items.PAPER);
+					st.set(net.minecraft.core.component.DataComponents.ITEM_MODEL, id);
+				}
+				MODEL_ICONS.put(e.key(), st);
+			}
+			return st.isEmpty() ? null : st;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogul:model", t);
+			return null;
+		}
+	}
+
+	/** 지금 켜진 리소스팩에 이 아이템 모델(assets/<ns>/items/<path>.json)이 있나. */
+	private static boolean hasItemModel(String model) {
+		try {
+			net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(model);
+			if (id == null) {
+				return false;
+			}
+			net.minecraft.resources.Identifier file = net.minecraft.resources.Identifier.fromNamespaceAndPath(id.getNamespace(), "items/" + id.getPath() + ".json");
+			return Minecraft.getInstance().getResourceManager().getResource(file).isPresent();
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/** 49-391차: 게임 아이템이 자료의 어느 아이템인지(이름으로). 없으면 null. */
+	public static String keyOf(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return null;
+		}
+		ensure();
+		try {
+			return KEY_BY_NAME.get(normalize(stack.getHoverName().getString()));
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	public static ItemStack icon(Station s) {

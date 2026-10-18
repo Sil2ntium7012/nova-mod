@@ -77,12 +77,59 @@ public final class HangulInput {
 			COMP.reset();
 			return;
 		}
-		WinIme.detach();
+		// 49-390차(사용자: "한글챗 되긴 되는데 한글 상태에서 키가 안 먹어"): 26.1~26.2는 바닐라가 윈도우 입력기를 직접 다룬다
+		// (TextInputManager, GLFW_IME - 입력칸 밖에서는 끄고 입력칸에서는 다시 켬). 우리가 매 틱 입력기를 창에서 떼어 내면 바닐라와 싸워서
+		// 조합이 깨지고(자모가 따로) 한글 상태에서 키가 안 먹었다. 이제 26.1~26.2는 떼지 않고 입력기를 "꺼짐"으로만 둔다
+		// (바닐라가 켜려는 것도 TextInputImeMixin이 막음) - 키는 영문으로 오고 한글은 우리가 조합한다. 26.3(SDL)은 예전처럼 뗀다.
+		if (LunaInput.SDL) {
+			WinIme.detach();
+		} else {
+			WinIme.restore();   // 예전 판에서 떼어 둔 게 있으면 돌려 붙인다(한 번만)
+			osImeOff();
+		}
 		Minecraft mc = Minecraft.getInstance();
 		Object screen = mc == null ? null : LunaCompat.screenOf(mc);
 		if (screen != lastScreen) {
 			lastScreen = screen;
 			COMP.reset();
+		}
+	}
+
+	private static java.lang.reflect.Method glfwGetInputMode;
+	private static java.lang.reflect.Method glfwSetInputMode;
+	private static boolean glfwLooked;
+	/** GLFW_IME(바닐라 TextInputManager가 쓰는 값). */
+	private static final int GLFW_IME = 0x33007;
+
+	/** 49-390차: 우리 한글 입력이 켜져 있으면 바닐라가 윈도우 입력기를 켜지 못하게(26.1~26.2, TextInputImeMixin). */
+	public static boolean blockOsIme() {
+		return on() && !LunaInput.SDL;
+	}
+
+	/** 윈도우 입력기를 "꺼짐"으로(GLFW_IME = 0). GLFW는 리플렉션 - 26.3(SDL)에는 없다. */
+	private static void osImeOff() {
+		try {
+			if (!glfwLooked) {
+				glfwLooked = true;
+				Class<?> g = Class.forName("org.lwjgl.glfw.GLFW");
+				glfwGetInputMode = g.getMethod("glfwGetInputMode", long.class, int.class);
+				glfwSetInputMode = g.getMethod("glfwSetInputMode", long.class, int.class, int.class);
+			}
+			if (glfwGetInputMode == null) {
+				return;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			long h = mc == null || mc.getWindow() == null ? 0L : mc.getWindow().handle();
+			if (h == 0L) {
+				return;
+			}
+			Object cur = glfwGetInputMode.invoke(null, h, GLFW_IME);
+			if (cur instanceof Integer i && i != 0) {
+				glfwSetInputMode.invoke(null, h, GLFW_IME, 0);
+			}
+		} catch (Throwable t) {
+			glfwGetInputMode = null;
+			LunaCompat.warnOnce("hangul:osIme", t);
 		}
 	}
 
@@ -131,6 +178,9 @@ public final class HangulInput {
 		boolean typing = textFocused();
 		if (action == 1 && (hangulKey(key, scancode) || (key == HangulInputModule.toggleKey() && key != -1))) {
 			korean = !korean;
+			if (!LunaInput.SDL) {
+				osImeOff();   // 한/영 키가 윈도우 입력기를 켰으면 바로 끈다(한글은 우리가)
+			}
 			toggledAt = System.nanoTime();
 			COMP.reset();
 			return typing;

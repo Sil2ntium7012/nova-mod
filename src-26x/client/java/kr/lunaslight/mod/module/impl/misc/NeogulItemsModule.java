@@ -1,6 +1,5 @@
 package kr.lunaslight.mod.module.impl.misc;
 
-import kr.lunaslight.mod.gui.NeogulItemsScreen;
 import kr.lunaslight.mod.module.Module;
 import kr.lunaslight.mod.module.ModuleCategory;
 import kr.lunaslight.mod.module.setting.ActionSetting;
@@ -19,14 +18,36 @@ import com.mojang.blaze3d.platform.InputConstants;
  */
 public class NeogulItemsModule extends Module {
 
+	// 49-391차(사용자: "아이템에 R 누르거나 JEI처럼 인벤 열면 오른쪽에 리스트 뜨고, JEI같이 만들어줘 완전"):
+	// 게임 화면에서 R로 큰 창을 여는 대신, 인벤토리를 열면 오른쪽에 목록(NeogulJei)이 뜨고 아이템에 마우스를 올리고 R/U로 본다.
 	private final KeybindSetting openKey = register(new KeybindSetting(
-			"open_key", "열기 키", "너굴 아이템 창을 여는 키입니다. 창에서 한 번 더 누르면 닫힙니다.", InputConstants.KEY_R));
+			"open_key", "얻는 법 키", "인벤토리나 목록의 아이템에 마우스를 올리고 누르면 얻는 법을 봅니다.", InputConstants.KEY_R));
+	private final KeybindSetting usesKeySetting = register(new KeybindSetting(
+			"uses_key", "쓰임새 키", "인벤토리나 목록의 아이템에 마우스를 올리고 누르면 쓰이는 곳을 봅니다.", InputConstants.KEY_U));
+	private final kr.lunaslight.mod.module.setting.BooleanSetting showList = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"show_list", "인벤토리 옆 목록", "인벤토리를 열면 오른쪽에 너굴마을 아이템 목록을 띄웁니다.", true));
 
-	private boolean wasDown;
 	private int ticks;
+	private static NeogulItemsModule instance;
+
+	public static int recipeKey() {
+		NeogulItemsModule m = instance;
+		return m == null || !m.isEnabled() || !m.openKey.isBound() ? -1 : m.openKey.getKeyCode();
+	}
+
+	public static int usesKey() {
+		NeogulItemsModule m = instance;
+		return m == null || !m.isEnabled() || !m.usesKeySetting.isBound() ? -1 : m.usesKeySetting.getKeyCode();
+	}
+
+	public static boolean listOn() {
+		NeogulItemsModule m = instance;
+		return m != null && m.isEnabled() && m.showList.get();
+	}
 
 	public NeogulItemsModule() {
-		super("neogul_items", "너굴 아이템", ModuleCategory.SERVER, "R 키로 너굴마을 아이템의 출처와 제작법 보기");
+		super("neogul_items", "너굴 아이템", ModuleCategory.SERVER, "인벤토리 옆 아이템 목록 | 아이템에 R 얻는 법, U 쓰임새");
+		instance = this;
 		defaultEnabled(true);
 		serverGroup("너굴마을");
 		register(new ActionSetting("reload", "자료 갱신",
@@ -40,18 +61,12 @@ public class NeogulItemsModule extends Module {
 	@Override
 	public void onTick() {
 		if (client == null || client.player == null) {
-			wasDown = false;
 			return;
 		}
 		Object screen = kr.lunaslight.mod.util.LunaCompat.screenOf(client);
 		if (++ticks % 40 == 0 && active()) {
 			learnIcons(screen);
 		}
-		boolean down = screen == null && openKey.isBound() && openKey.isDown(client);
-		if (down && !wasDown && active()) {
-			LunaCompat.setScreen(new NeogulItemsScreen(openKey.getKeyCode()));
-		}
-		wasDown = down;
 	}
 
 	private void learnIcons(Object screen) {

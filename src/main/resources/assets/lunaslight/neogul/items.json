@@ -338,7 +338,8 @@
      "at": "scarecrow",
      "note": "처치 시 1개 고정"
     }
-   ]
+   ],
+   "model": "nexo:extract_golden"
   },
   {
    "key": "sus_box",
@@ -382,7 +383,8 @@
      "at": "is_harvest",
      "note": "작물을 채집"
     }
-   ]
+   ],
+   "model": "nexo:farmer_vege"
   },
   {
    "key": "leek",
@@ -396,7 +398,8 @@
      "at": "is_harvest",
      "note": "작물을 채집"
     }
-   ]
+   ],
+   "model": "nexo:farmer_leak"
   },
   {
    "key": "garlic",
@@ -410,7 +413,8 @@
      "at": "is_harvest",
      "note": "작물을 채집"
     }
-   ]
+   ],
+   "model": "nexo:farmer_garlic"
   },
   {
    "key": "ember_g",
@@ -424,7 +428,8 @@
      "at": "is_harvest",
      "note": "채집 중 미니게임 클리어 시"
     }
-   ]
+   ],
+   "model": "nexo:soul_green"
   },
   {
    "key": "coin_harvest",
@@ -433,7 +438,8 @@
    "icon": [
     "minecraft:raw_gold",
     "minecraft:gold_ingot"
-   ]
+   ],
+   "model": "nexo:coin_farmer"
   },
   {
    "key": "tool_harvest_1",
@@ -441,7 +447,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_1"
   },
   {
    "key": "tool_harvest_2",
@@ -449,7 +456,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_2"
   },
   {
    "key": "tool_harvest_3",
@@ -457,7 +465,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_3"
   },
   {
    "key": "tool_harvest_4",
@@ -465,7 +474,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_4"
   },
   {
    "key": "tool_harvest_5",
@@ -473,7 +483,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_5"
   },
   {
    "key": "tool_harvest_6",
@@ -481,7 +492,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_6"
   },
   {
    "key": "tool_harvest_7",
@@ -489,7 +501,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_7"
   },
   {
    "key": "tool_harvest_8",
@@ -497,7 +510,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_hoe"
-   ]
+   ],
+   "model": "nexo:farmer_tool_8"
   },
   {
    "key": "oyster",
@@ -511,7 +525,8 @@
      "at": "is_ocean",
      "note": "해양 광석 채집 시 랜덤"
     }
-   ]
+   ],
+   "model": "nexo:fisher_seafood1"
   },
   {
    "key": "scallop",
@@ -525,7 +540,8 @@
      "at": "is_ocean",
      "note": "해양 광석 채집 시 랜덤"
     }
-   ]
+   ],
+   "model": "nexo:fisher_seafood2"
   },
   {
    "key": "seaweed",
@@ -539,7 +555,8 @@
      "at": "is_ocean",
      "note": "해양 광석 채집 시 랜덤"
     }
-   ]
+   ],
+   "model": "nexo:fisher_seafood3"
   },
   {
    "key": "ember_b",
@@ -553,7 +570,8 @@
      "at": "is_ocean",
      "note": "채집 중 미니게임 클리어 시"
     }
-   ]
+   ],
+   "model": "nexo:soul_blue"
   },
   {
    "key": "coin_ocean",
@@ -562,7 +580,8 @@
    "icon": [
     "minecraft:raw_gold",
     "minecraft:gold_ingot"
-   ]
+   ],
+   "model": "nexo:coin_fisher"
   },
   {
    "key": "tool_ocean_1",
@@ -570,7 +589,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_1"
   },
   {
    "key": "tool_ocean_2",
@@ -578,7 +598,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_2"
   },
   {
    "key": "tool_ocean_3",
@@ -586,7 +607,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_3"
   },
   {
    "key": "tool_ocean_4",
@@ -594,7 +616,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_4"
   },
   {
    "key": "tool_ocean_5",
@@ -602,7 +625,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_5"
   },
   {
    "key": "tool_ocean_6",
@@ -610,7 +634,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_6"
   },
   {
    "key": "tool_ocean_7",
@@ -618,7 +643,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_7"
   },
   {
    "key": "tool_ocean_8",
@@ -626,7 +652,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_hoe"
-   ]
+   ],
+   "model": "nexo:fisher_tool_8"
   },
   {
    "key": "crab",
@@ -640,7 +667,8 @@
      "at": "is_mud",
      "note": "갯벌 블럭 채집 시 랜덤"
     }
-   ]
+   ],
+   "model": "nexo:fisher_crab"
   },
   {
    "key": "squid",
@@ -654,7 +682,8 @@
      "at": "is_mud",
      "note": "갯벌 블럭 채집 시 랜덤"
     }
-   ]
+   ],
+   "model": "nexo:fisher_squid"
   },
   {
    "key": "shrimp",
@@ -668,7 +697,8 @@
      "at": "is_mud",
      "note": "갯벌 블럭 채집 시 랜덤"
     }
-   ]
+   ],
+   "model": "nexo:fisher_shrimp"
   },
   {
    "key": "ember_a",
@@ -682,7 +712,8 @@
      "at": "is_mud",
      "note": "채집 중 미니게임 클리어 시"
     }
-   ]
+   ],
+   "model": "nexo:soul_gray"
   },
   {
    "key": "coin_mud",
@@ -691,7 +722,8 @@
    "icon": [
     "minecraft:raw_gold",
     "minecraft:gold_ingot"
-   ]
+   ],
+   "model": "nexo:coin_mud"
   },
   {
    "key": "tool_mud_1",
@@ -699,7 +731,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_1"
   },
   {
    "key": "tool_mud_2",
@@ -707,7 +740,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_2"
   },
   {
    "key": "tool_mud_3",
@@ -715,7 +749,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_3"
   },
   {
    "key": "tool_mud_4",
@@ -723,7 +758,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_4"
   },
   {
    "key": "tool_mud_5",
@@ -731,7 +767,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_5"
   },
   {
    "key": "tool_mud_6",
@@ -739,7 +776,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_6"
   },
   {
    "key": "tool_mud_7",
@@ -747,7 +785,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_7"
   },
   {
    "key": "tool_mud_8",
@@ -755,7 +794,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_shovel"
-   ]
+   ],
+   "model": "nexo:mud_tool_8"
   },
   {
    "key": "beef",
@@ -769,7 +809,8 @@
      "at": "is_meat",
      "note": "동물을 잡아 획득"
     }
-   ]
+   ],
+   "model": "nexo:meat_beef"
   },
   {
    "key": "pork",
@@ -783,7 +824,8 @@
      "at": "is_meat",
      "note": "동물을 잡아 획득"
     }
-   ]
+   ],
+   "model": "nexo:meat_porkchop"
   },
   {
    "key": "chicken",
@@ -797,7 +839,8 @@
      "at": "is_meat",
      "note": "동물을 잡아 획득"
     }
-   ]
+   ],
+   "model": "nexo:meat_chicken"
   },
   {
    "key": "ember_r",
@@ -811,7 +854,8 @@
      "at": "is_meat",
      "note": "채집 중 미니게임 클리어 시"
     }
-   ]
+   ],
+   "model": "nexo:soul_red"
   },
   {
    "key": "coin_meat",
@@ -820,7 +864,8 @@
    "icon": [
     "minecraft:raw_gold",
     "minecraft:gold_ingot"
-   ]
+   ],
+   "model": "nexo:coin_meat"
   },
   {
    "key": "tool_meat_1",
@@ -828,7 +873,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_1"
   },
   {
    "key": "tool_meat_2",
@@ -836,7 +882,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_2"
   },
   {
    "key": "tool_meat_3",
@@ -844,7 +891,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_3"
   },
   {
    "key": "tool_meat_4",
@@ -852,7 +900,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_4"
   },
   {
    "key": "tool_meat_5",
@@ -860,7 +909,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_5"
   },
   {
    "key": "tool_meat_6",
@@ -868,7 +918,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_6"
   },
   {
    "key": "tool_meat_7",
@@ -876,7 +927,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_7"
   },
   {
    "key": "tool_meat_8",
@@ -884,7 +936,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_sword"
-   ]
+   ],
+   "model": "nexo:meat_tool_8"
   },
   {
    "key": "orca",
@@ -898,7 +951,8 @@
      "at": "fish",
      "note": "S급 0.35%"
     }
-   ]
+   ],
+   "model": "nexo:killer_whale_01"
   },
   {
    "key": "shark",
@@ -912,7 +966,8 @@
      "at": "fish",
      "note": "S급 0.35%"
     }
-   ]
+   ],
+   "model": "nexo:shark_model_01"
   },
   {
    "key": "conch",
@@ -926,7 +981,8 @@
      "at": "fish",
      "note": "S급 0.35%"
     }
-   ]
+   ],
+   "model": "nexo:conch_01"
   },
   {
    "key": "salmon_f",
@@ -940,7 +996,8 @@
      "at": "fish",
      "note": "A급 4%"
     }
-   ]
+   ],
+   "model": "nexo:a_fish_4"
   },
   {
    "key": "eel",
@@ -954,7 +1011,8 @@
      "at": "fish",
      "note": "A급 4%"
     }
-   ]
+   ],
+   "model": "nexo:a_fish_5"
   },
   {
    "key": "jelly",
@@ -968,7 +1026,8 @@
      "at": "fish",
      "note": "A급 4%"
     }
-   ]
+   ],
+   "model": "nexo:a_fish_2"
   },
   {
    "key": "lobster",
@@ -982,7 +1041,8 @@
      "at": "fish",
      "note": "A급 4%"
     }
-   ]
+   ],
+   "model": "nexo:a_fish_3"
   },
   {
    "key": "tuna",
@@ -996,7 +1056,8 @@
      "at": "fish",
      "note": "A급 4%"
     }
-   ]
+   ],
+   "model": "nexo:a_fish_6"
   },
   {
    "key": "tropical",
@@ -1010,7 +1071,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_11"
   },
   {
    "key": "catfish",
@@ -1024,7 +1086,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_2"
   },
   {
    "key": "bass",
@@ -1038,7 +1101,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_9"
   },
   {
    "key": "sunfish",
@@ -1052,7 +1116,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_1"
   },
   {
    "key": "starfish",
@@ -1066,7 +1131,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_10"
   },
   {
    "key": "anchovy",
@@ -1080,7 +1146,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_8"
   },
   {
    "key": "seahorse",
@@ -1094,7 +1161,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_3"
   },
   {
    "key": "goldfish",
@@ -1108,7 +1176,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_4"
   },
   {
    "key": "jjukku",
@@ -1122,7 +1191,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_5"
   },
   {
    "key": "gaebul",
@@ -1136,7 +1206,8 @@
      "at": "fish",
      "note": "B급 58%"
     }
-   ]
+   ],
+   "model": "nexo:b_fish_6"
   },
   {
    "key": "ricefish",
@@ -1150,7 +1221,8 @@
      "at": "fish",
      "note": "C급 37.65%"
     }
-   ]
+   ],
+   "model": "nexo:c_fish_5"
   },
   {
    "key": "frog",
@@ -1164,7 +1236,8 @@
      "at": "fish",
      "note": "C급 37.65%"
     }
-   ]
+   ],
+   "model": "nexo:c_fish_4"
   },
   {
    "key": "cola",
@@ -1178,7 +1251,8 @@
      "at": "fish",
      "note": "C급 37.65%"
     }
-   ]
+   ],
+   "model": "nexo:c_fish_7"
   },
   {
    "key": "can",
@@ -1192,7 +1266,8 @@
      "at": "fish",
      "note": "C급 37.65%"
     }
-   ]
+   ],
+   "model": "nexo:c_fish_1"
   },
   {
    "key": "trash",
@@ -1206,7 +1281,8 @@
      "at": "fish",
      "note": "C급 37.65%"
     }
-   ]
+   ],
+   "model": "nexo:c_fish_6"
   },
   {
    "key": "fcoin_a",
@@ -1214,7 +1290,8 @@
    "cat": "fish",
    "icon": [
     "minecraft:gold_ingot"
-   ]
+   ],
+   "model": "nexo:fish_coin_1"
   },
   {
    "key": "fcoin_b",
@@ -1222,7 +1299,8 @@
    "cat": "fish",
    "icon": [
     "minecraft:iron_ingot"
-   ]
+   ],
+   "model": "nexo:fish_coin_2"
   },
   {
    "key": "rod0",
@@ -1238,7 +1316,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod1"
   },
   {
    "key": "rod2",
@@ -1246,7 +1325,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod2"
   },
   {
    "key": "rod3",
@@ -1254,7 +1334,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod3"
   },
   {
    "key": "rod4",
@@ -1262,7 +1343,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod4"
   },
   {
    "key": "rod5",
@@ -1270,7 +1352,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod5"
   },
   {
    "key": "rod6",
@@ -1278,7 +1361,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod6"
   },
   {
    "key": "rod7",
@@ -1286,7 +1370,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod7"
   },
   {
    "key": "rod8",
@@ -1294,7 +1379,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod8"
   },
   {
    "key": "rod9",
@@ -1302,7 +1388,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod9"
   },
   {
    "key": "rod10",
@@ -1310,7 +1397,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:fishing_rod"
-   ]
+   ],
+   "model": "nexo:custom_fishing_rod10"
   },
   {
    "key": "cook_coal",
@@ -1324,7 +1412,8 @@
      "at": "mine",
      "note": "일반"
     }
-   ]
+   ],
+   "model": "nexo:cook_charcoal"
   },
   {
    "key": "opal",
@@ -1465,7 +1554,8 @@
      "at": "dg1",
      "note": "닭 Lv.1~3 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_1"
   },
   {
    "key": "pig_hide",
@@ -1479,7 +1569,8 @@
      "at": "dg1",
      "note": "돼지 Lv.3~5 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_5"
   },
   {
    "key": "cow_hide",
@@ -1493,7 +1584,8 @@
      "at": "dg1",
      "note": "소 Lv.5~7 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_14"
   },
   {
    "key": "mane",
@@ -1507,7 +1599,8 @@
      "at": "dg1",
      "note": "말 Lv.7~9 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_7"
   },
   {
    "key": "raccoon_tail",
@@ -1521,7 +1614,8 @@
      "at": "dg2",
      "note": "너구리 Lv.11~13 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_3"
   },
   {
    "key": "fox_fur",
@@ -1535,7 +1629,8 @@
      "at": "dg2",
      "note": "사막여우 Lv.13~15 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_17"
   },
   {
    "key": "camel_hoof",
@@ -1549,7 +1644,8 @@
      "at": "dg2",
      "note": "낙타 Lv.15~17 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_2"
   },
   {
    "key": "hyena_fang",
@@ -1563,7 +1659,8 @@
      "at": "dg2",
      "note": "하이애나 Lv.17~19 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_19"
   },
   {
    "key": "penguin_beak",
@@ -1577,7 +1674,8 @@
      "at": "dg3",
      "note": "펭귄 Lv.21~23 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_18"
   },
   {
    "key": "seal_whisker",
@@ -1591,7 +1689,8 @@
      "at": "dg3",
      "note": "하프물범 Lv.23~25 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_9"
   },
   {
    "key": "bear_paw_w",
@@ -1605,7 +1704,8 @@
      "at": "dg3",
      "note": "북극곰 Lv.25~27 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_12"
   },
   {
    "key": "reindeer_horn",
@@ -1619,7 +1719,8 @@
      "at": "dg3",
      "note": "순록 Lv.27~29 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_15"
   },
   {
    "key": "deer_horn",
@@ -1633,7 +1734,8 @@
      "at": "dg4",
      "note": "사슴 Lv.31~33 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_13"
   },
   {
    "key": "boar_tusk",
@@ -1647,7 +1749,8 @@
      "at": "dg4",
      "note": "멧돼지 Lv.33~35 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_8"
   },
   {
    "key": "dog_fur",
@@ -1661,7 +1764,8 @@
      "at": "dg4",
      "note": "들개 Lv.35~37 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_6"
   },
   {
    "key": "bear_paw",
@@ -1675,7 +1779,8 @@
      "at": "dg4",
      "note": "반달곰 Lv.37~39 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_10"
   },
   {
    "key": "poison_sac",
@@ -1689,7 +1794,8 @@
      "at": "dg5",
      "note": "독개구리 Lv.41~43 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_4"
   },
   {
    "key": "turtle_shell",
@@ -1704,7 +1810,8 @@
      "at": "dg5",
      "note": "거북이 Lv.43~45 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_20"
   },
   {
    "key": "snake_scale",
@@ -1718,7 +1825,8 @@
      "at": "dg5",
      "note": "뱀 Lv.45~47 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_16"
   },
   {
    "key": "croc_hide",
@@ -1732,7 +1840,8 @@
      "at": "dg5",
      "note": "악어 Lv.47~49 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_11"
   },
   {
    "key": "peacock_feather",
@@ -1746,7 +1855,8 @@
      "at": "dg6",
      "note": "공작새 Lv.51~53 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_21"
   },
   {
    "key": "monkey_tail",
@@ -1760,7 +1870,8 @@
      "at": "dg6",
      "note": "베이비 몽키 Lv.54~56 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_22"
   },
   {
    "key": "panda_paw",
@@ -1774,7 +1885,8 @@
      "at": "dg6",
      "note": "판다곰 Lv.57~59 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_23"
   },
   {
    "key": "orange_mush",
@@ -1788,7 +1900,8 @@
      "at": "dg7",
      "note": "전사 버섯 Lv.61~63 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_24"
   },
   {
    "key": "purple_mush",
@@ -1802,7 +1915,8 @@
      "at": "dg7",
      "note": "고목 버섯 Lv.63~65 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_25"
   },
   {
    "key": "poison_mush",
@@ -1816,7 +1930,8 @@
      "at": "dg7",
      "note": "독버섯 Lv.65~67 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_26"
   },
   {
    "key": "spore",
@@ -1830,7 +1945,8 @@
      "at": "dg7",
      "note": "헌터 버섯 Lv.67~69 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_27"
   },
   {
    "key": "broken_sword",
@@ -1844,7 +1960,8 @@
      "at": "dg8",
      "note": "전사 들쥐 Lv.71~73 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_28"
   },
   {
    "key": "broken_bow",
@@ -1858,7 +1975,8 @@
      "at": "dg8",
      "note": "사수 들쥐 Lv.73~75 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_29"
   },
   {
    "key": "rat_hood",
@@ -1872,7 +1990,8 @@
      "at": "dg8",
      "note": "마법사 들쥐 Lv.75~77 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_30"
   },
   {
    "key": "rat_tooth",
@@ -1886,7 +2005,8 @@
      "at": "dg8",
      "note": "대장 들쥐 Lv.77~79 100%"
     }
-   ]
+   ],
+   "model": "nexo:dungeon_item_31"
   },
   {
    "key": "leather1",
@@ -1912,7 +2032,8 @@
      "at": "dg4",
      "note": "3%"
     }
-   ]
+   ],
+   "model": "nexo:leather_1"
   },
   {
    "key": "leather2",
@@ -1938,7 +2059,8 @@
      "at": "dg6",
      "note": "3%"
     }
-   ]
+   ],
+   "model": "nexo:leather_2"
   },
   {
    "key": "leather3",
@@ -1964,7 +2086,8 @@
      "at": "dg8",
      "note": "3%"
     }
-   ]
+   ],
+   "model": "nexo:leather_3"
   },
   {
    "key": "leather4",
@@ -1982,7 +2105,8 @@
      "at": "dg8",
      "note": "7%"
     }
-   ]
+   ],
+   "model": "nexo:leather_4"
   },
   {
    "key": "spell",
@@ -2028,7 +2152,8 @@
      "at": "scarecrow",
      "note": "16개 9.9%"
     }
-   ]
+   ],
+   "model": "nexo:spell_trace"
   },
   {
    "key": "box1",
@@ -2054,7 +2179,8 @@
      "at": "dg4",
      "note": "약 0.9%"
     }
-   ]
+   ],
+   "model": "nexo:treasurebox_wood"
   },
   {
    "key": "box2",
@@ -2088,7 +2214,8 @@
      "at": "dg8",
      "note": "약 1%"
     }
-   ]
+   ],
+   "model": "nexo:treasurebox_iron"
   },
   {
    "key": "box3",
@@ -2106,7 +2233,8 @@
      "at": "dg8",
      "note": "약 0.65%"
     }
-   ]
+   ],
+   "model": "nexo:treasurebox_gold"
   },
   {
    "key": "ember_gold",
@@ -2114,7 +2242,8 @@
    "cat": "food",
    "icon": [
     "minecraft:fire_charge"
-   ]
+   ],
+   "model": "nexo:soul_gold"
   },
   {
    "key": "bread",
@@ -2122,7 +2251,8 @@
    "cat": "food",
    "icon": [
     "minecraft:bread"
-   ]
+   ],
+   "model": "nexo:bread"
   },
   {
    "key": "rice",
@@ -2130,7 +2260,8 @@
    "cat": "food",
    "icon": [
     "minecraft:bone_meal"
-   ]
+   ],
+   "model": "nexo:meal"
   },
   {
    "key": "ex_pumpkin",
@@ -2144,7 +2275,8 @@
      "at": "farm",
      "note": "스킬 황금 작물: 호박 재배 시 0.01~0.022%"
     }
-   ]
+   ],
+   "model": "nexo:extract_pumpkin"
   },
   {
    "key": "ex_melon",
@@ -2158,7 +2290,8 @@
      "at": "farm",
      "note": "스킬 황금 작물: 수박 재배 시 0.01~0.022%"
     }
-   ]
+   ],
+   "model": "nexo:extract_melon"
   },
   {
    "key": "ex_potato",
@@ -2172,7 +2305,8 @@
      "at": "farm",
      "note": "스킬 황금 작물: 감자 재배 시 0.01~0.022%"
     }
-   ]
+   ],
+   "model": "nexo:extract_potato"
   },
   {
    "key": "ex_berry",
@@ -2180,7 +2314,8 @@
    "cat": "food",
    "icon": [
     "minecraft:potion"
-   ]
+   ],
+   "model": "nexo:extract_berry"
   },
   {
    "key": "ex_pepper",
@@ -2194,7 +2329,8 @@
      "at": "farm",
      "note": "스킬 황금 작물: 고추 재배 시 0.01~0.022%"
     }
-   ]
+   ],
+   "model": "nexo:extract_chill"
   },
   {
    "key": "ex_carrot",
@@ -2208,7 +2344,8 @@
      "at": "farm",
      "note": "스킬 황금 작물: 당근 재배 시 0.01~0.022%"
     }
-   ]
+   ],
+   "model": "nexo:extract_carrot"
   },
   {
    "key": "ex_apple",
@@ -2216,7 +2353,8 @@
    "cat": "food",
    "icon": [
     "minecraft:potion"
-   ]
+   ],
+   "model": "nexo:extract_apple"
   },
   {
    "key": "sugar",
@@ -2224,7 +2362,8 @@
    "cat": "food",
    "icon": [
     "minecraft:sugar"
-   ]
+   ],
+   "model": "nexo:extract_sugar"
   },
   {
    "key": "flour",
@@ -2232,7 +2371,8 @@
    "cat": "food",
    "icon": [
     "minecraft:white_dye"
-   ]
+   ],
+   "model": "nexo:extract_wheat"
   },
   {
    "key": "coleslaw",
@@ -2240,7 +2380,8 @@
    "cat": "food",
    "icon": [
     "minecraft:beetroot_soup"
-   ]
+   ],
+   "model": "nexo:food1"
   },
   {
    "key": "baguette",
@@ -2248,7 +2389,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cookie"
-   ]
+   ],
+   "model": "nexo:food2"
   },
   {
    "key": "leek_soup",
@@ -2256,7 +2398,8 @@
    "cat": "food",
    "icon": [
     "minecraft:mushroom_stew"
-   ]
+   ],
+   "model": "nexo:food3"
   },
   {
    "key": "chicken_rice",
@@ -2264,7 +2407,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_chicken"
-   ]
+   ],
+   "model": "nexo:food4"
   },
   {
    "key": "beef_sand",
@@ -2272,7 +2416,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_beef"
-   ]
+   ],
+   "model": "nexo:food5"
   },
   {
    "key": "jeyuk",
@@ -2280,7 +2425,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_porkchop"
-   ]
+   ],
+   "model": "nexo:food6"
   },
   {
    "key": "shrimp_rice",
@@ -2288,7 +2434,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_salmon"
-   ]
+   ],
+   "model": "nexo:food7"
   },
   {
    "key": "squid_grill",
@@ -2296,7 +2443,8 @@
    "cat": "food",
    "icon": [
     "minecraft:dried_kelp"
-   ]
+   ],
+   "model": "nexo:food8"
   },
   {
    "key": "scallop_grill",
@@ -2304,7 +2452,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_cod"
-   ]
+   ],
+   "model": "nexo:food9"
   },
   {
    "key": "melon_salad",
@@ -2312,7 +2461,8 @@
    "cat": "food",
    "icon": [
     "minecraft:melon_slice"
-   ]
+   ],
+   "model": "nexo:food10"
   },
   {
    "key": "apple_salad",
@@ -2321,7 +2471,8 @@
    "icon": [
     "minecraft:glow_berries",
     "minecraft:apple"
-   ]
+   ],
+   "model": "nexo:food11"
   },
   {
    "key": "pumpkin_porridge",
@@ -2329,7 +2480,8 @@
    "cat": "food",
    "icon": [
     "minecraft:rabbit_stew"
-   ]
+   ],
+   "model": "nexo:food12"
   },
   {
    "key": "oyster_mix",
@@ -2337,7 +2489,8 @@
    "cat": "food",
    "icon": [
     "minecraft:tropical_fish"
-   ]
+   ],
+   "model": "nexo:food13"
   },
   {
    "key": "brulee",
@@ -2345,7 +2498,8 @@
    "cat": "food",
    "icon": [
     "minecraft:pumpkin_pie"
-   ]
+   ],
+   "model": "nexo:food14"
   },
   {
    "key": "carrot_cake",
@@ -2353,7 +2507,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cake"
-   ]
+   ],
+   "model": "nexo:food15"
   },
   {
    "key": "potato_pancake",
@@ -2361,7 +2516,8 @@
    "cat": "food",
    "icon": [
     "minecraft:baked_potato"
-   ]
+   ],
+   "model": "nexo:food16"
   },
   {
    "key": "melon_juice",
@@ -2369,7 +2525,8 @@
    "cat": "food",
    "icon": [
     "minecraft:honey_bottle"
-   ]
+   ],
+   "model": "nexo:food17"
   },
   {
    "key": "apple_pie",
@@ -2377,7 +2534,8 @@
    "cat": "food",
    "icon": [
     "minecraft:pumpkin_pie"
-   ]
+   ],
+   "model": "nexo:food18"
   },
   {
    "key": "crab_burger",
@@ -2385,7 +2543,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_rabbit"
-   ]
+   ],
+   "model": "nexo:food19"
   },
   {
    "key": "gold_coleslaw",
@@ -2393,7 +2552,8 @@
    "cat": "food",
    "icon": [
     "minecraft:beetroot_soup"
-   ]
+   ],
+   "model": "nexo:golden_food1"
   },
   {
    "key": "gold_baguette",
@@ -2401,7 +2561,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cookie"
-   ]
+   ],
+   "model": "nexo:golden_food2"
   },
   {
    "key": "gold_leek_soup",
@@ -2409,7 +2570,8 @@
    "cat": "food",
    "icon": [
     "minecraft:mushroom_stew"
-   ]
+   ],
+   "model": "nexo:golden_food3"
   },
   {
    "key": "gold_chicken_rice",
@@ -2417,7 +2579,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_chicken"
-   ]
+   ],
+   "model": "nexo:golden_food4"
   },
   {
    "key": "gold_beef_sand",
@@ -2425,7 +2588,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_beef"
-   ]
+   ],
+   "model": "nexo:golden_food5"
   },
   {
    "key": "gold_jeyuk",
@@ -2433,7 +2597,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_porkchop"
-   ]
+   ],
+   "model": "nexo:golden_food6"
   },
   {
    "key": "gold_shrimp_rice",
@@ -2441,7 +2606,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_salmon"
-   ]
+   ],
+   "model": "nexo:golden_food7"
   },
   {
    "key": "gold_squid_grill",
@@ -2449,7 +2615,8 @@
    "cat": "food",
    "icon": [
     "minecraft:dried_kelp"
-   ]
+   ],
+   "model": "nexo:golden_food8"
   },
   {
    "key": "gold_scallop_grill",
@@ -2457,7 +2624,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_cod"
-   ]
+   ],
+   "model": "nexo:golden_food9"
   },
   {
    "key": "gold_melon_salad",
@@ -2465,7 +2633,8 @@
    "cat": "food",
    "icon": [
     "minecraft:melon_slice"
-   ]
+   ],
+   "model": "nexo:golden_food10"
   },
   {
    "key": "gold_pumpkin_porridge",
@@ -2473,7 +2642,8 @@
    "cat": "food",
    "icon": [
     "minecraft:rabbit_stew"
-   ]
+   ],
+   "model": "nexo:golden_food12"
   },
   {
    "key": "gold_oyster_mix",
@@ -2481,7 +2651,8 @@
    "cat": "food",
    "icon": [
     "minecraft:tropical_fish"
-   ]
+   ],
+   "model": "nexo:golden_food13"
   },
   {
    "key": "gold_potato_pancake",
@@ -2489,7 +2660,8 @@
    "cat": "food",
    "icon": [
     "minecraft:baked_potato"
-   ]
+   ],
+   "model": "nexo:golden_food16"
   },
   {
    "key": "gold_apple_pie",
@@ -2497,7 +2669,8 @@
    "cat": "food",
    "icon": [
     "minecraft:pumpkin_pie"
-   ]
+   ],
+   "model": "nexo:golden_food18"
   },
   {
    "key": "gold_crab_burger",
@@ -2505,7 +2678,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_rabbit"
-   ]
+   ],
+   "model": "nexo:golden_food19"
   },
   {
    "key": "elder_helmet",
@@ -2513,7 +2687,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:leather_helmet"
-   ]
+   ],
+   "model": "nexo:nm_archer_helmet"
   },
   {
    "key": "elder_chest",
@@ -2521,7 +2696,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:leather_chestplate"
-   ]
+   ],
+   "model": "nexo:nm_archer_chestplate"
   },
   {
    "key": "elder_legs",
@@ -2529,7 +2705,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:leather_leggings"
-   ]
+   ],
+   "model": "nexo:nm_archer_leggings"
   },
   {
    "key": "elder_boots",
@@ -2537,7 +2714,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:leather_boots"
-   ]
+   ],
+   "model": "nexo:nm_archer_boots"
   },
   {
    "key": "elder_sword",
@@ -2553,7 +2731,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:chainmail_helmet"
-   ]
+   ],
+   "model": "nexo:nm_assassin_helmet"
   },
   {
    "key": "lotus_chest",
@@ -2561,7 +2740,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:chainmail_chestplate"
-   ]
+   ],
+   "model": "nexo:nm_assassin_chestplate"
   },
   {
    "key": "lotus_legs",
@@ -2569,7 +2749,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:chainmail_leggings"
-   ]
+   ],
+   "model": "nexo:nm_assassin_leggings"
   },
   {
    "key": "lotus_boots",
@@ -2577,7 +2758,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:chainmail_boots"
-   ]
+   ],
+   "model": "nexo:nm_assassin_boots"
   },
   {
    "key": "lotus_dagger",
@@ -2585,7 +2767,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:stone_sword"
-   ]
+   ],
+   "model": "nexo:nm_assassin_tanto"
   },
   {
    "key": "nord_helmet",
@@ -2593,7 +2776,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_helmet"
-   ]
+   ],
+   "model": "nexo:nm_viking_helmet"
   },
   {
    "key": "nord_chest",
@@ -2601,7 +2785,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_chestplate"
-   ]
+   ],
+   "model": "nexo:nm_viking_chestplate"
   },
   {
    "key": "nord_legs",
@@ -2609,7 +2794,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_leggings"
-   ]
+   ],
+   "model": "nexo:nm_viking_leggings"
   },
   {
    "key": "nord_boots",
@@ -2617,7 +2803,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_boots"
-   ]
+   ],
+   "model": "nexo:nm_viking_boots"
   },
   {
    "key": "nord_axe",
@@ -2625,7 +2812,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:iron_axe"
-   ]
+   ],
+   "model": "nexo:nm_viking_axe"
   },
   {
    "key": "burgonet_helmet",
@@ -2633,7 +2821,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:diamond_helmet"
-   ]
+   ],
+   "model": "nexo:akaleaf_silver_helmet"
   },
   {
    "key": "burgonet_chest",
@@ -2641,7 +2830,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:diamond_chestplate"
-   ]
+   ],
+   "model": "nexo:akaleaf_silver_chestplate"
   },
   {
    "key": "burgonet_legs",
@@ -2649,7 +2839,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:diamond_leggings"
-   ]
+   ],
+   "model": "nexo:akaleaf_silver_leggings"
   },
   {
    "key": "burgonet_boots",
@@ -2657,7 +2848,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:diamond_boots"
-   ]
+   ],
+   "model": "nexo:akaleaf_silver_boots"
   },
   {
    "key": "burgonet_claymore",
@@ -2665,7 +2857,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:diamond_sword"
-   ]
+   ],
+   "model": "nexo:akaleaf_silver_claymore"
   },
   {
    "key": "oakhark_helmet",
@@ -2674,7 +2867,8 @@
    "icon": [
     "minecraft:netherite_helmet",
     "minecraft:golden_helmet"
-   ]
+   ],
+   "model": "nexo:nm_warrior_helmet"
   },
   {
    "key": "oakhark_chest",
@@ -2683,7 +2877,8 @@
    "icon": [
     "minecraft:netherite_chestplate",
     "minecraft:golden_chestplate"
-   ]
+   ],
+   "model": "nexo:nm_warrior_chestplate"
   },
   {
    "key": "oakhark_legs",
@@ -2692,7 +2887,8 @@
    "icon": [
     "minecraft:netherite_leggings",
     "minecraft:golden_leggings"
-   ]
+   ],
+   "model": "nexo:nm_warrior_leggings"
   },
   {
    "key": "oakhark_boots",
@@ -2701,7 +2897,8 @@
    "icon": [
     "minecraft:netherite_boots",
     "minecraft:golden_boots"
-   ]
+   ],
+   "model": "nexo:nm_warrior_boots"
   },
   {
    "key": "oakhark_greatsword",
@@ -2710,7 +2907,8 @@
    "icon": [
     "minecraft:netherite_sword",
     "minecraft:golden_sword"
-   ]
+   ],
+   "model": "nexo:nm_warrior_blade"
   }
  ],
  "recipes": [

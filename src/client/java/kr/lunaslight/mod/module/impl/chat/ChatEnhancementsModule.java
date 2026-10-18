@@ -59,8 +59,7 @@ public class ChatEnhancementsModule extends Module {
 			"show_timestamps", "시각 표시", "채팅 줄 앞에 받은 시각을 [시:분]으로 표시합니다.", true));
 	private final ColorSetting timestampColor = register(new ColorSetting(
 			"timestamp_color", "시각 색", "시각 글자의 색입니다.", 0xFFAAAAAA));
-	private final BooleanSetting unlimitedHistory = register(new BooleanSetting(
-			"unlimited_history", "무제한 채팅", "채팅 기록 100줄 제한을 풀어 30000줄까지 남깁니다.", true));
+	// 49-388차: 무제한 채팅은 따로 기능(UnlimitedChatModule)으로 뺐다 - [채팅]을 안 켜도 되게
 	private final BooleanSetting search = register(new BooleanSetting(
 			"search", "채팅 검색", "채팅창에서 Ctrl+F로 지난 채팅을 검색합니다.", true));
 	// 49-387차(사용자: "채팅 GUI 비율 줄일수록 글씨가 잘 안 보이는데 GUI 비율 2~1이어도 잘 보이게")
@@ -143,7 +142,6 @@ public class ChatEnhancementsModule extends Module {
 		// 49-124차(사용자: "채팅이나 이런 거 지금 한 박스 안에 너무 많아 좀 나눠야 해"): 설정을 이름 붙은
 		// 묶음(박스)으로 나눈다 - 기본 / 강조 / 숨기기 / 정리. (색·위치 설정은 자동으로 스타일 묶음으로 간다.)
 		showTimestamps.group("기본");
-		unlimitedHistory.group("기본");
 		search.group("기본");
 		smallGuiChat.group("기본");
 		highlightOn.group("강조");
@@ -194,7 +192,6 @@ public class ChatEnhancementsModule extends Module {
 		ChatState.timestamps = false;
 		ChatState.boostSmallGui = false;
 		kr.lunaslight.mod.util.ChatAnim.enabled = false;
-		ChatState.unlimitedHistory = false;
 		ChatState.highlighter = null;
 		ChatState.hideAdvancements = false;
 		ChatState.blockedWords = null;
@@ -240,7 +237,6 @@ public class ChatEnhancementsModule extends Module {
 		ChatState.neogulServer = onNeogul();
 		ChatState.boostSmallGui = smallGuiChat.get();
 		kr.lunaslight.mod.util.ChatAnim.enabled = chatAnim.get();
-		ChatState.unlimitedHistory = unlimitedHistory.get();
 		ChatState.timestampColor = timestampColor.getArgb() & 0x00FFFFFF;
 		// 강조
 		ChatState.highlighter = highlightOn.get() ? hl : null;
@@ -280,7 +276,7 @@ public class ChatEnhancementsModule extends Module {
 
 	private void captureMessage(Text message) {
 		history.add(new TimestampedMessage(LocalTime.now().format(TIME_FORMAT), message.getString()));
-		int limit = unlimitedHistory.get() ? ChatState.UNLIMITED_LINES : 500;
+		int limit = ChatState.unlimitedHistory ? ChatState.UNLIMITED_LINES : 500;
 		while (history.size() > limit) {
 			history.remove(0);
 		}
