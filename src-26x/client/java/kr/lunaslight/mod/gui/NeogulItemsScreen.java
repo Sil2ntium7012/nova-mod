@@ -66,6 +66,10 @@ public class NeogulItemsScreen extends LunaScreenBase {
 	protected boolean lunaMouseScrolled(double mouseX, double mouseY, double verticalAmount) {
 		boolean e = lunaV.enter();
 		try {
+			double k = lunaV.k(e);
+			if (kr.lunaslight.mod.util.NeogulJei.scrollIn(mouseX * k, mouseY * k, verticalAmount)) {
+				return true;
+			}
 			if (verticalAmount != 0) {
 				turn(verticalAmount > 0 ? -1 : 1);
 			}
@@ -130,12 +134,17 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		super.onClose();
 	}
 
+	/** 49-394차(사용자: "너무 길어 페이지로 해주고"): 한 쪽에 카드 최대 5장. */
+	private static final int MAX_CARDS = 5;
+	/** 오른쪽 목록(NeogulJei) 자리 - 9칸 + 여백. */
+	private static final int LIST_W = 9 * SLOT + 12;
+
 	private void layout() {
-		int maxCards = Math.max(1, (height - 24 - HEAD - FOOT) / CARD);
+		int maxCards = Math.max(1, Math.min(MAX_CARDS, (height - 24 - HEAD - FOOT) / CARD));
 		int need = Math.max(1, rows().size());
 		perPage = Math.min(maxCards, need);
 		ph = HEAD + perPage * CARD + FOOT;
-		px = (width - PW) / 2;
+		px = Math.max(4, (width - (PW + LIST_W)) / 2);
 		py = Math.max(4, (height - ph) / 2);
 	}
 
@@ -194,6 +203,8 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		drawHead(ctx, mouseX, mouseY);
 		drawCards(ctx, mouseX, mouseY);
 		drawFoot(ctx, mouseX, mouseY);
+		// 49-394차(사용자: "이 창에서도 옆에 JEI처럼"): 오른쪽에 서랍식 목록
+		kr.lunaslight.mod.util.NeogulJei.drawIn(ctx, mouseX, mouseY, px + PW + 8, width, height);
 
 		Hot h = hotAt(mouseX, mouseY);
 		if (h != null && h.tip() != null && !h.tip().isEmpty()) {
@@ -417,6 +428,9 @@ public class NeogulItemsScreen extends LunaScreenBase {
 	}
 
 	private boolean click0(double mouseX, double mouseY, int button) {
+		if (kr.lunaslight.mod.util.NeogulJei.clickIn(this, mouseX, mouseY, button, this::open)) {
+			return true;
+		}
 		Hot h = hotAt(mouseX, mouseY);
 		if (h == null) {
 			return false;
@@ -455,7 +469,10 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		int uk = kr.lunaslight.mod.module.impl.misc.NeogulItemsModule.usesKey();
 		if ((keyCode == rk && rk > 0) || (keyCode == uk && uk > 0)) {
 			Hot h = hotAt(lastMouseX, lastMouseY);
-			if (h != null && h.action() == ACT_ITEM && h.key() != null) {
+			NeogulData.Entry le = kr.lunaslight.mod.util.NeogulJei.itemAt(lastMouseX, lastMouseY);
+			if (le != null) {
+				open(le.key(), keyCode == uk);
+			} else if (h != null && h.action() == ACT_ITEM && h.key() != null) {
 				open(h.key(), keyCode == uk);
 			} else if (keyCode == rk) {
 				onClose();

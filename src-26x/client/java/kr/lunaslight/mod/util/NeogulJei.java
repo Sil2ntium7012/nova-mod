@@ -18,16 +18,22 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiConsumer;
 
 /**
- * 49-391차(사용자: "R 누르면 이렇게 뜨는 게 아니라 아이템에 R 누르거나 JEI처럼 인벤 열면 오른쪽에 리스트 뜨고 하게 해줘, JEI같이 만들어줘 완전"):
- * <b>너굴 아이템 목록</b> - 너굴마을에서 인벤토리(상자, 작업대 등 아이템 창 전부)를 열면 창 오른쪽 빈자리에 JEI처럼 아이템 목록이 뜬다.
+ * 49-391차 너굴 아이템 목록 → 49-394차(사용자: "카테고리가 이런 걸 말한 게 아냐, 저 화면 자체에서 나눠져 있어야 해. 위에서 고르는 게 아니라
+ * 열고 닫기로 해서 서랍처럼 장비별, 작물들, 낚싯대나 도구, 광물 등 모두 제각각으로", "이 창(보기 창)에서도 옆에 JEI처럼"):
+ * <b>서랍식 아이템 목록</b>. 인벤토리(아이템 창 전부)와 너굴 아이템 보기 창 오른쪽에 뜬다.
  * <ul>
- *   <li>맨 위: ◀ 쪽/전체 ▶ (휠로도 넘김). 가운데: 아이템(글자 없이 그림만, 마우스를 올리면 이름). 맨 아래: 검색 칸(한글 됨).</li>
- *   <li>목록 아이템 좌클릭 = 얻는 법, 우클릭 = 쓰임새. 인벤토리 칸이나 목록 아이템에 마우스를 올리고 R = 얻는 법, U = 쓰임새.</li>
- *   <li>보기 창({@link NeogulItemsScreen})은 Esc로 닫으면 원래 인벤토리로 돌아온다.</li>
+ *   <li>묶음마다 서랍 머리(▶/▼ + 대표 아이템 + 이름 + 개수). 머리를 누르면 열리고 닫힌다. 처음엔 다 닫혀 있다.</li>
+ *   <li>휠로 위아래. 맨 아래 검색 칸(한글 됨) - 검색 중엔 맞는 아이템이 있는 서랍만, 다 연 채로.</li>
+ *   <li>아이템 좌클릭/R = 얻는 법, 우클릭/U = 쓰임새. 인벤토리 칸에 마우스를 올리고 R/U도 된다.</li>
  * </ul>
  */
 public final class NeogulJei {
@@ -35,22 +41,32 @@ public final class NeogulJei {
 	}
 
 	private static final int SLOT = 18;
-	private static final int TAB_Y = 4;
+	private static final int TOP = 4;
 	private static final int SEARCH_H = 14;
 
 	private static String query = "";
-	/** 49-392차(사용자: "그 카테고리 나눠서 정리해줘 오른쪽에"): 위쪽 분류 탭. "" = 전체. */
-	private static String cat = "";
-	private static int navY;
 	private static boolean focused;
 	private static Screen owner;
-	private static int page;
-	private static List<NeogulData.Entry> filtered = new ArrayList<>();
-	private static String filteredFor;
+	private static int scroll;   // 줄 단위
+	private static final Set<String> OPEN = new HashSet<>();
+
+	/** 서랍 하나. */
+	private record Group(String id, String name, List<NeogulData.Entry> items) {
+	}
+
+	/** 화면 한 줄(18px): 서랍 머리 또는 아이템 줄. */
+	private record Line(Group g, int row) {
+		boolean header() {
+			return row < 0;
+		}
+	}
 
 	/** 이번 프레임의 자리. */
-	private static int gx, gy, cols, rows, sx, sy, sw, x0;
+	private static int gx, cols, sy, sw, bottom, visLines;
 	private static boolean shown;
+	private static List<Line> lines = new ArrayList<>();
+	private static List<Group> groups = new ArrayList<>();
+	private static String groupsFor;
 
 	public static void init() {
 		try {
@@ -58,163 +74,226 @@ public final class NeogulJei {
 				if (!(screen instanceof AbstractContainerScreen<?>)) {
 					return;
 				}
-				ScreenEvents.afterExtract(screen).register((s, g, mx, my, d) -> draw(s, g, mx, my));
-				ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> !click(s, e.x(), e.y(), e.button()));
-				ScreenMouseEvents.allowMouseScroll(screen).register((s, mx, my, ha, va) -> !scroll(s, mx, my, va));
-				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !key(s, e.key()));
+				ScreenEvents.afterExtract(screen).register((s, g, mx, my, d) -> drawContainer(s, g, mx, my));
+				ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> !clickContainer(s, e.x(), e.y(), e.button()));
+				ScreenMouseEvents.allowMouseScroll(screen).register((s, mx, my, ha, va) -> !(on() && scrollIn(mx, my, va)));
+				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !keyContainer(s, e.key()));
 			});
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulJei:init", t);
 		}
 	}
 
-	private static boolean on() {
+	public static boolean on() {
 		return NeogulItemsModule.listOn() && NeogulData.onNeogul(Minecraft.getInstance());
+	}
+
+	// ==================== 서랍 묶기 ====================
+
+	private static final String[][] GROUPS = {
+		{"crop", "작물"}, {"gather", "채집물"}, {"ember", "잉걸불"}, {"coin", "채집 코인"}, {"tool", "채집 도구"},
+		{"rod", "낚싯대"}, {"fish", "물고기"}, {"gem", "광물"}, {"dungeon", "던전 전리품"}, {"mat", "요리 재료"},
+		{"food", "요리"}, {"food_gold", "황금 요리"},
+		{"set_elder", "엘더우드 장비"}, {"set_lotus", "블랙로터스 장비"}, {"set_nord", "노르드 장비"},
+		{"set_burgonet", "버거넷 장비"}, {"set_oakhark", "오크하크 장비"}, {"gear", "장비"}, {"etc", "기타"}};
+
+	private static String groupOf(NeogulData.Entry e) {
+		String k = e.key();
+		String c = e.cat() == null ? "" : e.cat();
+		if (k.startsWith("tool_")) {
+			return "tool";
+		}
+		if (k.matches("rod\\d+")) {
+			return "rod";
+		}
+		if (k.startsWith("coin_") || k.startsWith("fcoin")) {
+			return "coin";
+		}
+		if (k.startsWith("ember_")) {
+			return "ember";
+		}
+		for (String set : new String[]{"elder", "lotus", "nord", "burgonet", "oakhark"}) {
+			if (k.startsWith(set + "_")) {
+				return "set_" + set;
+			}
+		}
+		if (k.startsWith("gold_") && "food".equals(c)) {
+			return "food_gold";
+		}
+		if (k.startsWith("ex_") || k.equals("sugar") || k.equals("flour") || k.equals("rice") || k.equals("bread")) {
+			return "mat";
+		}
+		for (String[] g : GROUPS) {
+			if (g[0].equals(c)) {
+				return c;
+			}
+		}
+		return "etc";
+	}
+
+	private static List<Group> groups() {
+		if (query.equals(groupsFor)) {
+			return groups;
+		}
+		groupsFor = query;
+		String q = NeogulData.normalize(query).toLowerCase(Locale.ROOT);
+		Map<String, List<NeogulData.Entry>> by = new LinkedHashMap<>();
+		for (String[] g : GROUPS) {
+			by.put(g[0], new ArrayList<>());
+		}
+		for (NeogulData.Entry e : NeogulData.listItems()) {
+			if (!q.isEmpty() && !NeogulData.normalize(e.name()).toLowerCase(Locale.ROOT).contains(q)) {
+				continue;
+			}
+			by.get(groupOf(e)).add(e);
+		}
+		List<Group> out = new ArrayList<>();
+		for (String[] g : GROUPS) {
+			List<NeogulData.Entry> l = by.get(g[0]);
+			if (!l.isEmpty()) {
+				out.add(new Group(g[0], g[1], l));
+			}
+		}
+		groups = out;
+		scroll = 0;
+		return out;
+	}
+
+	private static boolean isOpen(Group g) {
+		return !query.isEmpty() || OPEN.contains(g.id());
+	}
+
+	private static List<Line> buildLines() {
+		List<Line> out = new ArrayList<>();
+		for (Group g : groups()) {
+			out.add(new Line(g, -1));
+			if (isOpen(g)) {
+				int rows = (g.items().size() + cols - 1) / cols;
+				for (int r = 0; r < rows; r++) {
+					out.add(new Line(g, r));
+				}
+			}
+		}
+		return out;
 	}
 
 	// ==================== 자리 ====================
 
-	private static boolean layout(Screen s) {
+	/** x0 = 목록이 시작할 수 있는 왼쪽 끝. 화면 오른쪽 끝에 붙는다. */
+	private static boolean layout(int x0, int w, int h) {
 		shown = false;
-		if (!on() || !(s instanceof ContainerScreenAccessorMixin acc)) {
-			return false;
-		}
-		x0 = acc.lunaslight$leftPos() + acc.lunaslight$imageWidth() + 6;
-		int x1 = s.width - 4;
+		int x1 = w - 4;
 		cols = Math.min(9, (x1 - x0) / SLOT);
-		if (cols < 2) {
+		if (cols < 3) {
 			return false;
 		}
 		gx = x1 - cols * SLOT;
-		int tabs = NeogulData.categories().size() + 1;
-		int tabRows = (tabs + cols - 1) / cols;
-		navY = TAB_Y + tabRows * SLOT + 3;
-		gy = navY + 16;
-		sy = s.height - SEARCH_H - 6;
-		rows = (sy - 4 - gy) / SLOT;
-		if (rows < 1) {
+		sy = h - SEARCH_H - 6;
+		bottom = sy - 4;
+		visLines = (bottom - TOP) / SLOT;
+		if (visLines < 2) {
 			return false;
 		}
-		sx = gx;
 		sw = cols * SLOT;
+		lines = buildLines();
+		scroll = Math.max(0, Math.min(Math.max(0, lines.size() - visLines), scroll));
 		shown = true;
 		return true;
 	}
 
-	private static List<NeogulData.Entry> list() {
-		String fk = cat + "\u0000" + query;
-		if (!fk.equals(filteredFor)) {
-			filteredFor = fk;
-			String q = NeogulData.normalize(query).toLowerCase(Locale.ROOT);
-			List<NeogulData.Entry> out = new ArrayList<>();
-			for (NeogulData.Entry e : NeogulData.listItems()) {
-				if (!cat.isEmpty() && !cat.equals(e.cat())) {
-					continue;
-				}
-				if (q.isEmpty() || NeogulData.normalize(e.name()).toLowerCase(Locale.ROOT).contains(q)) {
-					out.add(e);
-				}
-			}
-			filtered = out;
-			page = 0;
+	/** 마우스 아래 줄(없으면 null). */
+	private static Line lineAt(double mx, double my) {
+		if (!shown || mx < gx || mx >= gx + sw || my < TOP) {
+			return null;
 		}
-		return filtered;
+		int i = (int) ((my - TOP) / SLOT);
+		if (i >= visLines || scroll + i >= lines.size()) {
+			return null;
+		}
+		return lines.get(scroll + i);
 	}
 
-	private static int pages() {
-		int per = Math.max(1, cols * rows);
-		return Math.max(1, (list().size() + per - 1) / per);
-	}
-
-	/** 마우스 아래 목록 아이템(없으면 null). */
-	private static NeogulData.Entry itemAt(double mx, double my) {
-		if (!shown || mx < gx || my < gy) {
+	/** 마우스 아래 목록 아이템(없으면 null). 보기 창의 R/U도 쓴다. */
+	public static NeogulData.Entry itemAt(double mx, double my) {
+		Line l = lineAt(mx, my);
+		if (l == null || l.header()) {
 			return null;
 		}
 		int c = (int) ((mx - gx) / SLOT);
-		int r = (int) ((my - gy) / SLOT);
-		if (c >= cols || r >= rows) {
-			return null;
-		}
-		int i = page * cols * rows + r * cols + c;
-		List<NeogulData.Entry> l = list();
-		return i < l.size() ? l.get(i) : null;
-	}
-
-	private static boolean inArea(double mx, double my) {
-		return shown && mx >= gx - 2 && mx < gx + cols * SLOT + 2;
+		int i = l.row() * cols + c;
+		return c < cols && i < l.g().items().size() ? l.g().items().get(i) : null;
 	}
 
 	// ==================== 그리기 ====================
 
-	private static void draw(Screen s, GuiGraphicsExtractor g, int mx, int my) {
+	/** 목록을 그린다(x0 = 쓸 수 있는 왼쪽 끝). 화면에 들어갈 자리가 없으면 false. */
+	public static boolean drawIn(GuiGraphicsExtractor g, int mx, int my, int x0, int w, int h) {
 		try {
-			if (!layout(s)) {
-				return;
+			if (!layout(x0, w, h)) {
+				return false;
 			}
 			Font font = Minecraft.getInstance().font;
-			int pn = pages();
-			page = Math.max(0, Math.min(pn - 1, page));
-			// 맨 위: 분류 탭(전체 + 분류들) - 고른 탭은 밝은 판
-			String tabTip = null;
-			List<NeogulData.Category> cats = NeogulData.categories();
-			for (int i = 0; i <= cats.size(); i++) {
-				String id = i == 0 ? "" : cats.get(i - 1).id();
-				int tx = gx + (i % cols) * SLOT;
-				int ty = TAB_Y + (i / cols) * SLOT;
-				boolean sel = id.equals(cat);
-				boolean th = LunaDraw.in(mx, my, tx, ty, SLOT, SLOT);
-				LunaDraw.mcPanel(g, tx, ty, SLOT, SLOT, sel ? 0xFFFFFFFF : (th ? 0xFFD8D8D8 : 0xFF9A9A9A));
-				ItemStack ic = i == 0 ? NeogulData.vanilla(List.of("minecraft:chest")) : NeogulData.icon(cats.get(i - 1));
-				if (!ic.isEmpty()) {
-					g.item(ic, tx + 1, ty + 1);
+			NeogulData.Entry hover = null;
+			for (int i = 0; i < visLines && scroll + i < lines.size(); i++) {
+				Line l = lines.get(scroll + i);
+				int y = TOP + i * SLOT;
+				if (l.header()) {
+					boolean h2 = LunaDraw.in(mx, my, gx, y, sw, SLOT - 1);
+					boolean open = isOpen(l.g());
+					LunaDraw.mcPanel(g, gx, y, sw, SLOT - 1, open ? 0xFFD6D6D6 : (h2 ? 0xFFCFCFCF : 0xFFB0B0B0));
+					ItemStack ic = NeogulData.icon(l.g().items().get(0), 1);
+					if (!ic.isEmpty()) {
+						g.item(ic, gx + 2, y);
+					}
+					String arrow = open ? "▼" : "▶";
+					g.text(font, LunaCompat.textLiteral(l.g().name()), gx + 21, y + 4, 0xFF303030, false);
+					String cnt = String.valueOf(l.g().items().size());
+					int aw = font.width(arrow);
+					g.text(font, LunaCompat.textLiteral(cnt), gx + sw - 8 - aw - font.width(cnt), y + 4, 0xFF707070, false);
+					g.text(font, LunaCompat.textLiteral(arrow), gx + sw - 4 - aw, y + 4, 0xFF505050, false);
+					continue;
 				}
-				if (th) {
-					tabTip = i == 0 ? "전체" : cats.get(i - 1).name();
+				List<NeogulData.Entry> items = l.g().items();
+				for (int c = 0; c < cols; c++) {
+					int idx = l.row() * cols + c;
+					if (idx >= items.size()) {
+						break;
+					}
+					NeogulData.Entry e = items.get(idx);
+					int x = gx + c * SLOT;
+					if (LunaDraw.in(mx, my, x, y, SLOT, SLOT)) {
+						hover = e;
+						g.fill(x + 1, y + 1, x + 17, y + 17, 0x80FFFFFF);
+					}
+					ItemStack st = NeogulData.icon(e, 1);
+					if (!st.isEmpty()) {
+						g.item(st, x + 1, y + 1);
+					}
 				}
 			}
-			// ◀ 1/5 ▶ (JEI처럼)
-			int cy = navY;
-			drawButton(g, font, gx, cy, "<", LunaDraw.in(mx, my, gx, cy, 12, 12));
-			drawButton(g, font, gx + sw - 12, cy, ">", LunaDraw.in(mx, my, gx + sw - 12, cy, 12, 12));
-			String ps = (page + 1) + "/" + pn;
-			g.text(font, LunaCompat.textLiteral(ps), gx + (sw - font.width(ps)) / 2, cy + 2, 0xFFFFFFFF, true);
-			// 아이템
-			List<NeogulData.Entry> l = list();
-			int start = page * cols * rows;
-			NeogulData.Entry hover = null;
-			for (int i = 0; i < cols * rows && start + i < l.size(); i++) {
-				NeogulData.Entry e = l.get(start + i);
-				int x = gx + (i % cols) * SLOT;
-				int y = gy + (i / cols) * SLOT;
-				boolean h = LunaDraw.in(mx, my, x, y, SLOT, SLOT);
-				if (h) {
-					hover = e;
-					g.fill(x + 1, y + 1, x + 17, y + 17, 0x80FFFFFF);
-				}
-				ItemStack st = NeogulData.icon(e, 1);
-				if (!st.isEmpty()) {
-					g.item(st, x + 1, y + 1);
-				}
+			// 스크롤 막대(목록 왼쪽 바깥에 얇게)
+			if (lines.size() > visLines) {
+				int bh = visLines * SLOT;
+				int th = Math.max(10, bh * visLines / lines.size());
+				int ty = TOP + (bh - th) * scroll / Math.max(1, lines.size() - visLines);
+				g.fill(gx - 4, TOP, gx - 2, TOP + bh, 0x40000000);
+				g.fill(gx - 4, ty, gx - 2, ty + th, 0xC0FFFFFF);
 			}
 			// 검색 칸(바닐라 입력 칸)
-			g.fill(sx, sy, sx + sw, sy + SEARCH_H, focused ? 0xFFFFFFFF : 0xFFA0A0A0);
-			g.fill(sx + 1, sy + 1, sx + sw - 1, sy + SEARCH_H - 1, 0xFF000000);
+			g.fill(gx, sy, gx + sw, sy + SEARCH_H, focused ? 0xFFFFFFFF : 0xFFA0A0A0);
+			g.fill(gx + 1, sy + 1, gx + sw - 1, sy + SEARCH_H - 1, 0xFF000000);
 			String shownQ = query;
 			while (!shownQ.isEmpty() && font.width(shownQ) > sw - 8) {
 				shownQ = shownQ.substring(1);
 			}
 			if (shownQ.isEmpty() && !focused) {
-				g.text(font, LunaCompat.textLiteral("§8검색"), sx + 4, sy + 3, 0xFF808080, false);
+				g.text(font, LunaCompat.textLiteral("§8검색"), gx + 4, sy + 3, 0xFF808080, false);
 			} else {
-				g.text(font, LunaCompat.textLiteral(shownQ), sx + 4, sy + 3, 0xFFE0E0E0, true);
+				g.text(font, LunaCompat.textLiteral(shownQ), gx + 4, sy + 3, 0xFFE0E0E0, true);
 			}
 			if (focused && (System.currentTimeMillis() / 500) % 2 == 0) {
-				int cx = sx + 4 + font.width(shownQ);
+				int cx = gx + 4 + font.width(shownQ);
 				g.fill(cx, sy + 2, cx + 1, sy + SEARCH_H - 2, 0xFFD0D0D0);
-			}
-			if (hover == null && tabTip != null) {
-				g.setTooltipForNextFrame(font, LunaCompat.textLiteral(tabTip), mx, my);
 			}
 			if (hover != null) {
 				List<Component> tip = new ArrayList<>();
@@ -222,77 +301,77 @@ public final class NeogulJei {
 				tip.add(LunaCompat.textLiteral("§7좌클릭/R 얻는 법  우클릭/U 쓰임새"));
 				g.setComponentTooltipForNextFrame(font, tip, mx, my);
 			}
+			return true;
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulJei:draw", t);
+			return false;
 		}
 	}
 
-	private static void drawButton(GuiGraphicsExtractor g, Font font, int x, int y, String label, boolean hover) {
-		LunaDraw.mcPanel(g, x, y, 12, 12, hover ? 0xFFE0E0E0 : 0xFFC6C6C6);
-		g.text(font, LunaCompat.textLiteral(label), x + (12 - font.width(label)) / 2 + 1, y + 2, 0xFF404040, false);
+	/** 클릭. 처리했으면 true. 아이템을 누르면 onItem(key, 쓰임새?). */
+	public static boolean clickIn(Screen s, double mx, double my, int button, BiConsumer<String, Boolean> onItem) {
+		if (!shown) {
+			return false;
+		}
+		if (LunaDraw.in(mx, my, gx, sy, sw, SEARCH_H)) {
+			focus(s, true);
+			if (button == 1) {
+				query = "";
+			}
+			return true;
+		}
+		focus(s, false);
+		Line l = lineAt(mx, my);
+		if (l != null && l.header()) {
+			if (!OPEN.remove(l.g().id())) {
+				OPEN.add(l.g().id());
+			}
+			LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
+			return true;
+		}
+		NeogulData.Entry e = itemAt(mx, my);
+		if (e != null) {
+			LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
+			onItem.accept(e.key(), button == 1);
+			return true;
+		}
+		return mx >= gx - 4 && mx < gx + sw && my >= TOP && my < sy + SEARCH_H;   // 목록 빈자리 클릭은 아이템 던지기가 되지 않게
 	}
 
-	// ==================== 입력 ====================
+	public static boolean scrollIn(double mx, double my, double v) {
+		if (!shown || mx < gx - 4 || mx >= gx + sw || v == 0) {
+			return false;
+		}
+		scroll = Math.max(0, Math.min(Math.max(0, lines.size() - visLines), scroll + (v > 0 ? -2 : 2)));
+		return true;
+	}
 
-	private static boolean click(Screen s, double mx, double my, int button) {
+	// ==================== 인벤토리 창 ====================
+
+	private static int containerX0(Screen s) {
+		if (s instanceof ContainerScreenAccessorMixin acc) {
+			return acc.lunaslight$leftPos() + acc.lunaslight$imageWidth() + 8;
+		}
+		return s.width;
+	}
+
+	private static void drawContainer(Screen s, GuiGraphicsExtractor g, int mx, int my) {
+		shown = false;
+		if (on()) {
+			drawIn(g, mx, my, containerX0(s), s.width, s.height);
+		}
+	}
+
+	private static boolean clickContainer(Screen s, double mx, double my, int button) {
 		try {
-			if (!layout(s)) {
-				return false;
-			}
-			if (LunaDraw.in(mx, my, sx, sy, sw, SEARCH_H)) {
-				focus(s, true);
-				if (button == 1) {
-					query = "";
-				}
-				return true;
-			}
-			focus(s, false);
-			List<NeogulData.Category> cats = NeogulData.categories();
-			for (int i = 0; i <= cats.size(); i++) {
-				int tx = gx + (i % cols) * SLOT;
-				int ty = TAB_Y + (i / cols) * SLOT;
-				if (LunaDraw.in(mx, my, tx, ty, SLOT, SLOT)) {
-					cat = i == 0 ? "" : cats.get(i - 1).id();
-					page = 0;
-					LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
-					return true;
-				}
-			}
-			if (LunaDraw.in(mx, my, gx, navY, 12, 12)) {
-				turn(-1);
-				return true;
-			}
-			if (LunaDraw.in(mx, my, gx + sw - 12, navY, 12, 12)) {
-				turn(1);
-				return true;
-			}
-			NeogulData.Entry e = itemAt(mx, my);
-			if (e != null) {
-				open(s, e.key(), button == 1);
-				return true;
-			}
-			return inArea(mx, my) && my >= TAB_Y && my < gy + rows * SLOT;   // 목록 빈칸 클릭은 아이템 던지기가 되지 않게
+			return on() && clickIn(s, mx, my, button, (k, u) -> open(s, k, u));
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulJei:click", t);
 			return false;
 		}
 	}
 
-	private static boolean scroll(Screen s, double mx, double my, double v) {
-		if (!layout(s) || !inArea(mx, my) || v == 0) {
-			return false;
-		}
-		turn(v > 0 ? -1 : 1);
-		return true;
-	}
-
-	private static void turn(int d) {
-		int pn = pages();
-		page = ((page + d) % pn + pn) % pn;
-		LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
-	}
-
-	private static boolean key(Screen s, int key) {
+	private static boolean keyContainer(Screen s, int key) {
 		try {
 			if (!on()) {
 				return false;
@@ -308,7 +387,6 @@ public final class NeogulJei {
 			Minecraft mc = Minecraft.getInstance();
 			double mx = mc.mouseHandler.xpos() * s.width / Math.max(1, mc.getWindow().getScreenWidth());
 			double my = mc.mouseHandler.ypos() * s.height / Math.max(1, mc.getWindow().getScreenHeight());
-			layout(s);
 			String k = null;
 			NeogulData.Entry e = itemAt(mx, my);
 			if (e != null) {
@@ -332,7 +410,6 @@ public final class NeogulJei {
 
 	private static void open(Screen parent, String key, boolean uses) {
 		focus(parent, false);
-		LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
 		LunaCompat.setScreen(new NeogulItemsScreen(key, uses, parent));
 	}
 
@@ -371,7 +448,7 @@ public final class NeogulJei {
 		}
 	};
 
-	private static void focus(Screen s, boolean f) {
+	public static void focus(Screen s, boolean f) {
 		focused = f;
 		if (f) {
 			owner = s;
