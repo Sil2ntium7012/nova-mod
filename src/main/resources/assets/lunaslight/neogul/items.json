@@ -1314,7 +1314,7 @@
    "icon": [
     "minecraft:gold_ingot"
    ],
-   "model": "nexo:fish_coin_1"
+   "model": "nexo:fish_coin_2"
   },
   {
    "key": "fcoin_b",
@@ -1323,7 +1323,7 @@
    "icon": [
     "minecraft:iron_ingot"
    ],
-   "model": "nexo:fish_coin_2"
+   "model": "nexo:fish_coin_1"
   },
   {
    "key": "rod1",
@@ -3660,7 +3660,7 @@
     ],
     [
      "fcoin_a",
-     1
+     2
     ],
     [
      "fcoin_b",
@@ -3680,7 +3680,7 @@
     ],
     [
      "fcoin_a",
-     3
+     6
     ],
     [
      "fcoin_b",
@@ -3700,7 +3700,7 @@
     ],
     [
      "fcoin_a",
-     6
+     12
     ],
     [
      "fcoin_b",
@@ -3720,7 +3720,7 @@
     ],
     [
      "fcoin_a",
-     10
+     20
     ],
     [
      "fcoin_b",
@@ -3740,7 +3740,7 @@
     ],
     [
      "fcoin_a",
-     15
+     30
     ],
     [
      "fcoin_b",
@@ -3760,7 +3760,7 @@
     ],
     [
      "fcoin_a",
-     21
+     42
     ],
     [
      "fcoin_b",
@@ -3780,7 +3780,7 @@
     ],
     [
      "fcoin_a",
-     28
+     56
     ],
     [
      "fcoin_b",
@@ -3800,7 +3800,7 @@
     ],
     [
      "fcoin_a",
-     36
+     72
     ],
     [
      "fcoin_b",
@@ -3820,7 +3820,7 @@
     ],
     [
      "fcoin_a",
-     45
+     90
     ],
     [
      "fcoin_b",

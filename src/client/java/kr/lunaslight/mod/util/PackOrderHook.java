@@ -58,7 +58,7 @@ public final class PackOrderHook {
 			int firstUser = -1;
 			for (int i = 0; i < list.size(); i++) {
 				String id = idOf(list.get(i));
-				if (id != null && id.startsWith(USER_PREFIX)) {
+				if (id != null && id.startsWith(USER_PREFIX) && !rememberedServerPack(id)) {
 					firstUser = i;
 					break;
 				}
@@ -89,12 +89,20 @@ public final class PackOrderHook {
 		}
 	}
 
+	/** 49-404차: [리소스팩 기억](ServerPackMemory)이 resourcepacks/에 미리 넣은 서버 팩 복사본("file/luna-server-…"). */
+	public static boolean rememberedServerPack(String id) {
+		return id != null && id.toLowerCase(java.util.Locale.ROOT).startsWith("file/luna-server-");
+	}
+
 	/** id가 서버(또는 월드) 팩인가 - "server" / "server/uuid" / "server:..." / "world" 등. 대소문자 무시. */
 	private static boolean isServerPack(String id) {
 		if (id == null) {
 			return false;
 		}
 		String s = id.toLowerCase(java.util.Locale.ROOT);
+		if (rememberedServerPack(s)) {
+			return true;   // 49-404차: 미리 넣은 서버 팩 복사본도 서버 팩
+		}
 		if (s.equals(SERVER) || s.startsWith(SERVER + "/") || s.startsWith(SERVER + ":") || s.startsWith(SERVER + "_")) {
 			return true;
 		}

@@ -176,6 +176,7 @@ public class LunaClientMod implements ClientModInitializer {
 		ModuleManager.get().init();
 		LunaClientConfig.load();
 		kr.lunaslight.mod.util.LunaChatTabs.init();   // 49-360차: LUNA FESTIVAL 채팅 채널 탭(luna:chat 등록 포함)
+		kr.lunaslight.mod.util.LunaMapData.init();   // 49-407차: LUNA FESTIVAL 지도(luna:zone, luna:mapbounds) + Xaero 연동
 		kr.lunaslight.mod.util.NeogulJei.init();   // 49-391차: 너굴마을 인벤토리 옆 아이템 목록(JEI처럼)
 		kr.lunaslight.mod.util.LunaFest.init();   // 49-374차: luna:key(C/X 키) 등록
 		// 49-144차: 리소스팩 기억 - 옵션 파일(options.txt)을 읽기 전인 지금, 서버 모드로 켜졌으면 그 서버의 기억된 팩을

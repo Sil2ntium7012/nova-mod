@@ -120,6 +120,15 @@ public final class HangulInput {
 	 */
 	private static boolean wasFocused;
 
+	private static long glfwHandle() {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			return mc == null || mc.getWindow() == null ? 0L : mc.getWindow().handle();
+		} catch (Throwable t) {
+			return 0L;
+		}
+	}
+
 	private static boolean windowFocused() {
 		try {
 			Minecraft mc = Minecraft.getInstance();
@@ -140,7 +149,7 @@ public final class HangulInput {
 		}
 		COMP.reset();
 		if (focused) {
-			boolean open = osImeOpen();
+			boolean open = osImeOpen() || WinIme.hangulMode(glfwHandle()) == 1;
 			if (open != korean) {
 				korean = open;
 				osKorean = false;
@@ -149,12 +158,14 @@ public final class HangulInput {
 			osImeOff();
 		} else {
 			osImeSet(korean);
+			WinIme.setHangulMode(glfwHandle(), korean);
 		}
 	}
 
 	/** 윈도우 입력기를 "꺼짐"으로(GLFW_IME = 0). GLFW는 리플렉션 - 26.3(SDL)에는 없다. */
 	private static void osImeOff() {
 		osImeSet(false);
+		WinIme.setHangulMode(glfwHandle(), false);   // 49-400차: 변환 모드도 영문으로(다음 누름이 늘 영문→한글)
 	}
 
 	private static void lookGlfw() throws ReflectiveOperationException {
@@ -210,7 +221,7 @@ public final class HangulInput {
 		if (!on() || LunaInput.SDL || !wasFocused) {
 			return;
 		}
-		if (osImeOpen()) {
+		if (osImeOpen() || WinIme.hangulMode(glfwHandle()) == 1) {   // 49-400차: 열림이나 한글 변환 모드 = 한/영 누름
 			toggleKorean();
 			osImeOff();
 		}
@@ -326,11 +337,8 @@ public final class HangulInput {
 			COMP.reset();
 			return false;
 		}
-		boolean upper = codePoint >= 'A' && codePoint <= 'Z';
-		if (upper && !shiftDown) {
-			COMP.reset();   // Caps Lock: 영문 대문자 그대로
-			return false;
-		}
+		// 49-405차(사용자: "Caps Lock 누르면 한글로 바꿔도 영어로 나가"): 예전엔 Caps Lock 대문자를 영문 그대로 보냈다(윈도우 입력기 흉내).
+		// 이제 한글 상태면 Caps Lock과 상관없이 한글 - 대문자도 소문자 자리 자모로(Shift를 누를 때만 쌍자음/ㅒ/ㅖ).
 		char jamo = osJamo ? (char) codePoint : HangulComposer.jamoOf(codePoint, shiftDown);
 		if (jamo == 0) {
 			COMP.reset();

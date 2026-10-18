@@ -166,11 +166,8 @@ public final class HangulInput {
 			COMP.reset();
 			return false;
 		}
-		boolean upper = codePoint >= 'A' && codePoint <= 'Z';
-		if (upper && !shiftDown) {
-			COMP.reset();   // Caps Lock: 영문 대문자 그대로
-			return false;
-		}
+		// 49-405차(사용자: "Caps Lock 누르면 한글로 바꿔도 영어로 나가"): 예전엔 Caps Lock 대문자를 영문 그대로 보냈다(윈도우 입력기 흉내).
+		// 이제 한글 상태면 Caps Lock과 상관없이 한글 - 대문자도 소문자 자리 자모로(Shift를 누를 때만 쌍자음/ㅒ/ㅖ).
 		char jamo = osJamo ? (char) codePoint : HangulComposer.jamoOf(codePoint, shiftDown);
 		if (jamo == 0) {
 			COMP.reset();

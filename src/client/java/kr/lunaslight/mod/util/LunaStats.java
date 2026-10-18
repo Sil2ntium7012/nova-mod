@@ -313,10 +313,12 @@ public final class LunaStats {
 	public static void tick(MinecraftClient client) {
 		try {
 			ensureGlobal();
+			applyEndpointMerge();
 			if (client == null || client.player == null || client.world == null) {
 				if (world != null) {
 					saveNow();
 					world = null;
+					requestEndpointMerge();   // 49-403차: 나왔으니 같은 서버 기록 합치기
 					worldKey = null;
 					hasLastPos = false;
 					lastHealth = -1;
@@ -1379,6 +1381,7 @@ public final class LunaStats {
 		Scope loaded = loadScope(globalFile(), "global", "전체");
 		copyInto(loaded, GLOBAL);
 		mergeServerDuplicates();
+		requestEndpointMerge();   // 49-403차
 	}
 
 	/**
@@ -1425,6 +1428,159 @@ public final class LunaStats {
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("stats:mergeServers", t);
+		}
+	}
+
+	// ==================== 49-403차: 같은 서버 다른 주소 합치기 ====================
+	// 사용자(통계 사진: novaclient.kr 10.1시간, mc.novaclient.kr 0.6시간 따로): "서버 주소 확인해서 같은 통계로 못 묶어?"
+	// 주소 글자가 달라도 실제로 붙는 곳(SRV 레코드 → IP:포트)이 같으면 같은 서버로 본다. DNS 조회는 따로 도는 스레드에서만 하고,
+	// 파일 합치기는 게임 스레드(tick)에서 한다. 지금 들어가 있는 서버 기록은 건드리지 않는다(나올 때 다시 확인).
+	// 합칠 땐 가장 오래 논 기록(이름)에 나머지를 더하고 지운다.
+
+	private static volatile Map<String, String> endpointPending;
+	private static volatile boolean endpointBusy;
+
+	/** 서버 기록들의 실제 접속 곳을 따로 도는 스레드에서 알아본다(처음 불러올 때, 서버에서 나올 때). */
+	private static void requestEndpointMerge() {
+		if (endpointBusy) {
+			return;
+		}
+		endpointBusy = true;
+		Thread t = new Thread(() -> {
+			try {
+				Map<String, String> out = new LinkedHashMap<>();
+				Path wdir = dir().resolve("worlds");
+				if (Files.isDirectory(wdir)) {
+					List<Path> files = new ArrayList<>();
+					try (java.util.stream.Stream<Path> st = Files.list(wdir)) {
+						st.filter(f -> f.getFileName().toString().endsWith(".json")).forEach(files::add);
+					}
+					Map<String, String> cache = new java.util.HashMap<>();
+					for (Path f : files) {
+						String name = f.getFileName().toString();
+						String key = name.substring(0, name.length() - 5);
+						Scope s;
+						try {
+							s = loadScope(f, key, key);
+						} catch (Throwable e) {
+							continue;
+						}
+						if (!s.folder.isEmpty() || s.label == null || s.label.isEmpty() || s.label.equals(key)) {
+							continue;
+						}
+						String ep = cache.computeIfAbsent(s.label, LunaStats::endpointOf);
+						if (ep != null && !ep.isEmpty()) {
+							out.put(key, ep);
+						}
+					}
+				}
+				endpointPending = out;
+			} catch (Throwable t2) {
+				LunaCompat.warnOnce("stats:endpoint", t2);
+			} finally {
+				endpointBusy = false;
+			}
+		}, "Nova-StatsEndpoint");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** "host[:port]" → 실제 접속 곳 "IP:포트"(포트가 없으면 SRV 레코드 먼저, 바닐라와 같은 순서). 못 알아내면 "". */
+	static String endpointOf(String label) {
+		try {
+			String host = label.trim();
+			int port = 25565;
+			boolean explicit = false;
+			if (host.startsWith("[")) {
+				int end = host.indexOf(']');
+				if (end < 0) {
+					return "";
+				}
+				if (end + 2 < host.length() && host.charAt(end + 1) == ':') {
+					port = Integer.parseInt(host.substring(end + 2));
+					explicit = true;
+				}
+				host = host.substring(1, end);
+			} else {
+				int c = host.lastIndexOf(':');
+				if (c > 0 && host.indexOf(':') == c) {
+					port = Integer.parseInt(host.substring(c + 1));
+					host = host.substring(0, c);
+					explicit = true;
+				}
+			}
+			if (host.isEmpty()) {
+				return "";
+			}
+			if (!explicit && host.indexOf(':') < 0 && !host.matches("[0-9.]+")) {
+				try {
+					java.util.Hashtable<String, String> env = new java.util.Hashtable<>();
+					env.put("java.naming.factory.initial", "com.sun.jndi.dns.DnsContextFactory");
+					env.put("java.naming.provider.url", "dns:");
+					env.put("com.sun.jndi.dns.timeout.retries", "1");
+					javax.naming.directory.DirContext ctx = new javax.naming.directory.InitialDirContext(env);
+					javax.naming.directory.Attribute srv = ctx.getAttributes("_minecraft._tcp." + host, new String[]{"SRV"}).get("srv");
+					if (srv != null) {
+						String[] p = srv.get().toString().split(" ", 4);
+						if (p.length == 4) {
+							port = Integer.parseInt(p[2]);
+							host = p[3].endsWith(".") ? p[3].substring(0, p[3].length() - 1) : p[3];
+						}
+					}
+					ctx.close();
+				} catch (Throwable ignored) {
+					// SRV 없음 - 주소 그대로
+				}
+			}
+			return java.net.InetAddress.getByName(host).getHostAddress() + ":" + port;
+		} catch (Throwable t) {
+			return "";
+		}
+	}
+
+	/** 게임 스레드: 알아낸 접속 곳이 같은 기록끼리 합친다. */
+	private static void applyEndpointMerge() {
+		Map<String, String> m = endpointPending;
+		if (m == null) {
+			return;
+		}
+		endpointPending = null;
+		try {
+			Map<String, List<String>> groups = new LinkedHashMap<>();
+			m.forEach((k, ep) -> groups.computeIfAbsent(ep, x -> new ArrayList<>()).add(k));
+			for (List<String> keys : groups.values()) {
+				if (keys.size() < 2 || (worldKey != null && keys.contains(worldKey))) {
+					continue;
+				}
+				List<Scope> scopes = new ArrayList<>();
+				for (String k : keys) {
+					Path f = worldFile(k);
+					if (Files.exists(f)) {
+						scopes.add(loadScope(f, k, k));
+					}
+				}
+				if (scopes.size() < 2) {
+					continue;
+				}
+				Scope into = scopes.get(0);
+				for (Scope s : scopes) {
+					if (s.playMs > into.playMs) {
+						into = s;
+					}
+				}
+				for (Scope s : scopes) {
+					if (s == into) {
+						continue;
+					}
+					addInto(s, into);
+					Files.deleteIfExists(worldFile(s.key));
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 통계: " + s.label + " 기록을 " + into.label + "에 합침(같은 서버)");
+				}
+				into.folder = "";
+				write(worldFile(into.key), writeScope(into));
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:endpointMerge", t);
 		}
 	}
 

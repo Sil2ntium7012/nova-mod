@@ -246,6 +246,7 @@ public final class ModuleManager {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			kr.lunaslight.mod.util.LunaPerf.tick(client); // 49-7차: 성능 진단 지표 수집(1초 단위 샘플)
 			Module.updateServerLock(byId.values());   // 49-377차: 내 서버면 기능 전부 끄기
+			kr.lunaslight.mod.util.VoiceKeys.sync(Module.serverLocked());   // 49-401차: 내 서버 음성 채팅 키
 			for (Module module : byId.values()) {
 				if (module.isEnabled()) {
 					try {

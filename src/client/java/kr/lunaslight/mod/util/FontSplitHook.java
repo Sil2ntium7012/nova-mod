@@ -120,7 +120,9 @@ public final class FontSplitHook {
 			return original;
 		}
 		String pack = packIdOf(resource);
-		if (pack == null || !pack.startsWith("file/")) {
+		// 49-404차(사용자 사진: 너굴마을 빵 설명의 아이콘 글자가 네모로): [리소스팩 기억]이 미리 넣은 서버 팩 복사본도 resourcepacks/에
+		// 있어 id가 "file/luna-server-…"다 - 내 팩으로 보고 서버 팩 자신의 기호 글자를 지워 버렸다. 그건 서버 팩이니 그대로 둔다.
+		if (pack == null || !pack.startsWith("file/") || PackOrderHook.rememberedServerPack(pack)) {
 			return original;
 		}
 		StringBuilder text = new StringBuilder();

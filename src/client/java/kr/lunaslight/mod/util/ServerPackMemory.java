@@ -69,6 +69,8 @@ public final class ServerPackMemory {
 	/** 서버 키 → 이번 접속에서 서버가 보낸 SHA-1들(예전 팩 정리용). */
 	private static final Map<String, Set<String>> OFFERED = new ConcurrentHashMap<>();
 	private static final Map<String, Long> OFFERED_AT = new ConcurrentHashMap<>();
+	/** 49-400차: 서버 키 → 이번 접속에서 서버가 보낸 SHA-1 순서(뒤가 위). 기억 목록도 이 순서로 둔다. */
+	private static final Map<String, List<String>> OFFER_ORDER = new ConcurrentHashMap<>();
 	private static WeakReference<Object> hooked = new WeakReference<>(null);
 	private static volatile boolean enabled = true;
 
@@ -572,6 +574,10 @@ public final class ServerPackMemory {
 		}
 		if (host != null && !hash.isEmpty()) {
 			OFFERED.computeIfAbsent(host, k -> ConcurrentHashMap.newKeySet()).add(hash);
+			List<String> order = OFFER_ORDER.computeIfAbsent(host, k -> new CopyOnWriteArrayList<>());
+			if (!order.contains(hash)) {
+				order.add(hash);
+			}
 			OFFERED_AT.put(host, System.currentTimeMillis());
 		}
 		boolean same = host != null && host.equals(preHost) && !hash.isEmpty() && PRE_HASHES.contains(hash) && preAppliedActive();
@@ -604,12 +610,45 @@ public final class ServerPackMemory {
 						return false;
 					}
 				}
-				return true;
+				return reallyLoaded();
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("packmem:active", t);
 		}
 		return true;   // 확인 못 하면 예전처럼
+	}
+
+	/**
+	 * 49-400차(사용자: "리소스팩이 여전히 켜짐인데 안 입혀진대"): 옵션 목록에는 남아 있어도 실제 팩 저장소에서 켜진 팩(선택된 팩)에
+	 * 없으면(불러오기 실패로 바닐라가 기본 팩으로 되돌림 등) 서버 팩을 삼키지 않는다. 확인할 길이 없으면 true.
+	 */
+	private static boolean reallyLoaded() {
+		try {
+			Object mc = MinecraftClient.getInstance();
+			Object repo = LunaCompat.callNoArg(mc, "getResourcePackRepository");
+			if (repo == null) {
+				repo = LunaCompat.callNoArg(mc, "getResourcePackManager");
+			}
+			Object sel = repo == null ? null : LunaCompat.callNoArg(repo, "getSelectedIds");
+			if (sel == null && repo != null) {
+				sel = LunaCompat.callNoArg(repo, "getEnabledIds");
+			}
+			if (sel == null && repo != null) {
+				sel = LunaCompat.callNoArg(repo, "getEnabledNames");
+			}
+			if (!(sel instanceof java.util.Collection<?> ids)) {
+				return true;
+			}
+			for (String n : PRE_NAMES) {
+				if (!ids.contains(n)) {
+					kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 리소스팩 기억: 미리 넣은 팩(" + n + ")이 실제로는 안 켜져 있어 서버 팩을 새로 받습니다");
+					return false;
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("packmem:loaded", t);
+		}
+		return true;
 	}
 
 	/** 49-384차: 열리는 zip(pack.mcmeta 있음)이고, hash가 있으면 SHA-1도 같은가. */
@@ -755,6 +794,7 @@ public final class ServerPackMemory {
 				}
 				OFFERED_AT.remove(host);
 				OFFERED.remove(host);
+				OFFER_ORDER.remove(host);
 			}
 		}
 	}
@@ -836,6 +876,7 @@ public final class ServerPackMemory {
 			pk.url = p.url() == null ? "" : p.url();
 			pk.file = name;
 			list.add(pk);
+			sortByOffer(p.host(), list);
 			// 목록에서 빠진 옛 파일 정리
 			Set<String> keep = new HashSet<>();
 			INDEX.values().forEach(l -> l.forEach(x -> keep.add(x.file)));
@@ -853,6 +894,24 @@ public final class ServerPackMemory {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("packmem:remember", t);
 		}
+	}
+
+	/**
+	 * 49-400차: 기억 목록을 서버가 보낸 순서로(나중에 보낸 팩이 위). 팩 하나만 바뀌면 그 팩이 목록 끝으로 가서 다음 실행에
+	 * 다른 팩 위에 미리 켜졌다 - 덮어쓰는 순서가 바뀌어 "켜져 있는데 안 입혀진" 것처럼 보였다.
+	 */
+	private static void sortByOffer(String host, List<Pack> list) {
+		List<String> order = OFFER_ORDER.get(host);
+		if (order == null || order.isEmpty() || list.size() < 2) {
+			return;
+		}
+		List<Pack> sorted = new ArrayList<>(list);
+		sorted.sort(java.util.Comparator.comparingInt(x -> {
+			int i = order.indexOf(x.hash);
+			return i < 0 ? -1 : i;
+		}));
+		list.clear();
+		list.addAll(sorted);
 	}
 
 	/** 설정 화면 안내: 기억한 서버 목록. */
