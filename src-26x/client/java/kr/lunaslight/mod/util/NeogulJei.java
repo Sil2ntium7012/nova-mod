@@ -74,7 +74,13 @@ public final class NeogulJei {
 				if (!(screen instanceof AbstractContainerScreen<?>)) {
 					return;
 				}
-				ScreenEvents.afterExtract(screen).register((s, g, mx, my, d) -> drawContainer(s, g, mx, my));
+				ScreenEvents.afterExtract(screen).register((s, g, mx, my, d) -> {
+					if (drawnEarly) {
+						drawnEarly = false;   // 49-399차: 툴팁 전에 이미 그렸다(ScreenJeiLayerMixin)
+					} else {
+						drawContainer(s, g, mx, my);
+					}
+				});
 				ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> !clickContainer(s, e.x(), e.y(), e.button()));
 				ScreenMouseEvents.allowMouseScroll(screen).register((s, mx, my, ha, va) -> !(on() && scrollIn(mx, my, va)));
 				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !keyContainer(s, e.key()));
@@ -359,6 +365,22 @@ public final class NeogulJei {
 			return acc.lunaslight$leftPos() + acc.lunaslight$imageWidth() + 8;
 		}
 		return s.width;
+	}
+
+	/** 49-399차: 이번 프레임에 툴팁 전에 그렸다(afterExtract에서 또 그리지 않게). */
+	private static boolean drawnEarly;
+
+	/** ScreenJeiLayerMixin: 화면을 다 그리고 아이템 설명(툴팁)을 그리기 바로 전 - 설명이 목록 위에 뜬다. */
+	public static void beforeTooltip(Screen s, GuiGraphicsExtractor g, int mx, int my) {
+		if (!(s instanceof AbstractContainerScreen<?>)) {
+			return;
+		}
+		try {
+			drawContainer(s, g, mx, my);
+			drawnEarly = true;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulJei:layer", t);
+		}
 	}
 
 	private static void drawContainer(Screen s, GuiGraphicsExtractor g, int mx, int my) {
