@@ -16,4 +16,10 @@ public abstract class TextInputImeMixin {
 	private boolean lunaslight$noOsIme(boolean on) {
 		return on && !HangulInput.blockOsIme();
 	}
+
+	/** 49-395차: 입력기 상태가 바뀌었다(한/영 키를 윈도우 입력기가 먹고 자기를 켰을 때 포함) - 한/영 누름으로 본다. */
+	@org.spongepowered.asm.mixin.injection.Inject(method = "notifyIMEChanged()V", at = @At("TAIL"), require = 0)
+	private void lunaslight$imeChanged(org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+		HangulInput.onOsImeChanged();
+	}
 }

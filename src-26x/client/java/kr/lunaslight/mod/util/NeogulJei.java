@@ -238,21 +238,27 @@ public final class NeogulJei {
 				Line l = lines.get(scroll + i);
 				int y = TOP + i * SLOT;
 				if (l.header()) {
-					boolean h2 = LunaDraw.in(mx, my, gx, y, sw, SLOT - 1);
+					// 49-397차(사용자: "여기는 마크 느낌을 없애 줘 봐, 그냥 글 가운데에다 해서 예쁘게"): 둥근 반투명 띠 + 가운데 이름, 열리면 아래에 강조 선
+					boolean h2 = LunaDraw.in(mx, my, gx, y, sw, SLOT - 2);
 					boolean open = isOpen(l.g());
-					LunaDraw.mcPanel(g, gx, y, sw, SLOT - 1, open ? 0xFFD6D6D6 : (h2 ? 0xFFCFCFCF : 0xFFB0B0B0));
-					ItemStack ic = NeogulData.icon(l.g().items().get(0), 1);
-					if (!ic.isEmpty()) {
-						g.item(ic, gx + 2, y);
+					int bg = open ? 0xD0262B33 : (h2 ? 0xC0222630 : 0x9C111419);
+					LunaDraw.roundRect(g, gx, y + 1, sw, SLOT - 3, 4, bg);
+					if (open) {
+						int lw = Math.min(sw - 16, font.width(l.g().name()) + 16);
+						g.fill(gx + (sw - lw) / 2, y + SLOT - 3, gx + (sw + lw) / 2, y + SLOT - 2, LunaDraw.ACCENT | 0xFF000000);
 					}
-					String arrow = open ? "▼" : "▶";
-					g.text(font, LunaCompat.textLiteral(l.g().name()), gx + 21, y + 4, 0xFF303030, false);
+					String name = l.g().name();
 					String cnt = String.valueOf(l.g().items().size());
-					int aw = font.width(arrow);
-					g.text(font, LunaCompat.textLiteral(cnt), gx + sw - 8 - aw - font.width(cnt), y + 4, 0xFF707070, false);
-					g.text(font, LunaCompat.textLiteral(arrow), gx + sw - 4 - aw, y + 4, 0xFF505050, false);
+					int nw = font.width(name);
+					int cx = gx + (sw - nw) / 2;
+					g.text(font, LunaCompat.textLiteral(name), cx, y + 5, open ? 0xFFFFFFFF : (h2 ? 0xFFF2F2F2 : 0xFFD8DCE2), true);
+					g.text(font, LunaCompat.textLiteral(cnt), gx + sw - 6 - font.width(cnt), y + 5, 0xFF8A919C, false);
+					String chev = open ? "-" : "+";
+					g.text(font, LunaCompat.textLiteral(chev), gx + 6, y + 5, open ? (LunaDraw.ACCENT | 0xFF000000) : 0xFF8A919C, false);
 					continue;
 				}
+				// 열린 서랍의 아이템 줄: 은은한 바탕
+				g.fill(gx + 1, y, gx + sw - 1, y + SLOT, 0x50000000);
 				List<NeogulData.Entry> items = l.g().items();
 				for (int c = 0; c < cols; c++) {
 					int idx = l.row() * cols + c;
@@ -280,14 +286,14 @@ public final class NeogulJei {
 				g.fill(gx - 4, ty, gx - 2, ty + th, 0xC0FFFFFF);
 			}
 			// 검색 칸(바닐라 입력 칸)
-			g.fill(gx, sy, gx + sw, sy + SEARCH_H, focused ? 0xFFFFFFFF : 0xFFA0A0A0);
-			g.fill(gx + 1, sy + 1, gx + sw - 1, sy + SEARCH_H - 1, 0xFF000000);
+			LunaDraw.roundRect(g, gx, sy, sw, SEARCH_H, 4, focused ? (LunaDraw.ACCENT | 0xFF000000) : 0xA0303640);
+			LunaDraw.roundRect(g, gx + 1, sy + 1, sw - 2, SEARCH_H - 2, 3, 0xE0111419);
 			String shownQ = query;
 			while (!shownQ.isEmpty() && font.width(shownQ) > sw - 8) {
 				shownQ = shownQ.substring(1);
 			}
 			if (shownQ.isEmpty() && !focused) {
-				g.text(font, LunaCompat.textLiteral("§8검색"), gx + 4, sy + 3, 0xFF808080, false);
+				g.text(font, LunaCompat.textLiteral("검색"), gx + (sw - font.width("검색")) / 2, sy + 3, 0xFF6E7580, false);
 			} else {
 				g.text(font, LunaCompat.textLiteral(shownQ), gx + 4, sy + 3, 0xFFE0E0E0, true);
 			}

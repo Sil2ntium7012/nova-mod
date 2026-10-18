@@ -484,9 +484,10 @@ public final class HangulInput {
 			Object iw = LunaCompat.callNoArg(box, "getInnerWidth");
 			int inner = iw instanceof Integer ? (Integer) iw : (bordered ? bw - 8 : bw);
 			int shown = Math.min(LunaDraw.width(font, value.substring(disp)), Math.max(0, inner));
-			int x = tx + shown + 1;   // 49-327차: 글자 끝의 오른쪽 위 대각선
+			// 49-395차(사용자: "글자랑 너무 떨어져"): 위 대각선 대신 글자 끝(커서 _ 뒤) 바로 옆, 글자 줄 가운데에
+			int x = tx + shown + 7;
 			int limit = Math.min(bx + bw - (bordered ? 2 : 0), sc.width - 1);
-			drawChip(ctx, font, x, ty - CHIP_H - 2, limit);
+			drawChip(ctx, font, x, ty + 4 - CHIP_H / 2 - 1, limit);
 			return;
 		}
 		int w = chipWidth(font);

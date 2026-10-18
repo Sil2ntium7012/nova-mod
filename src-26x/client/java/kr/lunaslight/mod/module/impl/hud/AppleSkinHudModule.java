@@ -244,6 +244,9 @@ public class AppleSkinHudModule extends Module {
 		if (novaServerNow()) {
 			return;   // 49-359차: 노바 서버에서는 금지
 		}
+		if (kr.lunaslight.mod.util.NeogulData.onNeogul(client)) {
+			return;   // 49-396차(사용자 사진: 너굴마을은 리소스팩이 배고픔 칸을 따로 그려서 포만감 표시가 엉뚱한 자리(방어 칸 위)에 뜸): 너굴마을에서는 끔
+		}
 		if (client.player == null) {
 			return;
 		}

@@ -85,7 +85,14 @@ public final class HangulInput {
 			WinIme.detach();
 		} else {
 			WinIme.restore();   // 예전 판에서 떼어 둔 게 있으면 돌려 붙인다(한 번만)
-			osImeOff();
+			boolean f = windowFocused();
+			if (f != wasFocused) {
+				onWindowFocus(f);   // 49-398차: 포커스 콜백(WindowFocusImeMixin)을 놓쳤을 때
+			}
+			if (f) {
+				onOsImeChanged();   // 49-395차: 입력기가 켜져 있으면 한/영 누름으로 보고 끈다
+				osImeOff();
+			}
 		}
 		Minecraft mc = Minecraft.getInstance();
 		Object screen = mc == null ? null : LunaCompat.screenOf(mc);
@@ -106,15 +113,62 @@ public final class HangulInput {
 		return on() && !LunaInput.SDL;
 	}
 
+	/**
+	 * 49-398차(사용자: "마크로 가면 영어로 계속 변환된대 윈도우"): 게임 창에 있는 동안 윈도우 입력기를 꺼 두는데(키를 영문으로 받으려고),
+	 * 윈도우 한/영 상태는 창끼리 같이 쓰여서 다른 창으로 나가도 영어로 남았다. 이제 창을 떠날 땐 노바 한/영 상태대로 입력기를 켜고/끄고
+	 * 돌려주고, 창에 들어올 땐 윈도우 한/영 상태를 노바 상태로 가져온다(윈도우가 한글이었으면 게임에서도 한글).
+	 */
+	private static boolean wasFocused;
+
+	private static boolean windowFocused() {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			return mc != null && mc.getWindow() != null && mc.getWindow().isFocused();
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/** WindowFocusImeMixin(창 포커스 콜백)과 tick에서. */
+	public static void onWindowFocus(boolean focused) {
+		if (focused == wasFocused) {
+			return;
+		}
+		wasFocused = focused;
+		if (!on() || LunaInput.SDL) {
+			return;
+		}
+		COMP.reset();
+		if (focused) {
+			boolean open = osImeOpen();
+			if (open != korean) {
+				korean = open;
+				osKorean = false;
+				toggledAt = System.nanoTime();   // 같이 오는 입력기 알림을 한/영 누름으로 또 치지 않게
+			}
+			osImeOff();
+		} else {
+			osImeSet(korean);
+		}
+	}
+
 	/** 윈도우 입력기를 "꺼짐"으로(GLFW_IME = 0). GLFW는 리플렉션 - 26.3(SDL)에는 없다. */
 	private static void osImeOff() {
+		osImeSet(false);
+	}
+
+	private static void lookGlfw() throws ReflectiveOperationException {
+		if (!glfwLooked) {
+			glfwLooked = true;
+			Class<?> g = Class.forName("org.lwjgl.glfw.GLFW");
+			glfwGetInputMode = g.getMethod("glfwGetInputMode", long.class, int.class);
+			glfwSetInputMode = g.getMethod("glfwSetInputMode", long.class, int.class, int.class);
+		}
+	}
+
+	private static void osImeSet(boolean open) {
 		try {
-			if (!glfwLooked) {
-				glfwLooked = true;
-				Class<?> g = Class.forName("org.lwjgl.glfw.GLFW");
-				glfwGetInputMode = g.getMethod("glfwGetInputMode", long.class, int.class);
-				glfwSetInputMode = g.getMethod("glfwSetInputMode", long.class, int.class, int.class);
-			}
+			lookGlfw();
 			if (glfwGetInputMode == null) {
 				return;
 			}
@@ -124,12 +178,55 @@ public final class HangulInput {
 				return;
 			}
 			Object cur = glfwGetInputMode.invoke(null, h, GLFW_IME);
-			if (cur instanceof Integer i && i != 0) {
-				glfwSetInputMode.invoke(null, h, GLFW_IME, 0);
+			if (cur instanceof Integer i && (i != 0) != open) {
+				glfwSetInputMode.invoke(null, h, GLFW_IME, open ? 1 : 0);
 			}
 		} catch (Throwable t) {
 			glfwGetInputMode = null;
 			LunaCompat.warnOnce("hangul:osIme", t);
+		}
+	}
+
+	/**
+	 * 49-395차(사용자: "어떤 분이 한글이 아예 안 써진대", "채팅을 1글자라도 안 치면 ENG/한글이 안 변해"): 26.1~26.2는 입력기를 떼지 않고
+	 * "꺼짐"으로만 두는데(49-390차), 그러면 한/영 키가 게임 키로 안 오고 윈도우 입력기가 먹어서 자기를 "켜짐"으로 바꾼다 - 우리는 그걸 몰라
+	 * 한글로 안 바뀌었다. 이제 입력기가 켜진 걸 보면(바닐라 입력기 상태 알림 TextInputImeMixin + 매 틱) 그걸 한/영 키로 보고 바꾼 뒤 다시 끈다.
+	 * 키 이벤트와 입력기 알림이 한 번 누름에 둘 다 올 수 있어 0.2초 안의 두 번째는 무시한다.
+	 */
+	private static void toggleKorean() {
+		long now = System.nanoTime();
+		if (toggledAt != 0 && now - toggledAt < 200_000_000L) {
+			return;
+		}
+		korean = !korean;
+		osKorean = false;
+		toggledAt = now;
+		COMP.reset();
+	}
+
+	/** TextInputImeMixin(바닐라가 입력기 상태 바뀜 알림을 받을 때)과 tick에서. 입력기가 켜졌으면 한/영 누름으로 본다. */
+	/** 49-398차: 창 밖에서는 안 본다(창을 떠날 때 우리가 켜 준 입력기를 한/영 누름으로 치지 않게). 들어올 땐 onWindowFocus가 맞춘다. */
+	public static void onOsImeChanged() {
+		if (!on() || LunaInput.SDL || !wasFocused) {
+			return;
+		}
+		if (osImeOpen()) {
+			toggleKorean();
+			osImeOff();
+		}
+	}
+
+	private static boolean osImeOpen() {
+		try {
+			lookGlfw();
+			if (glfwGetInputMode == null) {
+				return false;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			long h = mc == null || mc.getWindow() == null ? 0L : mc.getWindow().handle();
+			return h != 0L && glfwGetInputMode.invoke(null, h, GLFW_IME) instanceof Integer i && i != 0;
+		} catch (Throwable t) {
+			return false;
 		}
 	}
 
@@ -177,12 +274,10 @@ public final class HangulInput {
 		}
 		boolean typing = textFocused();
 		if (action == 1 && (hangulKey(key, scancode) || (key == HangulInputModule.toggleKey() && key != -1))) {
-			korean = !korean;
+			toggleKorean();
 			if (!LunaInput.SDL) {
 				osImeOff();   // 한/영 키가 윈도우 입력기를 켰으면 바로 끈다(한글은 우리가)
 			}
-			toggledAt = System.nanoTime();
-			COMP.reset();
 			return typing;
 		}
 		if (!COMP.composing()) {
@@ -485,9 +580,10 @@ public final class HangulInput {
 			int ty = intField(e, "textY", bordered ? e.getY() + (e.getHeight() - 8) / 2 : e.getY());
 			int inner = Math.max(0, e.getInnerWidth());
 			int shown = Math.min(LunaDraw.width(font, value.substring(disp)), inner);
-			int x = tx + shown + 1;   // 49-327차: 글자 끝의 오른쪽 위 대각선
+			// 49-395차(사용자: "글자랑 너무 떨어져"): 위 대각선 대신 글자 끝(커서 _ 뒤) 바로 옆, 글자 줄 가운데에
+			int x = tx + shown + 7;
 			int limit = Math.min(e.getX() + e.getWidth() - (bordered ? 2 : 0), sc.width - 1);
-			drawChip(ctx, font, x, ty - CHIP_H - 2, limit);
+			drawChip(ctx, font, x, ty + 4 - CHIP_H / 2 - 1, limit);
 			return;
 		}
 		if (box instanceof AbstractWidget aw) {
