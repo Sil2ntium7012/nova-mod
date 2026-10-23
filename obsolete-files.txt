@@ -50,3 +50,27 @@ compat/screen-input-legacy4/kr/novaclient
 compat/screen-input-modern/kr/novaclient
 compat/window-legacy14/kr/novaclient
 compat/window-modern/kr/novaclient
+
+# 49-409차: LUNA FESTIVAL 서버 전용 기능은 따로 된 모드(Desktop\Luna Festival's mod)로 옮김 - 노바에서 뺌
+src-26x/client/java/kr/lunaslight/mod/util/LunaChatTabs.java
+src-26x/client/java/kr/lunaslight/mod/util/LunaFest.java
+src-26x/client/java/kr/lunaslight/mod/util/VoiceKeys.java
+src-26x/client/java/kr/lunaslight/mod/util/LunaMapData.java
+src-26x/client/java/kr/lunaslight/mod/network/LunaChatPayload.java
+src-26x/client/java/kr/lunaslight/mod/network/LunaKeyPayload.java
+src-26x/client/java/kr/lunaslight/mod/network/LunaZonePayload.java
+src-26x/client/java/kr/lunaslight/mod/network/LunaMapBoundsPayload.java
+src-26x/client/java/kr/lunaslight/mod/mixin/ChatTabsMixin.java
+src-26x/client/java/kr/lunaslight/mod/mixin/ChatScreenTabsMixin.java
+src-26x/client/java/kr/lunaslight/mod/mixin/ChatTabsLineBgMixin.java
+src-26x/client/java/kr/lunaslight/mod/mixin/ChatSuggestLiftMixin.java
+src-26x/client/java/kr/lunaslight/mod/mixin/HotbarSkipKeyMixin.java
+src-26x/client/java/kr/lunaslight/mod/mixin/HotbarSkipScrollMixin.java
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/LunaFestivalModule.java
+src-26x/client/java/kr/lunaslight/mod/compat/xaero/XaeroBridge.java
+src-26x/client/java/kr/lunaslight/mod/compat/xaero/XaeroDraw.java
+src-26x/client/java/kr/lunaslight/mod/compat/xaero/ZoneMinimapRenderer.java
+src-26x/client/java/kr/lunaslight/mod/compat/xaero/ZoneWorldMapRenderer.java
+src-26x/client/java/kr/lunaslight/mod/compat
+libs/xaero-api-stub.jar
+tools/xaero-stub

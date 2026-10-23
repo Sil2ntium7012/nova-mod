@@ -78,14 +78,11 @@ public abstract class ChatHudMixin {
 			return message;
 		}
 		Component original = message;
-		// 49-360차: 채팅 채널 탭 - 서버 꼬리표(luna:chtag/…)는 꾸미기 전 원문에서 읽는다
-		String chKind = kr.lunaslight.mod.util.LunaChatTabs.onIncoming((ChatComponent) (Object) this, original);
 		// 49-42차: 채팅 강조(내 이름·키워드 색 + 알림음)는 시각 접두를 붙이기 전 원문에 적용.
 		message = ChatState.applyHighlight(message);
 		// 49-81차(4-48): 얼굴 띄우개는 시각 접두까지 붙인 뒤에 끼운다(49-208차부터 이름마다 그 앞).
 		Component stored = kr.lunaslight.mod.util.ChatFaces.decorate(lunaslight$stamp(message));
 		ChatState.replaceKept(original, stored);   // 49-208차: ×N 합치기가 실제로 들어간 쪽에 붙게
-		kr.lunaslight.mod.util.LunaChatTabs.remember(stored, chKind);
 		return stored;
 	}
 

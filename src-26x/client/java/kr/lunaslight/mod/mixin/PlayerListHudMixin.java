@@ -62,6 +62,44 @@ public abstract class PlayerListHudMixin {
 		TabListLimitModule.afterRender(this);
 	}
 
+	/**
+	 * 49-408차(사용자 사진: "창 화면이면 탭리스트가 이상하게 커져" - 창이 낮으면 탭이 핫바와 체력 줄까지 덮음): 탭 높이가 화면에
+	 * 안 들어가면 위 가운데를 기준으로 줄여 그린다(최소 0.5배, {@link kr.lunaslight.mod.util.TabArea#fitScale}).
+	 */
+	@org.spongepowered.asm.mixin.Unique
+	private boolean lunaslight$fitPushed;
+
+	@Inject(method = "extractRenderState", at = @At("HEAD"), require = 0)
+	private void lunaslight$fitHead(net.minecraft.client.gui.GuiGraphicsExtractor g, int screenWidth,
+			net.minecraft.world.scores.Scoreboard sb, net.minecraft.world.scores.Objective obj,
+			org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+		lunaslight$fitPushed = false;
+		try {
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			int sh = mc.getWindow().getGuiScaledHeight();
+			float k = kr.lunaslight.mod.util.TabArea.fitScale(mc, screenWidth, sh);
+			if (k < 0.98f && kr.lunaslight.mod.util.LunaCompat.guiTransformSupported(g)) {
+				kr.lunaslight.mod.util.LunaCompat.guiPush(g);
+				kr.lunaslight.mod.util.LunaCompat.guiTranslate(g, screenWidth / 2f, 0f);
+				kr.lunaslight.mod.util.LunaCompat.guiScale(g, k, k);
+				kr.lunaslight.mod.util.LunaCompat.guiTranslate(g, -screenWidth / 2f, 0f);
+				lunaslight$fitPushed = true;
+			}
+		} catch (Throwable t) {
+			kr.lunaslight.mod.util.LunaCompat.warnOnce("tab:fit", t);
+		}
+	}
+
+	@Inject(method = "extractRenderState", at = @At("RETURN"), require = 0)
+	private void lunaslight$fitReturn(net.minecraft.client.gui.GuiGraphicsExtractor g, int screenWidth,
+			net.minecraft.world.scores.Scoreboard sb, net.minecraft.world.scores.Objective obj,
+			org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+		if (lunaslight$fitPushed) {
+			lunaslight$fitPushed = false;
+			kr.lunaslight.mod.util.LunaCompat.guiPop(g);
+		}
+	}
+
 	/** 49-124차: 전체 목록에서 지금 페이지(page × perPage) 구간만 돌려준다. 전체 인원은 모듈에 알려 페이지 수를 만든다. */
 	@Inject(method = "getPlayerInfos", at = @At("RETURN"), cancellable = true, require = 0)
 	private void lunaslight$pageEntries(CallbackInfoReturnable<List<?>> cir) {

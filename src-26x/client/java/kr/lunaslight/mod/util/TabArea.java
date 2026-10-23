@@ -14,6 +14,14 @@ public final class TabArea {
 	private static long calcAt;
 	private static int[] cached;
 	private static int cachedW, cachedH;
+	/** 49-408차: 탭 아래로 비워 둘 높이(핫바 + 체력/배고픔 줄). */
+	private static final int FIT_MARGIN = 42;
+	private static float fit = 1f;
+
+	/** 49-408차: 탭을 화면 높이에 맞추는 배율(1 = 그대로). 탭이 안 떠 있으면 1. */
+	public static float fitScale(Minecraft mc, int sw, int sh) {
+		return rect(mc, sw, sh) == null ? 1f : fit;
+	}
 
 	public static int[] rect(Minecraft mc, int sw, int sh) {
 		try {
@@ -74,8 +82,11 @@ public final class TabArea {
 				}
 			}
 			int h = 10 + rows * 9 + lines * 9 + (lines > 0 ? 2 : 0) + 4;
-			int x0 = sw / 2 - w / 2 - 6, x1 = sw / 2 + w / 2 + 6;
-			cached = new int[]{x0, 0, x1, Math.min(sh, h + 4)};
+			// 49-408차(사용자 사진: 창 화면에서 탭이 핫바/체력 줄까지 덮음): 화면 높이에 안 들어가면 줄여서 그린다(PlayerListHudMixin).
+			float k = h + 4 > sh - FIT_MARGIN ? Math.max(0.5f, (sh - FIT_MARGIN) / (float) (h + 4)) : 1f;
+			fit = k;
+			int hw = (int) Math.ceil((w / 2 + 6) * k);
+			cached = new int[]{sw / 2 - hw, 0, sw / 2 + hw, Math.min(sh, (int) Math.ceil((h + 4) * k))};
 			return cached;
 		} catch (Throwable t) {
 			return null;

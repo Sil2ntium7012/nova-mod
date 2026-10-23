@@ -93,7 +93,6 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.render.BagsModule());    // 49-351차: 노바 가방(토끼 가방)
 		register(new kr.lunaslight.mod.module.impl.render.HatsModule());    // 49-353차: 노바 모자(토끼 모자)
 		register(new kr.lunaslight.mod.module.impl.render.TrailsModule());  // 49-364차: 노바 발자취(별가루, 벚꽃)
-		register(new kr.lunaslight.mod.module.impl.misc.LunaFestivalModule());   // 49-374차: LUNA FESTIVAL C/X 키(26.x만)
 		register(new kr.lunaslight.mod.module.impl.misc.CosmeticsModule());   // 49-271차: [코스메틱] 착용한 것 보기(바꾸기는 런처)
 		register(new EntityHideModule());   // 49-59차(3-4): 이름으로 엔티티 가리기
 		register(new EntityCullModule());   // 49-60차(3-11·3-6): 겹친·먼 엔티티 안 그리기
@@ -246,7 +245,6 @@ public final class ModuleManager {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			kr.lunaslight.mod.util.LunaPerf.tick(client); // 49-7차: 성능 진단 지표 수집(1초 단위 샘플)
 			Module.updateServerLock(byId.values());   // 49-377차: 내 서버면 기능 전부 끄기
-			kr.lunaslight.mod.util.VoiceKeys.sync(Module.serverLocked());   // 49-401차: 내 서버 음성 채팅 키
 			for (Module module : byId.values()) {
 				if (module.isEnabled()) {
 					try {

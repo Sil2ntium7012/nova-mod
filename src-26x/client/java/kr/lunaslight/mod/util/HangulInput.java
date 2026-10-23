@@ -149,7 +149,7 @@ public final class HangulInput {
 		}
 		COMP.reset();
 		if (focused) {
-			boolean open = osImeOpen() || WinIme.hangulMode(glfwHandle()) == 1;
+			boolean open = osImeOpen();   // 49-408차: 들어올 땐 열림만(닫힌 입력기는 한글 변환 모드를 기억만 하고 있을 수 있음)
 			if (open != korean) {
 				korean = open;
 				osKorean = false;
@@ -166,7 +166,17 @@ public final class HangulInput {
 	private static void osImeOff() {
 		osImeSet(false);
 		WinIme.setHangulMode(glfwHandle(), false);   // 49-400차: 변환 모드도 영문으로(다음 누름이 늘 영문→한글)
+		lastHm = WinIme.hangulMode(glfwHandle());   // 49-408차: 우리가 바꾼 값은 누름으로 치지 않게 기억
+		lastOpen = osImeOpen();   // 닫기가 안 먹는 입력기면 열린 채로 기억(계속 누름으로 치지 않게)
 	}
+
+	/**
+	 * 49-408차(사용자: "채팅 쓸 때 한글이랑 영어가 막 계속 바뀌어", "가끔 한/영 바꾸면 계속 왔다갔다"): 49-400차는 변환 모드가
+	 * "한글이면" 누름으로 봤는데, 입력기가 닫혀 있으면 윈도우가 영문으로 돌리기를 받아 주지 않아 한글로 남는 때가 있다 - 그러면 매 틱
+	 * 누름으로 봐서 0.2초마다 한/영이 뒤집혔다. 이제 변환 모드가 "바뀐 순간"만 누름으로 본다(우리가 바꾼 건 lastHm에 기억해 뺌).
+	 */
+	private static int lastHm = -1;
+	private static boolean lastOpen;
 
 	private static void lookGlfw() throws ReflectiveOperationException {
 		if (!glfwLooked) {
@@ -221,9 +231,20 @@ public final class HangulInput {
 		if (!on() || LunaInput.SDL || !wasFocused) {
 			return;
 		}
-		if (osImeOpen() || WinIme.hangulMode(glfwHandle()) == 1) {   // 49-400차: 열림이나 한글 변환 모드 = 한/영 누름
+		int hm = WinIme.hangulMode(glfwHandle());
+		boolean flipped = hm >= 0 && lastHm >= 0 && hm != lastHm;   // 49-408차: 변환 모드가 바뀐 순간만
+		if (hm >= 0 && lastHm < 0) {
+			lastHm = hm;
+		}
+		boolean open = osImeOpen();
+		boolean opened = open && !lastOpen;   // 49-408차: 닫혀 있다가 열린 순간만
+		lastOpen = open;
+		if (opened || flipped) {   // 열림이나 변환 모드 바뀜 = 한/영 누름
 			toggleKorean();
 			osImeOff();
+		} else if (open) {
+			osImeSet(false);   // 열린 채면 닫기만 다시 시도(누름으로 치지는 않음)
+			lastOpen = osImeOpen();
 		}
 	}
 
