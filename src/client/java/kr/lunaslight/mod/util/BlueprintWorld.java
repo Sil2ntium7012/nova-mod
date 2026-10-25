@@ -520,6 +520,200 @@ public final class BlueprintWorld {
 		}
 	}
 
+	// ==================== 49-418차: 지정 상자 선(월드 안) ====================
+	// 사용자: "1.21.11에도 생기던데"(설계도 지정 상자가 시야를 따라옴). 26.x처럼 화면(HUD) 위 덧그림 대신 월드 그리기 이벤트에서
+	// 바닐라 블록 테두리와 같은 LINES로 그린다(블록과 같은 카메라라 딱 붙고, 블록 뒤는 깊이로 가려짐).
+	// 버전마다 VertexConsumer 모양이 달라 리플렉션: vertex(행렬, x, y, z) → color → normal → (1.21.11+) lineWidth → (1.20.x 이하) next.
+	// 1.14.4(Sink 길)나 못 찾은 판은 false - 화면 방식 그대로.
+
+	private static boolean linesBroken, linesResolved;
+	private static Object linesLayer;
+	private static Method lVertex, lColorI, lColor4, lNormalE, lNormalM, lNormalF, lLineWidth, lNext, lDraw;
+
+	public static boolean linesUsable() {
+		return !linesBroken;
+	}
+
+	private static Object linesLayer() throws Exception {
+		Class<?> rls = LunaCompat.classOrNull("net.minecraft.client.render.RenderLayers");
+		if (rls != null) {
+			Method m = LunaCompat.findMethod(rls, "lines");
+			if (m != null && java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+				return m.invoke(null);
+			}
+		}
+		Class<?> rl = net.minecraft.client.render.RenderLayer.class;
+		Method g = LunaCompat.findMethod(rl, "getLines");
+		if (g != null && java.lang.reflect.Modifier.isStatic(g.getModifiers())) {
+			return g.invoke(null);
+		}
+		Method g2 = LunaCompat.findMethod(rl, "lines");
+		if (g2 != null && java.lang.reflect.Modifier.isStatic(g2.getModifiers())) {
+			return g2.invoke(null);
+		}
+		java.lang.reflect.Field f = LunaCompat.findField(rl, "LINES");
+		return f == null ? null : f.get(null);
+	}
+
+	private static void resolveLines(Class<?> vc) {
+		linesResolved = true;
+		for (Method m : vc.getMethods()) {
+			Class<?>[] p = m.getParameterTypes();
+			String n = m.getName();
+			if (p.length == 4 && p[0] != float.class && p[0] != double.class && p[1] == float.class && p[2] == float.class && p[3] == float.class
+					&& LunaCompat.nameMatches(vc, "vertex", n)) {
+				if (lVertex == null || p[0].getName().contains("joml")) {
+					lVertex = m;
+				}
+			} else if (p.length == 1 && p[0] == int.class && LunaCompat.nameMatches(vc, "color", n)) {
+				lColorI = m;
+			} else if (p.length == 4 && p[0] == int.class && p[3] == int.class && LunaCompat.nameMatches(vc, "color", n)) {
+				lColor4 = m;
+			} else if (p.length == 4 && p[0] != float.class && p[1] == float.class && LunaCompat.nameMatches(vc, "normal", n)
+					&& p[0].isAssignableFrom(MatrixStack.Entry.class)) {
+				lNormalE = m;
+			} else if (p.length == 4 && p[0].getSimpleName().contains("Matrix3f") && p[1] == float.class && LunaCompat.nameMatches(vc, "normal", n)) {
+				lNormalM = m;   // 1.20.x 이하: normal(Matrix3f, x, y, z)
+			} else if (p.length == 3 && p[0] == float.class && LunaCompat.nameMatches(vc, "normal", n)) {
+				lNormalF = m;
+			} else if (p.length == 1 && p[0] == float.class && LunaCompat.nameMatches(vc, "lineWidth", n)) {
+				lLineWidth = m;
+			} else if (p.length == 0 && LunaCompat.nameMatches(vc, "next", n)) {
+				lNext = m;
+			}
+		}
+		for (Method m : new Method[]{lVertex, lColorI, lColor4, lNormalE, lNormalM, lNormalF, lLineWidth, lNext}) {
+			if (m != null) {
+				m.setAccessible(true);
+			}
+		}
+	}
+
+	/** seg = {x0, y0, z0, x1, y1, z1, argb, 굵기(px)} 월드 좌표. 그렸으면 true. */
+	public static boolean lines(Object context, List<double[]> segs) {
+		if (linesBroken || context == null || context instanceof Sink || segs == null || segs.isEmpty()) {
+			return false;
+		}
+		try {
+			MatrixStack ms = LunaCompat.getMatrices(context);
+			Vec3d c = LunaCompat.getWorldRenderCameraPos(context);
+			Object consumers = LunaCompat.call(context, "consumers");
+			if (ms == null || c == null || consumers == null) {
+				return false;
+			}
+			if (linesLayer == null) {
+				linesLayer = linesLayer();
+				if (linesLayer == null) {
+					throw new IllegalStateException("LINES 렌더 레이어 없음");
+				}
+			}
+			Method gb = null;
+			for (Method m : consumers.getClass().getMethods()) {
+				if (m.getParameterCount() == 1 && m.getParameterTypes()[0].isInstance(linesLayer)
+						&& LunaCompat.nameMatches(consumers.getClass(), "getBuffer", m.getName())) {
+					m.setAccessible(true);
+					gb = m;
+					break;
+				}
+			}
+			if (gb == null) {
+				throw new IllegalStateException("getBuffer 없음: " + consumers.getClass().getName());
+			}
+			Object buf = gb.invoke(consumers, linesLayer);
+			if (buf == null) {
+				return false;
+			}
+			if (!linesResolved) {
+				Class<?> vc = LunaCompat.classOrNull("net.minecraft.client.render.VertexConsumer");
+				resolveLines(vc != null && vc.isInstance(buf) ? vc : buf.getClass());
+			}
+			if (lVertex == null || (lColorI == null && lColor4 == null) || (lNormalE == null && lNormalM == null && lNormalF == null)) {
+				throw new IllegalStateException("선 꼭짓점 함수 없음(vertex/color/normal)");
+			}
+			MatrixStack.Entry entry = ms.peek();
+			Object mat = LunaCompat.callNoArg(entry, "getPositionMatrix");
+			if (mat == null) {
+				mat = LunaCompat.callNoArg(entry, "getModel");
+			}
+			if (mat == null || !lVertex.getParameterTypes()[0].isInstance(mat)) {
+				throw new IllegalStateException("위치 행렬 모양이 다름");
+			}
+			for (double[] g : segs) {
+				float x0 = (float) (g[0] - c.x), y0 = (float) (g[1] - c.y), z0 = (float) (g[2] - c.z);
+				float x1 = (float) (g[3] - c.x), y1 = (float) (g[4] - c.y), z1 = (float) (g[5] - c.z);
+				float dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+				float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+				if (len < 1e-6f) {
+					continue;
+				}
+				dx /= len;
+				dy /= len;
+				dz /= len;
+				int argb = (int) (long) g[6];
+				float w = (float) g[7];
+				lineVertex(buf, mat, entry, x0, y0, z0, argb, dx, dy, dz, w);
+				lineVertex(buf, mat, entry, x1, y1, z1, argb, dx, dy, dz, w);
+			}
+			if (context instanceof Ctx15) {
+				// 이벤트 밖(1.15.2 믹스인 길) - 직접 그려 비운다
+				if (lDraw == null) {
+					for (Method m : consumers.getClass().getMethods()) {
+						if (m.getParameterCount() == 1 && m.getParameterTypes()[0].isInstance(linesLayer)
+								&& LunaCompat.nameMatches(consumers.getClass(), "draw", m.getName())) {
+							m.setAccessible(true);
+							lDraw = m;
+							break;
+						}
+					}
+				}
+				if (lDraw != null) {
+					lDraw.invoke(consumers, linesLayer);
+				}
+			}
+			return true;
+		} catch (Throwable t) {
+			linesBroken = true;
+			LunaCompat.warnOnce("blueprint:lines", t);
+			return false;
+		}
+	}
+
+	private static void lineVertex(Object buf, Object mat, MatrixStack.Entry entry, float x, float y, float z, int argb,
+			float nx, float ny, float nz, float w) throws Exception {
+		Object v = lVertex.invoke(buf, mat, x, y, z);
+		if (v == null) {
+			v = buf;
+		}
+		if (lColorI != null) {
+			v = orSelf(lColorI.invoke(v, argb), v);
+		} else {
+			v = orSelf(lColor4.invoke(v, (argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, (argb >>> 24) & 0xFF), v);
+		}
+		Object nm;
+		if (lNormalE != null) {
+			v = orSelf(lNormalE.invoke(v, entry, nx, ny, nz), v);
+		} else if (lNormalM != null && (nm = normalMatrix(entry)) != null && lNormalM.getParameterTypes()[0].isInstance(nm)) {
+			v = orSelf(lNormalM.invoke(v, nm, nx, ny, nz), v);
+		} else {
+			v = orSelf(lNormalF.invoke(v, nx, ny, nz), v);
+		}
+		if (lLineWidth != null) {
+			v = orSelf(lLineWidth.invoke(v, w), v);
+		}
+		if (lNext != null) {
+			lNext.invoke(v);
+		}
+	}
+
+	private static Object normalMatrix(MatrixStack.Entry entry) {
+		Object m = LunaCompat.callNoArg(entry, "getNormalMatrix");
+		return m != null ? m : LunaCompat.callNoArg(entry, "getNormal");
+	}
+
+	private static Object orSelf(Object r, Object self) {
+		return r == null ? self : r;
+	}
+
 	// ==================== 알파를 받지 않는 옛 quad(≤1.20.x) ====================
 	// 옛 VertexConsumer.quad에는 알파 인자가 없어 늘 1(불투명)로 꼭짓점을 넣는다. 기본 메서드 quad를 이 대리 객체 위에서 돌려
 	// 그 안에서 부르는 꼭짓점 한 번에 넣기(vertex 14개 인자)를 가로채 알파만 바꾼다. 나머지는 원래 버퍼로 그대로.

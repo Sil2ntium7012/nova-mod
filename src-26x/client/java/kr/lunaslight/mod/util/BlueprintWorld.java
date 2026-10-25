@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -261,6 +262,57 @@ public final class BlueprintWorld {
 				}
 			}
 		}
+	}
+
+	// ==================== 49-417차: 지정 상자 선(월드 안) ====================
+
+	private static boolean linesBroken;
+
+	/**
+	 * 설계도 지정 상자 선을 월드 안에 그린다(바닐라 블록 테두리와 같은 LINES). 화면(HUD) 위 덧그림은 26.x에서 한 프레임 전 카메라로
+	 * 그려져 고개를 돌리면 상자가 시야를 따라왔다 - 월드에서 그리면 블록과 같은 카메라라 딱 붙어 있고, 블록 뒤는 깊이로 가려진다.
+	 * seg = {x0, y0, z0, x1, y1, z1, argb, 굵기(px)} 월드 좌표. 그렸으면 true(안 되면 화면 방식으로).
+	 */
+	public static boolean lines(Object context, List<double[]> segs) {
+		if (linesBroken || !(context instanceof Ctx c) || c.pose == null || c.cam == null || c.collector == null || segs == null || segs.isEmpty()) {
+			return false;
+		}
+		final List<double[]> items = new ArrayList<>(segs);
+		final double cx = c.cam.x, cy = c.cam.y, cz = c.cam.z;
+		try {
+			c.collector.submitCustomGeometry(c.pose, RenderTypes.lines(), (pose, vc) -> {
+				try {
+					for (double[] g : items) {
+						float x0 = (float) (g[0] - cx), y0 = (float) (g[1] - cy), z0 = (float) (g[2] - cz);
+						float x1 = (float) (g[3] - cx), y1 = (float) (g[4] - cy), z1 = (float) (g[5] - cz);
+						float dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+						float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+						if (len < 1e-6f) {
+							continue;
+						}
+						dx /= len;
+						dy /= len;
+						dz /= len;
+						int argb = (int) (long) g[6];
+						float w = (float) g[7];
+						vc.addVertex(pose, x0, y0, z0).setColor(argb).setNormal(pose, dx, dy, dz).setLineWidth(w);
+						vc.addVertex(pose, x1, y1, z1).setColor(argb).setNormal(pose, dx, dy, dz).setLineWidth(w);
+					}
+				} catch (Throwable t) {
+					linesBroken = true;
+					LunaCompat.warnOnce("blueprint:lines", t);
+				}
+			});
+			return true;
+		} catch (Throwable t) {
+			linesBroken = true;
+			LunaCompat.warnOnce("blueprint:lines", t);
+			return false;
+		}
+	}
+
+	public static boolean linesUsable() {
+		return !linesBroken;
 	}
 
 	private static int clamp(float c) {

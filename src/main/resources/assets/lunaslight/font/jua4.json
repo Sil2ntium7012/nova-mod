@@ -21,6 +21,10 @@
     1
    ],
    "skip": ""
+  },
+  {
+   "type": "reference",
+   "id": "minecraft:default"
   }
  ]
 }

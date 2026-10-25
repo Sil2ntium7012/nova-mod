@@ -65,7 +65,8 @@ public abstract class ChatHudMixin {
 		}
 	}
 
-	@ModifyConstant(method = {"addMessage", "addMessageToDisplayQueue"}, constant = @Constant(intValue = 100), require = 0)
+	// 49-425차: 26.x는 기록 목록 자르기가 addMessage가 아니라 addMessageToQueue에 있다 - 예전엔 화면 줄만 풀려서 창 크기를 바꾸면 100줄로 돌아갔다
+	@ModifyConstant(method = {"addMessage", "addMessageToQueue", "addMessageToDisplayQueue"}, constant = @Constant(intValue = 100), require = 0)
 	private int lunaslight$maxMessages(int original) {
 		return ChatState.unlimitedHistory ? ChatState.UNLIMITED_LINES : original;
 	}

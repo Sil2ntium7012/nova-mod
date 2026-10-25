@@ -1011,6 +1011,9 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		if (!holdingTool()) {
 			return;
 		}
+		if (selWorldAt != 0 && System.nanoTime() - selWorldAt < 200_000_000L) {
+			return;   // 49-417차: 월드 안에 그렸다(시야를 안 따라옴)
+		}
 		if (pos1 != null) {
 			selBox(ctx, proj, 0, pos1.getX(), pos1.getY(), pos1.getZ(), pos1.getX() + 1, pos1.getY() + 1, pos1.getZ() + 1, 2f, 0xFF55C8FF);
 		}
@@ -1665,8 +1668,72 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 		return m instanceof kr.lunaslight.mod.util.BlueprintWorld.Model mm ? mm : null;
 	}
 
+	// ==================== 49-417차: 지정 상자를 월드 안에(시야를 안 따라오게) ====================
+	// 사용자: "아직도 시야를 따라오는데 홀로그램이"(설계도 지정하는 거). 지정 상자(1번/2번 지점, 구역, 기준점)는 화면(HUD)에 덧그렸는데,
+	// 26.x는 HUD를 월드보다 먼저 만들어 한 프레임 전 카메라로 그려졌다 - 고개를 돌리면 상자가 시야를 따라 밀렸다. 이제 월드 그리기 단계에서
+	// 선으로 그린다(블록 테두리와 같은 카메라). 월드 쪽이 안 되면(믹스인 실패 등) 예전처럼 화면 위에.
+
+	/** 마지막으로 월드에 지정 상자를 그린 시각(나노초). 최근이면 화면 쪽은 안 그린다. */
+	private long selWorldAt;
+
+	private void selWorldBox(List<double[]> out, double x0, double y0, double z0, double x1, double y1, double z1, float width, int argb) {
+		double g = 0.003;   // 블록 면과 겹쳐 깜빡이지 않게 살짝 키움
+		x0 -= g;
+		y0 -= g;
+		z0 -= g;
+		x1 += g;
+		y1 += g;
+		z1 += g;
+		double[][] c = new double[8][];
+		for (int i = 0; i < 8; i++) {
+			c[i] = new double[]{(i & 1) == 0 ? x0 : x1, (i & 4) == 0 ? y0 : y1, (i & 2) == 0 ? z0 : z1};
+		}
+		float gs = 1f;
+		try {
+			gs = (float) Math.max(1, client.getWindow().getGuiScale());
+		} catch (Throwable ignored) {
+		}
+		double w = Math.max(1.5, width * gs);
+		for (int[] e : EDGES) {
+			double[] a = c[e[0]], b = c[e[1]];
+			out.add(new double[]{a[0], a[1], a[2], b[0], b[1], b[2], argb, w});
+		}
+	}
+
+	private void drawSelectionWorld(Object context) {
+		if (pos1 == null && pos2 == null || !holdingTool() || client.player == null || LunaCompat.screenOf(client) != null
+				|| !kr.lunaslight.mod.util.BlueprintWorld.linesUsable()) {
+			return;
+		}
+		List<double[]> segs = new ArrayList<>();
+		if (pos1 != null) {
+			selWorldBox(segs, pos1.getX(), pos1.getY(), pos1.getZ(), pos1.getX() + 1, pos1.getY() + 1, pos1.getZ() + 1, 2f, 0xFF55C8FF);
+		}
+		if (pos2 != null) {
+			selWorldBox(segs, pos2.getX(), pos2.getY(), pos2.getZ(), pos2.getX() + 1, pos2.getY() + 1, pos2.getZ() + 1, 2f, 0xFFE070FF);
+		}
+		if (pos1 != null && pos2 != null) {
+			selWorldBox(segs, Math.min(pos1.getX(), pos2.getX()), Math.min(pos1.getY(), pos2.getY()), Math.min(pos1.getZ(), pos2.getZ()),
+					Math.max(pos1.getX(), pos2.getX()) + 1, Math.max(pos1.getY(), pos2.getY()) + 1, Math.max(pos1.getZ(), pos2.getZ()) + 1,
+					1.2f, 0xB0FFFFFF);
+		}
+		BlockPos ref = refPos();
+		if (ref != null) {
+			double g = 0.25;
+			selWorldBox(segs, ref.getX() + g, ref.getY() + g, ref.getZ() + g, ref.getX() + 1 - g, ref.getY() + 1 - g, ref.getZ() + 1 - g, 1.6f, 0xFFFFD84A);
+		}
+		if (kr.lunaslight.mod.util.BlueprintWorld.lines(context, segs)) {
+			selWorldAt = System.nanoTime();
+		}
+	}
+
 	@Override
 	public void onWorldRender(Object context) {
+		try {
+			drawSelectionWorld(context);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("blueprint:selWorld", t);
+		}
 		worldOk = false;
 		if (!worldRender.get() || bp == null || origin == null || status == null || drawN == 0 || client.level == null
 				|| !kr.lunaslight.mod.util.BlueprintWorld.usable()) {

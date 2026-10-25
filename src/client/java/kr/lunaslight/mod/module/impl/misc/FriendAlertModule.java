@@ -30,7 +30,7 @@ import java.util.Set;
  * <ol>
  *   <li><b>탭 목록</b>: 친구의 마크 닉네임(런처가 site_presence에 올린 mc_name, 오프라인이어도 마지막 값이 남음)이
  *       지금 서버 탭 목록에 새로 나타나면 들어온 것, 사라지면 나간 것. 거의 바로 안다(0.5초마다 봄).</li>
- *   <li>닉네임을 모르는 친구만 <b>접속 정보</b>(site_presence의 서버 주소가 내 서버와 같은지)로 판단. 10초마다 읽는데,
+ *   <li>닉네임을 모르는 친구만 <b>접속 정보</b>(site_presence의 서버 주소가 내 서버와 같은지)로 판단. 1분마다 읽는데,
  *       친구 게임 → 런처 → 서버를 거쳐 올라오므로 수십 초 늦을 수 있다.</li>
  * </ol>
  * 서버에 막 들어온 뒤(6초, 그리고 첫 친구 목록 조회 전)는 조용히 지금 상태만 적어 둔다 - 이미 있던 친구로 도배하지 않게.
@@ -42,8 +42,13 @@ import java.util.Set;
  */
 public class FriendAlertModule extends Module {
 
-	/** 친구 목록 다시 읽는 간격. 닉네임을 아는 친구는 탭 목록으로 바로 알기 때문에 이건 보조다. */
-	private static final long POLL_MS = 10_000L;
+	/**
+	 * 친구 목록 다시 읽는 간격. 닉네임을 아는 친구는 탭 목록으로 바로 알기 때문에 이건 보조다.
+	 * 10-25(사이트 요청 한도 초과, 사용자: "2분 말고 1분으로"): 10초 → 1분. 실패하면 2분 → 4분 → 8분 → 15분까지 늦추고,
+	 * 성공하면 다시 1분.
+	 */
+	private static final long POLL_MS = 60_000L;
+	private static final long MAX_BACKOFF_MS = 15L * 60_000L;
 	/** 서버에 들어온 직후 조용히 있는 시간(탭 목록이 다 차는 동안). */
 	private static final long SETTLE_MS = 6_000L;
 	private static final long SHOW_MS = 4_000L;
@@ -93,7 +98,8 @@ public class FriendAlertModule extends Module {
 	private String serverKey = "";
 	private long joinedAtMs;
 	private boolean fetchedSinceJoin;
-	private long lastPollMs;
+	private long nextPollAtMs;
+	private long backoffMs = POLL_MS;
 	private boolean polling;
 	private int tickCount;
 	private long secondNoteAtMs;
@@ -123,7 +129,9 @@ public class FriendAlertModule extends Module {
 		present = new HashSet<>();
 		joinedAtMs = System.currentTimeMillis();
 		fetchedSinceJoin = false;
-		lastPollMs = 0L;
+		if (backoffMs <= POLL_MS) {
+			nextPollAtMs = 0L;   // 서버를 옮기면 바로 한 번 읽음(실패해서 늦추는 중이면 그 시간 그대로)
+		}
 	}
 
 	@Override
@@ -156,12 +164,12 @@ public class FriendAlertModule extends Module {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		if (now - lastPollMs < POLL_MS) {
+		if (now < nextPollAtMs) {
 			return;
 		}
-		lastPollMs = now;
+		nextPollAtMs = now + POLL_MS;
 		polling = true;
-		LunaSocial.fetchFriends().whenComplete((list, t) -> {
+		LunaSocial.fetchFriendsChecked().whenComplete((list, t) -> {
 			if (client == null) {
 				polling = false;
 				return;
@@ -169,8 +177,15 @@ public class FriendAlertModule extends Module {
 			client.execute(() -> {
 				polling = false;
 				if (t != null || list == null) {
-					return;   // 인터넷이 잠깐 끊긴 것 - 다음 차례에 다시 본다
+					// 실패(인터넷, 사이트 426 등) - 받아 둔 목록은 그대로 두고 다음 시도를 늦춘다
+					backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
+					nextPollAtMs = System.currentTimeMillis() + backoffMs;
+					if (t != null) {
+						LunaCompat.warnOnce("friend_alert:poll", t);
+					}
+					return;
 				}
+				backoffMs = POLL_MS;
 				friends.clear();
 				for (LunaSocial.Friend f : list) {
 					friends.put(f.accountId(), f);

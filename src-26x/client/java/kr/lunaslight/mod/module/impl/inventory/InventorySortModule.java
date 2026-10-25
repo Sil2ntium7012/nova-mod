@@ -21,7 +21,7 @@ import java.util.List;
  * 49-111차(사용자: "인벤토리 정리 - 단축키식, 이름/갯수/id 순, 오름/내림차순, 기본 키 마우스 휠클릭, 상자·내 인벤토리 다"):
  * 키 하나로 마우스가 올라간 쪽(상자 또는 내 인벤토리)을 <b>정렬</b>한다.
  *
- * <p>정렬은 <b>슬롯을 서로 바꾸는(스왑) 선택정렬</b>이라 개수를 건드리지 않는다 - 아이템이 사라지거나 개수가
+ * <p>정렬은 <b>슬롯을 서로 바꾸는(스왑, 숫자 키 바꾸기) 선택정렬</b>이라 개수를 건드리지 않는다 - 아이템이 사라지거나 개수가
  * 어긋날 위험이 없다(안티치트 서버에서도 pickup 클릭이라 안전한 편). 같은 아이템이 붙어 정렬되고 빈 칸은 뒤로 간다.
  * (반쪽 스택끼리 합치는 건 아직 안 한다 - 개수 조작은 서버와 어긋나기 쉬워 다음에 안전하게 붙일 것.)
  *
@@ -247,17 +247,26 @@ public class InventorySortModule extends Module {
 		}
 	}
 
-	/** region[i] ↔ region[j] 스왑(모델 + 서버 클릭). */
+	/**
+	 * region[i] ↔ region[j] 스왑(모델 + 서버 클릭). 49-416차(사용자: "아이템 정리하면 꾸러미에 아이템이 들어가 버려"):
+	 * 예전엔 커서로 집어 옮겼는데(PICKUP), 들고 있는 아이템을 꾸러미 칸에 누르면 꾸러미가 그걸 넣어 버리고, 같은 아이템끼리는
+	 * 합쳐져 개수도 바뀌었다. 이제 숫자 키 바꾸기(SWAP - 칸과 핫바 칸을 그대로 맞바꿈)만 쓴다. 커서를 안 써서 꾸러미에 들어가거나
+	 * 합쳐지는 일이 없다. 둘 다 핫바 칸이 아니면 핫바 9번 칸을 거쳐 세 번 바꾼다(9번 칸은 원래대로 돌아온다).
+	 */
 	private void swap(List<Slot> region, ItemStack[] model, int i, int j) {
 		int syncId = client.player.containerMenu.containerId;
 		int idI = region.get(i).index;
 		int idJ = region.get(j).index;
-		boolean jEmpty = model[j] == null || model[j].isEmpty();
+		int hi = hotbarOf(region.get(i)), hj = hotbarOf(region.get(j));
 		try {
-			click(syncId, idI);              // 집기: 커서 = i, i 비움
-			click(syncId, idJ);              // j가 있으면 커서↔j 교환(커서=j, j=i), 비었으면 j=i·커서 비움
-			if (!jEmpty) {
-				click(syncId, idI);          // 커서(=j)를 i에
+			if (hi >= 0) {
+				swapWithHotbar(syncId, idJ, hi);       // j ↔ (핫바 칸인) i
+			} else if (hj >= 0) {
+				swapWithHotbar(syncId, idI, hj);       // i ↔ (핫바 칸인) j
+			} else {
+				swapWithHotbar(syncId, idI, TEMP_HOTBAR);   // i ↔ 9번
+				swapWithHotbar(syncId, idJ, TEMP_HOTBAR);   // j ↔ 9번(= 원래 i)
+				swapWithHotbar(syncId, idI, TEMP_HOTBAR);   // i ↔ 9번(= 원래 j), 9번은 원래대로
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("inventorySort:swap", t);
@@ -268,8 +277,20 @@ public class InventorySortModule extends Module {
 		model[j] = tmp;
 	}
 
-	private void click(int syncId, int slotId) {
-		client.gameMode.handleContainerInput(syncId, slotId, 0, ContainerInput.PICKUP, client.player);
+	/** 바꿀 때 거치는 핫바 칸(9번 = index 8). */
+	private static final int TEMP_HOTBAR = 8;
+
+	private void swapWithHotbar(int syncId, int slotId, int hotbar) {
+		client.gameMode.handleContainerInput(syncId, slotId, hotbar, ContainerInput.SWAP, client.player);
+	}
+
+	/** 내 핫바 칸이면 그 번호(0~8), 아니면 -1. */
+	private static int hotbarOf(Slot s) {
+		if (!(s.container instanceof Inventory)) {
+			return -1;
+		}
+		int idx = slotIndex(s);
+		return idx >= 0 && idx <= 8 ? idx : -1;
 	}
 
 	// ==================== 슬롯 판별(마우스 트윅스와 같은 방식) ====================

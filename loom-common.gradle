@@ -95,7 +95,8 @@ sourceSets {
 		resources {
 			srcDirs = [rootProject.file('src/main/resources')]
 			if (lunaFontStb) {
-				['mchan', 'mchan9', 'mchan11', 'ui', 'title', 'icons', 'iconsmd', 'iconslg', 'jua'].each { exclude "assets/lunaslight/font/${it}?.json" }
+				// 49-424차: display도 FreeType 판(이름+숫자)은 stb 시대에 안 쓴다 - 끝에 minecraft:default 참조(reference, 1.20+)가 있어 1.19 이하 로더가 경고를 찍지 않게 뺀다
+				['mchan', 'mchan9', 'mchan11', 'ui', 'title', 'icons', 'iconsmd', 'iconslg', 'jua', 'display'].each { exclude "assets/lunaslight/font/${it}?.json" }
 			} else {
 				exclude 'assets/lunaslight/font/*_stb?.json'
 			}

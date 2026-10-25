@@ -637,6 +637,23 @@ public final class LunaSocial {
 		return siteApiBase == null ? "" : siteApiBase;
 	}
 
+	/**
+	 * 10-25(사이트 요청 한도 초과): 사이트 launcherGate는 {@code x-nova-launcher: <런처 버전>} 머리말이 없거나 낮으면
+	 * 426으로 막는다(사이트는 머리말 없는 /api/app/social/*를 서버 함수 없이 바로 돌려줌). 런처가 .luna-launch.json에
+	 * 실어 준 launcherVersion을 그대로 붙인다.
+	 */
+	private static HttpRequest.Builder siteHeaders(HttpRequest.Builder b) {
+		String v = launcherVersion;
+		if (v != null && !v.trim().isEmpty()) {
+			try {
+				b.header("x-nova-launcher", v.trim());
+			} catch (Throwable ignored) {
+				// 머리말에 못 쓰는 글자 - 없이 보낸다
+			}
+		}
+		return b;
+	}
+
 	private static String siteApiBase;
 
 	// ==================== 49-282차: 친구 · 귓속말은 사이트 서버로 ====================
@@ -657,7 +674,13 @@ public final class LunaSocial {
 		JsonObject b = body == null ? new JsonObject() : body;
 		b.addProperty("accountId", siteId);
 		b.addProperty("sessionToken", siteToken);
-		HttpRequest req = HttpRequest.newBuilder(URI.create(siteApi() + "/api/app/social/" + action))
+		if (launcherVersion == null || launcherVersion.trim().isEmpty()) {
+			// 10-25: 버전을 모르면 사이트가 어차피 426으로 막는다 - 요청을 보내지 않는다(요청 수 절약)
+			CompletableFuture<JsonObject> f = new CompletableFuture<>();
+			f.completeExceptionally(new RuntimeException("사이트 " + action + " 런처 버전 없음"));
+			return f;
+		}
+		HttpRequest req = siteHeaders(HttpRequest.newBuilder(URI.create(siteApi() + "/api/app/social/" + action)))
 				.timeout(Duration.ofSeconds(10))
 				.header("Content-Type", "application/json")
 				.header("Accept", "application/json")
@@ -774,7 +797,7 @@ public final class LunaSocial {
 		JsonObject body = new JsonObject();
 		body.addProperty("by", "nickname");
 		body.addProperty("nickname", nickname);
-		HttpRequest req = HttpRequest.newBuilder(URI.create(siteApi() + "/api/app/account/social"))
+		HttpRequest req = siteHeaders(HttpRequest.newBuilder(URI.create(siteApi() + "/api/app/account/social")))
 				.timeout(Duration.ofSeconds(10))
 				.header("Content-Type", "application/json")
 				.header("Accept", "application/json")
@@ -1001,6 +1024,21 @@ public final class LunaSocial {
 				LunaCompat.warnOnce("social:accept", t);
 				return "수락하지 못했습니다";
 			});
+	}
+
+	/**
+	 * 10-25: 친구 접속 알림용. 사이트 실패를 빈 목록으로 바꾸지 않고 그대로 넘긴다 - 부르는 쪽이 다음 시도를
+	 * 늦추고(백오프), 마지막으로 받은 친구 목록을 그대로 쓰게.
+	 */
+	public static CompletableFuture<List<Friend>> fetchFriendsChecked() {
+		load();
+		if (!signedIn()) {
+			return CompletableFuture.completedFuture(List.of());
+		}
+		if (viaSite()) {
+			return siteFriends(false);
+		}
+		return fetchFriends();
 	}
 
 	/** 수락된 친구 목록(온라인 순). 로그인 안 됐으면 빈 목록. */
