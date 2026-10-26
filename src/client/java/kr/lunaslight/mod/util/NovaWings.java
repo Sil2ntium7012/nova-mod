@@ -39,7 +39,7 @@ public final class NovaWings {
 	private NovaWings() {
 	}
 
-	public static final String[] KEYS = {"butterfly"};
+	public static final String[] KEYS = {"butterfly", "angel"};   // 10-26: 천사 날개(런처 세션 - angel_wing.bbmodel, 3초마다 30도 펄럭)
 
 	// ==================== 소유(칸마다) ====================
 	// 49-351차(사용자: "토끼가방으로 치장에 추가해줘"): 날개와 같은 구조의 두 번째 칸 [가방]. 칸마다 서명 종류(kind), key 목록, Supabase 칸,
@@ -266,7 +266,7 @@ public final class NovaWings {
 	}
 
 	/** 날개 칸. */
-	public static final Slot WING = new Slot("wing", "cosmetic_wing", KEYS, Map.of("butterfly", "나비 날개"),
+	public static final Slot WING = new Slot("wing", "cosmetic_wing", KEYS, Map.of("butterfly", "나비 날개", "angel", "천사 날개"),
 			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.wingsOn());
 	/** 49-351차: 가방 칸(첫 번째 = 토끼 가방). 서명 글자 "NovaSig|v1|bag|ts|key|내 uuid", Supabase nova_player_tiers.cosmetic_bag. */
 	public static final String[] BAG_KEYS = {"bunny"};

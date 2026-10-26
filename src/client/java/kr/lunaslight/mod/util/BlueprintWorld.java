@@ -527,6 +527,7 @@ public final class BlueprintWorld {
 	// 1.14.4(Sink 길)나 못 찾은 판은 false - 화면 방식 그대로.
 
 	private static boolean linesBroken, linesResolved;
+	private static Class<?> lEntryClass;
 	private static Object linesLayer;
 	private static Method lVertex, lColorI, lColor4, lNormalE, lNormalM, lNormalF, lLineWidth, lNext, lDraw;
 
@@ -570,7 +571,7 @@ public final class BlueprintWorld {
 			} else if (p.length == 4 && p[0] == int.class && p[3] == int.class && LunaCompat.nameMatches(vc, "color", n)) {
 				lColor4 = m;
 			} else if (p.length == 4 && p[0] != float.class && p[1] == float.class && LunaCompat.nameMatches(vc, "normal", n)
-					&& p[0].isAssignableFrom(MatrixStack.Entry.class)) {
+					&& lEntryClass != null && p[0].isAssignableFrom(lEntryClass)) {
 				lNormalE = m;
 			} else if (p.length == 4 && p[0].getSimpleName().contains("Matrix3f") && p[1] == float.class && LunaCompat.nameMatches(vc, "normal", n)) {
 				lNormalM = m;   // 1.20.x 이하: normal(Matrix3f, x, y, z)
@@ -623,14 +624,19 @@ public final class BlueprintWorld {
 			if (buf == null) {
 				return false;
 			}
+			// 10-26: Entry 타입을 이름으로 쓰지 않는다 - 1.14.4 shim(compat/legacy-no-matrix)엔 Entry가 없어 컴파일이 깨졌다.
+			Object entry = ms.peek();
+			if (entry == null) {
+				return false;
+			}
 			if (!linesResolved) {
+				lEntryClass = entry.getClass();
 				Class<?> vc = LunaCompat.classOrNull("net.minecraft.client.render.VertexConsumer");
 				resolveLines(vc != null && vc.isInstance(buf) ? vc : buf.getClass());
 			}
 			if (lVertex == null || (lColorI == null && lColor4 == null) || (lNormalE == null && lNormalM == null && lNormalF == null)) {
 				throw new IllegalStateException("선 꼭짓점 함수 없음(vertex/color/normal)");
 			}
-			MatrixStack.Entry entry = ms.peek();
 			Object mat = LunaCompat.callNoArg(entry, "getPositionMatrix");
 			if (mat == null) {
 				mat = LunaCompat.callNoArg(entry, "getModel");
@@ -678,7 +684,7 @@ public final class BlueprintWorld {
 		}
 	}
 
-	private static void lineVertex(Object buf, Object mat, MatrixStack.Entry entry, float x, float y, float z, int argb,
+	private static void lineVertex(Object buf, Object mat, Object entry, float x, float y, float z, int argb,
 			float nx, float ny, float nz, float w) throws Exception {
 		Object v = lVertex.invoke(buf, mat, x, y, z);
 		if (v == null) {
@@ -705,7 +711,7 @@ public final class BlueprintWorld {
 		}
 	}
 
-	private static Object normalMatrix(MatrixStack.Entry entry) {
+	private static Object normalMatrix(Object entry) {
 		Object m = LunaCompat.callNoArg(entry, "getNormalMatrix");
 		return m != null ? m : LunaCompat.callNoArg(entry, "getNormal");
 	}
