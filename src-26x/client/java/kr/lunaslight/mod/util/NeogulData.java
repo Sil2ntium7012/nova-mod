@@ -277,8 +277,72 @@ public final class NeogulData {
 		return BY_IN.getOrDefault(key, Collections.emptyList());
 	}
 
-	/** 너굴마을(mcng.kr)에 접속해 있는지 - 서버 주소로 판단. */
+	// ==================== 49-432차: 관리자 싱글 테스트 ====================
+	// 사용자: "LNR_Sil2ntium 이 계정은 관리자여서 이 계정은 너굴마을 기능이 싱글에서도 보이거나 가능하게 버튼을 따로 넣어줘 서버에".
+	// 설정 > 서버 > 너굴마을 카드에 이 계정일 때만 "싱글에서도 켜기" 버튼이 보이고, 켜 두면 싱글 월드를 너굴마을로 친다.
+	// 다른 계정이면 저장값이 켜져 있어도 무시. 값은 config/lunaslight/neogul_admin.properties.
+
+	public static final String ADMIN = "LNR_Sil2ntium";
+	private static Boolean singleTest;
+
+	/** 지금 계정이 관리자(LNR_Sil2ntium)인가. */
+	public static boolean isAdmin(Minecraft client) {
+		try {
+			return client != null && client.getUser() != null && ADMIN.equalsIgnoreCase(client.getUser().getName());
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	private static Path adminFile() {
+		return FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("neogul_admin.properties");
+	}
+
+	/** 저장된 "싱글에서도 켜기" 값. */
+	public static synchronized boolean singleTest() {
+		if (singleTest == null) {
+			singleTest = false;
+			try {
+				Path p = adminFile();
+				if (Files.isRegularFile(p)) {
+					java.util.Properties pr = new java.util.Properties();
+					try (Reader r = Files.newBufferedReader(p, StandardCharsets.UTF_8)) {
+						pr.load(r);
+					}
+					singleTest = Boolean.parseBoolean(pr.getProperty("single", "false"));
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("neogul:adminLoad", t);
+			}
+		}
+		return singleTest;
+	}
+
+	public static synchronized void setSingleTest(boolean on) {
+		singleTest = on;
+		try {
+			Path p = adminFile();
+			Files.createDirectories(p.getParent());
+			java.util.Properties pr = new java.util.Properties();
+			pr.setProperty("single", Boolean.toString(on));
+			try (java.io.Writer w = Files.newBufferedWriter(p, StandardCharsets.UTF_8)) {
+				pr.store(w, "Nova - 너굴마을 관리자 싱글 테스트");
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogul:adminSave", t);
+		}
+	}
+
+	/** 관리자 계정 + "싱글에서도 켜기" + 지금 싱글 월드. */
+	public static boolean singleActive(Minecraft client) {
+		return client != null && singleTest() && isAdmin(client) && LunaCompat.isSinglePlayer(client);
+	}
+
+	/** 너굴마을(mcng.kr)에 접속해 있는지 - 서버 주소로 판단. 49-432차: 관리자 싱글 테스트 중이면 싱글도. */
 	public static boolean onNeogul(Minecraft client) {
+		if (singleActive(client)) {
+			return true;
+		}
 		try {
 			String a = LunaCompat.currentServerAddress(client);
 			return a != null && a.toLowerCase(java.util.Locale.ROOT).contains("mcng");
@@ -344,6 +408,11 @@ public final class NeogulData {
 			LunaCompat.warnOnce("neogul:model", t);
 			return null;
 		}
+	}
+
+	/** 49-431차: 치장 창 - 모델 id(nexo:&lt;id&gt;)만으로 아이템 모양. 팩이 꺼져 있으면 null. */
+	public static ItemStack modelStack(String model) {
+		return modelIcon("m:" + model, model);
 	}
 
 	/** 지금 켜진 리소스팩에 이 아이템 모델(assets/<ns>/items/<path>.json)이 있나. */

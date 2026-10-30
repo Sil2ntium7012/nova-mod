@@ -99,7 +99,7 @@ public final class NeogulJei {
 	private static final String[][] GROUPS = {
 		{"crop", "작물"}, {"gather", "채집물"}, {"ember", "잉걸불"}, {"coin", "채집 코인"}, {"tool", "채집 도구"},
 		{"rod", "낚싯대"}, {"fish", "물고기"}, {"gem", "광물"}, {"dungeon", "던전 전리품"}, {"mat", "요리 재료"},
-		{"food", "요리"}, {"food_gold", "황금 요리"},
+		{"food", "요리"}, {"food_gold", "황금 요리"}, {"plate", "플레이팅"}, {"enhance", "강화 재료"},
 		{"set_elder", "엘더우드 장비"}, {"set_lotus", "블랙로터스 장비"}, {"set_nord", "노르드 장비"},
 		{"set_burgonet", "버거넷 장비"}, {"set_oakhark", "오크하크 장비"}, {"gear", "장비"}, {"etc", "기타"}};
 
@@ -122,6 +122,10 @@ public final class NeogulJei {
 			if (k.startsWith(set + "_")) {
 				return "set_" + set;
 			}
+		}
+		// 49-431차: 위키 업데이트 - 플레이팅(주괴, 그릇)은 황금 요리보다 먼저 가른다(gold_ingot, gold_bowl)
+		if ("food".equals(c) && (k.endsWith("_ingot") || k.endsWith("_bowl"))) {
+			return "plate";
 		}
 		if (k.startsWith("gold_") && "food".equals(c)) {
 			return "food_gold";

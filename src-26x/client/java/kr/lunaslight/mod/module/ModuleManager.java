@@ -159,6 +159,12 @@ public final class ModuleManager {
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelModule");
 		}
+		// 49-431차: 너굴마을 위키 업데이트 - 명령어 목록(검색), 치장(미리 입어보기), 스킬 키 세팅(NG-SkillKeydown 없이)
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCommandsModule");
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCosmeticsModule");
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
+		}
 		// 49-144차: 리소스팩 기억(서버 모드로 켜면 그 서버 팩 미리 적용)
 		registerReflectively("kr.lunaslight.mod.module.impl.misc.ServerPackMemoryModule");
 

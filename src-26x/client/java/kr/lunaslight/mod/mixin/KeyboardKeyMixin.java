@@ -24,6 +24,11 @@ public abstract class KeyboardKeyMixin {
 		if (event == null) {
 			return;
 		}
+		// 49-431차: 너굴마을 스킬 키 세팅(서버가 정한 키 → 스킬 시전, 그 키는 게임에 안 넘김)
+		if (kr.lunaslight.mod.util.NeogulSkillKeys.active() && kr.lunaslight.mod.util.NeogulSkillKeys.onKey(event.key(), action)) {
+			ci.cancel();
+			return;
+		}
 		// 49-313차: 내장 한글 입력(한/영 전환, 조합 중 백스페이스)
 		if (kr.lunaslight.mod.util.HangulInput.onKey(window, event.key(), LunaInput.secondCode(event), action, event.modifiers())) {
 			ci.cancel();

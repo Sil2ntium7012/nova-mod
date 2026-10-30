@@ -1346,6 +1346,9 @@ public class LunaClientScreen extends LunaScreenBase {
 		String[] info = serverInfo(cur);
 		String addr = LunaCompat.currentServerAddress(this.minecraft);
 		boolean here = info != null && addr != null && addr.toLowerCase(java.util.Locale.ROOT).contains(info[1]);
+		// 49-432차: 관리자(LNR_Sil2ntium)만 - 너굴마을 기능을 싱글에서도 켜는 버튼
+		boolean admin = "너굴마을".equals(cur) && kr.lunaslight.mod.util.NeogulData.isAdmin(this.minecraft);
+		boolean single = admin && kr.lunaslight.mod.util.NeogulData.singleActive(this.minecraft);
 		List<Module> mods = currentModules();
 		int on = 0;
 		for (Module m : mods) {
@@ -1354,20 +1357,46 @@ public class LunaClientScreen extends LunaScreenBase {
 			}
 		}
 		String line = (info != null ? info[0] + "  |  " : "") + "기능 " + mods.size() + "개 중 " + on + "개 켜짐";
-		gText(ctx, gFit(line, contentW - 40), contentX + 30, cy + 29, 12, GRAY);
-		String st = here ? "접속 중" : "접속 안 함";
+		gText(ctx, gFit(line, contentW - 40 - (admin ? gWidth("싱글에서도 켜기") + 54 : 0)), contentX + 30, cy + 29, 12, GRAY);
+		String st = here ? "접속 중" : single ? "싱글 테스트 중" : "접속 안 함";
 		int sw = gWidth(st);
 		int sx = contentX + contentW - 10 - sw;
-		gText(ctx, st, sx, cy + 8, 12, here ? ACC : GRAY_DIM);
+		gText(ctx, st, sx, cy + 8, 12, here || single ? ACC : GRAY_DIM);
 		int dy = cy + 13;
-		ctx.fill(sx - 7, dy, sx - 3, dy + 4, LunaDraw.applyAlpha(here ? ACC : GRAY_DIM));
+		ctx.fill(sx - 7, dy, sx - 3, dy + 4, LunaDraw.applyAlpha(here || single ? ACC : GRAY_DIM));
+		adminBtn = null;
+		if (admin) {
+			boolean sOn = kr.lunaslight.mod.util.NeogulData.singleTest();
+			String label = "싱글에서도 켜기";
+			int bw = gWidth(label) + 44;
+			int bh = 16;
+			int bx = contentX + contentW - 10 - bw;
+			int by = cy + SCARD_H - bh - 6;
+			boolean hov = LunaDraw.in(mouseX, mouseY, bx, by, bw, bh);
+			LunaDraw.roundRect(ctx, bx, by, bw, bh, bh / 2, sOn ? ACC : hov ? LINE_HOV : LINE);
+			LunaDraw.roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, bh / 2 - 1, sOn ? LunaDraw.lerpColor(CARD_C, ACC, 0.18f) : CARD_C);
+			LunaDraw.toggle(ctx, bx + 6, by + 3, 20, 10, sOn ? 1f : 0f, true);
+			gText(ctx, label, bx + 32, by, bh, sOn || hov ? WHITE : GRAY);
+			adminBtn = new int[]{bx, by, bw, bh};
+			if (hov) {
+				hoverTip = sOn ? "관리자 전용 | 싱글 월드에서도 너굴마을 기능이 켜져 있어요 (누르면 끔)"
+					: "관리자 전용 | 누르면 싱글 월드에서도 너굴마을 기능을 켜요";
+			}
+		}
 	}
+
+	/** 49-432차: 관리자 "싱글에서도 켜기" 버튼 자리(이번 프레임, 없으면 null). */
+	private int[] adminBtn;
 
 	private boolean handleServerHeadClick(double mouseX, double mouseY) {
 		if (serverHeadH() <= 0) {
 			return false;
 		}
 		int top = contentY - (int) scroll;
+		if (adminBtn != null && LunaDraw.in(mouseX, mouseY, adminBtn[0], adminBtn[1], adminBtn[2], adminBtn[3])) {
+			kr.lunaslight.mod.util.NeogulData.setSingleTest(!kr.lunaslight.mod.util.NeogulData.singleTest());
+			return true;
+		}
 		int x = contentX;
 		for (String g : serverGroups()) {
 			int w = serverChipW(g);

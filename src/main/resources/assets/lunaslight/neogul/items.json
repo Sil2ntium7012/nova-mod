@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임).",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가.",
  "stations": {
   "farm": {
    "name": "농사",
@@ -168,6 +168,22 @@
     "minecraft:magma_block"
    ],
    "model": "nexo:dungeon_item_30"
+  },
+  "dotori": {
+   "name": "도토리 상점(성장)",
+   "note": "상점 2층 도토리 상점",
+   "icon": [
+    "minecraft:emerald"
+   ],
+   "model": "nexo:transcend"
+  },
+  "treasure": {
+   "name": "보물상자",
+   "note": "던전 하급 중급 고급 보물상자에서 나옴",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "model": "nexo:treasurebox_wood"
   }
  },
  "categories": [
@@ -225,6 +241,14 @@
     "minecraft:iron_chestplate"
    ],
    "model": "nexo:nm_viking_helmet"
+  },
+  {
+   "id": "enhance",
+   "name": "강화",
+   "icon": [
+    "minecraft:enchanted_book"
+   ],
+   "model": "nexo:transcend"
   }
  ],
  "items": [
@@ -2936,6 +2960,317 @@
     "minecraft:golden_sword"
    ],
    "model": "nexo:nm_warrior_blade"
+  },
+  {
+   "key": "transcend",
+   "name": "초월 스크롤",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "초월강화 1회마다 1장 (대장간 NPC 탱구)"
+    }
+   ],
+   "model": "nexo:transcend"
+  },
+  {
+   "key": "skill_cube",
+   "name": "스킬 각인 큐브",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:amethyst_shard"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "초월 8단계 무기에 드래그하면 랜덤 초월스킬 각인"
+    }
+   ],
+   "model": "nexo:cube"
+  },
+  {
+   "key": "transcend_pass",
+   "name": "초월 전승권",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:name_tag"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "초월 효과와 큐브 스킬을 같은 종류 장비로 전승"
+    }
+   ]
+  },
+  {
+   "key": "silktouch_scroll",
+   "name": "섬세한 손길 스크롤",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "smith",
+     "note": "강화 창 아래 구매 버튼 800,000원, 도구에 드래그"
+    }
+   ],
+   "model": "nexo:silktouch_scroll"
+  },
+  {
+   "key": "talisman_silver",
+   "name": "행운의 부적(실버)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "강화 성공 +2%"
+    }
+   ],
+   "model": "nexo:talisman_gray"
+  },
+  {
+   "key": "talisman_gold",
+   "name": "행운의 부적(골드)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "강화 성공 +4%"
+    },
+    {
+     "at": "dotori",
+     "note": "강화 성공 +4%"
+    }
+   ],
+   "model": "nexo:talisman_yellow"
+  },
+  {
+   "key": "talisman_ruby",
+   "name": "행운의 부적(루비)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "중급 이상, 강화 성공 +7%"
+    },
+    {
+     "at": "dotori",
+     "note": "강화 성공 +7%"
+    }
+   ],
+   "model": "nexo:talisman_red"
+  },
+  {
+   "key": "clover_silver",
+   "name": "행운의 클로버(실버)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "대박성공 +2%"
+    }
+   ],
+   "model": "nexo:clover_gray"
+  },
+  {
+   "key": "clover_gold",
+   "name": "행운의 클로버(골드)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "대박성공 +4%"
+    }
+   ],
+   "model": "nexo:clover_yellow"
+  },
+  {
+   "key": "clover_diamond",
+   "name": "행운의 클로버(다이아)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "고급, 대박성공 +7%"
+    }
+   ],
+   "model": "nexo:clover_blue"
+  },
+  {
+   "key": "protect_silver",
+   "name": "복구 주문서(실버)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "10% 확률로 강화횟수 1회 복구"
+    }
+   ],
+   "model": "nexo:protect_gray"
+  },
+  {
+   "key": "protect_diamond",
+   "name": "복구 주문서(다이아)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "30% 확률로 강화횟수 1회 복구"
+    },
+    {
+     "at": "dotori",
+     "note": "30% 복구"
+    }
+   ],
+   "model": "nexo:protect_blue"
+  },
+  {
+   "key": "protect_gold",
+   "name": "복구 주문서(골드)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "treasure",
+     "note": "중급 이상, 50% 복구"
+    },
+    {
+     "at": "treasure",
+     "note": "가챠에서도 나옴"
+    }
+   ],
+   "model": "nexo:protect_yellow"
+  },
+  {
+   "key": "protect_ruby",
+   "name": "복구 주문서(루비)",
+   "cat": "enhance",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "100% 확률로 강화횟수 1회 복구"
+    }
+   ],
+   "model": "nexo:protect_red"
+  },
+  {
+   "key": "bronze_ingot",
+   "name": "청동",
+   "cat": "food",
+   "icon": [
+    "minecraft:copper_ingot"
+   ],
+   "from": [
+    {
+     "at": "dg1",
+     "note": "몬스터 3%"
+    },
+    {
+     "at": "dg2",
+     "note": "몬스터 3%"
+    }
+   ]
+  },
+  {
+   "key": "silver_ingot",
+   "name": "은 주괴",
+   "cat": "food",
+   "icon": [
+    "minecraft:iron_ingot"
+   ],
+   "from": [
+    {
+     "at": "dg3",
+     "note": "몬스터 3%"
+    },
+    {
+     "at": "dg4",
+     "note": "몬스터 3%"
+    },
+    {
+     "at": "dg5",
+     "note": "몬스터 3%"
+    }
+   ]
+  },
+  {
+   "key": "gold_ingot",
+   "name": "금 주괴",
+   "cat": "food",
+   "icon": [
+    "minecraft:gold_ingot"
+   ],
+   "from": [
+    {
+     "at": "dg6",
+     "note": "몬스터 3%"
+    },
+    {
+     "at": "dg7",
+     "note": "몬스터 3%"
+    },
+    {
+     "at": "dg8",
+     "note": "몬스터 3%"
+    }
+   ]
+  },
+  {
+   "key": "bronze_bowl",
+   "name": "청동 그릇",
+   "cat": "food",
+   "icon": [
+    "minecraft:bowl"
+   ]
+  },
+  {
+   "key": "silver_bowl",
+   "name": "은 그릇",
+   "cat": "food",
+   "icon": [
+    "minecraft:bowl"
+   ]
+  },
+  {
+   "key": "gold_bowl",
+   "name": "금 그릇",
+   "cat": "food",
+   "icon": [
+    "minecraft:bowl"
+   ]
   }
  ],
  "recipes": [
@@ -5236,6 +5571,42 @@
     ]
    ],
    "note": "제작레벨 80 | 쿨타임 30분"
+  },
+  {
+   "at": "craft",
+   "out": "bronze_bowl",
+   "n": 1,
+   "in": [
+    [
+     "bronze_ingot",
+     3
+    ]
+   ],
+   "note": "제작대에 V자로 배치 | 요리를 담으면 가치 +10%"
+  },
+  {
+   "at": "craft",
+   "out": "silver_bowl",
+   "n": 1,
+   "in": [
+    [
+     "silver_ingot",
+     3
+    ]
+   ],
+   "note": "제작대에 V자로 배치 | 요리를 담으면 가치 +20%"
+  },
+  {
+   "at": "craft",
+   "out": "gold_bowl",
+   "n": 1,
+   "in": [
+    [
+     "gold_ingot",
+     3
+    ]
+   ],
+   "note": "제작대에 V자로 배치 | 요리를 담으면 가치 +30%"
   }
  ]
 }

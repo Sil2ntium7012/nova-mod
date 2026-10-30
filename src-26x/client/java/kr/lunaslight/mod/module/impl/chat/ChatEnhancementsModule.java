@@ -213,6 +213,9 @@ public class ChatEnhancementsModule extends Module {
 
 	/** 49-387차: 지금 접속한 서버가 너굴마을(mcng.kr)인가. */
 	private boolean onNeogul() {
+		if (kr.lunaslight.mod.util.NeogulData.singleActive(client)) {
+			return true;   // 49-432차: 관리자 싱글 테스트
+		}
 		try {
 			String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(client);
 			if (addr == null) {

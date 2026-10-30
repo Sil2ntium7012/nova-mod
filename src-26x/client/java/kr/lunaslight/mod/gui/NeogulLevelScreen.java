@@ -7,6 +7,7 @@ import net.minecraft.network.chat.Component;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
+import kr.lunaslight.mod.util.NeogulLevels;
 import java.util.List;
 import java.util.Locale;
 
@@ -18,6 +19,9 @@ import java.util.Locale;
  * 레벨업 비용, 이 구간에 새로 배울 수 있는 기능 수와 합계 비용), 새로 배울 수 있는 기능 목록, 맨 아래 레벨표(구간마다
  * 생활/토벌 경험치, 레벨업 비용, 그 레벨에서 배울 수 있는 기능). 자료는 mcng.kr/wiki 레벨 & 스킬(사용자가 준 표 기준).
  * 레벨업에는 생활 경험치와 토벌 경험치가 둘 다 차야 한다.
+ *
+ * <p>49-431차(사용자: "레벨 시스템이 완전히 4가지로 개편돼서 이거 모두 적용해서"): 너굴마을 레벨이 농사, 토벌, 채광, 낚시 넷으로 나뉘었다.
+ * 위에 분야 탭(+ 권한 스킬)을 두고, 고른 분야의 경험치, 레벨업 비용(넷 공통), 그 분야 스킬만 보여 준다. 자료는 {@link NeogulLevels}.
  */
 public class NeogulLevelScreen extends LunaScreenBase {
 
@@ -78,139 +82,21 @@ public class NeogulLevelScreen extends LunaScreenBase {
 		}
 	}
 
-	// ==================== 자료(위키) ====================
+	// ==================== 자료(위키) - NeogulLevels ====================
 
-	/** EXP[n] = Lv.n → Lv.n+1 에 필요한 생활(= 토벌) 경험치. n = 1..99. */
-	private static final long[] EXP = {0,
-		2410, 3220, 4420, 6030, 7840, 10050, 12460, 15280, 18690, 19630,
-		22190, 25080, 28360, 32060, 36240, 40970, 46320, 52360, 59190, 62150,
-		69400, 77480, 86510, 96590, 107800, 120400, 134400, 150100, 167600, 176000,
-		187800, 200400, 213800, 228100, 243400, 259700, 277200, 295700, 315600, 331300,
-		357500, 385600, 416000, 448800, 484200, 522400, 563600, 608000, 656000, 688800,
-		721700, 756300, 792500, 830400, 870100, 911800, 955400, 1001000, 1049000, 1101000,
-		1189000, 1283000, 1385000, 1495000, 1614000, 1742000, 1881000, 2030000, 2191000, 2301000,
-		2403000, 2509000, 2621000, 2737000, 2859000, 2985000, 3118000, 3256000, 3401000, 5437620,
-		5981370, 6579510, 7237470, 7961220, 8757360, 9633120, 10596420, 11656050, 12821640, 14103810,
-		15514200, 17065620, 18772170, 20649390, 22714320, 24985770, 27484350, 30232800, 33255000};
+	private static final int MAX_LV = NeogulLevels.MAX_LV;
+	private static final int PERM_TAB = 4;
+	private static final String[] TABS = {"농사", "토벌", "채광", "낚시", "권한 스킬"};
 
-	/** COST[n] = Lv.n → Lv.n+1 레벨업 비용(원). */
-	private static final long[] COST = {0,
-		110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000,
-		210000, 220000, 230000, 240000, 250000, 260000, 270000, 285000, 300000, 400000,
-		500000, 600000, 700000, 800000, 900000, 1000000, 1100000, 1200000, 1300000, 1400000,
-		1500000, 1600000, 1700000, 1800000, 1900000, 2000000, 2100000, 2200000, 2500000, 2700000,
-		2900000, 3100000, 3300000, 3500000, 3600000, 3700000, 3800000, 4000000, 4250000, 4500000,
-		4750000, 5000000, 5250000, 5500000, 5750000, 6000000, 6250000, 6500000, 6750000, 7000000,
-		7250000, 7500000, 7750000, 8000000, 8250000, 8500000, 8750000, 9250000, 10000000, 12000000,
-		14000000, 16000000, 18000000, 20000000, 22000000, 24000000, 26000000, 28000000, 30000000, 33000000,
-		36000000, 39000000, 42000000, 45000000, 48000000, 51000000, 54000000, 57000000, 60000000, 64000000,
-		68000000, 72000000, 76000000, 80000000, 84000000, 88000000, 92000000, 96000000, 100000000};
+	/** 고른 분야(0~3) 또는 권한 스킬(4). 다시 열어도 그대로. */
+	private static int track = 0;
 
-	private static final int MAX_LV = 100;
-
-	/** 레벨 도달 시 살 수 있는 기능(권한 / 공격 / 유틸 스킬). */
-	private record Skill(int level, String kind, String name, String effect, long cost) {
+	private static long req(int lv) {
+		return NeogulLevels.REQ[Math.min(track, 3)][lv];
 	}
 
-	private static final List<Skill> SKILLS = new ArrayList<>();
-
-	private static void s(int lv, String kind, String name, String effect, long man) {
-		SKILLS.add(new Skill(lv, kind, name, effect, man * 10000L));
-	}
-
-	static {
-		// 권한(명령어)
-		s(1, "권한", "/창고1", "창고 1", 20);
-		s(1, "권한", "/수리", "수리", 10);
-		s(3, "권한", "/제작대", "어디서나 제작대", 30);
-		s(5, "권한", "/창고2", "창고 2", 50);
-		s(8, "권한", "/밥", "허기 회복", 50);
-		s(10, "권한", "/창고3", "창고 3", 200);
-		s(17, "권한", "/줄기보호", "줄기 보호", 150);
-		s(20, "권한", "/야간투시", "야간 투시", 300);
-		s(25, "권한", "/창고4", "창고 4", 1000);
-		s(30, "권한", "/슈퍼점프", "슈퍼 점프", 750);
-		s(35, "권한", "/그림", "그림", 1000);
-		s(40, "권한", "/셋홈", "집 지정", 1000);
-		s(50, "권한", "/원격상점", "어디서나 상점", 3000);
-		s(60, "권한", "/원격요리", "어디서나 요리", 4000);
-		s(70, "권한", "/원격무역", "어디서나 무역", 5000);
-		// 공격
-		s(8, "공격", "1단 베기 I", "공격력 100→105%", 50);
-		s(15, "공격", "1단 베기 II", "공격력 105→110%", 100);
-		s(21, "공격", "2단 베기", "1→2단 콤보", 300);
-		s(28, "공격", "2단 베기 I", "공격력 110→115%", 500);
-		s(35, "공격", "2단 베기 II", "공격력 115→120%", 800);
-		s(41, "공격", "내려찍기", "1→3단 콤보", 1500);
-		s(48, "공격", "내려찍기 I", "공격력 120→125%", 2000);
-		s(55, "공격", "내려찍기 II", "공격력 125→130%", 2500);
-		s(61, "공격", "마무리 강타", "1→4단 콤보", 4000);
-		s(68, "공격", "마무리 강타 I", "공격력 130→135%", 4500);
-		s(75, "공격", "마무리 강타 II", "공격력 135→140%", 5000);
-		s(11, "공격", "돌진 베기", "앞 6칸 돌진(쿨 8초)", 250);
-		s(18, "공격", "돌진 베기 I", "공격력 160→170%", 500);
-		s(25, "공격", "돌진 베기 II", "공격력 170→185%", 1000);
-		s(31, "공격", "회전 참격", "반경 3.5칸(쿨 12초)", 500);
-		s(38, "공격", "회전 참격 I", "공격력 160→170%", 1000);
-		s(45, "공격", "회전 참격 II", "공격력 170→185%", 2000);
-		s(51, "공격", "검기 발사", "부채꼴(쿨 12초)", 1000);
-		s(58, "공격", "검기 발사 I", "공격력 160→170%", 2000);
-		s(65, "공격", "검기 발사 II", "공격력 170→185%", 4000);
-		// 유틸
-		s(3, "농사", "이리 오너라 I", "허수아비 확률 +10%", 30);
-		s(23, "농사", "이리 오너라 II", "허수아비 확률 +20%", 500);
-		s(43, "농사", "이리 오너라 III", "허수아비 확률 +30%", 1000);
-		s(63, "농사", "이리 오너라 IV", "허수아비 확률 +40%", 2000);
-		s(83, "농사", "이리 오너라 V", "허수아비 확률 +50%", 5000);
-		s(1, "농사", "황금 작물 I", "액기스 확률 0.01%", 30);
-		s(21, "농사", "황금 작물 II", "액기스 확률 0.013%", 500);
-		s(41, "농사", "황금 작물 III", "액기스 확률 0.016%", 1000);
-		s(61, "농사", "황금 작물 IV", "액기스 확률 0.019%", 2000);
-		s(81, "농사", "황금 작물 V", "액기스 확률 0.022%", 5000);
-		s(5, "낚시", "손 맛이 좋아 I", "미니게임 2회 1%", 30);
-		s(25, "낚시", "손 맛이 좋아 II", "미니게임 2회 2%", 500);
-		s(45, "낚시", "손 맛이 좋아 III", "미니게임 2회 3%", 1000);
-		s(65, "낚시", "손 맛이 좋아 IV", "미니게임 2회 4%", 2000);
-		s(85, "낚시", "손 맛이 좋아 V", "미니게임 2회 5%", 5000);
-		s(8, "낚시", "고급 미끼 I", "입질 -0.5초", 100);
-		s(28, "낚시", "고급 미끼 II", "입질 -1초", 1000);
-		s(48, "낚시", "고급 미끼 III", "입질 -1.5초", 2000);
-		s(68, "낚시", "고급 미끼 IV", "입질 -2초", 4000);
-		s(88, "낚시", "고급 미끼 V", "입질 -2.5초", 7500);
-		s(18, "요리", "美슐랭 I", "유통기한 2→3일", 800);
-		s(48, "요리", "美슐랭 II", "유통기한 3→4일", 3000);
-		s(78, "요리", "美슐랭 III", "유통기한 4→5일", 7500);
-		s(2, "광질", "도굴꾼 I", "보석 확률 +3%", 30);
-		s(22, "광질", "도굴꾼 II", "보석 확률 +6%", 500);
-		s(42, "광질", "도굴꾼 III", "보석 확률 +9%", 1000);
-		s(62, "광질", "도굴꾼 IV", "보석 확률 +12%", 2000);
-		s(82, "광질", "도굴꾼 V", "보석 확률 +15%", 5000);
-		s(20, "광질", "보석의 이해 I", "레어 보석", 1500);
-		s(40, "광질", "보석의 이해 II", "에픽 보석", 3000);
-		s(60, "광질", "보석의 이해 III", "유니크/희귀 보석", 7500);
-		s(10, "광질", "급하다 급해 I", "성급함 5초 0.1%", 100);
-		s(30, "광질", "급하다 급해 II", "성급함 5초 0.13%", 1000);
-		s(50, "광질", "급하다 급해 III", "성급함 6초 0.15%", 2000);
-		s(70, "광질", "급하다 급해 IV", "성급함 6초 0.18%", 4000);
-		s(90, "광질", "급하다 급해 V", "성급함 7초 0.2%", 7500);
-		s(17, "섬", "신속한 발걸음 I", "이동속도 +5%", 1000);
-		s(47, "섬", "신속한 발걸음 II", "이동속도 +10%", 3000);
-		s(6, "기타", "체력증진 I", "피로도 상한 +10", 100);
-		s(26, "기타", "체력증진 II", "피로도 상한 +20", 1000);
-		s(46, "기타", "체력증진 III", "피로도 상한 +30", 2000);
-		s(66, "기타", "체력증진 IV", "피로도 상한 +40", 4000);
-		s(86, "기타", "체력증진 V", "피로도 상한 +50", 7500);
-		SKILLS.sort((a, b) -> a.level() != b.level() ? Integer.compare(a.level(), b.level()) : a.kind().compareTo(b.kind()));
-	}
-
-	private static List<Skill> skillsAt(int lv) {
-		List<Skill> out = new ArrayList<>();
-		for (Skill k : SKILLS) {
-			if (k.level() == lv) {
-				out.add(k);
-			}
-		}
-		return out;
+	private static int trackColor() {
+		return track < 4 ? NeogulLevels.TRACK_COLORS[track] : 0xFFFFC857;
 	}
 
 	// ==================== 상태 ====================
@@ -225,7 +111,9 @@ public class NeogulLevelScreen extends LunaScreenBase {
 	private String tip;
 
 	private static final int TOP_Y = 14;
-	private static final int INPUT_Y = 44;
+	private static final int TAB_Y = 40;
+	private static final int TAB_H = 16;
+	private static final int INPUT_Y = 64;
 	private static final int BOX_H = 18;
 	private static final int FIELD_W = 34;
 	private static final int BTN_W = 16;
@@ -244,7 +132,7 @@ public class NeogulLevelScreen extends LunaScreenBase {
 	private void layout() {
 		contentW = Math.min(width - 32, 560);
 		left = (width - contentW) / 2;
-		contentTop = INPUT_Y + BOX_H + 12;
+		contentTop = track == PERM_TAB ? TAB_Y + TAB_H + 12 : INPUT_Y + BOX_H + 12;
 	}
 
 	// ==================== 숫자 모양 ====================
@@ -350,22 +238,26 @@ public class NeogulLevelScreen extends LunaScreenBase {
 
 		// 제목 + 닫기
 		gBig(ctx, "레벨 계산기", left, TOP_Y, 24, txt, contentW);
-		String note = "너굴마을 위키 기준 | 레벨업 조건: 생활 경험치 + 토벌 경험치";
+		String note = "너굴마을 위키 기준 | 농사, 토벌, 채광, 낚시 레벨은 따로 오릅니다";
 		LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, note, contentW - 170), left + 150,
 			LunaDraw.textY(TOP_Y + 6, 14), dim);
 		boolean ch = LunaDraw.in(mouseX, mouseY, left + contentW - 16, TOP_Y + 4, 16, 16);
 		LunaIcons.drawInBox(ctx, font, LunaIcons.CLOSE, left + contentW - 16, TOP_Y + 4, 16, ch ? acc : sub);
 
+		// 분야 탭
+		drawTabs(ctx, mouseX, mouseY);
 		// 입력 줄
-		int x = left;
-		gText(ctx, "시작 레벨", x, INPUT_Y, BOX_H, sub);
-		x += gWidth("시작 레벨") + 8;
-		x = drawStepper(ctx, 0, x, mouseX, mouseY) + 14;
-		gText(ctx, "→", x, INPUT_Y, BOX_H, dim);
-		x += gWidth("→") + 14;
-		gText(ctx, "끝 레벨", x, INPUT_Y, BOX_H, sub);
-		x += gWidth("끝 레벨") + 8;
-		drawStepper(ctx, 1, x, mouseX, mouseY);
+		if (track != PERM_TAB) {
+			int x = left;
+			gText(ctx, "시작 레벨", x, INPUT_Y, BOX_H, sub);
+			x += gWidth("시작 레벨") + 8;
+			x = drawStepper(ctx, 0, x, mouseX, mouseY) + 14;
+			gText(ctx, "→", x, INPUT_Y, BOX_H, dim);
+			x += gWidth("→") + 14;
+			gText(ctx, "끝 레벨", x, INPUT_Y, BOX_H, sub);
+			x += gWidth("끝 레벨") + 8;
+			drawStepper(ctx, 1, x, mouseX, mouseY);
+		}
 		ctx.fill(left, contentTop - 6, left + contentW, contentTop - 5, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
 
 		// 본문(스크롤)
@@ -373,8 +265,12 @@ public class NeogulLevelScreen extends LunaScreenBase {
 		lunaV.scissor(ctx, left - 2, contentTop, left + contentW + 2, bottom);
 		int y = contentTop + 2 - Math.round(scroll);
 		int y0 = y;
-		y = drawResults(ctx, y, mouseX, mouseY) + 12;
-		y = drawTable(ctx, y, mouseX, mouseY) + 8;
+		if (track == PERM_TAB) {
+			y = drawPerms(ctx, y, mouseX, mouseY) + 8;
+		} else {
+			y = drawResults(ctx, y, mouseX, mouseY) + 12;
+			y = drawTable(ctx, y, mouseX, mouseY) + 8;
+		}
 		ctx.disableScissor();
 		int total = y - y0;
 		maxScroll = Math.max(0, total - (bottom - contentTop));
@@ -388,6 +284,70 @@ public class NeogulLevelScreen extends LunaScreenBase {
 		if (tip != null) {
 			ctx.setTooltipForNextFrame(font, LunaCompat.textLiteral(tip), mouseX, mouseY);
 		}
+	}
+
+	/** 탭 칩 자리(클릭 판정). */
+	private final int[] tabX = new int[TABS.length];
+	private final int[] tabW = new int[TABS.length];
+
+	/** 분야 탭: 고른 탭은 분야 색으로 채우고, 나머지는 옅은 칩 + 색 점. */
+	private void drawTabs(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
+		int x = left;
+		int txt = LunaClientScreen.themeText();
+		int sub = LunaClientScreen.themeSub();
+		for (int i = 0; i < TABS.length; i++) {
+			int col = i < 4 ? NeogulLevels.TRACK_COLORS[i] : 0xFFFFC857;
+			int w = gWidth(TABS[i]) + 22;
+			tabX[i] = x;
+			tabW[i] = w;
+			boolean sel = track == i;
+			boolean hov = LunaDraw.in(mouseX, mouseY, x, TAB_Y, w, TAB_H);
+			if (sel) {
+				LunaDraw.roundRect(ctx, x, TAB_Y, w, TAB_H, TAB_H / 2, LunaDraw.withAlpha(col, 0xE6));
+			} else {
+				LunaDraw.roundRect(ctx, x, TAB_Y, w, TAB_H, TAB_H / 2, hov ? LunaClientScreen.ink(0x24) : LunaClientScreen.ink(0x12));
+				LunaDraw.roundRect(ctx, x + 7, TAB_Y + TAB_H / 2 - 2, 4, 4, 2, col);
+			}
+			int tc = sel ? (kr.lunaslight.mod.util.LunaTheme.luminance(col) > 0.6f ? 0xFF15181C : 0xFFFFFFFF) : (hov ? txt : sub);
+			gText(ctx, TABS[i], x + (sel ? 11 : 15), TAB_Y, TAB_H, tc);
+			x += w + 5;
+		}
+	}
+
+	/** 권한 스킬(누적 플레이타임 + 해금 비용, 레벨 조건 없음). */
+	private int drawPerms(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
+		int txt = LunaClientScreen.themeText();
+		int sub = LunaClientScreen.themeSub();
+		int dim = LunaClientScreen.themeDim();
+		int acc = trackColor();
+		card(ctx, left, y, contentW, 26);
+		gText(ctx, "레벨 조건 없이 누적 플레이타임과 해금 비용만 채우면 배울 수 있어요 (/스킬, 학당 루리)", left + 10, y, 26, sub);
+		y += 34;
+		int cCmd = left + 6, cDesc = left + 90, cTime = left + contentW - 150, cCost = left + contentW - 80;
+		LunaDraw.text(ctx, font, "명령어", cCmd, y, dim);
+		LunaDraw.text(ctx, font, "설명", cDesc, y, dim);
+		LunaDraw.text(ctx, font, "플레이타임", cTime, y, dim);
+		LunaDraw.text(ctx, font, "해금 비용", cCost, y, dim);
+		y += 12;
+		ctx.fill(left, y - 2, left + contentW, y - 1, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+		long sum = 0;
+		int i = 0;
+		for (NeogulLevels.Perm pm : NeogulLevels.PERMS) {
+			int rh = 14;
+			if (i++ % 2 == 0) {
+				LunaDraw.roundRect(ctx, left, y - 3, contentW, rh, 2, LunaClientScreen.ink(0x08));
+			}
+			LunaDraw.text(ctx, font, pm.command(), cCmd, y, acc);
+			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, pm.desc(), cTime - cDesc - 8), cDesc, y, txt);
+			LunaDraw.text(ctx, font, pm.playtime(), cTime, y, sub);
+			LunaDraw.text(ctx, font, won(pm.cost()), cCost, y, sub);
+			sum += pm.cost();
+			y += rh;
+		}
+		y += 4;
+		String total = "모두 배우면 " + won(sum);
+		LunaDraw.text(ctx, font, total, left + contentW - LunaDraw.width(font, total) - 4, y, dim);
+		return y + 12;
 	}
 
 	/** [-][ 숫자 ][+] - 반환 = 오른쪽 끝 x. 좌표는 클릭 판정용으로 기억해 둔다. */
@@ -423,116 +383,105 @@ public class NeogulLevelScreen extends LunaScreenBase {
 		return px + BTN_W;
 	}
 
-	/** 결과 상자 4개 + 구간 내 습득 가능 기능. */
+	/** 결과 상자 3개(분야 경험치, 레벨업 비용, 배울 수 있는 스킬) + 경험치 얻는 법 + 구간 안 스킬 목록. */
 	private int drawResults(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
 		int txt = LunaClientScreen.themeText();
 		int sub = LunaClientScreen.themeSub();
 		int dim = LunaClientScreen.themeDim();
-		int acc = LunaClientScreen.themeAccent();
+		int acc = trackColor();
+		String tn = NeogulLevels.TRACKS[track];
 		if (endLv <= startLv) {
 			card(ctx, left, y, contentW, 30);
-			gText(ctx, "입력 오류: 끝 레벨은 시작 레벨 초과 필요", left + 10, y, 30, sub);
+			gText(ctx, "입력 오류: 끝 레벨은 시작 레벨보다 커야 해요", left + 10, y, 30, sub);
 			return y + 30;
 		}
 		long exp = 0;
 		long cost = 0;
 		for (int lv = startLv; lv < endLv; lv++) {
-			exp += EXP[lv];
-			cost += COST[lv];
+			exp += req(lv);
+			cost += NeogulLevels.COST[lv];
 		}
-		List<Skill> fresh = new ArrayList<>();
+		List<NeogulLevels.Skill> fresh = NeogulLevels.skillsBetween(track, startLv, endLv);
 		long skillCost = 0;
-		for (Skill k : SKILLS) {
-			if (k.level() > startLv && k.level() <= endLv) {
-				fresh.add(k);
-				skillCost += k.cost();
-			}
+		for (NeogulLevels.Skill k : fresh) {
+			skillCost += k.cost();
 		}
+		String range = tn + " Lv." + startLv + " → Lv." + endLv;
 		String[][] items = {
-			{"생활 경험치", num(exp), "Lv." + startLv + " → Lv." + endLv},
-			{"토벌 경험치", num(exp), "Lv." + startLv + " → Lv." + endLv},
-			{"레벨업 비용", won(cost), num(cost) + "원"},
-			{"습득 가능 기능", fresh.size() + "개", "모두 구매시 " + won(skillCost)}};
+			{tn + " 경험치", num(exp), range},
+			{"레벨업 비용", won(cost), num(cost) + "원 (네 분야 같음)"},
+			{"새로 배울 수 있는 스킬", fresh.size() + "개", "모두 배우면 " + won(skillCost)}};
 		int gap = 6;
-		int cols = contentW >= 420 ? 4 : 2;
+		int cols = contentW >= 420 ? 3 : 1;
 		int tw = (contentW - gap * (cols - 1)) / cols;
 		int th = 52;
 		for (int i = 0; i < items.length; i++) {
 			int tx = left + (i % cols) * (tw + gap);
 			int ty = y + (i / cols) * (th + gap);
 			card(ctx, tx, ty, tw, th);
-			LunaDraw.text(ctx, font, items[i][0], tx + 9, ty + 7, sub);
-			gBig(ctx, items[i][1], tx + 9, ty + 17, 22, i == 2 ? acc : txt, tw - 16);
-			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, items[i][2], tw - 16), tx + 9, ty + th - 12, dim);
+			LunaDraw.roundRect(ctx, tx + 4, ty + 8, 2, th - 16, 1, i == 0 ? acc : LunaClientScreen.ink(0x30));
+			LunaDraw.text(ctx, font, items[i][0], tx + 11, ty + 7, sub);
+			gBig(ctx, items[i][1], tx + 11, ty + 17, 22, i == 0 ? acc : txt, tw - 18);
+			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, items[i][2], tw - 18), tx + 11, ty + th - 12, dim);
 		}
-		y += ((items.length + cols - 1) / cols) * (th + gap) - gap + 10;
+		y += ((items.length + cols - 1) / cols) * (th + gap) - gap + 8;
 
-		// 새로 배울 수 있는 기능 목록(두 줄씩)
-		gText(ctx, "구간 내 습득 가능 기능", left, y, 14, sub);
+		// 경험치 얻는 법
+		String[] src = NeogulLevels.EXP_SOURCES[track];
+		card(ctx, left, y, contentW, 30);
+		LunaDraw.text(ctx, font, tn + " 경험치 얻는 법 | " + src[0], left + 10, y + 5, sub);
+		LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, src[1], contentW - 20), left + 10, y + 17, txt);
+		y += 40;
+
+		// 새로 배울 수 있는 스킬
+		gText(ctx, "구간 안에서 배울 수 있는 " + tn + " 스킬", left, y, 14, sub);
 		y += 18;
 		if (fresh.isEmpty()) {
 			LunaDraw.text(ctx, font, "없음", left + 4, y, dim);
 			return y + 12;
 		}
-		int colsL = contentW >= 420 ? 2 : 1;
-		int cw = (contentW - (colsL - 1) * 12) / colsL;
-		int per = (fresh.size() + colsL - 1) / colsL;
-		for (int i = 0; i < fresh.size(); i++) {
-			Skill k = fresh.get(i);
-			int cx = left + (i / per) * (cw + 12);
-			int cy = y + (i % per) * 12;
+		for (NeogulLevels.Skill k : fresh) {
 			String lv = "Lv." + k.level();
-			LunaDraw.text(ctx, font, lv, cx, cy, acc);
-			int nx = cx + 34;
-			String kind = "[" + k.kind() + "]";
-			LunaDraw.text(ctx, font, kind, nx, cy, dim);
-			nx += LunaDraw.width(font, kind) + 4;
+			LunaDraw.text(ctx, font, lv, left + 4, y, acc);
+			int nx = left + 40;
 			String price = won(k.cost());
 			int pw = LunaDraw.width(font, price);
-			String name = LunaDraw.ellipsize(font, k.name() + "  " + k.effect(), cx + cw - pw - 8 - nx);
-			LunaDraw.text(ctx, font, name, nx, cy, txt);
-			LunaDraw.text(ctx, font, price, cx + cw - pw, cy, sub);
-			if (LunaDraw.in(mouseX, mouseY, cx, cy - 1, cw, 12) && mouseY >= contentTop) {
-				tip = k.name() + " | " + k.effect() + " | " + won(k.cost());
+			LunaDraw.text(ctx, font, k.name(), nx, y, txt);
+			int dx = nx + Math.max(96, LunaDraw.width(font, k.name()) + 8);
+			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, k.desc(), left + contentW - pw - 12 - dx), dx, y, sub);
+			LunaDraw.text(ctx, font, price, left + contentW - pw - 4, y, sub);
+			if (LunaDraw.in(mouseX, mouseY, left, y - 1, contentW, 12) && mouseY >= contentTop) {
+				tip = k.name() + " | " + k.desc() + " | " + won(k.cost());
 			}
+			y += 12;
 		}
-		return y + per * 12;
+		return y;
 	}
 
-	/** 위키 레벨표: 구간 | 생활 | 토벌 | 레벨업 비용 | 그 레벨에서 배울 수 있는 기능. 고른 구간은 강조. */
+	/** 위키 레벨표: 구간 | 필요 경험치 | 레벨업 비용 | 도착 레벨에 배울 수 있는 스킬. 고른 구간은 강조. */
 	private int drawTable(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
 		int txt = LunaClientScreen.themeText();
 		int sub = LunaClientScreen.themeSub();
 		int dim = LunaClientScreen.themeDim();
-		int acc = LunaClientScreen.themeAccent();
-		gText(ctx, "레벨표 (위키)", left, y, 14, sub);
+		int acc = trackColor();
+		gText(ctx, NeogulLevels.TRACKS[track] + " 레벨표 (위키)", left, y, 14, sub);
 		y += 18;
 		int cLv = left + 4;
-		int cLife = left + 84;
-		int cHunt = left + 150;
-		int cCost = left + 216;
-		int cSkill = left + 290;
-		boolean narrow = contentW < 460;
-		if (narrow) {
-			cHunt = -1;
-			cCost = left + 150;
-			cSkill = left + 224;
-		}
+		int cExp = left + 70;
+		int cCost = left + 150;
+		int cSkill = left + 236;
 		LunaDraw.text(ctx, font, "구간", cLv, y, dim);
-		LunaDraw.text(ctx, font, narrow ? "생활=토벌" : "생활", cLife, y, dim);
-		if (cHunt > 0) {
-			LunaDraw.text(ctx, font, "토벌", cHunt, y, dim);
-		}
+		LunaDraw.text(ctx, font, "필요 경험치", cExp, y, dim);
 		LunaDraw.text(ctx, font, "레벨업 비용", cCost, y, dim);
-		LunaDraw.text(ctx, font, "도착 레벨 습득 기능", cSkill, y, dim);
+		LunaDraw.text(ctx, font, "도착 레벨 스킬", cSkill, y, dim);
 		y += 12;
 		ctx.fill(left, y - 2, left + contentW, y - 1, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
 		int skillW = left + contentW - cSkill - 4;
 		for (int lv = 1; lv < MAX_LV; lv++) {
-			List<Skill> ks = skillsAt(lv + 1);
+			List<NeogulLevels.Skill> ks = NeogulLevels.skillsAt(track, lv + 1);
 			List<String> lines = new ArrayList<>();
 			StringBuilder cur = new StringBuilder();
-			for (Skill k : ks) {
+			for (NeogulLevels.Skill k : ks) {
 				String part = k.name();
 				String next = cur.length() == 0 ? part : cur + ", " + part;
 				if (cur.length() > 0 && LunaDraw.width(font, next) > skillW) {
@@ -555,19 +504,16 @@ public class NeogulLevelScreen extends LunaScreenBase {
 			}
 			int c = in ? txt : sub;
 			LunaDraw.text(ctx, font, lv + " → " + (lv + 1), cLv, y, in ? acc : c);
-			LunaDraw.text(ctx, font, num(EXP[lv]), cLife, y, c);
-			if (cHunt > 0) {
-				LunaDraw.text(ctx, font, num(EXP[lv]), cHunt, y, c);
-			}
-			LunaDraw.text(ctx, font, won(COST[lv]), cCost, y, c);
+			LunaDraw.text(ctx, font, num(req(lv)), cExp, y, c);
+			LunaDraw.text(ctx, font, won(NeogulLevels.COST[lv]), cCost, y, c);
 			for (int i = 0; i < lines.size(); i++) {
 				LunaDraw.text(ctx, font, lines.get(i), cSkill, y + i * 10, in ? txt : dim);
 			}
 			if (!ks.isEmpty() && LunaDraw.in(mouseX, mouseY, cSkill, y - 2, skillW, rh) && mouseY >= contentTop) {
 				StringBuilder t = new StringBuilder("Lv." + (lv + 1) + ": ");
 				for (int i = 0; i < ks.size(); i++) {
-					Skill k = ks.get(i);
-					t.append(i == 0 ? "" : ",  ").append(k.name()).append(" (").append(k.effect()).append(", ").append(won(k.cost())).append(")");
+					NeogulLevels.Skill k = ks.get(i);
+					t.append(i == 0 ? "" : ",  ").append(k.name()).append(" (").append(k.desc()).append(", ").append(won(k.cost())).append(")");
 				}
 				tip = t.toString();
 			}
@@ -633,7 +579,17 @@ public class NeogulLevelScreen extends LunaScreenBase {
 			onClose();
 			return true;
 		}
-		for (int w = 0; w < 2; w++) {
+		if (mouseY >= TAB_Y && mouseY < TAB_Y + TAB_H) {
+			for (int i = 0; i < TABS.length; i++) {
+				if (mouseX >= tabX[i] && mouseX < tabX[i] + tabW[i]) {
+					commit();
+					track = i;
+					scroll = 0;
+					return true;
+				}
+			}
+		}
+		for (int w = 0; w < 2 && track != PERM_TAB; w++) {
 			int p = partAt(w, mouseX, mouseY);
 			if (p == 0) {
 				bump(w, -1);
@@ -655,7 +611,7 @@ public class NeogulLevelScreen extends LunaScreenBase {
 	}
 
 	private boolean lunaMouseScrolled0(double mouseX, double mouseY, double amount) {
-		for (int w = 0; w < 2; w++) {
+		for (int w = 0; w < 2 && track != PERM_TAB; w++) {
 			if (partAt(w, mouseX, mouseY) >= 0) {
 				bump(w, amount > 0 ? 1 : -1);
 				return true;
