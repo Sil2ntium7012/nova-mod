@@ -33,7 +33,8 @@ public class KeystrokesHudModule extends Module {
 	/** 49-150차(사용자: "사진 느낌처럼 키스트로크 꾸미고 누를 때 뗄 때 애니메이션 + 진짜 누르는 느낌, 기본/3D 키캡"). */
 	public enum Style {
 		MODERN("기본"),
-		KEYCAP("3D 키캡");
+		KEYCAP("3D 키캡"),
+		UI("인게임 UI");   // 49-434차: 런처에서 낀 인게임 UI(크림, 미드나잇, 네온 사이버) 모양. 안 꼈으면 기본
 
 		private final String label;
 
@@ -71,7 +72,8 @@ public class KeystrokesHudModule extends Module {
 		position = register(new PositionSetting("position", "위치", "표시 위치입니다.",
 			HudPosition.of(HudPosition.Anchor.BOTTOM_CENTER, 153, 3)));
 		style = register(new kr.lunaslight.mod.module.setting.EnumSetting<>("style", "모양",
-			"기본(둥근 반투명 키) 또는 진짜 키보드 같은 3D 키캡입니다.", Style.MODERN, Style.class));
+			"기본(둥근 반투명 키), 진짜 키보드 같은 3D 키캡, 또는 지금 낀 인게임 UI(크림, 미드나잇, 네온 사이버) 모양입니다.",
+			Style.MODERN, Style.class));
 		pressedColor = register(new ColorSetting("pressed_color", "눌림 색", "누른 키의 색입니다.", LunaTheme.ACCENT));
 		idleColor = register(new ColorSetting("idle_color", "기본 색", "누르지 않은 키의 배경색입니다.", 0xA0101318));
 		showSpace = register(new BooleanSetting("show_space", "스페이스바", "스페이스바 줄을 추가합니다.", true));
@@ -174,6 +176,11 @@ public class KeystrokesHudModule extends Module {
 	/** label == null 이면 스페이스바(가운데 작대기). */
 	private void drawKey(DrawContext ctx, int x, int y, int w, int h, String label, boolean down, int i) {
 		float t = anim(i, down);
+		LunaTheme.Skin sk = uiSkin();
+		if (sk != null) {
+			drawSkinKey(ctx, x, y, w, h, label, t, i, sk);
+			return;
+		}
 		if (style.get() == Style.KEYCAP) {
 			drawKeycap(ctx, x, y, w, h, label, t, i);
 		} else {
@@ -241,6 +248,94 @@ public class KeystrokesHudModule extends Module {
 		drawLabel(ctx, x, fy, w, faceH, label, lerp(0xFFE9ECEF, textOn(acc), t));
 	}
 
+	// ==================== 49-434차: 인게임 UI 모양 ====================
+	// 사용자: "키스트로크도 인게임 UI 적용 가능하게". [모양]을 [인게임 UI]로 두면 런처에서 낀 화면 스킨 모양으로 그린다
+	// (claude/nova-mod-ui-skins-midnight-neon.md 표의 HUD 칩/버튼 색). 안 꼈거나 [코스메틱]에서 인게임 UI를 꺼 두면 기본 모양.
+	// 눌림 색은 스킨 고정색(크림 초록, 미드나잇 보라, 네온 시안) - [무지개]를 켜면 무지개.
+
+	/** [인게임 UI] 모양이고 스킨을 끼고 있으면 그 스킨, 아니면 null. */
+	private LunaTheme.Skin uiSkin() {
+		if (style.get() != Style.UI) {
+			return null;
+		}
+		LunaTheme.Skin sk = LunaTheme.skin();
+		return sk == null || sk == LunaTheme.Skin.DEFAULT ? null : sk;
+	}
+
+	/** 다음 drawLabel을 그림자 없이(밝은 크림 키 위). */
+	private boolean labelFlat;
+
+	private int skinPress(int x, int y, int fixed) {
+		return rainbow.get() ? argb(0xFF, rainbowAt(x, y)) : fixed;
+	}
+
+	private void drawSkinKey(DrawContext ctx, int x, int y, int w, int h, String label, float t, int i, LunaTheme.Skin sk) {
+		if (sk == LunaTheme.Skin.CREAM) {
+			// 크림: 깔끔한 입체 - 아래 2px 두께 + 베이지 테두리 + 크림 속. 누르면 두께만큼 내려앉고 초록으로.
+			int depth = 2;
+			int faceH = h - depth;
+			int drop = Math.round(depth * t);
+			int acc = skinPress(x + w / 2, y, 0xFF5B9B3C);
+			x += DIR_X[i] * Math.round(t);
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, x, y + depth, w, faceH, 4, lerp(0xF2DDCBA8, shade(acc, -0.35f), t));
+			int fy = y + drop;
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, x, fy, w, faceH, 4, lerp(0xF5E6D6B8, shade(acc, -0.15f), t));
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, x + 1, fy + 1, w - 2, faceH - 2, 3, lerp(0xF2FFFDF7, acc, t));
+			if (flash[i] > 0.02f) {
+				kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(ctx, x - 1, fy - 1, w + 2, faceH + 2, 5, argb(Math.round(0x90 * flash[i]), acc));
+			}
+			labelFlat = true;
+			try {
+				drawLabel(ctx, x, fy, w, faceH, label, lerp(0xFF3B2C1D, textOn(acc), t));
+			} finally {
+				labelFlat = false;
+			}
+			return;
+		}
+		int s = Math.round(t);
+		int kx = x + s + DIR_X[i] * s, ky = y + s + DIR_Y[i] * s, kw = w - 2 * s, kh = h - 2 * s;
+		if (sk == LunaTheme.Skin.NEON) {
+			// 네온 사이버: 각진 검정 칸 + 분홍 테두리(글자 분홍). 누르면 시안 테두리, 시안 14% 속, 시안 빛.
+			int acc = skinPress(x + w / 2, y, 0xFF20F0FF);
+			float glow = Math.max(t, flash[i]);
+			if (glow > 0.02f) {
+				for (int g = 3; g >= 1; g--) {
+					float k = 1f - (g - 0.5f) / 3f;
+					kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(ctx, kx - g, ky - g, kw + 2 * g, kh + 2 * g, 1 + g,
+						argb(Math.round(0x58 * k * k * glow), acc));
+				}
+			}
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, kx, ky, kw, kh, 1, 0xD9000000);
+			if (t > 0.01f) {
+				kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, kx, ky, kw, kh, 1, argb(Math.round(0x24 * t), acc));
+			}
+			int edge = lerp(0xBFFF3CC8, acc | 0xFF000000, t);
+			kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(ctx, kx, ky, kw, kh, 1, edge);
+			kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(ctx, kx + 1, ky + 1, kw - 2, kh - 2, 0, argb(0x40, edge));
+			drawLabel(ctx, kx, ky, kw, kh, label, lerp(0xFFFF9CE6, lerp(acc | 0xFF000000, 0xFFFFFFFF, 0.6f), t));
+			return;
+		}
+		// 미드나잇: 짙은 남보라 칸 + 보라 테두리 40%. 누르면 보라(#8a5cff)로 차오르고 보라 빛.
+		int acc = skinPress(x + w / 2, y, 0xFF8A5CFF);
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, kx, ky + 1, kw, kh, 4, 0x26000000);
+		float glow = Math.max(t * 0.8f, flash[i]);
+		if (glow > 0.02f) {
+			kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(ctx, kx - 2, ky - 2, kw + 4, kh + 4, 6, argb(Math.round(0x40 * glow), acc));
+			kr.lunaslight.mod.gui.LunaDraw.roundRectOutline(ctx, kx - 1, ky - 1, kw + 2, kh + 2, 5, argb(Math.round(0x8C * glow), acc));
+		}
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, kx, ky, kw, kh, 4, lerp(0x669670FF, 0xFFB597FF, t));
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, kx + 1, ky + 1, kw - 2, kh - 2, 3, lerp(0xE6241C49, acc | 0xFF000000, t));
+		if (kh > 6) {
+			// 아래쪽이 조금 더 짙은 세로 그라데이션 느낌(#2a2150 → #1c1638, 누르면 #8a5cff → #6a3df0)
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, kx + 1, ky + kh / 2, kw - 2, kh - kh / 2 - 1, 3,
+				argb(0x30, lerp(0xFF1C1638, 0xFF6A3DF0, t)));
+		}
+		if (t < 0.99f) {
+			ctx.fill(kx + 3, ky + 1, kx + kw - 3, ky + 2, argb(Math.round(0x26 * (1f - t)), 0xFFFFFF));
+		}
+		drawLabel(ctx, kx, ky, kw, kh, label, lerp(0xFFDDD3FF, 0xFFFFFFFF, t));
+	}
+
 	private static float luminance(int rgb) {
 		return (0.2126f * ((rgb >> 16) & 0xFF) + 0.7152f * ((rgb >> 8) & 0xFF) + 0.0722f * (rgb & 0xFF)) / 255f;
 	}
@@ -269,7 +364,11 @@ public class KeystrokesHudModule extends Module {
 			LunaCompat.guiPush(ctx);
 			try {
 				LunaCompat.guiTranslate(ctx, fx, fy);
-				LunaCompat.drawHudText(ctx, client.textRenderer, label, 0, 0, color);
+				if (labelFlat) {
+					kr.lunaslight.mod.gui.LunaDraw.text(ctx, client.textRenderer, label, 0, 0, color);
+				} else {
+					LunaCompat.drawHudText(ctx, client.textRenderer, label, 0, 0, color);
+				}
 			} finally {
 				LunaCompat.guiPop(ctx);
 			}
@@ -277,7 +376,11 @@ public class KeystrokesHudModule extends Module {
 		}
 		int tx = x + (w - ink + 1) / 2;
 		int ty = y + Math.round(h / 2f - LunaCompat.textVisualCenter());
-		LunaCompat.drawHudText(ctx, client.textRenderer, label, tx, ty, color);
+		if (labelFlat) {
+			kr.lunaslight.mod.gui.LunaDraw.text(ctx, client.textRenderer, label, tx, ty, color);
+		} else {
+			LunaCompat.drawHudText(ctx, client.textRenderer, label, tx, ty, color);
+		}
 	}
 
 	@Override
@@ -289,7 +392,9 @@ public class KeystrokesHudModule extends Module {
 		dt = lastNanos == 0 ? 0f : Math.min(0.1f, (now - lastNanos) / 1_000_000_000f);
 		lastNanos = now;
 
-		boolean cap = style.get() == Style.KEYCAP;
+		LunaTheme.Skin uiSk = uiSkin();
+		// 3D 키캡과 크림 인게임 UI는 두께가 있어 조금 더 높다
+		boolean cap = uiSk == null ? style.get() == Style.KEYCAP : uiSk == LunaTheme.Skin.CREAM;
 		int box = cap ? BOX + 2 : BOX;         // 3D는 두께만큼 조금 더 높다
 		int fullW = 3 * BOX + 2 * GAP;
 		int spaceH = cap ? 12 : 10;
