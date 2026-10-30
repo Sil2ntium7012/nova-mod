@@ -21,7 +21,7 @@ public class BagsModule extends Module {
 
 	public BagsModule() {
 		super("bags", "가방", ModuleCategory.VIEW, "런처에서 산 노바 가방");
-		defaultEnabled(true);
+		alwaysOn();
 		instance = this;
 	}
 
@@ -32,8 +32,8 @@ public class BagsModule extends Module {
 
 	/** 49-352차: 높이 보정(픽셀, 위가 +). */
 	public static float lift() {
-		BagsModule m = instance;
-		return m == null ? 0f : m.height.get();
+		// 49-430차: 이 기능이 목록에서 빠져 보정 값은 [코스메틱] 페이지(CosmeticsModule)에서 바꾼다
+		return kr.lunaslight.mod.module.impl.misc.CosmeticsModule.bagLift();
 	}
 
 	public static boolean othersShown() {
@@ -44,5 +44,11 @@ public class BagsModule extends Module {
 	@Override
 	public void onWorldRender(Object context) {
 		kr.lunaslight.mod.util.NovaWingsRender.draw(context, others.get(), context instanceof kr.lunaslight.mod.util.BlueprintWorld.Ctx15, kr.lunaslight.mod.util.NovaWings.BAG);
+	}
+
+	/** 49-430차(사용자: "기능 설정에 날개 이런 게 왜 있어 - 기본이니까 껐다 켰다 안 했으면"): 늘 켜짐, 기능 목록에 안 띄움. */
+	@Override
+	public boolean hiddenInList() {
+		return true;
 	}
 }

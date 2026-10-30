@@ -23,7 +23,7 @@ public class TrailsModule extends Module {
 
 	public TrailsModule() {
 		super("trails", "발자취", ModuleCategory.VIEW, "런처에서 산 노바 발자취");
-		defaultEnabled(true);
+		alwaysOn();
 		instance = this;
 	}
 
@@ -59,5 +59,11 @@ public class TrailsModule extends Module {
 	@Override
 	public void onWorldRender(Object context) {
 		kr.lunaslight.mod.util.NovaWingsRender.drawTrails(context);
+	}
+
+	/** 49-430차(사용자: "기능 설정에 날개 이런 게 왜 있어 - 기본이니까 껐다 켰다 안 했으면"): 늘 켜짐, 기능 목록에 안 띄움. */
+	@Override
+	public boolean hiddenInList() {
+		return true;
 	}
 }

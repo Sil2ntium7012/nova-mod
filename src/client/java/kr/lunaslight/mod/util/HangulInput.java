@@ -71,6 +71,31 @@ public final class HangulInput {
 			lastScreen = screen;
 			COMP.reset();
 		}
+		if (window != 0L) {
+			syncOsKorean(window);
+		}
+	}
+
+	/**
+	 * 49-428차(사용자: "한영을 바꿔도 글을 1개 쓰기 전까지는 내 언어 상태가 이전걸로 보여"): 윈도우 입력기가 창에 붙어 있어 자모를 직접
+	 * 보내는 때(osKorean)는 한/영 키를 입력기가 먹어서 노바가 몰랐고, 표시는 다음 글자가 와야(자모면 한글, 영문이면 ENG) 바뀌었다.
+	 * 이제 입력기가 글자를 보내는 쪽이면(osSource) 매 틱 입력기 변환 모드를 직접 읽어 표시를 바로 맞춘다.
+	 */
+	private static boolean osSource;
+
+	private static void syncOsKorean(long win) {
+		if (!osSource) {
+			return;
+		}
+		int hm = WinIme.hangulMode(win);
+		if (hm < 0) {
+			return;   // 입력기가 떨어져 있거나 한국어 자판이 아님 - 글자 이벤트로 판단(예전대로)
+		}
+		boolean os = hm == 1;
+		if (os != osKorean) {
+			osKorean = os;
+			toggledAt = System.nanoTime();   // 바뀐 표시를 잠깐 띄운다
+		}
 	}
 
 	/** 기능을 끌 때. */
@@ -115,6 +140,7 @@ public final class HangulInput {
 		boolean typing = textFocused();
 		if (action == 1 && (hangulKey(key, scancode) || (key == HangulInputModule.toggleKey() && key != -1))) {
 			korean = !korean;
+			osKorean = false;   // 49-428차: 입력기가 보낸 자모로 켜진 "한글" 표시가 다음 글자까지 남지 않게(26.x와 같게)
 			toggledAt = System.nanoTime();
 			COMP.reset();
 			return typing;
@@ -156,8 +182,12 @@ public final class HangulInput {
 		boolean osJamo = typing && codePoint >= 0x3131 && codePoint <= 0x3163;
 		if (typing && !osJamo && codePoint >= 'A' && codePoint <= 'z') {
 			osKorean = false;
+			if (osSource && WinIme.hangulMode(win) == 1) {
+				osSource = false;   // 입력기가 한글인데 영문이 왔다 = 입력기가 조합하지 않음(노바가 조합) - 변환 모드로 표시하지 않는다
+			}
 		}
 		if (osJamo) {
+			osSource = true;
 			if (!osKorean) {
 				osKorean = true;
 				toggledAt = System.nanoTime();

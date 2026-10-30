@@ -94,11 +94,36 @@ public final class HangulInput {
 				osImeOff();
 			}
 		}
+		if (windowFocused()) {
+			syncOsKorean(glfwHandle());
+		}
 		Minecraft mc = Minecraft.getInstance();
 		Object screen = mc == null ? null : LunaCompat.screenOf(mc);
 		if (screen != lastScreen) {
 			lastScreen = screen;
 			COMP.reset();
+		}
+	}
+
+	/**
+	 * 49-428차(사용자: "한영을 바꿔도 글을 1개 쓰기 전까지는 내 언어 상태가 이전걸로 보여"): 윈도우 입력기가 창에 붙어 있어 자모를 직접
+	 * 보내는 때(osKorean)는 한/영 키를 입력기가 먹어서 노바가 몰랐고, 표시는 다음 글자가 와야(자모면 한글, 영문이면 ENG) 바뀌었다.
+	 * 이제 입력기가 글자를 보내는 쪽이면(osSource) 매 틱 입력기 변환 모드를 직접 읽어 표시를 바로 맞춘다.
+	 */
+	private static boolean osSource;
+
+	private static void syncOsKorean(long win) {
+		if (!osSource) {
+			return;
+		}
+		int hm = WinIme.hangulMode(win);
+		if (hm < 0) {
+			return;   // 입력기가 떨어져 있거나 한국어 자판이 아님 - 글자 이벤트로 판단(예전대로)
+		}
+		boolean os = hm == 1;
+		if (os != osKorean) {
+			osKorean = os;
+			toggledAt = System.nanoTime();   // 바뀐 표시를 잠깐 띄운다
 		}
 	}
 
@@ -150,6 +175,10 @@ public final class HangulInput {
 		COMP.reset();
 		if (focused) {
 			boolean open = osImeOpen();   // 49-408차: 들어올 땐 열림만(닫힌 입력기는 한글 변환 모드를 기억만 하고 있을 수 있음)
+			int hmIn = WinIme.hangulMode(glfwHandle());
+			if (open && hmIn == 0) {
+				open = false;   // 49-429차: 한국어 입력기는 늘 열려 있고 한/영은 변환 모드로만 바뀌는 때가 있다 - 열려 있어도 영문이면 영문
+			}
 			if (open != korean) {
 				korean = open;
 				osKorean = false;
@@ -285,6 +314,35 @@ public final class HangulInput {
 		return s == 0x72 || s == 0xF2;   // 윈도우 한/영 키(입력기를 떼면 알 수 없는 키로 온다)
 	}
 
+	private static boolean imeKeyLogged;
+
+	/**
+	 * 윈도우 스캔코드(set 1) → GLFW 키 번호(26.1~26.2 GLFW 값 = ASCII 대문자/숫자/스페이스). 글자, 숫자, 스페이스만(입력기가 먹는 키).
+	 * 모르면 -1. GLFW도 키를 스캔코드(물리 자리)로 정하므로 자판 배열과 상관없이 같은 자리다.
+	 */
+	private static int physicalKey(int scancode) {
+		int s = scancode & 0x1FF;
+		if (s >= 0x02 && s <= 0x0A) {
+			return '1' + (s - 0x02);
+		}
+		if (s == 0x0B) {
+			return '0';
+		}
+		if (s == 0x39) {
+			return ' ';
+		}
+		if (s >= 0x10 && s <= 0x19) {
+			return "QWERTYUIOP".charAt(s - 0x10);
+		}
+		if (s >= 0x1E && s <= 0x26) {
+			return "ASDFGHJKL".charAt(s - 0x1E);
+		}
+		if (s >= 0x2C && s <= 0x32) {
+			return "ZXCVBNM".charAt(s - 0x2C);
+		}
+		return -1;
+	}
+
 	private static boolean modifierKey(int key) {
 		return key == InputConstants.KEY_LSHIFT || key == InputConstants.KEY_RSHIFT
 				|| key == InputConstants.KEY_LCONTROL || key == InputConstants.KEY_RCONTROL
@@ -303,6 +361,31 @@ public final class HangulInput {
 		}
 		if (action == 0) {
 			return false;
+		}
+		if (!LunaInput.SDL && key == -1 && !hangulKey(key, scancode)) {
+			// 49-429차(사용자: "한글 모드일 때 움직여지지가 않아"): 윈도우 입력기가 한글 조합 중이면 글자 키를 먹어서 게임에는 "모르는 키"(-1)로
+			// 온다 - W, A, S, D가 안 먹는다. 그 순간 한/영 상태를 맞추고 입력기를 영문으로 돌린 뒤(조합 확정), 그 키를 제 키로 다시 보낸다.
+			int real = physicalKey(scancode);
+			Emitter e = emitter;
+			if (real != -1 && e != null) {
+				if (action == 1) {
+					onOsImeChanged();
+					osImeOff();
+					if (!imeKeyLogged) {
+						imeKeyLogged = true;
+						kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 한글: 윈도우 입력기가 키를 먹고 있어 영문으로 돌림(스캔코드 " + scancode + ")");
+					}
+				}
+				synthetic = true;
+				try {
+					e.key(win, real, scancode, action, mods);
+				} catch (Throwable t) {
+					LunaCompat.warnOnce("hangul:imeKey", t);
+				} finally {
+					synthetic = false;
+				}
+				return true;
+			}
 		}
 		boolean typing = textFocused();
 		if (action == 1 && (hangulKey(key, scancode) || (key == HangulInputModule.toggleKey() && key != -1))) {
@@ -348,8 +431,12 @@ public final class HangulInput {
 		boolean osJamo = typing && codePoint >= 0x3131 && codePoint <= 0x3163;
 		if (typing && !osJamo && codePoint >= 'A' && codePoint <= 'z') {
 			osKorean = false;
+			if (osSource && WinIme.hangulMode(glfwHandle()) == 1) {
+				osSource = false;   // 입력기가 한글인데 영문이 왔다 = 입력기가 조합하지 않음(노바가 조합) - 변환 모드로 표시하지 않는다
+			}
 		}
 		if (osJamo) {
+			osSource = true;
 			if (!osKorean) {
 				osKorean = true;
 				toggledAt = System.nanoTime();

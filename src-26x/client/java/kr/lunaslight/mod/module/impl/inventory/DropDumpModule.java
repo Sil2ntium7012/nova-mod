@@ -59,7 +59,9 @@ public class DropDumpModule extends Module {
 		highlight = register(new BooleanSetting("highlight", "대상 표시", "마우스를 올리면 함께 처리될 칸을 표시합니다.", true));
 		highlightColor = register(new ColorSetting("highlight_color", "표시 색", "함께 처리될 칸의 색입니다.", 0x59A9D973));
 		// 49-24차: "속도가 너무 느려 - 쫘라락이 돼야" → 초당 5~200칸(틱당 여러 칸), 기본 60.
-		slotsPerSecond = register(new IntSetting("speed", "속도", "초당 처리하는 칸 수입니다.", 60, 5, 200, 5).unit("초"));
+		// 49-430차(사용자: "기본 속도가 너무 느려 - 최대 속도가 기본이어야", "5초보다 200초가 더 빠름 - 이상하게 돼 있음"): 기본 = 최대 200,
+		// 단위가 "초"로 보여 거꾸로 읽혔다 - 초당 칸 수라 "칸/초". 예전 저장값(60)이 남지 않게 키를 바꿈.
+		slotsPerSecond = register(new IntSetting("speed_v2", "속도", "1초에 옮기는 칸 수입니다. 클수록 빠릅니다.", 200, 5, 200, 5).unit("칸/초"));
 
 		LunaCompat.registerScreenAfterRender(this::renderHighlight);
 	}

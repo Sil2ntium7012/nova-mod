@@ -173,6 +173,11 @@ public final class WinIme {
 	private static Method win32Window;
 	private static Method memGetInt;
 	private static long buf;
+	/** 49-429차: 입력기 조합 끝내기(ImmNotifyIME), 조합 중인 글자 길이(ImmGetCompositionStringW). 없으면 0/null. */
+	private static long fnNotify;
+	private static long fnCompStr;
+	private static Method invokeNotify;
+	private static Method invokeCompStr;
 
 	private static boolean resolveConv() {
 		if (convLooked) {
@@ -204,6 +209,15 @@ public final class WinIme {
 			}
 			if (fnGetConv == 0 || fnSetConv == 0 || buf == 0) {
 				convBroken = true;
+			}
+			try {
+				fnNotify = (Long) addr.invoke(imm32, "ImmNotifyIME");
+				fnCompStr = (Long) addr.invoke(imm32, "ImmGetCompositionStringW");
+				invokeNotify = jni.getMethod("invokePI", long.class, int.class, int.class, int.class, long.class);
+				invokeCompStr = jni.getMethod("invokePPI", long.class, int.class, long.class, int.class, long.class);
+			} catch (Throwable ignored) {
+				fnNotify = 0;
+				fnCompStr = 0;
 			}
 		} catch (Throwable t) {
 			convBroken = true;
@@ -286,6 +300,9 @@ public final class WinIme {
 			int conv = (Integer) memGetInt.invoke(null, buf);
 			int sent = (Integer) memGetInt.invoke(null, buf + 4);
 			int want = hangul ? conv | 1 : conv & ~1;
+			if (!hangul) {
+				completeComposition(himc);   // 49-429차: 조합 중이면(바닐라 초록 칸) 먼저 끝내야 영문으로 바뀐다
+			}
 			if (want != conv) {
 				invokePIII.invoke(null, himc, want, sent, fnSetConv);
 			}
@@ -294,6 +311,29 @@ public final class WinIme {
 			LunaCompat.warnOnce("winIme:setConv", t);
 		} finally {
 			release(hwnd, himc);
+		}
+	}
+
+	/**
+	 * 49-429차(사용자: "가끔 한글로 바꾸면 원래 마크처럼 초록색 칸이 따로 떠서 거기에 한글이 올라가고 그 상태에선 바로 안 바뀜",
+	 * "한글 모드일 때 움직여지지가 않아"): 윈도우 입력기가 조합을 시작하면(26.1~26.2 바닐라가 초록 칸으로 그림) 조합이 끝날 때까지
+	 * 변환 모드를 영문으로 못 돌리고, 그동안 입력기가 키를 먹어 이동 키도 게임에 안 온다. 조합 중인 글자가 있으면 확정(CPS_COMPLETE)해
+	 * 끝낸다 - 확정된 글자는 글자 이벤트로 오고 노바가 처리한다.
+	 */
+	private static void completeComposition(long himc) {
+		if (himc == 0 || fnNotify == 0 || invokeNotify == null) {
+			return;
+		}
+		try {
+			if (fnCompStr != 0 && invokeCompStr != null) {
+				int len = (Integer) invokeCompStr.invoke(null, himc, 0x0008, 0L, 0, fnCompStr);   // GCS_COMPSTR, 바이트 수만
+				if (len <= 0) {
+					return;
+				}
+			}
+			invokeNotify.invoke(null, himc, 0x0015, 0x0001, 0, fnNotify);   // NI_COMPOSITIONSTR, CPS_COMPLETE
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("winIme:complete", t);
 		}
 	}
 

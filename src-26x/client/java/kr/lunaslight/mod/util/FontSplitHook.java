@@ -207,6 +207,9 @@ public final class FontSplitHook {
 	/** minecraft:include/space, include/default, include/unifont(바닐라가 default 글꼴을 쪼개 둔 것). */
 	static boolean isVanillaInclude(String id) {
 		String s = id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id;
-		return s.startsWith("include/");
+		// 49-430차(사용자: "내 리소스팩 우선이 여전히 특수문자나 내 팩에 없는 글자도 다른 팩을 막아"): 예전엔 include/로 시작하면 다 뺐다.
+		// 아이콘 팩(Icons 등)은 자기 글자를 minecraft:include/gui, include/hud …에 나눠 두고 default에서 reference로 잇는데, 그걸 뺐더니
+		// 그 팩 글자가 통째로 사라졌다. 바닐라가 실제로 갖고 있는 셋(default, space, unifont)만 뺀다.
+		return s.equals("include/default") || s.equals("include/space") || s.equals("include/unifont");
 	}
 }

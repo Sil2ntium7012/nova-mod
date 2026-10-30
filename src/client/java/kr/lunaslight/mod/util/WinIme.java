@@ -156,4 +156,197 @@ public final class WinIme {
 		}
 		return relMethod;
 	}
+
+	// ==================== 49-400차: 한/영(변환 모드) ====================
+	// 사용자: "한글 상태에서 한/영 키를 2번 눌러야 영어가 돼". 한국어 입력기는 "열림/닫힘"과 따로 "한글/영문" 변환 모드를 기억한다.
+	// 우리가 입력기를 닫아도 변환 모드는 한글로 남아 있어서, 다음 한/영 누름이 한글→영문으로만 바뀌고(열림 알림 없음) 노바가 몰랐다.
+	// 이제 변환 모드도 직접 보고(한글이면 한/영 누름) 늘 영문으로 돌려 둔다 - 누를 때마다 같은 쪽(영문→한글)으로만 바뀐다.
+
+	private static boolean convLooked;
+	private static boolean convBroken;
+	private static long fnGetConv;
+	private static long fnSetConv;
+	private static long fnGetKeyboardLayout;
+	private static Method invokePPPI;
+	private static Method invokePIII;
+	private static Method invokeIP;
+	private static Method win32Window;
+	private static Method memGetInt;
+	private static long buf;
+	/** 49-429차: 입력기 조합 끝내기(ImmNotifyIME), 조합 중인 글자 길이(ImmGetCompositionStringW). 없으면 0/null. */
+	private static long fnNotify;
+	private static long fnCompStr;
+	private static Method invokeNotify;
+	private static Method invokeCompStr;
+
+	private static boolean resolveConv() {
+		if (convLooked) {
+			return !convBroken;
+		}
+		convLooked = true;
+		if (!resolve()) {
+			convBroken = true;
+			return false;
+		}
+		try {
+			Class<?> lib = Class.forName("org.lwjgl.system.windows.WindowsLibrary");
+			Object user32 = lib.getConstructor(String.class).newInstance("user32");
+			Object imm32 = lib.getConstructor(String.class).newInstance("imm32");
+			Method addr = lib.getMethod("getFunctionAddress", CharSequence.class);
+			fnGetConv = (Long) addr.invoke(imm32, "ImmGetConversionStatus");
+			fnSetConv = (Long) addr.invoke(imm32, "ImmSetConversionStatus");
+			fnGetKeyboardLayout = (Long) addr.invoke(user32, "GetKeyboardLayout");
+			Class<?> jni = Class.forName("org.lwjgl.system.JNI");
+			invokePPPI = jni.getMethod("invokePPPI", long.class, long.class, long.class, long.class);
+			invokePIII = jni.getMethod("invokePI", long.class, int.class, int.class, long.class);
+			invokeIP = jni.getMethod("invokeP", int.class, long.class);
+			Class<?> mu = Class.forName("org.lwjgl.system.MemoryUtil");
+			memGetInt = mu.getMethod("memGetInt", long.class);
+			buf = (Long) mu.getMethod("nmemAlloc", long.class).invoke(null, 8L);
+			try {
+				win32Window = Class.forName("org.lwjgl.glfw.GLFWNativeWin32").getMethod("glfwGetWin32Window", long.class);
+			} catch (Throwable ignored) {
+			}
+			if (fnGetConv == 0 || fnSetConv == 0 || buf == 0) {
+				convBroken = true;
+			}
+			try {
+				fnNotify = (Long) addr.invoke(imm32, "ImmNotifyIME");
+				fnCompStr = (Long) addr.invoke(imm32, "ImmGetCompositionStringW");
+				invokeNotify = jni.getMethod("invokePI", long.class, int.class, int.class, int.class, long.class);
+				invokeCompStr = jni.getMethod("invokePPI", long.class, int.class, long.class, int.class, long.class);
+			} catch (Throwable ignored) {
+				fnNotify = 0;
+				fnCompStr = 0;
+			}
+		} catch (Throwable t) {
+			convBroken = true;
+			LunaCompat.warnOnce("winIme:conv", t);
+		}
+		return !convBroken;
+	}
+
+	/** 게임 창(GLFW 창 → HWND, 안 되면 GetActiveWindow). */
+	private static long hwndOf(long glfwWindow) throws Exception {
+		if (win32Window != null && glfwWindow != 0L) {
+			long h = (Long) win32Window.invoke(null, glfwWindow);
+			if (h != 0L) {
+				return h;
+			}
+		}
+		return call(invokeP, fnGetActiveWindow);
+	}
+
+	/** 지금 자판이 한국어인가(다른 나라 입력기의 "자국어 모드"를 한글로 치지 않게). */
+	private static boolean koreanLayout() {
+		try {
+			if (fnGetKeyboardLayout == 0) {
+				return true;
+			}
+			long hkl = (Long) invokeIP.invoke(null, 0, fnGetKeyboardLayout);
+			return (hkl & 0xFFFF) == 0x0412;
+		} catch (Throwable t) {
+			return true;
+		}
+	}
+
+	/** 한국어 입력기 변환 모드: 1 한글, 0 영문, -1 모름(윈도우 아님, 입력기 없음 등). */
+	public static int hangulMode(long glfwWindow) {
+		if (!WINDOWS || !resolveConv()) {
+			return -1;
+		}
+		long hwnd = 0, himc = 0;
+		try {
+			if (!koreanLayout()) {
+				return -1;
+			}
+			hwnd = hwndOf(glfwWindow);
+			himc = hwnd == 0 ? 0 : call(invokePP, hwnd, fnImmGetContext);
+			if (himc == 0) {
+				return -1;
+			}
+			int ok = (Integer) invokePPPI.invoke(null, himc, buf, buf + 4, fnGetConv);
+			if (ok == 0) {
+				return -1;
+			}
+			return ((Integer) memGetInt.invoke(null, buf) & 1) != 0 ? 1 : 0;
+		} catch (Throwable t) {
+			convBroken = true;
+			LunaCompat.warnOnce("winIme:getConv", t);
+			return -1;
+		} finally {
+			release(hwnd, himc);
+		}
+	}
+
+	/** 변환 모드를 한글/영문으로(바뀔 때만). */
+	public static void setHangulMode(long glfwWindow, boolean hangul) {
+		if (!WINDOWS || !resolveConv()) {
+			return;
+		}
+		long hwnd = 0, himc = 0;
+		try {
+			if (!koreanLayout()) {
+				return;
+			}
+			hwnd = hwndOf(glfwWindow);
+			himc = hwnd == 0 ? 0 : call(invokePP, hwnd, fnImmGetContext);
+			if (himc == 0) {
+				return;
+			}
+			if ((Integer) invokePPPI.invoke(null, himc, buf, buf + 4, fnGetConv) == 0) {
+				return;
+			}
+			int conv = (Integer) memGetInt.invoke(null, buf);
+			int sent = (Integer) memGetInt.invoke(null, buf + 4);
+			int want = hangul ? conv | 1 : conv & ~1;
+			if (!hangul) {
+				completeComposition(himc);   // 49-429차: 조합 중이면(바닐라 초록 칸) 먼저 끝내야 영문으로 바뀐다
+			}
+			if (want != conv) {
+				invokePIII.invoke(null, himc, want, sent, fnSetConv);
+			}
+		} catch (Throwable t) {
+			convBroken = true;
+			LunaCompat.warnOnce("winIme:setConv", t);
+		} finally {
+			release(hwnd, himc);
+		}
+	}
+
+	/**
+	 * 49-429차(사용자: "가끔 한글로 바꾸면 원래 마크처럼 초록색 칸이 따로 떠서 거기에 한글이 올라가고 그 상태에선 바로 안 바뀜",
+	 * "한글 모드일 때 움직여지지가 않아"): 윈도우 입력기가 조합을 시작하면(26.1~26.2 바닐라가 초록 칸으로 그림) 조합이 끝날 때까지
+	 * 변환 모드를 영문으로 못 돌리고, 그동안 입력기가 키를 먹어 이동 키도 게임에 안 온다. 조합 중인 글자가 있으면 확정(CPS_COMPLETE)해
+	 * 끝낸다 - 확정된 글자는 글자 이벤트로 오고 노바가 처리한다.
+	 */
+	private static void completeComposition(long himc) {
+		if (himc == 0 || fnNotify == 0 || invokeNotify == null) {
+			return;
+		}
+		try {
+			if (fnCompStr != 0 && invokeCompStr != null) {
+				int len = (Integer) invokeCompStr.invoke(null, himc, 0x0008, 0L, 0, fnCompStr);   // GCS_COMPSTR, 바이트 수만
+				if (len <= 0) {
+					return;
+				}
+			}
+			invokeNotify.invoke(null, himc, 0x0015, 0x0001, 0, fnNotify);   // NI_COMPOSITIONSTR, CPS_COMPLETE
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("winIme:complete", t);
+		}
+	}
+
+	private static void release(long hwnd, long himc) {
+		if (himc == 0 || fnImmReleaseContext == 0) {
+			return;
+		}
+		try {
+			Method rel = jniInt();
+			if (rel != null) {
+				rel.invoke(null, hwnd, himc, fnImmReleaseContext);
+			}
+		} catch (Throwable ignored) {
+		}
+	}
 }

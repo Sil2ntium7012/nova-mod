@@ -26,6 +26,7 @@ public class CosmeticsModule extends Module {
 	private final BooleanSetting useUi;
 	private final BooleanSetting useWings;
 	private final BooleanSetting useBag;   // 49-351차
+	private final kr.lunaslight.mod.module.setting.IntSetting bagHeight;   // 49-430차: 가방 기능에서 옮겨 옴
 	private final BooleanSetting useHat;   // 49-353차
 	private final BooleanSetting useTrail;   // 49-364차
 	private final kr.lunaslight.mod.module.setting.FloatSetting trailTime;   // 49-367차
@@ -48,6 +49,8 @@ public class CosmeticsModule extends Module {
 		// 49-351차(사용자: "토끼가방으로 치장에 추가해줘")
 		register(new InfoSetting("bag", "가방", () -> kr.lunaslight.mod.util.NovaWings.BAG.nameOf(kr.lunaslight.mod.util.NovaWings.BAG.mineKey())));
 		useBag = register(new BooleanSetting("use_bag", "가방 쓰기", "끄면 내 가방을 안 그립니다. 런처에서 낀 것은 그대로입니다.", true));
+		bagHeight = register(new kr.lunaslight.mod.module.setting.IntSetting(
+				"bag_height", "가방 높이 보정", "가방을 위(+)나 아래(-)로 옮깁니다. 1 = 스킨 한 픽셀. 내 화면의 모든 가방에 적용됩니다.", 0, -16, 16, 1).unit("px"));
 		// 49-353차(사용자: "토끼모자 추가좀 해줘")
 		register(new InfoSetting("hat", "모자", () -> kr.lunaslight.mod.util.NovaWings.HAT.mineNames()));
 		useHat = register(new BooleanSetting("use_hat", "모자 쓰기", "끄면 내 모자를 안 그립니다. 런처에서 낀 것은 그대로입니다.", true));
@@ -72,6 +75,12 @@ public class CosmeticsModule extends Module {
 	public void onTick() {
 		applyUi();   // 설정 파일을 읽은 직후에도 맞도록(값이 같으면 아무것도 안 한다)
 		kr.lunaslight.mod.util.NovaTrails.lifeScale = trailTime.get() / 2f;   // 49-367차
+	}
+
+	/** 49-430차: 가방 높이 보정(픽셀, 위가 +). */
+	public static float bagLift() {
+		CosmeticsModule m = instance;
+		return m == null ? 0f : m.bagHeight.get();
 	}
 
 	/** 내 노바 망토를 그릴지. */
