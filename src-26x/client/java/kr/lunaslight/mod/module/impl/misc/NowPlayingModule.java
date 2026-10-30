@@ -46,6 +46,9 @@ public class NowPlayingModule extends Module {
 	// 49-195차(사용자: "노래 멈춰도 표시가 기본 기능으로"): [멈춰도 표시] 설정을 빼고 일시정지 중에도 늘 보여 준다.
 	private final IntSetting maxWidth = register(new IntSetting(
 			"max_width", "최대 너비", "이보다 길면 제목을 잘라냅니다(픽셀).", 140, 80, 300, 10).unit("px"));
+	// 49-440차(사용자: "노래 제목이 짤리면 그 제목이 옆으로 넘어가면서 다 보이게 하는 기능 기본으로"): 잘라내는 대신 흐르게
+	private final BooleanSetting scrollLong = register(new BooleanSetting(
+			"scroll_long", "긴 제목 흐르게", "제목이 [최대 너비]보다 길면 잘라내지 않고 옆으로 천천히 흘려서 끝까지 보여 줍니다.", true));
 	private final ColorSetting textColor = register(new ColorSetting(
 			"text_color", "글자 색", "곡 제목의 색입니다.", 0xFFECECF1));
 	// 49-177차(사용자: "멜론 스포티파이 유튜브뮤직 유튜브 숲 이런 플랫폼별 색으로 입혀주라")
@@ -84,9 +87,14 @@ public class NowPlayingModule extends Module {
 		}
 		int brand = platformColor.get() ? brandColor(src) : 0;
 		String text = song + (artist.get() && who != null && !who.isEmpty() ? " §7- " + who : "");
-		text = clip(text, maxWidth.get());
+		int limit = maxWidth.get();
+		int fullW = LunaCompat.getTextWidth(client.font, text);
+		boolean marquee = scrollLong.get() && fullW > limit;
+		if (!marquee) {
+			text = clip(text, limit);
+		}
 
-		int tw = LunaCompat.getTextWidth(client.font, text);
+		int tw = marquee ? limit : LunaCompat.getTextWidth(client.font, text);
 		// 49-182차(사용자: "움직이는 막대와 노래 제목 사이에 띄어쓰기 하나"): 막대(x+5~x+13) 뒤에 글꼴의 띄어쓰기 한 칸만큼 띄운다
 		int gap = Math.max(3, LunaCompat.getTextWidth(client.font, " "));
 		int textX = 13 + gap;
@@ -110,7 +118,83 @@ public class NowPlayingModule extends Module {
 			drawBars(context, x + 6, y + 5, moving, 0xFF000000 | darken(brand != 0 ? brand : LunaDraw.ACCENT));
 		}
 		drawBars(context, x + 5, y + 4, moving, brand != 0 ? brand : LunaDraw.ACCENT);
-		LunaCompat.drawHudText(context, client.font, text, x + textX, y + 4, textColor.getArgb());
+		if (marquee) {
+			drawMarquee(context, text, fullW, x + textX, y + 4, limit, textColor.getArgb());
+		} else {
+			LunaCompat.drawHudText(context, client.font, text, x + textX, y + 4, textColor.getArgb());
+		}
+	}
+
+	// ==================== 49-440차: 긴 제목 흐르게 ====================
+	// 처음 1.5초 멈춤 → 초당 28px로 끝이 보일 때까지 → 1.5초 멈춤 → 처음으로. 곡이 바뀌면 처음부터.
+	// 가위 자르기가 HUD 배율/이동을 따르는 버전(1.21.4+)은 픽셀 단위로 부드럽게, 아니면 글자 단위로 넘긴다(가위가 엉뚱한 곳을 자르지 않게).
+
+	private static final long MARQUEE_PAUSE = 1500L;
+	private static final float MARQUEE_SPEED = 28f;
+	private String marqueeText;
+	private long marqueeStart;
+
+	private float marqueeOffset(String text, int fullW, int limit) {
+		long now = System.currentTimeMillis();
+		if (!text.equals(marqueeText)) {
+			marqueeText = text;
+			marqueeStart = now;
+		}
+		float travel = fullW - limit + 2;
+		long scrollMs = (long) (travel * 1000f / MARQUEE_SPEED);
+		long cycle = MARQUEE_PAUSE + scrollMs + MARQUEE_PAUSE;
+		long t = (now - marqueeStart) % Math.max(1L, cycle);
+		if (t < MARQUEE_PAUSE) {
+			return 0f;
+		}
+		if (t < MARQUEE_PAUSE + scrollMs) {
+			return (t - MARQUEE_PAUSE) * MARQUEE_SPEED / 1000f;
+		}
+		return travel;
+	}
+
+	private void drawMarquee(GuiGraphicsExtractor ctx, String text, int fullW, int x, int y, int limit, int color) {
+		float off = marqueeOffset(text, fullW, limit);
+		boolean smooth = false;
+		try {
+			smooth = LunaCompat.guiScissorFollowsPose(ctx) && LunaCompat.guiTransformSupported(ctx);
+		} catch (Throwable ignored) {
+		}
+		if (smooth) {
+			try {
+				ctx.enableScissor(x, y - 2, x + limit, y + 11);
+				LunaCompat.guiPush(ctx);
+				try {
+					LunaCompat.guiTranslate(ctx, x - off, y);
+					LunaCompat.drawHudText(ctx, client.font, text, 0, 0, color);
+				} finally {
+					LunaCompat.guiPop(ctx);
+					ctx.disableScissor();
+				}
+				return;
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("nowPlaying:marquee", t);
+			}
+		}
+		// 글자 단위: 앞에서 off만큼 넘긴 글자부터, 폭에 맞게 뒤를 자름
+		int k = 0;
+		String color7 = "";
+		while (k < text.length() && LunaCompat.getTextWidth(client.font, text.substring(0, k)) < off) {
+			if (text.charAt(k) == '§' && k + 1 < text.length()) {
+				color7 = "§" + text.charAt(k + 1);
+				k += 2;
+			} else {
+				k++;
+			}
+		}
+		String shown = color7 + text.substring(Math.min(k, text.length()));
+		while (shown.length() > 1 && LunaCompat.getTextWidth(client.font, shown) > limit) {
+			shown = shown.substring(0, shown.length() - 1);
+		}
+		if (shown.endsWith("§")) {
+			shown = shown.substring(0, shown.length() - 1);
+		}
+		LunaCompat.drawHudText(ctx, client.font, shown, x, y, color);
 	}
 
 	/** 작은 이퀄라이저 막대. 재생 중이면 높이가 움직이고, 멈춰 있으면 낮게 고정된다. */
