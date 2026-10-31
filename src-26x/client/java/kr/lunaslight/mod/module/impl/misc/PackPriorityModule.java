@@ -32,6 +32,10 @@ public class PackPriorityModule extends Module {
 	private final BooleanSetting symbolsServer = register(new BooleanSetting(
 			"symbols_server", "서버 기호", "켜면 내 글꼴 팩은 글자와 숫자에만 쓰고, 기호와 아이콘 글자는 서버 팩(없으면 기본) 것을 씁니다. 1.20 이상.", true));
 
+	// 49-452차(사용자: 너굴마을에서 내 팩을 위로 올리면 서버 HUD가 옆으로 밀리고 기호가 깨짐): PackUiGuard 참고.
+	private final BooleanSetting serverUi = register(new BooleanSetting(
+			"server_ui", "서버 화면", "켜면 서버 팩에도 있는 화면 그림(체력, 배고픔, 보스바 등)과 글자 셰이더는 서버 것을 씁니다. 서버 HUD가 밀리거나 깨지지 않게 합니다.", true));
+
 	public PackPriorityModule() {
 		super("pack_priority", "내 리소스팩 우선", ModuleCategory.FEATURE,
 				"서버 팩보다 내 팩을 위에");
@@ -39,6 +43,7 @@ public class PackPriorityModule extends Module {
 		world.onChange(this::apply);
 		kr.lunaslight.mod.util.FontSplitHook.enabled = () -> isEnabled() && isVersionSupported() && symbolsServer.get()
 				&& LunaVersion.isWithin("1.20", null);
+		kr.lunaslight.mod.util.PackUiGuard.enabled = () -> isEnabled() && isVersionSupported() && serverUi.get();
 	}
 
 	@Override

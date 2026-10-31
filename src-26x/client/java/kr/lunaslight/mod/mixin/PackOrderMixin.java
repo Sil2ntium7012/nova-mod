@@ -28,6 +28,7 @@ public abstract class PackOrderMixin {
 	@Inject(method = "openAllSelected()Ljava/util/List;", at = @At("RETURN"), cancellable = true, require = 0)
 	private void lunaslight$packOrder(CallbackInfoReturnable<List<?>> cir) {
 		if (PackOrderHook.off) {
+			kr.lunaslight.mod.util.PackUiGuard.prepare(null);   // 49-452차: 꺼져 있으면 숨기는 것도 없음
 			return;
 		}
 		List<?> current = cir.getReturnValue();
@@ -35,5 +36,7 @@ public abstract class PackOrderMixin {
 		if (fixed != null) {
 			cir.setReturnValue(fixed);
 		}
+		// 49-452차: 서버 팩의 UI 파일(셰이더, textures/gui)은 내 팩에서 숨겨 서버 것이 나오게
+		kr.lunaslight.mod.util.PackUiGuard.prepare(fixed != null ? fixed : current);
 	}
 }

@@ -1896,6 +1896,10 @@ public class LunaClientScreen extends LunaScreenBase {
 		String keyName = listeningKeybind.getKeyName();
 		boolean unbound = keyName == null || keyName.isEmpty() || "없음".equals(keyName);
 		String cap = unbound ? "…" : keyName;
+		int liveMods = LunaCompat.heldModifiersNow();   // 49-451차: 보조키를 누르고 있으면 조합을 미리 보여 줌
+		if (liveMods != 0) {
+			cap = LunaCompat.modsPrefix(liveMods) + "…";
+		}
 		int capW = Math.max(64, LunaDraw.width(textRenderer, cap) + 28);
 		int capH = 30, depth = 4;
 		int kx = bx + (KB_W - capW) / 2, ky = by + 30;
@@ -1932,6 +1936,10 @@ public class LunaClientScreen extends LunaScreenBase {
 	private void bindKey(int code) {
 		modalModsHeld = 0;
 		modalModOnly = false;
+		// 49-451차: 마크 보조 키(alt:)는 바닐라 키라 조합을 못 쓴다 - 보조키 비트는 뗀다.
+		if (code >= 0 && listeningKeybind.getId() != null && listeningKeybind.getId().startsWith("alt:")) {
+			code = LunaCompat.baseKey(code);
+		}
 		// 49-125차: 서버에서는 공격/사용의 보조 키를 키보드로 못 둔다 - 모달 안에 이유를 띄우고 계속 듣는다.
 		String blocked = kr.lunaslight.mod.util.AltKeys.blockedReason(listeningKeybind.getId(), code);
 		if (blocked != null) {
@@ -2023,7 +2031,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			}
 			// 49-22차: 마우스 옆버튼(휠 클릭 포함, 버튼 2 이상)도 키로 지정(49-124차: 조합키 제거 - 버튼만)
 			if (button >= 2) {
-				bindKey(LunaCompat.mouseKeyCode(button));
+				bindKey(LunaCompat.mouseKeyCode(button) | LunaCompat.heldModifiersNow());   // 49-451차: Ctrl + 마우스 4 등
 				return true;
 			}
 			if (LunaDraw.in(mouseX, mouseY, bx + KB_W - 24, by + 6, 18, 18)
@@ -4741,7 +4749,12 @@ public class LunaClientScreen extends LunaScreenBase {
 	}
 
 	private boolean lunaKeyReleased0(int keyCode, int scanCode, int modifiers) {
-		return false;   // 49-124차: 조합키 제거 - 키를 떼는 순간 지정하던 동작 없음.
+		// 49-451차: 보조키만 눌렀다 떼면 그 보조키를 지정(다른 보조키가 아직 눌려 있으면 그것과 조합)
+		if (listeningKeybind != null && pendingConflict == null && modalModOnly && LunaCompat.isModifierKey(keyCode)) {
+			bindKey(keyCode | (LunaCompat.heldModifiersNow() & ~LunaCompat.modifierBitOf(keyCode)));
+			return true;
+		}
+		return false;
 	}
 
 	private boolean lunaKeyPressed0(int keyCode, int scanCode, int modifiers) {
@@ -4791,8 +4804,13 @@ public class LunaClientScreen extends LunaScreenBase {
 						listeningKeybind = null;
 					}
 				});
+			} else if (LunaCompat.isModifierKey(keyCode)) {
+				// 49-451차(사용자: "키바인드도 컨트롤이나 쉬프트 알트 여러 개 누르는 방식 저장 가능하게"): 보조키는 바로 지정하지 않고
+				// 기다린다 - 누른 채 다른 키를 누르면 조합(Ctrl + R), 그냥 떼면 그 보조키 하나.
+				modalModsHeld |= LunaCompat.modifierBitOf(keyCode);
+				modalModOnly = true;
 			} else {
-				bindKey(keyCode);
+				bindKey(keyCode | LunaCompat.heldModifiersNow());
 			}
 			return true;
 		}

@@ -562,7 +562,8 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, b.label(), nameW), sx + 10, rty,
 				isListening ? LunaDraw.ACCENT : (hov || onHoverKey ? LunaDraw.TEXT : LunaDraw.TEXT_SUB));
 			if (isListening) {
-				String w8 = "키를 누르세요";
+				int held = kr.lunaslight.mod.util.LunaCompat.heldModifiersNow();   // 49-451차: 보조키를 누르고 있으면 조합 미리보기
+				String w8 = held != 0 ? kr.lunaslight.mod.util.LunaCompat.modsPrefix(held) + "…" : "키를 누르세요";
 				LunaDraw.text(ctx, font, w8, sx + sideW() - 10 - LunaDraw.width(font, w8), rty, LunaDraw.ACCENT);
 			} else if (!cur.isEmpty()) {
 				int cx = sx + sideW() - 10 - chipW;
@@ -617,11 +618,29 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 		return -1;
 	}
 
+	/** 49-451차: 보조키만 눌린 상태(떼면 그 보조키를 지정). */
+	private boolean modOnly;
+
+	@Override
+	protected boolean lunaKeyReleased(int keyCode, int scanCode, int modifiers) {
+		if (listening >= 0 && modOnly && kr.lunaslight.mod.util.LunaCompat.isModifierKey(keyCode)) {
+			modOnly = false;
+			assign(listening, keyCode | (kr.lunaslight.mod.util.LunaCompat.heldModifiersNow() & ~kr.lunaslight.mod.util.LunaCompat.modifierBitOf(keyCode)));
+			return true;
+		}
+		return false;
+	}
+
 	private void assign(int index, int keyCodeWithMods) {
+		modOnly = false;
 		if (index < 0 || index >= bindables.size()) {
 			return;
 		}
 		Bindable b = bindables.get(index);
+		// 49-451차: 마크 보조 키(alt:)는 바닐라 키라 조합을 못 쓴다 - 보조키 비트는 뗀다.
+		if (keyCodeWithMods >= 0 && b.setting().getId() != null && b.setting().getId().startsWith("alt:")) {
+			keyCodeWithMods = kr.lunaslight.mod.util.LunaCompat.baseKey(keyCodeWithMods);
+		}
 		// 49-125차: 서버에서는 공격/사용의 보조 키를 키보드로 못 둔다 - 안내만 띄우고 그대로 둔다.
 		String blocked = kr.lunaslight.mod.util.AltKeys.blockedReason(b.setting().getId(), keyCodeWithMods);
 		if (blocked != null) {
@@ -681,6 +700,7 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 					}
 				} else {
 					listening = listening == i ? -1 : i;
+					modOnly = false;
 				}
 			}
 			return true;
@@ -689,7 +709,7 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 		int code = keyAt(mouseX, mouseY);
 		if (code >= 0) {
 			if (listening >= 0) {
-				assign(listening, code);   // 49-124차: 조합키 제거 - 누른 키 그대로 지정
+				assign(listening, code | (kr.lunaslight.mod.util.LunaCompat.heldModifiersNow() & ~kr.lunaslight.mod.util.LunaCompat.modifierBitOf(code)));   // 49-451차: 보조키를 누른 채 누르면 조합
 			} else {
 				// 그 키에 지정된 첫 기능으로 목록 스크롤(어디 있는지 바로 보이게)
 				for (int i = 0; i < bindables.size(); i++) {
@@ -726,7 +746,12 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 				}
 				return true;
 			}
-			assign(listening, keyCode);   // 49-124차: 조합키 제거 - 누른 키 그대로 지정
+			// 49-451차: 보조키는 기다린다 - 누른 채 다른 키 = 조합(Ctrl + R), 그냥 떼면 그 보조키 하나(lunaKeyReleased).
+			if (kr.lunaslight.mod.util.LunaCompat.isModifierKey(keyCode)) {
+				modOnly = true;
+				return true;
+			}
+			assign(listening, keyCode | kr.lunaslight.mod.util.LunaCompat.heldModifiersNow());
 			return true;
 		}
 		if (keyCode == InputConstants.KEY_ESCAPE) {

@@ -98,6 +98,35 @@ public final class LunaCompat {
 		};
 	}
 
+	/** 49-451차: 지금 눌린 보조키(클라이언트 객체 없이 - 화면/설정 쪽에서). */
+	public static int heldModifiersNow() {
+		try {
+			return heldModifiers(Minecraft.getInstance());
+		} catch (Throwable t) {
+			return 0;
+		}
+	}
+
+	/** 49-451차: setting 패키지용(마크 타입을 안 쓰게). */
+	public static int heldModifiersAny(Object client) {
+		return client instanceof Minecraft mc ? heldModifiers(mc) : 0;
+	}
+
+	/** 49-451차: "Ctrl + Shift + " 꼴 접두어(조합키 미리보기). */
+	public static String modsPrefix(int mods) {
+		StringBuilder sb = new StringBuilder();
+		if ((mods & MOD_CTRL) != 0) {
+			sb.append("Ctrl + ");
+		}
+		if ((mods & MOD_SHIFT) != 0) {
+			sb.append("Shift + ");
+		}
+		if ((mods & MOD_ALT) != 0) {
+			sb.append("Alt + ");
+		}
+		return sb.toString();
+	}
+
 	/** 지금 눌린 보조키들의 MOD_* 비트 합. */
 	public static int heldModifiers(Minecraft client) {
 		int m = 0;

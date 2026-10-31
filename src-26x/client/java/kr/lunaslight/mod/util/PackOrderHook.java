@@ -94,6 +94,11 @@ public final class PackOrderHook {
 		return id != null && id.toLowerCase(java.util.Locale.ROOT).startsWith("file/luna-server-");
 	}
 
+	/** 49-452차: PackUiGuard용 공개 판정(서버/월드 팩 id인가). */
+	public static boolean isServerPackId(String id) {
+		return isServerPack(id);
+	}
+
 	/** id가 서버(또는 월드) 팩인가 - "server" / "server/uuid" / "server:..." / "world" 등. 대소문자 무시. */
 	private static boolean isServerPack(String id) {
 		if (id == null) {

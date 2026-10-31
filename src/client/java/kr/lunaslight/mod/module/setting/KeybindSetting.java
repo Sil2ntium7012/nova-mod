@@ -10,8 +10,12 @@ import kr.lunaslight.mod.util.LunaCompat;
  */
 public class KeybindSetting extends Setting<Integer> {
 
+	/** 49-451차: 만든 키 지정 전부 - 조합키 지정이 눌렸을 때 같은 키의 단독 지정을 쉬게 하려고. */
+	private static final java.util.List<KeybindSetting> ALL = new java.util.concurrent.CopyOnWriteArrayList<>();
+
 	public KeybindSetting(String id, String displayName, String description, int defaultGlfwKey) {
 		super(id, displayName, description, defaultGlfwKey);
+		ALL.add(this);
 	}
 
 	/** 저장된 값 그대로(49-24차: 보조키 비트 포함 - 실제 GLFW 키는 getBaseKey()). */
@@ -35,7 +39,24 @@ public class KeybindSetting extends Setting<Integer> {
 
 	/** 지정된 키(또는 마우스 버튼, 조합키 포함)가 지금 눌려 있는지. 모듈은 getKeyCode() 폴링 대신 이걸 쓴다. */
 	public boolean isDown(Object client) {
-		return isBound() && LunaCompat.isKeyPressedAny(client, value);
+		if (!isBound() || !LunaCompat.isKeyPressedAny(client, value)) {
+			return false;
+		}
+		// 49-451차: 단독 지정(예: R)은 보조키가 눌려 있고 그 조합(예: Ctrl + R)이 다른 칸에 지정돼 있으면 쉰다 - 둘이 같이 안 켜지게.
+		if (LunaCompat.keyModifiers(value) == 0) {
+			int held = LunaCompat.heldModifiersAny(client);
+			if (held != 0) {
+				int base = getBaseKey();
+				for (KeybindSetting o : ALL) {
+					int v = o.value;
+					int m = LunaCompat.keyModifiers(v);
+					if (o != this && v >= 0 && m != 0 && (m & held) == m && LunaCompat.baseKey(v) == base) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 	public String getKeyName() {
