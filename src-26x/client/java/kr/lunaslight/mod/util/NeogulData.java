@@ -429,6 +429,16 @@ public final class NeogulData {
 		}
 	}
 
+	/** 49-443차: 이름으로 자료 아이템 찾기(던전 몬스터 창 전리품 아이콘). 없으면 null. */
+	public static Entry byName(String name) {
+		if (name == null) {
+			return null;
+		}
+		ensure();
+		String k = KEY_BY_NAME.get(normalize(name));
+		return k == null ? null : ITEMS.get(k);
+	}
+
 	/** 49-391차: 게임 아이템이 자료의 어느 아이템인지(이름으로). 없으면 null. */
 	public static String keyOf(ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {

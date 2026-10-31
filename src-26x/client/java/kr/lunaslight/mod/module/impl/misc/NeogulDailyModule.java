@@ -166,6 +166,17 @@ public class NeogulDailyModule extends Module {
 
 	// ==================== 그리기 ====================
 
+	// 49-443차(사용자: "너굴마을 추천이랑 핫타임 예쁘게좀 해주고"): 체크 칸 두 줄 → 카드 두 줄.
+	//  ● 추천      [완료] / [아직]
+	//  ● 핫타임    02:13:05 / [지금] (깜빡) / [받음] / [놓침]
+	//  ─────────── (핫타임까지 남은 하루 진행 막대)
+	// 왼쪽 점 = 상태 색, 오른쪽 = 알약. 배경은 이 기능의 [배경] 설정(HUD 배경) 그대로.
+
+	private static final int OK = 0xFF4CC38A;
+	private static final int WAIT = 0xFF8A919C;
+	private static final int NOW = 0xFFFFC857;
+	private static final int MISS = 0xFFFF6B6B;
+
 	@Override
 	public void onHudRender(GuiGraphicsExtractor ctx, DeltaTracker tickCounter) {
 		if (!isPreview() && (client.player == null || !here())) {
@@ -173,15 +184,34 @@ public class NeogulDailyModule extends Module {
 		}
 		boolean rec = isPreview() || flag(1);
 		boolean hot = !isPreview() && flag(2);
+		boolean miss = !isPreview() && missed(hot);
+		String time = isPreview() ? "02:13:05" : hotText(hot);
+		boolean now = "지금".equals(time);
+
 		String recLabel = "추천";
 		String hotLabel = "핫타임";
-		String time = isPreview() ? "02:13:05" : hotText(hot);
-		int labelW = Math.max(LunaCompat.getTextWidth(client.font, recLabel),
-				LunaCompat.getTextWidth(client.font, hotLabel));
-		int timeW = LunaCompat.getTextWidth(client.font, time);
-		int boxX = 4 + labelW + 6;
-		int w = boxX + 9 + 5 + timeW;
-		int h = 16 * 2 + 2;
+		String recPill = rec ? "완료" : "아직";
+		int recCol = rec ? OK : WAIT;
+		String hotPill;
+		int hotCol;
+		if (hot) {
+			hotPill = "받음";
+			hotCol = OK;
+		} else if (miss) {
+			hotPill = "놓침";
+			hotCol = MISS;
+		} else if (now) {
+			hotPill = "지금";
+			hotCol = NOW;
+		} else {
+			hotPill = null;   // 남은 시간 글자
+			hotCol = WAIT;
+		}
+		int labelW = Math.max(LunaCompat.getTextWidth(client.font, recLabel), LunaCompat.getTextWidth(client.font, hotLabel));
+		int pillW = Math.max(pillWidth(recPill), hotPill != null ? pillWidth(hotPill) : LunaCompat.getTextWidth(client.font, time));
+		int w = Math.max(96, 6 + 8 + labelW + 12 + pillW + 6);
+		boolean bar = hotPill == null;
+		int h = 6 + 14 + 3 + 14 + (bar ? 7 : 4);
 		int sw = client.getWindow().getGuiScaledWidth();
 		int sh = client.getWindow().getGuiScaledHeight();
 		int x = position.get().resolveX(sw, w);
@@ -189,20 +219,57 @@ public class NeogulDailyModule extends Module {
 		drawHudPanel(ctx, x, y, w, h);
 
 		int color = textColor.getArgb();
-		LunaCompat.drawHudText(ctx, client.font, recLabel, x + 4, y + 4, color);
-		checkbox(ctx, x + boxX, y + 3, rec);
+		int r1 = y + 5;
+		row(ctx, x, r1, w, recLabel, recCol, color);
+		pill(ctx, x + w - 6 - pillWidth(recPill), r1, recPill, recCol, false);
 
-		int y2 = y + 18;
-		LunaCompat.drawHudText(ctx, client.font, hotLabel, x + 4, y2 + 4, color);
-		if (!isPreview() && missed(hot)) {
-			crossbox(ctx, x + boxX, y2 + 3);
+		int r2 = r1 + 17;
+		row(ctx, x, r2, w, hotLabel, hotCol == WAIT ? 0xFF6EA8FF : hotCol, color);
+		if (hotPill != null) {
+			boolean blink = now && (System.currentTimeMillis() / 500) % 2 == 0;
+			pill(ctx, x + w - 6 - pillWidth(hotPill), r2, hotPill, hotCol, blink);
 		} else {
-			checkbox(ctx, x + boxX, y2 + 3, hot);
+			int tw = LunaCompat.getTextWidth(client.font, time);
+			LunaCompat.drawHudText(ctx, client.font, time, x + w - 6 - tw, r2 + 3, color);
 		}
-		boolean now = "지금".equals(time);
-		if (!time.isEmpty() && (!now || (System.currentTimeMillis() / 500) % 2 == 0)) {
-			LunaCompat.drawHudText(ctx, client.font, time, x + boxX + 14, y2 + 4, now ? 0xFFFFD84A : color);
+		if (bar) {
+			// 핫타임까지 하루 중 얼마나 왔나(지난 20시 → 다음 20시)
+			float f = isPreview() ? 0.9f : dayProgress();
+			int bx = x + 6;
+			int bw = w - 12;
+			int by = y + h - 5;
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, bx, by, bw, 2, 1, 0x30FFFFFF);
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, bx, by, Math.max(2, Math.round(bw * f)), 2, 1, 0xE06EA8FF);
 		}
+	}
+
+	/** 왼쪽 상태 점 + 이름. */
+	private void row(GuiGraphicsExtractor ctx, int x, int y, int w, String label, int dot, int color) {
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, x + 6, y + 4, 5, 5, 2, dot);
+		LunaCompat.drawHudText(ctx, client.font, label, x + 15, y + 3, color);
+	}
+
+	private int pillWidth(String s) {
+		return LunaCompat.getTextWidth(client.font, s) + 10;
+	}
+
+	/** 둥근 알약(옅은 같은 색 바탕 + 같은 색 글자). glow면 진하게(지금 받을 때 깜빡). */
+	private void pill(GuiGraphicsExtractor ctx, int x, int y, String s, int col, boolean glow) {
+		int w = pillWidth(s);
+		int bg = (col & 0x00FFFFFF) | (glow ? 0xC0000000 : 0x38000000);
+		kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, x, y, w, 13, 6, bg);
+		LunaCompat.drawHudText(ctx, client.font, s, x + 5, y + 3, glow ? 0xFF1A1A1A : col);
+	}
+
+	/** 지난 핫타임(20시)부터 다음 핫타임까지 지난 비율. */
+	private static float dayProgress() {
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime next = LocalDate.now().atTime(HOT_HOUR, 0);
+		if (!now.isBefore(next)) {
+			next = next.plusDays(1);
+		}
+		long left = Duration.between(now, next).getSeconds();
+		return Math.max(0f, Math.min(1f, 1f - left / 86400f));
 	}
 
 	/** 놓친 날: 같은 칸에 빨간 X. */

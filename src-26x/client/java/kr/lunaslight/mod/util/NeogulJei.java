@@ -248,27 +248,34 @@ public final class NeogulJei {
 				Line l = lines.get(scroll + i);
 				int y = TOP + i * SLOT;
 				if (l.header()) {
-					// 49-397차(사용자: "여기는 마크 느낌을 없애 줘 봐, 그냥 글 가운데에다 해서 예쁘게"): 둥근 반투명 띠 + 가운데 이름, 열리면 아래에 강조 선
-					boolean h2 = LunaDraw.in(mx, my, gx, y, sw, SLOT - 2);
+					// 49-443차(사용자: "카테고리도 막 검정 배경 만들어가면서 하지 말고 깔끔하게"): 띠 배경 없이 글자 줄만 -
+					// 왼쪽 삼각형(닫힘 ▶ / 열림 ▼) + 이름 + 오른쪽 개수, 아래 얇은 선(열리면 강조색). 마우스를 올리면 옅은 하이라이트만.
+					boolean h2 = LunaDraw.in(mx, my, gx, y, sw, SLOT - 1);
 					boolean open = isOpen(l.g());
-					int bg = open ? 0xD0262B33 : (h2 ? 0xC0222630 : 0x9C111419);
-					LunaDraw.roundRect(g, gx, y + 1, sw, SLOT - 3, 4, bg);
-					if (open) {
-						int lw = Math.min(sw - 16, font.width(l.g().name()) + 16);
-						g.fill(gx + (sw - lw) / 2, y + SLOT - 3, gx + (sw + lw) / 2, y + SLOT - 2, LunaDraw.ACCENT | 0xFF000000);
+					int accent = LunaDraw.ACCENT | 0xFF000000;
+					if (h2) {
+						LunaDraw.roundRect(g, gx, y + 1, sw, SLOT - 2, 3, 0x18FFFFFF);
 					}
-					String name = l.g().name();
+					int tc = open ? accent : (h2 ? 0xFFFFFFFF : 0xFFC8CDD4);
+					int ax = gx + 4;
+					int ay = y + SLOT / 2;
+					if (open) {
+						for (int r = 0; r < 3; r++) {
+							g.fill(ax + r, ay - 1 + r, ax + 5 - r, ay + r, tc);
+						}
+					} else {
+						for (int r = 0; r < 3; r++) {
+							g.fill(ax + 1 + r, ay - 2 + r, ax + 2 + r, ay + 3 - r, tc);
+						}
+					}
+					String name = LunaDraw.ellipsize(font, l.g().name(), sw - 34);
 					String cnt = String.valueOf(l.g().items().size());
-					int nw = font.width(name);
-					int cx = gx + (sw - nw) / 2;
-					g.text(font, LunaCompat.textLiteral(name), cx, y + 5, open ? 0xFFFFFFFF : (h2 ? 0xFFF2F2F2 : 0xFFD8DCE2), true);
-					g.text(font, LunaCompat.textLiteral(cnt), gx + sw - 6 - font.width(cnt), y + 5, 0xFF8A919C, false);
-					String chev = open ? "-" : "+";
-					g.text(font, LunaCompat.textLiteral(chev), gx + 6, y + 5, open ? (LunaDraw.ACCENT | 0xFF000000) : 0xFF8A919C, false);
+					g.text(font, LunaCompat.textLiteral(name), gx + 12, y + 5, tc, true);
+					g.text(font, LunaCompat.textLiteral(cnt), gx + sw - 4 - font.width(cnt), y + 5, 0xFF7D848F, false);
+					g.fill(gx + 2, y + SLOT - 2, gx + sw - 2, y + SLOT - 1, open ? (accent & 0x00FFFFFF) | 0x90000000 : 0x22FFFFFF);
 					continue;
 				}
-				// 열린 서랍의 아이템 줄: 은은한 바탕
-				g.fill(gx + 1, y, gx + sw - 1, y + SLOT, 0x50000000);
+				// 열린 서랍의 아이템 줄: 바탕 없이 칸마다 아주 옅은 자리만
 				List<NeogulData.Entry> items = l.g().items();
 				for (int c = 0; c < cols; c++) {
 					int idx = l.row() * cols + c;
@@ -277,9 +284,10 @@ public final class NeogulJei {
 					}
 					NeogulData.Entry e = items.get(idx);
 					int x = gx + c * SLOT;
-					if (LunaDraw.in(mx, my, x, y, SLOT, SLOT)) {
+					boolean hv = LunaDraw.in(mx, my, x, y, SLOT, SLOT);
+					LunaDraw.roundRect(g, x + 1, y + 1, 16, 16, 3, hv ? 0x50FFFFFF : 0x12FFFFFF);
+					if (hv) {
 						hover = e;
-						g.fill(x + 1, y + 1, x + 17, y + 17, 0x80FFFFFF);
 					}
 					ItemStack st = NeogulData.icon(e, 1);
 					if (!st.isEmpty()) {
@@ -292,12 +300,13 @@ public final class NeogulJei {
 				int bh = visLines * SLOT;
 				int th = Math.max(10, bh * visLines / lines.size());
 				int ty = TOP + (bh - th) * scroll / Math.max(1, lines.size() - visLines);
-				g.fill(gx - 4, TOP, gx - 2, TOP + bh, 0x40000000);
-				g.fill(gx - 4, ty, gx - 2, ty + th, 0xC0FFFFFF);
+				LunaDraw.roundRect(g, gx - 4, TOP, 2, bh, 1, 0x26FFFFFF);
+				LunaDraw.roundRect(g, gx - 4, ty, 2, th, 1, 0xB0FFFFFF);
 			}
 			// 검색 칸(바닐라 입력 칸)
-			LunaDraw.roundRect(g, gx, sy, sw, SEARCH_H, 4, focused ? (LunaDraw.ACCENT | 0xFF000000) : 0xA0303640);
-			LunaDraw.roundRect(g, gx + 1, sy + 1, sw - 2, SEARCH_H - 2, 3, 0xE0111419);
+			// 49-443차: 검정 칸 대신 옅은 테두리 + 아주 옅은 속
+			LunaDraw.roundRect(g, gx, sy, sw, SEARCH_H, 4, focused ? (LunaDraw.ACCENT | 0xFF000000) : 0x50FFFFFF);
+			LunaDraw.roundRect(g, gx + 1, sy + 1, sw - 2, SEARCH_H - 2, 3, 0x60101318);
 			String shownQ = query;
 			while (!shownQ.isEmpty() && font.width(shownQ) > sw - 8) {
 				shownQ = shownQ.substring(1);

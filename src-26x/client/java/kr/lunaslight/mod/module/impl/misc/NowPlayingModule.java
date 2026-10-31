@@ -126,13 +126,21 @@ public class NowPlayingModule extends Module {
 	}
 
 	// ==================== 49-440차: 긴 제목 흐르게 ====================
-	// 처음 1.5초 멈춤 → 초당 28px로 끝이 보일 때까지 → 1.5초 멈춤 → 처음으로. 곡이 바뀌면 처음부터.
-	// 가위 자르기가 HUD 배율/이동을 따르는 버전(1.21.4+)은 픽셀 단위로 부드럽게, 아니면 글자 단위로 넘긴다(가위가 엉뚱한 곳을 자르지 않게).
+	// 49-442차(사용자: "되감는 거 말고 그대로 다시 더 가서 돌리는 건 안 되나?"): 끝까지 간 뒤 되감지 않고, 제목 뒤에 빈칸을 두고
+	// 같은 제목을 이어 붙여 계속 왼쪽으로 흐른다(한 바퀴 돌면 처음 모습과 똑같아 끊김이 없다). 한 바퀴마다 처음 자리에서 2초 멈춤.
+	// 곡이 바뀌면 처음부터. 가위 자르기가 HUD 배율/이동을 따르는 버전(1.21.4+)은 픽셀 단위로 부드럽게, 아니면 글자 단위로 넘긴다.
 
-	private static final long MARQUEE_PAUSE = 1500L;
+	private static final long MARQUEE_START_PAUSE = 2000L;
 	private static final float MARQUEE_SPEED = 28f;
+	/** 제목 끝과 다음 제목 처음 사이 빈칸. */
+	private static final String MARQUEE_GAP = "        ";
 	private String marqueeText;
 	private long marqueeStart;
+
+	/** 한 바퀴 길이(제목 + 빈칸, 픽셀). */
+	private int marqueePeriod(int fullW) {
+		return fullW + LunaCompat.getTextWidth(client.font, MARQUEE_GAP);
+	}
 
 	private float marqueeOffset(String text, int fullW, int limit) {
 		long now = System.currentTimeMillis();
@@ -140,17 +148,13 @@ public class NowPlayingModule extends Module {
 			marqueeText = text;
 			marqueeStart = now;
 		}
-		float travel = fullW - limit + 2;
-		long scrollMs = (long) (travel * 1000f / MARQUEE_SPEED);
-		long cycle = MARQUEE_PAUSE + scrollMs + MARQUEE_PAUSE;
-		long t = (now - marqueeStart) % Math.max(1L, cycle);
-		if (t < MARQUEE_PAUSE) {
+		int period = marqueePeriod(fullW);
+		long run = Math.max(400L, (long) (period * 1000f / MARQUEE_SPEED));
+		long t = (now - marqueeStart) % (MARQUEE_START_PAUSE + run);
+		if (t < MARQUEE_START_PAUSE) {
 			return 0f;
 		}
-		if (t < MARQUEE_PAUSE + scrollMs) {
-			return (t - MARQUEE_PAUSE) * MARQUEE_SPEED / 1000f;
-		}
-		return travel;
+		return Math.min(period, (t - MARQUEE_START_PAUSE) * MARQUEE_SPEED / 1000f);
 	}
 
 	private void drawMarquee(GuiGraphicsExtractor ctx, String text, int fullW, int x, int y, int limit, int color) {
@@ -167,6 +171,7 @@ public class NowPlayingModule extends Module {
 				try {
 					LunaCompat.guiTranslate(ctx, x - off, y);
 					LunaCompat.drawHudText(ctx, client.font, text, 0, 0, color);
+					LunaCompat.drawHudText(ctx, client.font, text, marqueePeriod(fullW), 0, color);
 				} finally {
 					LunaCompat.guiPop(ctx);
 					ctx.disableScissor();
@@ -176,7 +181,8 @@ public class NowPlayingModule extends Module {
 				LunaCompat.warnOnce("nowPlaying:marquee", t);
 			}
 		}
-		// 글자 단위: 앞에서 off만큼 넘긴 글자부터, 폭에 맞게 뒤를 자름
+		// 글자 단위: (제목 + 빈칸 + 제목)에서 off만큼 넘긴 글자부터, 폭에 맞게 뒤를 자름
+		text = text + "§r" + MARQUEE_GAP + text;
 		int k = 0;
 		String color7 = "";
 		while (k < text.length() && LunaCompat.getTextWidth(client.font, text.substring(0, k)) < off) {

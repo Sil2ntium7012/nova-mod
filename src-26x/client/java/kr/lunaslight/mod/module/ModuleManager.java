@@ -164,6 +164,7 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCommandsModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCosmeticsModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
 		}
 		// 49-144차: 리소스팩 기억(서버 모드로 켜면 그 서버 팩 미리 적용)
 		registerReflectively("kr.lunaslight.mod.module.impl.misc.ServerPackMemoryModule");
