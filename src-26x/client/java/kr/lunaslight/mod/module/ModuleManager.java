@@ -166,8 +166,7 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
 		}
-		// 49-144차: 리소스팩 기억(서버 모드로 켜면 그 서버 팩 미리 적용)
-		registerReflectively("kr.lunaslight.mod.module.impl.misc.ServerPackMemoryModule");
+		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----
 		// 35차: ChatEnhancementsModule도 TpsHudModule과 동일한 이유로 1.16~1.19.2에서 컴파일 제외

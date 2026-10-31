@@ -74,3 +74,5 @@ src-26x/client/java/kr/lunaslight/mod/compat/xaero/ZoneWorldMapRenderer.java
 src-26x/client/java/kr/lunaslight/mod/compat
 libs/xaero-api-stub.jar
 tools/xaero-stub
+src/client/java/kr/lunaslight/mod/module/impl/misc/ServerPackMemoryModule.java
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/ServerPackMemoryModule.java

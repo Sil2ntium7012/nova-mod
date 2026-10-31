@@ -48,6 +48,7 @@ public final class SplashHook {
 
 	public static void render(Object overlay, DrawContext ctx) {
 		StallWatch.beat();   // 49-154차: 로딩창(리소스팩 적용)이 도는 동안에도 멈춤 감시 신호
+		diag(overlay);   // 49-447차: 로딩창이 오래 안 끝나면 무엇이 안 끝났는지 로그에
 		if (ctx == null) {
 			return;
 		}
@@ -284,6 +285,65 @@ public final class SplashHook {
 			return reloadingField != null && reloadingField.getBoolean(overlay);
 		} catch (Throwable ignored) {
 			return false;
+		}
+	}
+
+	// ==================== 49-447차: 로딩창 멈춤 진단 ====================
+	// 사용자 제보(1.21.10, 서버 들어갈 때 Nova 로딩창이 막대 끝 근처에서 안 넘어감): 그때 렌더 스레드는 멀쩡하고(StallWatch 조용함)
+	// 오류도 없어서 로그만으로는 무엇이 안 끝났는지 모른다. 같은 로딩창이 20초를 넘기면 그 뒤 20초마다 한 줄:
+	// 몇 초째인지, 진행률, 그리고 리소스 새로고침 객체 안의 목록(아직 안 끝난 리로더 등)의 크기와 안에 든 클래스 이름.
+	// 그 클래스 이름(예: iris, journeymap …)으로 어느 모드가 안 끝났는지 알 수 있다. 게임 동작은 안 바꾼다.
+
+	private static Object diagOwner;
+	private static long diagStart;
+	private static long diagNext;
+
+	private static void diag(Object overlay) {
+		try {
+			long now = System.currentTimeMillis();
+			if (overlay != diagOwner) {
+				diagOwner = overlay;
+				diagStart = now;
+				diagNext = now + 20_000L;
+				return;
+			}
+			if (now < diagNext) {
+				return;
+			}
+			diagNext = now + 20_000L;
+			float p = progress(overlay);
+			StringBuilder sb = new StringBuilder();
+			sb.append("[Nova] 로딩창이 ").append((now - diagStart) / 1000L).append("초째 안 끝남 - 진행 ")
+				.append(p < 0 ? "?" : Math.round(p * 100) + "%").append(", 리소스팩 적용 ").append(isReloading(overlay));
+			Object reload = reloadField == null ? null : reloadField.get(overlay);
+			if (reload != null) {
+				sb.append(", 새로고침 ").append(reload.getClass().getName());
+				for (Class<?> c = reload.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+					for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+						if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+							continue;
+						}
+						f.setAccessible(true);
+						Object v = f.get(reload);
+						if (v instanceof java.util.Collection<?> col) {
+							sb.append(" | ").append(f.getName()).append("(").append(col.size()).append("): ");
+							int i = 0;
+							for (Object o : col) {
+								if (i++ >= 12) {
+									sb.append("…");
+									break;
+								}
+								sb.append(o == null ? "null" : o.getClass().getName()).append(' ');
+							}
+						} else if (v instanceof java.util.concurrent.CompletableFuture<?> cf) {
+							sb.append(" | ").append(f.getName()).append(cf.isDone() ? " 끝남" : " 안 끝남");
+						}
+					}
+				}
+			}
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info(sb.toString());
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("splash:diag", t);
 		}
 	}
 

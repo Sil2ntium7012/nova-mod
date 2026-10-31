@@ -180,10 +180,8 @@ public class LunaClientMod implements ClientModInitializer {
 		if (kr.lunaslight.mod.util.LunaVersion.isWithin("26.1.2", "26.1.2")) {
 			kr.lunaslight.mod.util.NeogulSkillKeys.init();
 		}
-		// 49-144차: 리소스팩 기억 - 옵션 파일(options.txt)을 읽기 전인 지금, 서버 모드로 켜졌으면 그 서버의 기억된 팩을
-		// resourcepacks에 넣고 켠다(꺼져 있으면 지난번에 넣은 것만 정리).
-		kr.lunaslight.mod.util.ServerPackMemory.startup(ModuleManager.get().find("server_pack_memory")
-			.map(kr.lunaslight.mod.module.Module::isEnabled).orElse(false));
+		// 49-448차: 리소스팩 기억 기능 삭제 - 옵션 파일을 읽기 전인 지금, 예전 기능이 남긴 복사본/옵션 목록/저장소만 정리.
+		kr.lunaslight.mod.util.ServerPackMemory.cleanup();
 		// 49-151차: 바닐라 타이틀이 그려지는 순간에도 Luna 타이틀로 바꾼다(틱만으로는 놓치는 경우가 있었다)
 		kr.lunaslight.mod.util.LunaCompat.installTitleSwapHook();
 

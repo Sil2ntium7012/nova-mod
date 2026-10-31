@@ -153,8 +153,7 @@ public final class ModuleManager {
 		// 49-149차: 너굴마을 레벨 계산기(입력 > 결과 화면, 늘 켜짐)
 		// 49-393차: 너굴마을 기능은 26.1.2(26.x 트리)에서만 - 여기(1.14.4~1.21.11)서는 등록 안 함
 		// registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelModule");
-		// 49-144차: 리소스팩 기억(서버 모드로 켜면 그 서버 팩 미리 적용)
-		registerReflectively("kr.lunaslight.mod.module.impl.misc.ServerPackMemoryModule");
+		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----
 		// 35차: ChatEnhancementsModule도 TpsHudModule과 동일한 이유로 1.16~1.19.2에서 컴파일 제외
