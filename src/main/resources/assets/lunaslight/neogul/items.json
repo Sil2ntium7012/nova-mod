@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가.",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가. 49-480차: 소모품 모델(서버 팩 nexo 아이템 그림 보고 맞춤, 확실치 않은 것은 게임에서 보면 실제 모양으로 바뀜).",
  "stations": {
   "farm": {
    "name": "농사",
@@ -219,28 +219,32 @@
    "note": "매일 20시 접속 중이면 우편함으로 지급, 당일 추천했으면 2배. 요일 상자: 월 농부, 화 광부, 수 강화, 목 성장, 금 채집, 토 머니, 일 도토리",
    "icon": [
     "minecraft:clock"
-   ]
+   ],
+   "model": "nexo:coin_hottime"
   },
   "login": {
    "name": "접속보상",
    "note": "/접속보상, 하루 플레이타임 1, 3, 6, 12시간 달성",
    "icon": [
     "minecraft:clock"
-   ]
+   ],
+   "model": "nexo:1hour"
   },
   "vote": {
    "name": "추천 보상",
    "note": "마인리스트에서 서버 추천하면 /우편함으로 지급(하루 1번)",
    "icon": [
     "minecraft:emerald"
-   ]
+   ],
+   "model": "nexo:coin_recommend"
   },
   "block_shop": {
    "name": "블럭상점",
    "note": "상점 1층 블럭상점 > 기능상점",
    "icon": [
     "minecraft:chest"
-   ]
+   ],
+   "model": "nexo:sd_chest_lock"
   }
  },
  "categories": [
@@ -320,7 +324,8 @@
    "name": "소모품",
    "icon": [
     "minecraft:paper"
-   ]
+   ],
+   "model": "nexo:coupon"
   }
  ],
  "items": [
@@ -3548,7 +3553,8 @@
      "at": "scarecrow",
      "note": "처치 보상 11.6%"
     }
-   ]
+   ],
+   "model": "nexo:money"
   },
   {
    "key": "dotori_lottery",
@@ -3570,7 +3576,8 @@
      "at": "scarecrow",
      "note": "처치 보상 9.9%"
     }
-   ]
+   ],
+   "model": "nexo:coupon"
   },
   {
    "key": "hottime_coin",
@@ -3584,7 +3591,8 @@
      "at": "hottime",
      "note": "매일 1개"
     }
-   ]
+   ],
+   "model": "nexo:coin_hottime"
   },
   {
    "key": "hottime_box",
@@ -3598,7 +3606,8 @@
      "at": "hottime",
      "note": "매일 그 요일 상자 1개, 열면 품목 1개"
     }
-   ]
+   ],
+   "model": "nexo:chest_red"
   },
   {
    "key": "vote_coin",
@@ -3612,7 +3621,8 @@
      "at": "vote",
      "note": "1개"
     }
-   ]
+   ],
+   "model": "nexo:coin_recommend"
   },
   {
    "key": "fly3",
@@ -3638,7 +3648,8 @@
      "at": "scarecrow",
      "note": "처치 보상 11.6%"
     }
-   ]
+   ],
+   "model": "nexo:fly1"
   },
   {
    "key": "fly20",
@@ -3656,7 +3667,8 @@
      "at": "trade",
      "note": "3~6위 15~20개, 7~10위 10~12개"
     }
-   ]
+   ],
+   "model": "nexo:fly2"
   },
   {
    "key": "autoplant500",
@@ -3678,7 +3690,8 @@
      "at": "scarecrow",
      "note": "처치 보상 6.6%"
     }
-   ]
+   ],
+   "model": "nexo:auto_seed"
   },
   {
    "key": "autoplant1000",
@@ -3704,7 +3717,8 @@
      "at": "scarecrow",
      "note": "처치 보상 5%"
     }
-   ]
+   ],
+   "model": "nexo:auto_seed2"
   },
   {
    "key": "stack_ticket",
@@ -3726,7 +3740,8 @@
      "at": "trade",
      "note": "뭉치(64개입) 10~20개"
     }
-   ]
+   ],
+   "model": "nexo:stack_coupon"
   },
   {
    "key": "crop_scroll",
@@ -3756,7 +3771,8 @@
      "at": "trade",
      "note": "48~128개"
     }
-   ]
+   ],
+   "model": "nexo:seed_scroll_green"
   },
   {
    "key": "fatigue_vending",
@@ -3786,7 +3802,8 @@
      "at": "donate",
      "note": "단계마다 2~20개"
     }
-   ]
+   ],
+   "model": "nexo:vending_machine"
   },
   {
    "key": "exp_coupon",
@@ -3816,7 +3833,8 @@
      "at": "donate",
      "note": "+20%, +50%, +100%"
     }
-   ]
+   ],
+   "model": "nexo:exp_coupon_1"
   },
   {
    "key": "trade_ticket1",
@@ -3830,7 +3848,8 @@
      "at": "scarecrow",
      "note": "처치 보상 9.9%"
     }
-   ]
+   ],
+   "model": "nexo:ship_ticket1"
   },
   {
    "key": "trade_ticket2",
@@ -3852,7 +3871,8 @@
      "at": "trade",
      "note": "8~30개"
     }
-   ]
+   ],
+   "model": "nexo:ship_ticket2"
   },
   {
    "key": "trade_ticket3",
@@ -3874,7 +3894,8 @@
      "at": "trade",
      "note": "1~9위 3~15개"
     }
-   ]
+   ],
+   "model": "nexo:ship_ticket3"
   },
   {
    "key": "dotori_check",
@@ -3888,7 +3909,8 @@
      "at": "trade",
      "note": "1위 10장 … 10위 1장"
     }
-   ]
+   ],
+   "model": "nexo:exchange_dotori_3"
   },
   {
    "key": "nick_ticket",
@@ -3902,7 +3924,8 @@
      "at": "trade",
      "note": "1~4위 1개"
     }
-   ]
+   ],
+   "model": "nexo:nickname_change"
   },
   {
    "key": "title_box",
@@ -3916,7 +3939,8 @@
      "at": "trade",
      "note": "1위 10개, 2~3위 5개, 4~5위 3개"
     }
-   ]
+   ],
+   "model": "nexo:badge_box"
   },
   {
    "key": "glow_gacha",
@@ -3930,7 +3954,8 @@
      "at": "trade",
      "note": "1~3위 1개"
     }
-   ]
+   ],
+   "model": "nexo:glow_random"
   },
   {
    "key": "elevator",
@@ -3972,7 +3997,8 @@
      "at": "block_shop",
      "note": "상자, 통, 화로 잠금. 들고 웅크려 우클릭, 써도 안 없어짐"
     }
-   ]
+   ],
+   "model": "nexo:sd_chest_lock"
   },
   {
    "key": "membership",
@@ -3986,7 +4012,8 @@
      "at": "dotori",
      "note": "쓰면 30일 멤버십"
     }
-   ]
+   ],
+   "model": "nexo:membership_ticket"
   },
   {
    "key": "nether_fence",

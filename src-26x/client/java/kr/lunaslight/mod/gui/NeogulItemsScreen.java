@@ -24,7 +24,8 @@ import java.util.List;
 public class NeogulItemsScreen extends LunaScreenBase {
 
 	// ==================== 49-247차: GUI 배율과 무관한 크기 + 창이 작으면 같이 작게(LunaVScale) ====================
-	private final LunaVScale lunaV = new LunaVScale(this, 480, 320);
+	// 49-481차(사용자: "아주아주 조금 더 크면 좋을 것 같고, GUI 2가 딱 적당"): GUI 배율과 상관없이 GUI 2보다 1할 조금 넘게 크게.
+	private final LunaVScale lunaV = new LunaVScale(this, 480, 320, 2.25);
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
@@ -143,8 +144,16 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		int maxCards = Math.max(1, Math.min(MAX_CARDS, (height - 24 - HEAD - FOOT) / CARD));
 		int need = Math.max(1, rows().size());
 		perPage = Math.min(maxCards, need);
-		ph = HEAD + perPage * CARD + FOOT;
-		px = Math.max(4, (width - (PW + LIST_W)) / 2);
+		// 49-481차(사용자: "JEI처럼 몇 개 없어도 잘 보이게, 중앙에 안 뜨고 왼쪽으로 밀림"): 방법이 한두 개여도 판은 카드 3장 높이,
+		// 판은 화면 가운데(오른쪽 목록과 겹치면 그만큼만 왼쪽으로).
+		int shownCards = Math.max(perPage, Math.min(3, maxCards));
+		ph = HEAD + shownCards * CARD + FOOT;
+		int listLeft = width - 4 - LIST_W;
+		px = (width - PW) / 2;
+		if (px + PW + 8 > listLeft) {
+			px = listLeft - 8 - PW;
+		}
+		px = Math.max(4, px);
 		py = Math.max(4, (height - ph) / 2);
 	}
 
@@ -204,11 +213,17 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		drawCards(ctx, mouseX, mouseY);
 		drawFoot(ctx, mouseX, mouseY);
 		// 49-394차(사용자: "이 창에서도 옆에 JEI처럼"): 오른쪽에 서랍식 목록
-		kr.lunaslight.mod.util.NeogulJei.drawIn(ctx, mouseX, mouseY, px + PW + 8, width, height);
+		kr.lunaslight.mod.util.NeogulJei.tipK = lunaV.tipK();
+		try {
+			kr.lunaslight.mod.util.NeogulJei.drawIn(ctx, mouseX, mouseY, px + PW + 8, width, height);
+		} finally {
+			kr.lunaslight.mod.util.NeogulJei.tipK = 1.0;
+		}
 
 		Hot h = hotAt(mouseX, mouseY);
 		if (h != null && h.tip() != null && !h.tip().isEmpty()) {
-			ctx.setComponentTooltipForNextFrame(font, h.tip(), mouseX, mouseY);
+			double tk = lunaV.tipK();   // 49-481차: 툴팁은 실제 화면 좌표로
+			ctx.setComponentTooltipForNextFrame(font, h.tip(), (int) Math.round(mouseX / tk), (int) Math.round(mouseY / tk));
 		}
 	}
 

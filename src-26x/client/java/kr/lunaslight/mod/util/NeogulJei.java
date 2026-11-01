@@ -82,7 +82,7 @@ public final class NeogulJei {
 					}
 				});
 				ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> !clickContainer(s, e.x(), e.y(), e.button()));
-				ScreenMouseEvents.allowMouseScroll(screen).register((s, mx, my, ha, va) -> !(on() && scrollIn(mx, my, va)));
+				ScreenMouseEvents.allowMouseScroll(screen).register((s, mx, my, ha, va) -> !(on() && scrollIn(mx * ck(), my * ck(), va)));
 				ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> !keyContainer(s, e.key()));
 			});
 		} catch (Throwable t) {
@@ -324,7 +324,8 @@ public final class NeogulJei {
 				List<Component> tip = new ArrayList<>();
 				tip.add(LunaCompat.textLiteral(hover.name()));
 				tip.add(LunaCompat.textLiteral("§7좌클릭/R 얻는 법  우클릭/U 쓰임새"));
-				g.setComponentTooltipForNextFrame(font, tip, mx, my);
+				// 49-481차: 툴팁은 나중에 행렬 없이 그려지므로 실제 화면 좌표로
+				g.setComponentTooltipForNextFrame(font, tip, (int) Math.round(mx / tipK), (int) Math.round(my / tipK));
 			}
 			return true;
 		} catch (Throwable t) {
@@ -396,16 +397,57 @@ public final class NeogulJei {
 		}
 	}
 
+	/**
+	 * 49-481차(사용자: "GUI 비율 크면 오른쪽에 너무 크게 나옴, 2가 딱 적당"): 인벤토리 옆 목록은 GUI 배율과 상관없이 GUI 2 크기로 그린다.
+	 * 화면 좌표에 이 값을 곱하면 목록 좌표(GUI 3이면 1.5 - 목록은 작게, GUI 1이면 0.5 - 크게). 행렬을 못 쓰는 버전은 1.
+	 */
+	private static boolean xformOk = true;
+	/** 지금 그리는 목록 좌표 / 실제 화면 좌표(툴팁 자리 되돌리기). drawIn을 행렬 안에서 부르는 쪽이 넣고 1로 되돌린다. */
+	public static double tipK = 1.0;
+
+	private static double ck() {
+		if (!xformOk) {
+			return 1.0;
+		}
+		try {
+			double gs = Minecraft.getInstance().getWindow().getGuiScale();
+			if (!(gs > 0)) {
+				return 1.0;
+			}
+			double k = gs / 2.0;
+			return Math.abs(k - 1.0) < 0.01 ? 1.0 : k;
+		} catch (Throwable t) {
+			return 1.0;
+		}
+	}
+
 	private static void drawContainer(Screen s, GuiGraphicsExtractor g, int mx, int my) {
 		shown = false;
-		if (on()) {
+		if (!on()) {
+			return;
+		}
+		xformOk = LunaCompat.guiTransformSupported(g);
+		double k = ck();
+		if (k == 1.0) {
 			drawIn(g, mx, my, containerX0(s), s.width, s.height);
+			return;
+		}
+		LunaCompat.guiPush(g);
+		try {
+			LunaCompat.guiScale(g, (float) (1.0 / k), (float) (1.0 / k));
+			tipK = k;
+			drawIn(g, (int) Math.floor(mx * k), (int) Math.floor(my * k), (int) Math.ceil(containerX0(s) * k),
+				(int) Math.floor(s.width * k), (int) Math.floor(s.height * k));
+		} finally {
+			tipK = 1.0;
+			LunaCompat.guiPop(g);
 		}
 	}
 
 	private static boolean clickContainer(Screen s, double mx, double my, int button) {
 		try {
-			return on() && clickIn(s, mx, my, button, (k, u) -> open(s, k, u));
+			double k = ck();
+			return on() && clickIn(s, mx * k, my * k, button, (kk, u) -> open(s, kk, u));
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulJei:click", t);
 			return false;
@@ -426,8 +468,8 @@ public final class NeogulJei {
 				return false;   // 크리에이티브 검색, 모루 이름 칸 등에서 글을 쓰는 중
 			}
 			Minecraft mc = Minecraft.getInstance();
-			double mx = mc.mouseHandler.xpos() * s.width / Math.max(1, mc.getWindow().getScreenWidth());
-			double my = mc.mouseHandler.ypos() * s.height / Math.max(1, mc.getWindow().getScreenHeight());
+			double mx = mc.mouseHandler.xpos() * s.width / Math.max(1, mc.getWindow().getScreenWidth()) * ck();
+			double my = mc.mouseHandler.ypos() * s.height / Math.max(1, mc.getWindow().getScreenHeight()) * ck();
 			String k = null;
 			NeogulData.Entry e = itemAt(mx, my);
 			if (e != null) {

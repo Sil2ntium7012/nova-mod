@@ -52,6 +52,53 @@ public final class PackUiGuard {
 	private static volatile boolean serverLoaded;
 	private static final String[] FONT_PREFIXES = {"font/", "textures/font/", "lang/", "texts/"};
 
+	/**
+	 * 49-482차(사용자 로그: "나갔다 오면 너굴마을 리소스팩이 사라지거나 다 빠짐" - 다른 사람 latest.log): [글꼴만]이 내 팩의 글꼴 JSON은 두고
+	 * 그 글꼴이 쓰는 그림(예: Icons 팩의 icons:textures/tooltip/… - textures/font/ 밖)은 숨겨서 글꼴 만들기가 실패했고, 바닐라가
+	 * "Default font failed to load"로 <b>서버 팩까지 전부 빼 버렸다</b>("Caught error loading resourcepacks, removing all selected").
+	 * 그래서 내 팩 글꼴 JSON이 가리키는 파일(bitmap file, ttf file, unihex hex_file)은 어디 있든 같이 살린다.
+	 */
+	private static volatile Set<String> fontRefs = Set.of();
+
+	private static void collectFontRefs(PackResources pr, String ns, Set<String> out) {
+		pr.listResources(PackType.CLIENT_RESOURCES, ns, "font", (id, sup) -> {
+			if (!id.getPath().endsWith(".json")) {
+				return;
+			}
+			try (java.io.InputStream in = sup.get();
+					java.io.Reader r = new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)) {
+				com.google.gson.JsonElement root = com.google.gson.JsonParser.parseReader(r);
+				if (!root.isJsonObject() || !root.getAsJsonObject().has("providers")) {
+					return;
+				}
+				for (com.google.gson.JsonElement pe : root.getAsJsonObject().getAsJsonArray("providers")) {
+					if (!pe.isJsonObject()) {
+						continue;
+					}
+					com.google.gson.JsonObject po = pe.getAsJsonObject();
+					String type = po.has("type") ? po.get("type").getAsString() : "";
+					if (type.endsWith("bitmap") && po.has("file")) {
+						out.add(ref(po.get("file").getAsString(), "textures/"));
+					} else if (type.endsWith("ttf") && po.has("file")) {
+						out.add(ref(po.get("file").getAsString(), "font/"));
+					} else if (type.endsWith("unihex") && po.has("hex_file")) {
+						out.add(ref(po.get("hex_file").getAsString(), ""));
+					}
+				}
+			} catch (Throwable ignored) {
+				// 못 읽는 글꼴 JSON은 바닐라가 알아서 건너뛴다
+			}
+		});
+	}
+
+	/** "icons:tooltip/x.png" + "textures/" → "icons:textures/tooltip/x.png". */
+	private static String ref(String loc, String prefix) {
+		int c = loc.indexOf(':');
+		String ns = c < 0 ? "minecraft" : loc.substring(0, c);
+		String path = c < 0 ? loc : loc.substring(c + 1);
+		return ns + ":" + prefix + path;
+	}
+
 	private static boolean fontOnlyOn() {
 		java.util.function.BooleanSupplier e = fontOnly;
 		try {
@@ -130,6 +177,21 @@ public final class PackUiGuard {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("packUiGuard", t);
 		}
+		Set<String> refs = new HashSet<>();
+		try {
+			if (server && packs != null && fontOnlyOn()) {
+				for (Object o : packs) {
+					if (o instanceof PackResources pr && pr.packId() != null && pr.packId().startsWith("file/")) {
+						for (String ns : pr.getNamespaces(PackType.CLIENT_RESOURCES)) {
+							collectFontRefs(pr, ns, refs);
+						}
+					}
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("packUiGuard:fontRefs", t);
+		}
+		fontRefs = refs.isEmpty() ? Set.of() : refs;
 		boolean was = serverLoaded;
 		serverLoaded = server;
 		if (server && !was && fontOnlyOn()) {
@@ -158,7 +220,12 @@ public final class PackUiGuard {
 			return false;
 		}
 		if (serverLoaded && fontOnlyOn()) {
-			return !fontPath(id.getPath());
+			if (fontPath(id.getPath())) {
+				return false;
+			}
+			String k = id.toString();
+			Set<String> fr = fontRefs;
+			return !(fr.contains(k) || (k.endsWith(".mcmeta") && fr.contains(k.substring(0, k.length() - 7))));
 		}
 		String key = id.toString();
 		if (s.contains(key)) {

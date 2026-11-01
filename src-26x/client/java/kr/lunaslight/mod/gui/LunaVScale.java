@@ -27,9 +27,17 @@ public final class LunaVScale {
 	private static boolean xformOk;
 
 	public LunaVScale(Screen screen, int minW, int minH) {
+		this(screen, minW, minH, 2.0);
+	}
+
+	/** 49-481차: 1단위 최대 픽셀(기본 2 = GUI 2). 조금 더 크게 보일 화면은 2보다 크게. */
+	private final double maxPx;
+
+	public LunaVScale(Screen screen, int minW, int minH, double maxPx) {
 		this.screen = screen;
 		this.minW = Math.max(100, minW);
 		this.minH = Math.max(80, minH);
+		this.maxPx = Math.max(1.0, maxPx);
 	}
 
 	/** 1단위가 화면 몇 픽셀인지(2 = GUI 2와 같음). */
@@ -50,7 +58,7 @@ public final class LunaVScale {
 		if (!(g > 0.0)) {
 			return 1f;
 		}
-		double p = Math.max(1.0, Math.min(2.0, Math.min(realW * g / minW, realH * g / minH)));
+		double p = Math.max(1.0, Math.min(maxPx, Math.min(realW * g / minW, realH * g / minH)));
 		px = (float) p;
 		float kk = (float) (g / p);
 		return Math.abs(kk - 1f) < 0.01f ? 1f : kk;
@@ -115,6 +123,11 @@ public final class LunaVScale {
 			kr.lunaslight.mod.util.LunaCompat.guiPop(ctx);
 		}
 		exit(entered);
+	}
+
+	/** 49-481차: 가상 좌표 → 실제 좌표 배율(툴팁처럼 나중에 행렬 없이 그려지는 것). 들어가 있지 않으면 1. */
+	public double tipK() {
+		return on ? k : 1.0;
 	}
 
 	/** 그리기 중 마우스 좌표(실제 → 가상). */
