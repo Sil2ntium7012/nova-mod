@@ -109,12 +109,15 @@ public class TodoHudModule extends Module {
 		int x = position.get().resolveX(sw, w);
 		int y = position.get().resolveY(sh, h);
 		drawHudPanel(ctx, x, y, w, h);
+		// 49-474차: 화면 오른쪽 절반이면 좌우 뒤집기(체크 칸 오른쪽, 글 오른쪽 맞춤, 진행 수 왼쪽)
+		boolean right = hudOnRight(x, w);
 		int color = textColor.getArgb();
 		int dim = (color & 0x00FFFFFF) | 0x80000000;
-		LunaCompat.drawHudText(ctx, client.font, title, x + 6, y + 5, color);
+		int titleW = LunaCompat.getTextWidth(client.font, title);
+		LunaCompat.drawHudText(ctx, client.font, title, right ? x + w - 6 - titleW : x + 6, y + 5, color);
 		int ry = y + 6 + 11;
 		for (TodoList.Task t : shown) {
-			int bx = x + 6;
+			int bx = right ? x + w - 6 - 8 : x + 6;
 			int by = ry + 1;
 			if (t.done) {
 				LunaDraw.roundRect(ctx, bx, by, 8, 8, 2, OK);
@@ -122,16 +125,19 @@ public class TodoHudModule extends Module {
 				LunaDraw.roundRect(ctx, bx, by, 8, 8, 2, (color & 0x00FFFFFF) | 0x60000000);
 				LunaDraw.roundRect(ctx, bx + 1, by + 1, 6, 6, 2, 0xC0101010);
 			}
-			LunaCompat.drawHudText(ctx, client.font, name(t), bx + 14, ry, t.done ? dim : color);
+			String nm = name(t);
+			int nw = LunaCompat.getTextWidth(client.font, nm);
+			LunaCompat.drawHudText(ctx, client.font, nm, right ? bx - 6 - nw : bx + 14, ry, t.done ? dim : color);
 			if (!t.done && TodoList.needsGoal(t.type) && t.goal > 1) {
 				String pr = prog(t);
 				int pw = LunaCompat.getTextWidth(client.font, pr);
-				LunaCompat.drawHudText(ctx, client.font, pr, x + w - 6 - pw, ry, dim);
+				LunaCompat.drawHudText(ctx, client.font, pr, right ? x + 6 : x + w - 6 - pw, ry, dim);
 			}
 			ry += rowH;
 		}
 		if (more > 0) {
-			LunaCompat.drawHudText(ctx, client.font, "+" + more + "개 더", x + 6, ry, dim);
+			String m = "+" + more + "개 더";
+			LunaCompat.drawHudText(ctx, client.font, m, right ? x + w - 6 - LunaCompat.getTextWidth(client.font, m) : x + 6, ry, dim);
 		}
 	}
 

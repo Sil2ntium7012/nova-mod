@@ -47,6 +47,50 @@ public final class ImeKeyFix {
 	 * 이제 글 쓰는 칸이 아닌 화면에서도 입력기를 떼어 두므로 바닐라가 E를 그대로 받아 닫는다.
 	 */
 
+	/**
+	 * 49-475차: 그래도 입력기가 E를 먹는 때(Ixeris 같은 모드, 다른 입력기 프로그램)를 위한 안전망 - 49-467차 것을 고쳐 다시 넣었다.
+	 * 467차는 E로 인벤토리를 연 바로 다음 틱에 손이 아직 E에 있으면 "새로 누름"으로 보고 도로 닫았다(수십 번 눌러야 열림). 이제
+	 * 화면에 들어온 첫 틱은 기준만 잡고, 화면이 3틱 넘게 열려 있을 때 E를 새로 누른 것만 본다. 한 틱 기다려 같은 화면이면(게임이 못 받음) 닫는다.
+	 */
+	private static Object pendingClose;
+	private static Object ageScreen;
+	private static int screenAge;
+
+	private static void closeFallback(Minecraft mc, Object screen) {
+		if (screen != ageScreen) {
+			ageScreen = screen;
+			screenAge = 0;
+			pendingClose = null;
+			return;
+		}
+		screenAge++;
+		if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) || screenAge < 3
+				|| HangulInput.textFocused() || !resolve()) {
+			pendingClose = null;
+			return;
+		}
+		if (pendingClose != null) {
+			Object p = pendingClose;
+			pendingClose = null;
+			if (p == screen && mc.player != null) {
+				mc.player.closeContainer();
+				return;
+			}
+		}
+		try {
+			Object k = LunaCompat.boundKeyOfBinding(mc.options.keyInventory);
+			if (k instanceof InputConstants.Key key && "KEYSYM".equals(key.getType().name())
+					&& key.getValue() >= InputConstants.KEY_A && key.getValue() <= InputConstants.KEY_Z) {
+				int li = key.getValue() - InputConstants.KEY_A;
+				if (physicallyDown('A' + li) && !LAST_PHYS[li]) {
+					pendingClose = screen;
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("imeKeyFix:close", t);
+		}
+	}
+
 	private static void rememberPhys() {
 		if (!resolve()) {
 			return;
@@ -121,10 +165,15 @@ public final class ImeKeyFix {
 			}
 			lastWasScreen = true;
 			if (mc != null && mc.isWindowActive()) {
+				closeFallback(mc, LunaCompat.screenOf(mc));
 				rememberPhys();   // 화면에서 누른 채 넘어오는 키를 새 누름으로 치지 않게
+			} else {
+				pendingClose = null;
 			}
 			return;
 		}
+		ageScreen = null;
+		pendingClose = null;
 		if (!resolve()) {
 			return;
 		}

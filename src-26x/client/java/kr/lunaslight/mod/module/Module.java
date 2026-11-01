@@ -955,6 +955,21 @@ public abstract class Module {
 	private int previewX, previewY, previewW, previewH;
 	private int previewLastW, previewLastH; // 미리보기가 직전 프레임에 그린 실제 크기
 
+	/**
+	 * 49-474차(사용자: "좌우대칭이 달라지는 기능 넣어 줘, 할 일이나 너굴 핫타임 같은 거"): 이 HUD 상자(x, 너비 w)가 화면 오른쪽 절반에 있으면 true -
+	 * 그러면 그 HUD는 좌우를 뒤집어(체크 칸, 점은 오른쪽, 글은 오른쪽 맞춤, 숫자는 왼쪽) 화면 가장자리 쪽으로 붙인다. 설정 화면 미리보기에서는 늘 왼쪽.
+	 */
+	protected boolean hudOnRight(int x, int w) {
+		if (preview && previewBoxed) {
+			return false;
+		}
+		try {
+			return x + w / 2 > client.getWindow().getGuiScaledWidth() / 2;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** 지금 예시 데이터로 그리는 중인지(설정 화면 미리보기 칸 또는 HUD 편집기의 샘플). */
 	protected boolean isPreview() {
 		return preview;

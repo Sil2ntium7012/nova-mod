@@ -217,30 +217,43 @@ public class NeogulDailyModule extends Module {
 		int x = position.get().resolveX(sw, w);
 		int y = position.get().resolveY(sh, h);
 		drawHudPanel(ctx, x, y, w, h);
+		// 49-474차(사용자: "좌우대칭이 달라지는 기능"): 화면 오른쪽 절반이면 점과 이름은 오른쪽, 알약/남은 시간은 왼쪽
+		boolean right = hudOnRight(x, w);
 
 		int color = textColor.getArgb();
 		int r1 = y + 5;
-		row(ctx, x, r1, w, recLabel, recCol, color);
-		pill(ctx, x + w - 6 - pillWidth(recPill), r1, recPill, recCol, false);
+		row(ctx, x, r1, w, recLabel, recCol, color, right);
+		pill(ctx, right ? x + 6 : x + w - 6 - pillWidth(recPill), r1, recPill, recCol, false);
 
 		int r2 = r1 + 17;
-		row(ctx, x, r2, w, hotLabel, hotCol == WAIT ? 0xFF6EA8FF : hotCol, color);
+		row(ctx, x, r2, w, hotLabel, hotCol == WAIT ? 0xFF6EA8FF : hotCol, color, right);
 		if (hotPill != null) {
 			boolean blink = now && (System.currentTimeMillis() / 500) % 2 == 0;
-			pill(ctx, x + w - 6 - pillWidth(hotPill), r2, hotPill, hotCol, blink);
+			pill(ctx, right ? x + 6 : x + w - 6 - pillWidth(hotPill), r2, hotPill, hotCol, blink);
 		} else {
 			int tw = LunaCompat.getTextWidth(client.font, time);
-			LunaCompat.drawHudText(ctx, client.font, time, x + w - 6 - tw, r2 + 3, color);
+			LunaCompat.drawHudText(ctx, client.font, time, right ? x + 6 : x + w - 6 - tw, r2 + 3, color);
 		}
 		if (bar) {
-			// 핫타임까지 하루 중 얼마나 왔나(지난 20시 → 다음 20시)
+			// 핫타임까지 하루 중 얼마나 왔나(지난 20시 → 다음 20시). 오른쪽이면 오른쪽에서 차오름
 			float f = isPreview() ? 0.9f : dayProgress();
 			int bx = x + 6;
 			int bw = w - 12;
 			int by = y + h - 5;
+			int fw = Math.max(2, Math.round(bw * f));
 			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, bx, by, bw, 2, 1, 0x30FFFFFF);
-			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, bx, by, Math.max(2, Math.round(bw * f)), 2, 1, 0xE06EA8FF);
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, right ? bx + bw - fw : bx, by, fw, 2, 1, 0xE06EA8FF);
 		}
+	}
+
+	/** 상태 점 + 이름(오른쪽이면 오른쪽 끝에서). */
+	private void row(GuiGraphicsExtractor ctx, int x, int y, int w, String label, int dot, int color, boolean right) {
+		if (right) {
+			kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, x + w - 11, y + 4, 5, 5, 2, dot);
+			LunaCompat.drawHudText(ctx, client.font, label, x + w - 15 - LunaCompat.getTextWidth(client.font, label), y + 3, color);
+			return;
+		}
+		row(ctx, x, y, w, label, dot, color);
 	}
 
 	/** 왼쪽 상태 점 + 이름. */

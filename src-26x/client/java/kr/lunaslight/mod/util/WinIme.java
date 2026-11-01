@@ -31,8 +31,8 @@ public final class WinIme {
 	private static Method invokePPP;
 
 	/** 떼어 낸 입력기(창, 입력기). 돌려 붙일 때 쓴다. */
-	private static long savedHwnd;
-	private static long savedHimc;
+	private static volatile long savedHwnd;
+	private static volatile long savedHimc;
 
 	private static boolean resolve() {
 		if (resolved) {
@@ -90,8 +90,77 @@ public final class WinIme {
 		return (Long) m.invoke(null, a);
 	}
 
-	/** 게임 창이 앞에 있으면 입력기를 떼어 낸다(매 틱 불러도 된다). 렌더 스레드에서만. */
+	// ---- 49-475차(사용자: "인벤토리가 컨트롤을 안 누르면 안 닫혀"): Ixeris(창 이벤트를 따로 도는 메인 스레드로 옮기는 최적화 모드)가 깔리면
+	// 게임 창은 렌더 스레드 것이 아니게 된다 - 렌더 스레드에서 GetActiveWindow는 0을 돌려주고 ImmAssociateContext도 남의 스레드 창이라 안 먹어서
+	// 입력기를 못 떼었다(한글 상태면 인벤토리에서 E가 입력기에 먹혀 안 닫히고, Ctrl+E는 입력기를 안 거쳐 닫혔다).
+	// 그래서 Ixeris가 켜져 있으면 떼기/붙이기를 Ixeris API로 창 스레드에서 돌린다(한 번에 하나씩만 예약).
+	private static Object ixeris;
+	private static Method ixerisRunLater;
+	private static Method ixerisOnMain;
+	private static boolean ixerisLooked;
+	private static final java.util.concurrent.atomic.AtomicBoolean PENDING_DETACH = new java.util.concurrent.atomic.AtomicBoolean();
+	private static final java.util.concurrent.atomic.AtomicBoolean PENDING_RESTORE = new java.util.concurrent.atomic.AtomicBoolean();
+
+	/** Ixeris가 있어서 창 스레드로 넘겨야 하면 넘기고 true. */
+	private static boolean viaIxeris(Runnable r, java.util.concurrent.atomic.AtomicBoolean pending) {
+		if (!ixerisLooked) {
+			ixerisLooked = true;
+			try {
+				if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("ixeris")) {
+					Class<?> api = Class.forName("me.decce.ixeris.api.IxerisApi");
+					Object inst = api.getMethod("getInstance").invoke(null);
+					if (Boolean.TRUE.equals(api.getMethod("isEnabled").invoke(inst))) {
+						ixeris = inst;
+						ixerisRunLater = api.getMethod("runLaterOnMainThread", Runnable.class);
+						ixerisOnMain = api.getMethod("isOnMainThread");
+						kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] Ixeris가 있어 한글 입력기 떼기를 창 스레드에서 합니다");
+					}
+				}
+			} catch (Throwable t) {
+				ixeris = null;
+				LunaCompat.warnOnce("winIme:ixeris", t);
+			}
+		}
+		if (ixeris == null || r == null) {
+			return false;
+		}
+		try {
+			if (Boolean.TRUE.equals(ixerisOnMain.invoke(ixeris))) {
+				return false;
+			}
+			if (pending.compareAndSet(false, true)) {
+				ixerisRunLater.invoke(ixeris, (Runnable) () -> {
+					try {
+						r.run();
+					} finally {
+						pending.set(false);
+					}
+				});
+			}
+			return true;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("winIme:ixerisRun", t);
+			return false;
+		}
+	}
+
+	/** 게임 창이 앞에 있으면 입력기를 떼어 낸다(매 틱 불러도 된다). */
 	public static void detach() {
+		if (WINDOWS && viaIxeris(WinIme::detach0, PENDING_DETACH)) {
+			return;
+		}
+		detach0();
+	}
+
+	/** 떼어 낸 입력기를 돌려 붙인다. */
+	public static void restore() {
+		if (WINDOWS && savedHimc != 0 && viaIxeris(WinIme::restore0, PENDING_RESTORE)) {
+			return;
+		}
+		restore0();
+	}
+
+	private static synchronized void detach0() {
 		if (!resolve()) {
 			return;
 		}
@@ -121,8 +190,7 @@ public final class WinIme {
 		}
 	}
 
-	/** 떼어 낸 입력기를 돌려 붙인다(기능을 끌 때). */
-	public static void restore() {
+	private static synchronized void restore0() {
 		if (broken || savedHimc == 0 || savedHwnd == 0) {
 			return;
 		}
@@ -250,8 +318,48 @@ public final class WinIme {
 		}
 	}
 
-	/** 한국어 입력기 변환 모드: 1 한글, 0 영문, -1 모름(윈도우 아님, 입력기 없음 등). */
+	private static Method ixerisQuery;
+
+	/** 49-475차: Ixeris면 창 스레드에서 물어본다(입력기 값은 창 스레드에서만 읽힌다). */
 	public static int hangulMode(long glfwWindow) {
+		if (WINDOWS && ixerisReady()) {
+			try {
+				if (!Boolean.TRUE.equals(ixerisOnMain.invoke(ixeris))) {
+					if (ixerisQuery == null) {
+						ixerisQuery = ixeris.getClass().getMethod("query", java.util.function.Supplier.class);
+					}
+					Object r = ixerisQuery.invoke(ixeris, (java.util.function.Supplier<Integer>) () -> hangulMode0(glfwWindow));
+					return r instanceof Integer i ? i : -1;
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("winIme:ixerisQuery", t);
+			}
+		}
+		return hangulMode0(glfwWindow);
+	}
+
+	/** 49-475차: Ixeris면 창 스레드에서 바꾼다. */
+	public static void setHangulMode(long glfwWindow, boolean hangul) {
+		if (WINDOWS && ixerisReady()) {
+			try {
+				if (!Boolean.TRUE.equals(ixerisOnMain.invoke(ixeris))) {
+					ixerisRunLater.invoke(ixeris, (Runnable) () -> setHangulMode0(glfwWindow, hangul));
+					return;
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("winIme:ixerisSet", t);
+			}
+		}
+		setHangulMode0(glfwWindow, hangul);
+	}
+
+	private static boolean ixerisReady() {
+		viaIxeris(null, null);
+		return ixeris != null;
+	}
+
+	/** 한국어 입력기 변환 모드: 1 한글, 0 영문, -1 모름(윈도우 아님, 입력기 없음 등). */
+	private static synchronized int hangulMode0(long glfwWindow) {
 		if (!WINDOWS || !resolveConv()) {
 			return -1;
 		}
@@ -280,7 +388,7 @@ public final class WinIme {
 	}
 
 	/** 변환 모드를 한글/영문으로(바뀔 때만). */
-	public static void setHangulMode(long glfwWindow, boolean hangul) {
+	private static synchronized void setHangulMode0(long glfwWindow, boolean hangul) {
 		if (!WINDOWS || !resolveConv()) {
 			return;
 		}
