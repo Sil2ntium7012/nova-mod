@@ -126,6 +126,49 @@ public final class LunaCompat {
 		return sb.toString();
 	}
 
+	// ==================== 49-465차: 같은 아이템(데이터까지) ====================
+	/**
+	 * 49-465차(사용자: "자동 채우기도 스킨도 같게, 무조건 같은 아이템이어야만 작동하게, 다른 기능들도 똑같아"): 서버 아이템은 바닐라 아이템 하나에
+	 * 이름, 모델(스킨), 태그만 바꿔 쓰므로 Item 종류만 같다고 같은 아이템이 아니다. 종류 + 데이터가 같아야 같은 아이템으로 본다. 내구도(닳은 정도)는
+	 * 무시한다(같은 도구는 닳아도 같은 도구). 1.20.5+ areItemsAndComponentsEqual, 1.17~1.20.4 canCombine, 그 전 areTagsEqual.
+	 */
+	private static java.lang.reflect.Method sameStackMethod;
+	private static boolean sameStackResolved;
+
+	public static boolean sameStack(net.minecraft.item.ItemStack a, net.minecraft.item.ItemStack b) {
+		if (a == null || b == null || a.isEmpty() || b.isEmpty() || a.getItem() != b.getItem()) {
+			return false;
+		}
+		try {
+			if (!sameStackResolved) {
+				sameStackResolved = true;
+				for (String n : new String[]{"areItemsAndComponentsEqual", "canCombine", "areTagsEqual"}) {
+					java.lang.reflect.Method m = findMethod(net.minecraft.item.ItemStack.class, n, net.minecraft.item.ItemStack.class, net.minecraft.item.ItemStack.class);
+					if (m != null && m.getReturnType() == boolean.class && java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+						sameStackMethod = m;
+						break;
+					}
+				}
+			}
+			if (sameStackMethod == null) {
+				return true;
+			}
+			if (Boolean.TRUE.equals(sameStackMethod.invoke(null, a, b))) {
+				return true;
+			}
+			if (a.isDamageable()) {
+				net.minecraft.item.ItemStack x = a.copy();
+				net.minecraft.item.ItemStack y = b.copy();
+				x.setDamage(0);
+				y.setDamage(0);
+				return Boolean.TRUE.equals(sameStackMethod.invoke(null, x, y));
+			}
+			return false;
+		} catch (Throwable t) {
+			return true;
+		}
+	}
+
 	/** 지금 눌린 보조키들의 MOD_* 비트 합. */
 	public static int heldModifiers(MinecraftClient client) {
 		int m = 0;

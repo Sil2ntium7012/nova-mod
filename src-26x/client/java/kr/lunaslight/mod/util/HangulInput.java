@@ -84,7 +84,7 @@ public final class HangulInput {
 		if (LunaInput.SDL) {
 			WinIme.detach();
 		} else {
-			WinIme.restore();   // 예전 판에서 떼어 둔 게 있으면 돌려 붙인다(한 번만)
+			// 49-468차: 떼고 붙이기는 ImeKeyFix가 맡는다(게임 화면 = 떼기, 화면 열림 = 붙이기). 여기서 매 틱 붙이면 서로 싸운다.
 			boolean f = windowFocused();
 			if (f != wasFocused) {
 				onWindowFocus(f);   // 49-398차: 포커스 콜백(WindowFocusImeMixin)을 놓쳤을 때

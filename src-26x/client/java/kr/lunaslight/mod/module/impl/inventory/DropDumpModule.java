@@ -97,7 +97,7 @@ public class DropDumpModule extends Module {
 			Item item = itemOf(hovered);
 			if (item != null) {
 				// 마우스가 올라간 쪽의 같은 종류를 전부 반대쪽으로: 인벤토리 → 상자(넣기), 상자 → 인벤토리(꺼내기)
-				start(item, isPlayerSide(hovered));
+				start(item, hovered.getItem().copy(), isPlayerSide(hovered));   // 49-465차: 같은 아이템(스킨까지)만
 			}
 		}
 		process();
@@ -145,7 +145,11 @@ public class DropDumpModule extends Module {
 		nextActionTick = tickCounter;
 	}
 
-	private void start(Item item, boolean playerSide) {
+	/** 49-465차: 옮길 아이템의 본(스킨, 이름까지 같은 것만). */
+	private ItemStack targetStack = ItemStack.EMPTY;
+
+	private void start(Item item, ItemStack like, boolean playerSide) {
+		targetStack = like;
 		allItems = false;
 		tried.clear();
 		targetItem = item;
@@ -197,7 +201,7 @@ public class DropDumpModule extends Module {
 				continue;
 			}
 			ItemStack stack = slot.getItem();
-			if (!stack.isEmpty() && (allItems || stack.getItem() == targetItem)) {
+			if (!stack.isEmpty() && (allItems || stack.getItem() == targetItem && (targetStack.isEmpty() || LunaCompat.sameStack(stack, targetStack)))) {
 				return i;
 			}
 		}

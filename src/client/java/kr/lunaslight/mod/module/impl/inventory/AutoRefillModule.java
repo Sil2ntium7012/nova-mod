@@ -128,7 +128,7 @@ public class AutoRefillModule extends Module {
 				Item neededItem = previous.getItem();
 				Identifier neededId = LunaCompat.getItemId(neededItem);
 				if (!excluded.contains(neededId)) {
-					int foundSlot = findReplacement(neededItem, hotbarSlot);
+					int foundSlot = findReplacement(previous, hotbarSlot);   // 49-465차: 같은 아이템(스킨, 이름까지)만
 					if (foundSlot >= 0) {
 						// SlotActionType.SWAP: button 파라미터가 대상 핫바 인덱스(0~8)로 해석되어
 						// foundSlot의 아이템과 hotbarSlot 핫바 칸을 맞바꾸는 표준 패턴(멀티에서도 서버가
@@ -159,12 +159,13 @@ public class AutoRefillModule extends Module {
 	 * 인벤토리(핫바 제외, 대략 9~35번 슬롯)에서 같은 아이템을 찾음. 돌려주는 값 = 플레이어 인벤토리 화면의 칸 번호
 	 * (9~35는 그대로, 핫바 i는 36 + i). 49-304차: [핫바에서도 가져오기]가 켜져 있으면 인벤토리에 없을 때 다른 핫바 칸도 본다.
 	 */
-	private int findReplacement(Item item, int excludeHotbarSlot) {
+	private int findReplacement(ItemStack want, int excludeHotbarSlot) {
+		Item item = want.getItem();
 		// 49-8차: 36 이상은 갑옷/오프핸드 인벤토리 인덱스라 스캔 제외(예전엔 갑옷까지 끌어올 수 있었음)
 		int size = Math.min(36, LunaCompat.getPlayerInventory(client.player).size());
 		for (int i = 9; i < size; i++) {
 			ItemStack stack = LunaCompat.getPlayerInventory(client.player).getStack(i);
-			if (!stack.isEmpty() && stack.getItem() == item) {
+			if (!stack.isEmpty() && stack.getItem() == item && LunaCompat.sameStack(stack, want)) {
 				return i;
 			}
 		}
@@ -174,7 +175,7 @@ public class AutoRefillModule extends Module {
 					continue;
 				}
 				ItemStack stack = LunaCompat.getPlayerInventory(client.player).getStack(i);
-				if (!stack.isEmpty() && stack.getItem() == item) {
+				if (!stack.isEmpty() && stack.getItem() == item && LunaCompat.sameStack(stack, want)) {
 					return 36 + i;
 				}
 			}

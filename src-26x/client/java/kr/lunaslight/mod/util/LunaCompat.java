@@ -127,6 +127,33 @@ public final class LunaCompat {
 		return sb.toString();
 	}
 
+	// ==================== 49-465차: 같은 아이템(데이터까지) ====================
+	/**
+	 * 49-465차(사용자: "자동 채우기도 스킨도 같게, 무조건 같은 아이템이어야만 작동하게, 다른 기능들도 똑같아"): 서버 아이템은 바닐라 아이템 하나에
+	 * 이름, 모델(스킨), 태그만 바꿔 쓰므로 Item 종류만 같다고 같은 아이템이 아니다. 종류 + 데이터(컴포넌트)가 같아야 같은 아이템으로 본다.
+	 * 내구도(닳은 정도)는 무시한다(같은 도구는 닳아도 같은 도구).
+	 */
+	public static boolean sameStack(net.minecraft.world.item.ItemStack a, net.minecraft.world.item.ItemStack b) {
+		if (a == null || b == null || a.isEmpty() || b.isEmpty() || a.getItem() != b.getItem()) {
+			return false;
+		}
+		try {
+			if (net.minecraft.world.item.ItemStack.isSameItemSameComponents(a, b)) {
+				return true;
+			}
+			if (a.isDamageableItem()) {
+				net.minecraft.world.item.ItemStack x = a.copy();
+				net.minecraft.world.item.ItemStack y = b.copy();
+				x.setDamageValue(0);
+				y.setDamageValue(0);
+				return net.minecraft.world.item.ItemStack.isSameItemSameComponents(x, y);
+			}
+			return false;
+		} catch (Throwable t) {
+			return true;
+		}
+	}
+
 	/** 지금 눌린 보조키들의 MOD_* 비트 합. */
 	public static int heldModifiers(Minecraft client) {
 		int m = 0;

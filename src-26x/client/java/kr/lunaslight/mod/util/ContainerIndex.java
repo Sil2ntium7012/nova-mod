@@ -45,6 +45,46 @@ public final class ContainerIndex {
 		public int ox, oz;
 		public final Map<String, Integer> items = new LinkedHashMap<>();
 		public final Map<String, Map<String, Integer>> shulkers = new LinkedHashMap<>();
+		/**
+		 * 49-466차(사용자: "인벤토리 탭도 아이템 스킨이 안 입혀지고"): 겉모습별 개수("아이템 id|모델 id", 모델이 기본이면 비움).
+		 * 서버 아이템은 같은 바닐라 아이템에 모델(스킨)만 달라 items(id별)로는 겉모습을 못 살렸다. 인벤토리 탭의 그림에 쓴다.
+		 */
+		public final Map<String, Integer> looks = new LinkedHashMap<>();
+	}
+
+	/** 49-466차: 겉모습 키 "id|모델"(item_model이 기본과 같으면 모델 칸은 빔). */
+	public static String lookKey(ItemStack stack, String id) {
+		String model = "";
+		try {
+			Object m = stack.get(net.minecraft.core.component.DataComponents.ITEM_MODEL);
+			if (m != null && !m.toString().equals(id)) {
+				model = m.toString();
+			}
+		} catch (Throwable ignored) {
+		}
+		return id + "|" + model;
+	}
+
+	/** 49-466차: 겉모습 키 → 그릴 아이템(모델 입힘). 모르는 아이템이면 EMPTY. */
+	public static ItemStack stackOfLook(String key, int count) {
+		int bar = key.indexOf('|');
+		String id = bar < 0 ? key : key.substring(0, bar);
+		String model = bar < 0 ? "" : key.substring(bar + 1);
+		net.minecraft.world.item.Item item = LunaCompat.itemById(id);
+		if (item == null) {
+			return ItemStack.EMPTY;
+		}
+		ItemStack st = new ItemStack(item, Math.max(1, Math.min(count, 99)));
+		if (!model.isEmpty()) {
+			try {
+				net.minecraft.resources.Identifier mid = net.minecraft.resources.Identifier.tryParse(model);
+				if (mid != null) {
+					st.set(net.minecraft.core.component.DataComponents.ITEM_MODEL, mid);
+				}
+			} catch (Throwable ignored) {
+			}
+		}
+		return st;
 	}
 
 	/** 찾기 결과 한 줄. */
@@ -195,6 +235,11 @@ public final class ContainerIndex {
 						e.items.put(it.getKey(), it.getValue().getAsInt());
 					}
 				}
+				if (o.has("looks")) {
+					for (Map.Entry<String, com.google.gson.JsonElement> it : o.get("looks").getAsJsonObject().entrySet()) {
+						e.looks.put(it.getKey(), it.getValue().getAsInt());
+					}
+				}
 				if (o.has("shulkers")) {
 					for (Map.Entry<String, com.google.gson.JsonElement> sh : o.get("shulkers").getAsJsonObject().entrySet()) {
 						Map<String, Integer> inner = new LinkedHashMap<>();
@@ -237,6 +282,13 @@ public final class ContainerIndex {
 					items.addProperty(it.getKey(), it.getValue());
 				}
 				o.add("items", items);
+				if (!e.looks.isEmpty()) {
+					JsonObject looks = new JsonObject();
+					for (Map.Entry<String, Integer> it : e.looks.entrySet()) {
+						looks.addProperty(it.getKey(), it.getValue());
+					}
+					o.add("looks", looks);
+				}
 				if (!e.shulkers.isEmpty()) {
 					JsonObject sh = new JsonObject();
 					for (Map.Entry<String, Map<String, Integer>> s : e.shulkers.entrySet()) {
@@ -435,6 +487,7 @@ public final class ContainerIndex {
 				continue;
 			}
 			e.items.merge(id, stack.getCount(), Integer::sum);
+			e.looks.merge(lookKey(stack, id), stack.getCount(), Integer::sum);   // 49-466차
 			// 셜커 상자면 안쪽까지
 			List<ItemStack> inner = shulkerContents(stack);
 			if (inner != null) {

@@ -588,26 +588,24 @@ public class ContainerTabsModule extends Module {
 			return ItemStack.EMPTY;
 		}
 		Object[] c = topCache.get(pos);
-		if (c != null && c[0] == e && c[2] instanceof Integer h && h == e.items.hashCode()) {
+		if (c != null && c[0] == e && c[2] instanceof Integer h && h == e.looks.hashCode() + 31 * e.items.hashCode()) {
 			return (ItemStack) c[1];
 		}
 		String best = null;
 		int bestN = 0;
-		for (Map.Entry<String, Integer> it : e.items.entrySet()) {
+		// 49-466차: 겉모습(스킨)별 기록이 있으면 그걸로 - 가장 많은 것을 그 모델로
+		Map<String, Integer> src = e.looks.isEmpty() ? e.items : e.looks;
+		for (Map.Entry<String, Integer> it : src.entrySet()) {
 			if (it.getValue() != null && it.getValue() > bestN) {
 				bestN = it.getValue();
 				best = it.getKey();
 			}
 		}
-		ItemStack stack = ItemStack.EMPTY;
-		net.minecraft.world.item.Item item = best == null ? null : LunaCompat.itemById(best);
-		if (item != null) {
-			stack = new ItemStack(item);
-		}
+		ItemStack stack = best == null ? ItemStack.EMPTY : ContainerIndex.stackOfLook(best, 1);
 		if (topCache.size() > 256) {
 			topCache.clear();
 		}
-		topCache.put(pos, new Object[]{e, stack, e.items.hashCode()});
+		topCache.put(pos, new Object[]{e, stack, e.looks.hashCode() + 31 * e.items.hashCode()});
 		return stack;
 	}
 
@@ -745,14 +743,16 @@ public class ContainerTabsModule extends Module {
 		ContainerIndex.Entry e = ContainerIndex.get(client, t.pos());
 		List<ItemStack> stacks = new ArrayList<>();
 		if (e != null) {
-			List<Map.Entry<String, Integer>> items = new ArrayList<>(e.items.entrySet());
+			// 49-466차: 겉모습(스킨)별 기록이 있으면 그 모델로 그린다
+			List<Map.Entry<String, Integer>> items = new ArrayList<>((e.looks.isEmpty() ? e.items : e.looks).entrySet());
 			items.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
 			for (Map.Entry<String, Integer> it : items) {
-				net.minecraft.world.item.Item item = LunaCompat.itemById(it.getKey());
-				if (item == null) {
+				ItemStack look = ContainerIndex.stackOfLook(it.getKey(), Math.max(1, it.getValue()));
+				if (look.isEmpty()) {
 					continue;
 				}
-				stacks.add(new ItemStack(item, Math.max(1, it.getValue())));
+				look.setCount(Math.max(1, it.getValue()));
+				stacks.add(look);
 				if (stacks.size() >= PREVIEW_COLS * PREVIEW_ROWS) {
 					break;
 				}

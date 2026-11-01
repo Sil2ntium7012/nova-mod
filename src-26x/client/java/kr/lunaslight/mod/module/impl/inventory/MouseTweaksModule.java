@@ -502,7 +502,9 @@ public class MouseTweaksModule extends Module {
 				continue;
 			}
 			ItemStack st = s.getItem();
-			if (st != null && !st.isEmpty() && st.getItem() == item) {
+			// 49-465차: 이 칸에 아이템이 있으면 같은 아이템(스킨, 이름까지)만
+			if (st != null && !st.isEmpty() && st.getItem() == item
+					&& (slot.getItem() == null || slot.getItem().isEmpty() || kr.lunaslight.mod.util.LunaCompat.sameStack(st, slot.getItem()))) {
 				return idOf(s);
 			}
 		}

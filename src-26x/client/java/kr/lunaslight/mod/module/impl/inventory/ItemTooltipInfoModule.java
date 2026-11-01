@@ -216,7 +216,7 @@ public class ItemTooltipInfoModule extends Module {
 			int total = 0;
 			for (int i = 0; i < size; i++) {
 				ItemStack st = LunaCompat.invGetStack(inv, i);
-				if (st != null && !st.isEmpty() && st.getItem() == stack.getItem()) {
+				if (st != null && !st.isEmpty() && st.getItem() == stack.getItem() && kr.lunaslight.mod.util.LunaCompat.sameStack(st, stack)) {   // 49-465차
 					total += st.getCount();
 				}
 			}

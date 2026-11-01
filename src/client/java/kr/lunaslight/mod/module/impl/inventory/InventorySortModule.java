@@ -82,7 +82,10 @@ public class InventorySortModule extends Module {
 	private Object pendingHandler;
 	private int pendingSyncId;
 	private int stepGuard;
-	private static final int SWAPS_PER_TICK = 4;   // 틱당 최대 스왑(스왑 1 = 클릭 2~3) - 서버가 씹지 않을 만큼만
+	// 49-466차(사용자: "정리할 때 속도가 보이면 안 돼, 순간이동해야 해, 한 아이템씩 말고 전체를 계산해 놓고 한 번에, 그리고 렉 걸려"):
+	// 예전엔 틱마다 선택정렬을 처음부터 다시 돌려(비교 수천 번, 매번 이름 글자 만들기) 4번씩만 바꿔서 옮겨지는 게 보이고 렉이 걸렸다.
+	// 이제 누르는 순간 목표 배치를 한 번에 계산하고 틀린 칸을 그 틱에 전부 바꾼다(클라이언트가 바로 반영 = 순간이동). 다음 틱에 실제 칸을
+	// 다시 읽어 서버가 씹은 게 있으면 남은 것만 다시(최대 5번).
 
 	public InventorySortModule() {
 		super("inventory_sort", "인벤토리 정리", ModuleCategory.INVENTORY, "키 하나로 상자/인벤토리 정렬(이름/갯수/id | 오름/내림)");
@@ -175,7 +178,7 @@ public class InventorySortModule extends Module {
 			pendingRegion = null;   // 화면이 바뀌었거나 커서에 뭔가 들려 있으면 중단
 			return;
 		}
-		if (++stepGuard > 80) {
+		if (++stepGuard > 5) {
 			pendingRegion = null;   // 안전장치(무한 방지)
 			return;
 		}
@@ -187,26 +190,55 @@ public class InventorySortModule extends Module {
 			model[i] = st == null ? ItemStack.EMPTY : st;
 		}
 		boolean desc = order.get() == Order.DESC;
+		// 목표 배치: 지금 칸들을 한 번에 안정 정렬(같은 것끼리는 원래 순서)
+		Integer[] idx = new Integer[n];
+		String[] names = new String[n];
+		for (int i = 0; i < n; i++) {
+			idx[i] = i;
+			names[i] = model[i].isEmpty() ? "" : nameOf(model[i]);
+		}
+		final ItemStack[] snap = model.clone();
+		java.util.Arrays.sort(idx, (x, y) -> compare(snap[x], snap[y], names[x], names[y], desc));
+		ItemStack[] target = new ItemStack[n];
+		for (int p = 0; p < n; p++) {
+			target[p] = snap[idx[p]];
+		}
+		// 틀린 칸만 바꾼다 - 이 틱에 전부
 		int swapsDone = 0;
-		for (int i = 0; i < n - 1 && swapsDone < SWAPS_PER_TICK; i++) {
-			int best = i;
-			for (int j = i + 1; j < n; j++) {
-				if (compare(model[j], model[best], desc) < 0) {
-					best = j;
+		for (int p = 0; p < n; p++) {
+			if (same(model[p], target[p])) {
+				continue;
+			}
+			int q = -1;
+			for (int k = p + 1; k < n; k++) {
+				if (same(model[k], target[p])) {
+					q = k;
+					break;
 				}
 			}
-			if (best != i) {
-				swap(region, model, i, best);
-				swapsDone++;
+			if (q < 0) {
+				continue;
 			}
+			swap(region, model, p, q);
+			swapsDone++;
 		}
 		if (swapsDone == 0) {
 			pendingRegion = null;   // 바꿀 게 없다 = 정렬 완료
 		}
 	}
 
-	/** a가 b보다 앞에 와야 하면 음수. 빈 칸은 항상 뒤. desc면 비지 않은 것끼리 순서를 뒤집는다. */
-	private int compare(ItemStack a, ItemStack b, boolean desc) {
+	/** 49-466차: 같은 칸으로 볼 것(둘 다 빔, 또는 같은 아이템 + 같은 개수). */
+	private static boolean same(ItemStack a, ItemStack b) {
+		boolean ae = a == null || a.isEmpty();
+		boolean be = b == null || b.isEmpty();
+		if (ae || be) {
+			return ae && be;
+		}
+		return a.getCount() == b.getCount() && LunaCompat.sameStack(a, b);
+	}
+
+	/** a가 b보다 앞에 와야 하면 음수. 빈 칸은 항상 뒤. desc면 비지 않은 것끼리 순서를 뒤집는다. 이름은 미리 만든 것(49-466차). */
+	private int compare(ItemStack a, ItemStack b, String nameA, String nameB, boolean desc) {
 		boolean ae = a == null || a.isEmpty();
 		boolean be = b == null || b.isEmpty();
 		if (ae && be) {
@@ -222,10 +254,10 @@ public class InventorySortModule extends Module {
 		switch (sortKey.get()) {
 			case COUNT -> c = Integer.compare(a.getCount(), b.getCount());
 			case ID -> c = idOf(a).compareTo(idOf(b));
-			default -> c = nameOf(a).compareToIgnoreCase(nameOf(b));
+			default -> c = nameA.compareToIgnoreCase(nameB);
 		}
 		if (c == 0 && sortKey.get() != SortKey.NAME) {
-			c = nameOf(a).compareToIgnoreCase(nameOf(b));   // 2차 기준: 이름
+			c = nameA.compareToIgnoreCase(nameB);   // 2차 기준: 이름
 		}
 		return desc ? -c : c;
 	}
