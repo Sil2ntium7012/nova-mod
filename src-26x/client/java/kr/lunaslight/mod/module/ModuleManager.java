@@ -105,6 +105,7 @@ public final class ModuleManager {
 		register(new ShieldOffsetModule());       // 49-75차(2-3 뒤 절반): 1인칭 방패 높이
 		register(new FreeLookModule());
 		register(new FreeViewModule());          // 49-349차: 자유 시점(배그식 ALT 둘러보기)
+		register(new kr.lunaslight.mod.module.impl.misc.AnimalPassModule());   // 49-456차: 동물 통과(밭/풀 위 동물 지나 작물 조준)
 
 		// ---- 인벤토리 ----
 		// 49-157차: [인벤토리 > 아이템 개수](손에 든 것)는 [HUD > 아이템 개수]의 [손에 든 아이템]으로 합쳤다.

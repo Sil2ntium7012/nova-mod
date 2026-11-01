@@ -50,6 +50,7 @@ public class AutoRefillModule extends Module {
 		// 49-22차: "싱글 전용 아니라 멀티도 돼야" - 원래부터 싱글 제한 코드는 없었고(바닐라 서버도 SWAP 클릭을
 		// 정상 처리) 설명 문구만 그렇게 적혀 있었음. 문구 수정 + 아래 멀티 안정화(핸들러 syncId를 현재 것으로).
 		super("auto_refill", "자동 채우기", ModuleCategory.INVENTORY, "핫바가 비면 같은 아이템으로 채움");
+		defaultEnabled(true);   // 49-456차(사용자: "아이템 채우기 핫바 기본 기능으로")
 		excludedItems = register(new StringSetting("excluded_items", "제외 아이템",
 			"채우지 않을 아이템 id입니다. 예: minecraft:torch", "").list());
 		onlyWhenEmpty = register(new BooleanSetting("only_when_empty", "빈 칸 한정",

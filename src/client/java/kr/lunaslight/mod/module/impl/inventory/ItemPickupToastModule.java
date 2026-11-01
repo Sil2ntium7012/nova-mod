@@ -84,6 +84,12 @@ public class ItemPickupToastModule extends Module {
 	}
 
 	private Map<Key, Integer> lastCounts = null;
+	/**
+	 * 49-455차(사용자 사진: 너굴마을에서 투명 갑옷 때문에 갑옷이 잠깐 사라졌다 돌아오면 "엘더우드 모자/갑옷/부츠/레깅스"가 획득으로 뜸):
+	 * 아이템별로 최근에 줄어든 양(개수, 기억 끝 시각). 서버가 잠깐 뺐다 돌려준 것, 갑옷을 벗었다 다시 입은 것 등은 알림에서 뺀다.
+	 */
+	private final Map<Key, long[]> recentLoss = new HashMap<>();
+	private static final long LOSS_MEMORY_MS = 10_000L;
 	private Object lastPlayer = null;
 	private long graceUntilMs = 0;
 
@@ -147,12 +153,45 @@ public class ItemPickupToastModule extends Module {
 			graceUntilMs = now + 2000;
 		}
 		Map<Key, Integer> counts = countInventory();
+		// 49-455차: 방금(10초 안) 사라졌던 만큼은 "주움"이 아니다 - 줄어든 양을 적어 두고, 다시 늘면 그만큼 먼저 깐다.
+		recentLoss.values().removeIf(l -> now > l[1]);
+		if (lastCounts != null) {
+			for (Map.Entry<Key, Integer> e : lastCounts.entrySet()) {
+				int lost = e.getValue() - counts.getOrDefault(e.getKey(), 0);
+				if (lost > 0) {
+					long[] l = recentLoss.computeIfAbsent(e.getKey(), k -> new long[2]);
+					l[0] += lost;
+					l[1] = now + LOSS_MEMORY_MS;
+				}
+			}
+		}
 		if (lastCounts != null && now >= graceUntilMs && client.currentScreen == null) {
 			for (Map.Entry<Key, Integer> e : counts.entrySet()) {
 				int before = lastCounts.getOrDefault(e.getKey(), 0);
 				int gained = e.getValue() - before;
+				long[] l = gained > 0 ? recentLoss.get(e.getKey()) : null;
+				if (l != null) {
+					int back = (int) Math.min(gained, l[0]);
+					gained -= back;
+					l[0] -= back;
+					if (l[0] <= 0) {
+						recentLoss.remove(e.getKey());
+					}
+				}
 				if (gained > 0) {
 					addToast(e.getKey(), gained, e.getValue(), now);
+				}
+			}
+		} else if (lastCounts != null) {
+			// 화면이 열려 있거나 막 들어온 때 다시 생긴 것도 상쇄만 해 둔다(나중에 알림으로 안 나오게)
+			for (Map.Entry<Key, Integer> e : counts.entrySet()) {
+				int gained = e.getValue() - lastCounts.getOrDefault(e.getKey(), 0);
+				long[] l = gained > 0 ? recentLoss.get(e.getKey()) : null;
+				if (l != null) {
+					l[0] -= Math.min(gained, l[0]);
+					if (l[0] <= 0) {
+						recentLoss.remove(e.getKey());
+					}
 				}
 			}
 		}

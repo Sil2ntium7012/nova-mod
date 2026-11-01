@@ -56,7 +56,7 @@ public final class LunaClientConfig {
 	private static final String KEY_KEY = "_key_version";
 	/** 49-157차: 한 번만 하는 기본값 바꾸기(아이템 찾기 기본 꺼짐)를 했는지. */
 	private static final String DEFAULTS_KEY = "_defaults_version";
-	private static final int DEFAULTS_VERSION = 2;
+	private static final int DEFAULTS_VERSION = 3;
 
 	private static Path configFile() {
 		return FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("modules.json");
@@ -185,6 +185,10 @@ public final class LunaClientConfig {
 						}
 					}
 				});
+			}
+			// 49-456차(사용자: "아이템 채우기 핫바 기본 기능으로"): 자동 채우기 기본 켬 - 예전 기본값(꺼짐)으로 저장된 것도 한 번 켠다.
+			if (savedDefaults < 3) {
+				ModuleManager.get().find("auto_refill").ifPresent(m -> m.setEnabledSilently(true));
 			}
 			LunaClientMod.LOGGER.info("[Nova] 설정 불러오기 완료: " + path);
 		} catch (Exception e) {
