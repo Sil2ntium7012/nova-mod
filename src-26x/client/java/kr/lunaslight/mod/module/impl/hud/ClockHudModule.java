@@ -87,7 +87,7 @@ public class ClockHudModule extends Module {
         if (keyCode != -1) {
             boolean pressedNow;
             try {
-                pressedNow = stopwatchToggle.isDown(client); // 49-24차: 조합키/마우스 지원
+                pressedNow = kr.lunaslight.mod.util.LunaCompat.screenOf(client) == null && stopwatchToggle.isDown(client); // 49-24차: 조합키/마우스 지원, 49-487차: 화면 열림 = 안 눌림
             } catch (Exception e) {
                 pressedNow = false;
             }

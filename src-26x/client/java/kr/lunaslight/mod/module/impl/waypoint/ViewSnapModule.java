@@ -170,11 +170,13 @@ public class ViewSnapModule extends Module {
 			return;
 		}
 		int n = n();
+		boolean noScreen = kr.lunaslight.mod.util.LunaCompat.screenOf(client) == null;
 		boolean hold = mode.get() == Mode.HOLD;
 		int newly = -1, anyDown = -1;
 		boolean activeHeld = false;
 		for (int i = 0; i < n; i++) {
-			boolean down = keys[i].isBound() && keys[i].isDown(client);
+			// 49-487차: 인벤토리, 채팅 같은 화면이 열려 있으면 안 눌린다
+			boolean down = noScreen && keys[i].isBound() && keys[i].isDown(client);
 			boolean pressed = down && !lastDown[i];
 			lastDown[i] = down;
 			if (pressed) {

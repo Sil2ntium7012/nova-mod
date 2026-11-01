@@ -42,6 +42,13 @@ public class KeybindSetting extends Setting<Integer> {
 		if (!isBound() || !LunaCompat.isKeyPressedAny(client, value)) {
 			return false;
 		}
+		// 49-487차(사용자: "인벤 열거나 채팅 쓸 때 시점 고정 키 이런 거 안 눌리게"): 채팅, 표지판, 검색칸처럼 글을 쓰는 중이면 어떤 키 지정도 안 눌린다.
+		try {
+			if (kr.lunaslight.mod.util.HangulInput.textFocused()) {
+				return false;
+			}
+		} catch (Throwable ignored) {
+		}
 		// 49-451차: 단독 지정(예: R)은 보조키가 눌려 있고 그 조합(예: Ctrl + R)이 다른 칸에 지정돼 있으면 쉰다 - 둘이 같이 안 켜지게.
 		if (LunaCompat.keyModifiers(value) == 0) {
 			int held = LunaCompat.heldModifiersAny(client);
