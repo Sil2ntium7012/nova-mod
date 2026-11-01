@@ -172,6 +172,8 @@ public final class ModuleManager {
 		// 49-473차: 할 일 목록(목록 화면, 늘 켜짐) + 할 일 HUD
 		register(new kr.lunaslight.mod.module.impl.misc.TodoModule());
 		register(new kr.lunaslight.mod.module.impl.misc.TodoHudModule());
+		// 49-477차: 서버 리소스팩이 안 오면 지난번 팩 다시 받기
+		register(new kr.lunaslight.mod.module.impl.misc.ServerPackRescueModule());
 		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----
