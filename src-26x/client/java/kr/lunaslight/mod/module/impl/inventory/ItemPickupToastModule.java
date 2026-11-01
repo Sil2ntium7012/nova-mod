@@ -105,6 +105,29 @@ public class ItemPickupToastModule extends Module {
 		// 이 기능은 자기 모양(화살 막대 + 회색 판)이 정해져 있어 배경/배경 모양/배경 그리기 설정을 두지 않는다.
 	}
 
+	/**
+	 * 49-478차(사용자 사진: 블록을 놓아 아이템이 줄 때마다 "엘더우드 갑옷/레깅스/부츠/모자"가 또 획득으로 뜸): 너굴마을은 투명 갑옷 때문에 갑옷 칸을
+	 * 오래 비워 두었다가 인벤토리를 다시 보낼 때(블록을 놓아 개수가 바뀔 때 등) 갑옷을 돌려준다 - 10초 기억으로는 못 막았다.
+	 * 갑옷 칸(36~39)에 늘어난 것은 주운 게 아니다(줍는 아이템은 갑옷 칸에 바로 안 들어간다). 그만큼은 알림에서 뺀다.
+	 */
+	private Map<Key, Integer> lastArmor = new HashMap<>();
+
+	private Map<Key, Integer> countArmor() {
+		Map<Key, Integer> counts = new HashMap<>();
+		Object inv = LunaCompat.getPlayerInventory(client.player);
+		if (inv == null) {
+			return counts;
+		}
+		int size = LunaCompat.invSize(inv);
+		for (int i = 36; i < Math.min(40, size); i++) {
+			ItemStack s = LunaCompat.invGetStack(inv, i);
+			if (s != null && !s.isEmpty()) {
+				counts.merge(keyOf(s), s.getCount(), Integer::sum);
+			}
+		}
+		return counts;
+	}
+
 	private Map<Key, Integer> countInventory() {
 		Map<Key, Integer> counts = new HashMap<>();
 		Object inv = LunaCompat.getPlayerInventory(client.player);
@@ -156,10 +179,12 @@ public class ItemPickupToastModule extends Module {
 		if (client.player != lastPlayer) {
 			lastPlayer = client.player;
 			lastCounts = null;
+			lastArmor = new HashMap<>();
 			pendingGain.clear();
 			graceUntilMs = now + 2000;
 		}
 		Map<Key, Integer> counts = countInventory();
+		Map<Key, Integer> armor = countArmor();
 		// 49-455차: 방금(10초 안) 사라졌던 만큼은 "주움"이 아니다 - 줄어든 양을 적어 두고, 다시 늘면 그만큼 먼저 깐다.
 		recentLoss.values().removeIf(l -> now > l[1]);
 		if (lastCounts != null) {
@@ -187,6 +212,12 @@ public class ItemPickupToastModule extends Module {
 			for (Map.Entry<Key, Integer> e : counts.entrySet()) {
 				int before = lastCounts.getOrDefault(e.getKey(), 0);
 				int gained = e.getValue() - before;
+				if (gained > 0) {
+					int intoArmor = armor.getOrDefault(e.getKey(), 0) - lastArmor.getOrDefault(e.getKey(), 0);
+					if (intoArmor > 0) {
+						gained -= Math.min(gained, intoArmor);   // 49-478차: 갑옷 칸으로 돌아온 것
+					}
+				}
 				long[] l = gained > 0 ? recentLoss.get(e.getKey()) : null;
 				if (l != null) {
 					int back = (int) Math.min(gained, l[0]);
@@ -216,6 +247,7 @@ public class ItemPickupToastModule extends Module {
 			}
 		}
 		lastCounts = counts;
+		lastArmor = armor;
 		// 기다린 만큼 지난 늘어남만 알림으로
 		java.util.Iterator<Map.Entry<Key, long[]>> pit = pendingGain.entrySet().iterator();
 		while (pit.hasNext()) {
