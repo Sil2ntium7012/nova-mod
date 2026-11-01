@@ -183,6 +183,7 @@ public final class HangulInput {
 				korean = open;
 				osKorean = false;
 				toggledAt = System.nanoTime();   // 같이 오는 입력기 알림을 한/영 누름으로 또 치지 않게
+				keyToggledAt = toggledAt;   // 49-460차: 같은 알림을 0.5초 동안 버림
 			}
 			osImeOff();
 		} else {
@@ -243,16 +244,31 @@ public final class HangulInput {
 	 * 한글로 안 바뀌었다. 이제 입력기가 켜진 걸 보면(바닐라 입력기 상태 알림 TextInputImeMixin + 매 틱) 그걸 한/영 키로 보고 바꾼 뒤 다시 끈다.
 	 * 키 이벤트와 입력기 알림이 한 번 누름에 둘 다 올 수 있어 0.2초 안의 두 번째는 무시한다.
 	 */
-	private static void toggleKorean() {
+	private static void toggleKorean(boolean fromKey) {
 		long now = System.nanoTime();
-		if (toggledAt != 0 && now - toggledAt < 200_000_000L) {
-			return;
+		// 49-460차(사용자: "가끔 한/영 변환 누를 때 수십 번 눌러도 한글이 되고 그래, 여러 번 누를 때"): 예전엔 키 이벤트와 입력기 알림을 한 덩어리로
+		// "0.2초 안 두 번째 무시"만 했다 - 빨리 여러 번 누르면 누름이 빠지고, 늦게 오는 입력기 알림이 0.2초 뒤에 한 번 더 뒤집어 제자리가 되곤 했다.
+		// 이제 출처를 나눈다: 한/영 키 이벤트는 누를 때마다 바로 바꾸고, 그 뒤 0.5초 동안 오는 입력기 알림은 같은 누름의 메아리로 보고 버린다.
+		// 키 이벤트가 안 오는 입력기(알림만 오는 때)는 알림끼리 0.08초 간격만 본다.
+		if (fromKey) {
+			keyToggledAt = now;
+		} else {
+			if (keyToggledAt != 0 && now - keyToggledAt < 500_000_000L) {
+				return;
+			}
+			if (osToggledAt != 0 && now - osToggledAt < 80_000_000L) {
+				return;
+			}
+			osToggledAt = now;
 		}
 		korean = !korean;
 		osKorean = false;
 		toggledAt = now;
 		COMP.reset();
 	}
+
+	private static long keyToggledAt;
+	private static long osToggledAt;
 
 	/** TextInputImeMixin(바닐라가 입력기 상태 바뀜 알림을 받을 때)과 tick에서. 입력기가 켜졌으면 한/영 누름으로 본다. */
 	/** 49-398차: 창 밖에서는 안 본다(창을 떠날 때 우리가 켜 준 입력기를 한/영 누름으로 치지 않게). 들어올 땐 onWindowFocus가 맞춘다. */
@@ -269,7 +285,7 @@ public final class HangulInput {
 		boolean opened = open && !lastOpen;   // 49-408차: 닫혀 있다가 열린 순간만
 		lastOpen = open;
 		if (opened || flipped) {   // 열림이나 변환 모드 바뀜 = 한/영 누름
-			toggleKorean();
+			toggleKorean(false);
 			osImeOff();
 		} else if (open) {
 			osImeSet(false);   // 열린 채면 닫기만 다시 시도(누름으로 치지는 않음)
@@ -389,7 +405,7 @@ public final class HangulInput {
 		}
 		boolean typing = textFocused();
 		if (action == 1 && (hangulKey(key, scancode) || (key == HangulInputModule.toggleKey() && key != -1))) {
-			toggleKorean();
+			toggleKorean(true);
 			if (!LunaInput.SDL) {
 				osImeOff();   // 한/영 키가 윈도우 입력기를 켰으면 바로 끈다(한글은 우리가)
 			}

@@ -28,9 +28,30 @@ public final class PackUiGuard {
 
 	/** PackPriorityModule이 끼운다(내 리소스팩 우선 켜짐 + [서버 화면은 서버 것]). */
 	public static volatile java.util.function.BooleanSupplier enabled;
+	/**
+	 * 49-461차(사용자: "내 리팩 우선으로 하면 작물들도 제대로 안 보이고 마크 기본으로 보이던데"): 너굴마을은 바닐라 작물 그림(beetroots_stage 등)을
+	 * 자기 작물(벼, 고추 …) 그림으로 바꿔 쓰고, 커스텀 블록은 note_block/tripwire/chorus_plant 블록 상태로 만든다. 내 팩(예: SPBR - 바닐라
+	 * 모양 그림 + _n/_s)이 위에 오면 작물이 바닐라로 보였다. [서버 작물]이 켜져 있으면 이런 파일도 서버 것을 쓴다.
+	 */
+	public static volatile java.util.function.BooleanSupplier cropsEnabled;
+
+	private static final java.util.regex.Pattern CROP = java.util.regex.Pattern.compile(
+		"(?:^|/)(?:wheat|carrots|potatoes|beetroots|melon_stem|pumpkin_stem|attached_melon_stem|attached_pumpkin_stem|sweet_berry_bush|cocoa"
+			+ "|nether_wart|torchflower_crop|pitcher_crop|sugar_cane|bamboo_stage|cave_vines|kelp|cactus|short_grass|tall_grass|fern|large_fern"
+			+ "|note_block|tripwire|chorus_plant|chorus_flower|brown_mushroom_block|red_mushroom_block|mushroom_stem)[^/]*$");
+	private static final String[] CROP_PREFIXES = {"textures/block", "blockstates", "models/block"};
 
 	private static final String[] PREFIXES = {"shaders", "textures/gui"};
 	private static volatile Set<String> serverUi = Set.of();
+
+	private static boolean cropsOn() {
+		java.util.function.BooleanSupplier e = cropsEnabled;
+		try {
+			return e != null && e.getAsBoolean() && !PackOrderHook.off;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
 
 	private static boolean on() {
 		java.util.function.BooleanSupplier e = enabled;
@@ -45,14 +66,27 @@ public final class PackUiGuard {
 	public static void prepare(List<?> packs) {
 		Set<String> out = new HashSet<>();
 		try {
-			if (packs != null && on()) {
+			boolean ui = on();
+			boolean crops = cropsOn();
+			if (packs != null && (ui || crops)) {
 				for (Object o : packs) {
 					if (!(o instanceof PackResources pr) || !PackOrderHook.isServerPackId(pr.packId())) {
 						continue;
 					}
 					for (String ns : pr.getNamespaces(PackType.CLIENT_RESOURCES)) {
-						for (String prefix : PREFIXES) {
-							pr.listResources(PackType.CLIENT_RESOURCES, ns, prefix, (id, s) -> out.add(id.toString()));
+						if (ui) {
+							for (String prefix : PREFIXES) {
+								pr.listResources(PackType.CLIENT_RESOURCES, ns, prefix, (id, s) -> out.add(id.toString()));
+							}
+						}
+						if (crops) {
+							for (String prefix : CROP_PREFIXES) {
+								pr.listResources(PackType.CLIENT_RESOURCES, ns, prefix, (id, s) -> {
+									if (CROP.matcher(id.getPath()).find()) {
+										out.add(id.toString());
+									}
+								});
+							}
 						}
 					}
 				}
@@ -87,7 +121,14 @@ public final class PackUiGuard {
 			return true;
 		}
 		// 그림의 .mcmeta(애니메이션 등)는 서버에 그 그림이 있으면 같이 숨긴다(서버 그림에 내 애니메이션이 붙지 않게)
-		return key.endsWith(".mcmeta") && s.contains(key.substring(0, key.length() - ".mcmeta".length()));
+		if (key.endsWith(".mcmeta") && s.contains(key.substring(0, key.length() - ".mcmeta".length()))) {
+			return true;
+		}
+		// 49-461차: 셰이더용 짝 그림(이름_n.png, 이름_s.png)도 서버에 그 그림이 있으면 숨긴다(서버 그림에 내 요철/반사가 어긋나게 붙지 않게)
+		if (key.endsWith("_n.png") || key.endsWith("_s.png")) {
+			return s.contains(key.substring(0, key.length() - 6) + ".png");
+		}
+		return false;
 	}
 
 	public static boolean active() {

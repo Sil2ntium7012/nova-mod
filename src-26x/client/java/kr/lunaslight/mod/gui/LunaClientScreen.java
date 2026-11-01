@@ -1959,10 +1959,7 @@ public class LunaClientScreen extends LunaScreenBase {
 	private void bindKey(int code) {
 		modalModsHeld = 0;
 		modalModOnly = false;
-		// 49-451차: 마크 보조 키(alt:)는 바닐라 키라 조합을 못 쓴다 - 보조키 비트는 뗀다.
-		if (code >= 0 && listeningKeybind.getId() != null && listeningKeybind.getId().startsWith("alt:")) {
-			code = LunaCompat.baseKey(code);
-		}
+		// 49-457차: 마크 보조 키(alt:)도 조합(Ctrl + R 등) 그대로 저장 - AltKeys가 조합을 확인한다.
 		// 49-125차: 서버에서는 공격/사용의 보조 키를 키보드로 못 둔다 - 모달 안에 이유를 띄우고 계속 듣는다.
 		String blocked = kr.lunaslight.mod.util.AltKeys.blockedReason(listeningKeybind.getId(), code);
 		if (blocked != null) {

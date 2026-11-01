@@ -637,10 +637,7 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 			return;
 		}
 		Bindable b = bindables.get(index);
-		// 49-451차: 마크 보조 키(alt:)는 바닐라 키라 조합을 못 쓴다 - 보조키 비트는 뗀다.
-		if (keyCodeWithMods >= 0 && b.setting().getId() != null && b.setting().getId().startsWith("alt:")) {
-			keyCodeWithMods = kr.lunaslight.mod.util.LunaCompat.baseKey(keyCodeWithMods);
-		}
+		// 49-457차: 마크 보조 키(alt:)도 조합 그대로 저장 - AltKeys가 조합을 확인한다.
 		// 49-125차: 서버에서는 공격/사용의 보조 키를 키보드로 못 둔다 - 안내만 띄우고 그대로 둔다.
 		String blocked = kr.lunaslight.mod.util.AltKeys.blockedReason(b.setting().getId(), keyCodeWithMods);
 		if (blocked != null) {

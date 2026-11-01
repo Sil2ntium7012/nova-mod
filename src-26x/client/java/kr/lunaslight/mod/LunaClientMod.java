@@ -202,6 +202,8 @@ public class LunaClientMod implements ClientModInitializer {
 			}
 			// 49-154차: 화면 멈춤 기록(렌더 스레드가 10초 넘게 멈추면 어디서 멈췄는지 로그에 남김)
 			kr.lunaslight.mod.util.StallWatch.beat();
+			// 49-458차: 입력기 상태 때문에 게임이 못 받은 글자 키(WASD 등)를 물리 키 상태로 맞춤(윈도우, 26.1~26.2)
+			kr.lunaslight.mod.util.ImeKeyFix.tick(client);
 			// 49-454차: 너굴마을 모드 자동 설치(서버 들어갈 때 한 번 + 끝나면 채팅 알림) - 너굴마을 버전(26.1.2)만
 			if (NEOGUL_VERSION) {
 				kr.lunaslight.mod.util.NeogulModInstaller.tick(client);

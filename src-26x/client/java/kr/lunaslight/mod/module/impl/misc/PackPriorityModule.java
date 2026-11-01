@@ -36,6 +36,10 @@ public class PackPriorityModule extends Module {
 	private final BooleanSetting serverUi = register(new BooleanSetting(
 			"server_ui", "서버 화면", "켜면 서버 팩에도 있는 화면 그림(체력, 배고픔, 보스바 등)과 글자 셰이더는 서버 것을 씁니다. 서버 HUD가 밀리거나 깨지지 않게 합니다.", true));
 
+	// 49-461차(사용자: 내 리팩 우선이면 너굴마을 작물이 바닐라로 보임): PackUiGuard.cropsEnabled 참고.
+	private final BooleanSetting serverCrops = register(new BooleanSetting(
+			"server_crops", "서버 작물", "켜면 서버 팩이 바꾼 작물과 풀 그림, 서버가 만든 블록(소리 블록, 철사 등)은 서버 것을 씁니다. 서버 작물이 바닐라로 보이지 않게 합니다.", true));
+
 	public PackPriorityModule() {
 		super("pack_priority", "내 리소스팩 우선", ModuleCategory.FEATURE,
 				"서버 팩보다 내 팩을 위에");
@@ -44,6 +48,7 @@ public class PackPriorityModule extends Module {
 		kr.lunaslight.mod.util.FontSplitHook.enabled = () -> isEnabled() && isVersionSupported() && symbolsServer.get()
 				&& LunaVersion.isWithin("1.20", null);
 		kr.lunaslight.mod.util.PackUiGuard.enabled = () -> isEnabled() && isVersionSupported() && serverUi.get();
+		kr.lunaslight.mod.util.PackUiGuard.cropsEnabled = () -> isEnabled() && isVersionSupported() && serverCrops.get();
 	}
 
 	@Override

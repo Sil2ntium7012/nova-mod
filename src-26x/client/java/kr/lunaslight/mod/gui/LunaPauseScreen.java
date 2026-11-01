@@ -103,8 +103,14 @@ public class LunaPauseScreen extends LunaScreenBase {
 		topEntries.add(new IconEntry(LunaIcons.IMAGE, "스크린샷",
 			() -> kr.lunaslight.mod.util.LunaCompat.setScreen(new LunaScreenshotScreen(this))));
 		if (LunaCompat.isSinglePlayer(this.minecraft)) {
-			topEntries.add(new IconEntry(LunaIcons.WIFI, "랜 서버 열기", () -> LunaCompat.openVanillaScreenByName(
-				"net.minecraft.client.gui.screens.ShareToLanScreen", this)));
+			// 49-464차(사용자: "우리 랜 서버 버튼이 안 눌린다는데"): 26.3에는 ShareToLanScreen이 없다 - 바닐라 일시정지 화면도 "월드 설정"
+			// (WorldOptionsScreen(Screen, Level), 안에 LAN 열기/포트)으로 바뀌었다. 예전 화면이 없으면 그 화면을 연다.
+			topEntries.add(new IconEntry(LunaIcons.WIFI, "랜 서버 열기", () -> {
+				if (!LunaCompat.openVanillaScreenByName("net.minecraft.client.gui.screens.ShareToLanScreen", this)
+						&& this.minecraft != null && this.minecraft.level != null) {
+					LunaCompat.openVanillaScreenWithArg("net.minecraft.client.gui.screens.WorldOptionsScreen", this, this.minecraft.level);
+				}
+			}));
 		}
 	}
 

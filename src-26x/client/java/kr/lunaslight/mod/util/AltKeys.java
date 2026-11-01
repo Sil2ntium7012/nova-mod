@@ -20,6 +20,8 @@ public final class AltKeys {
 
 	/** 보조 Key → 원래 키바인딩에 묶인 Key. */
 	private static volatile Map<Object, Object> altToReal = new HashMap<>();
+	/** 49-457차: 보조 키에 같이 눌러야 하는 Ctrl/Shift/Alt(MOD_* 비트). 없으면 아무 때나. */
+	private static volatile Map<Object, Integer> altMods = new HashMap<>();
 	/**
 	 * 49-125차(사용자: "서버에서 우클/좌클 키보드로 키 변경 금지"): 공격(좌클릭)/사용(우클릭)에 <b>키보드</b> 보조 키를
 	 * 둔 것들. 멀티플레이 서버에 있는 동안({@link #serverMode})은 이 보조 키를 흘려보내지 않는다(싱글에서만 동작).
@@ -31,6 +33,7 @@ public final class AltKeys {
 	/** 설정 → 표. (번역키, Luna 키 코드) 쌍을 받아 원래 키를 찾는다. */
 	public static void rebuild(Map<String, Integer> altByTranslationKey, net.minecraft.client.Minecraft client) {
 		Map<Object, Object> next = new HashMap<>();
+		Map<Object, Integer> nextMods = new HashMap<>();
 		java.util.Set<Object> blocked = new java.util.HashSet<>();
 		try {
 			for (LunaCompat.VanillaBinding vb : LunaCompat.vanillaKeyBindings(client)) {
@@ -42,6 +45,10 @@ public final class AltKeys {
 				Object real = LunaCompat.boundKeyOfBinding(vb.binding());
 				if (alt != null && real != null && !alt.equals(real)) {
 					next.put(alt, real);
+					int mods = LunaCompat.keyModifiers(code);   // 49-457차: 조합 보조 키(Ctrl + R 등)
+					if (mods != 0) {
+						nextMods.put(alt, mods);
+					}
 					if (isClickBinding(vb.id()) && !LunaCompat.isMouseKeyCode(LunaCompat.baseKey(code))) {
 						blocked.add(alt);
 					}
@@ -51,6 +58,7 @@ public final class AltKeys {
 			LunaCompat.warnOnce("altKeys:rebuild", t);
 		}
 		altToReal = next;
+		altMods = nextMods;
 		keyboardClickAlts = blocked;
 	}
 
@@ -88,8 +96,22 @@ public final class AltKeys {
 
 	/** 이 Key가 누군가의 보조 키면 그 원래 Key, 아니면 null. 재진입(우리가 흘려보낸 호출) 중엔 null. */
 	public static Object realFor(Object key) {
+		return realFor(key, true);
+	}
+
+	/**
+	 * 49-457차: pressing = 누르는 쪽(눌림, 클릭, 화면의 키 확인)이면 조합 보조 키의 Ctrl/Shift/Alt가 눌려 있어야 한다.
+	 * 떼는 쪽은 조합과 상관없이 넘긴다(보조키를 먼저 떼도 원래 키가 눌린 채로 남지 않게).
+	 */
+	public static Object realFor(Object key, boolean pressing) {
 		if (key == null || REENTER.get()) {
 			return null;
+		}
+		if (pressing) {
+			Integer need = altMods.get(key);
+			if (need != null && (LunaCompat.heldModifiersNow() & need) != need) {
+				return null;
+			}
 		}
 		if (serverMode && keyboardClickAlts.contains(key)) {
 			return null;   // 49-125차: 서버에서는 공격/사용의 키보드 보조 키를 흘려보내지 않는다

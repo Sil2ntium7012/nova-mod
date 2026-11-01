@@ -20,7 +20,7 @@ public abstract class KeyBindingAltMixin {
 	/** 눌림 상태(걷기·점프처럼 누르고 있는 동안). */
 	@Inject(method = "setKeyPressed(Lnet/minecraft/client/util/InputUtil$Key;Z)V", at = @At("HEAD"), require = 0)
 	private static void lunaslight$altSet(@Coerce Object key, boolean pressed, CallbackInfo ci) {
-		Object real = AltKeys.realFor(key);
+		Object real = AltKeys.realFor(key, pressed);   // 49-457차: 뗄 때는 조합키와 상관없이
 		if (real != null) {
 			AltKeys.forward(() -> LunaCompat.keyBindingSetPressed(real, pressed));
 		}

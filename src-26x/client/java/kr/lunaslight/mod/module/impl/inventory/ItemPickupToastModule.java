@@ -88,6 +88,13 @@ public class ItemPickupToastModule extends Module {
 	 */
 	private final Map<Key, long[]> recentLoss = new HashMap<>();
 	private static final long LOSS_MEMORY_MS = 10_000L;
+	/**
+	 * 49-457차(사용자: "자동 채우기도 이상하게 아이템 획득에 떠"): 자동 채우기, 정리처럼 아이템을 옮길 때는 받는 칸이 먼저 차고 보내는 칸이
+	 * 한두 틱 늦게 비는 때가 있어 그 사이 잠깐 "늘어난" 것으로 보였다. 늘어난 양은 바로 띄우지 않고 0.4초 기다렸다가, 그동안 같은 아이템이
+	 * 그만큼 줄면 지운다(아이템 → [남은 개수, 띄울 시각]).
+	 */
+	private final Map<Key, long[]> pendingGain = new HashMap<>();
+	private static final long GAIN_DELAY_MS = 400L;
 	private Object lastPlayer = null;
 	private long graceUntilMs = 0;
 
@@ -142,12 +149,14 @@ public class ItemPickupToastModule extends Module {
 		}
 		if (client.player == null || client.level == null) {
 			lastCounts = null;
+			pendingGain.clear();
 			lastPlayer = null;
 			return;
 		}
 		if (client.player != lastPlayer) {
 			lastPlayer = client.player;
 			lastCounts = null;
+			pendingGain.clear();
 			graceUntilMs = now + 2000;
 		}
 		Map<Key, Integer> counts = countInventory();
@@ -156,6 +165,17 @@ public class ItemPickupToastModule extends Module {
 		if (lastCounts != null) {
 			for (Map.Entry<Key, Integer> e : lastCounts.entrySet()) {
 				int lost = e.getValue() - counts.getOrDefault(e.getKey(), 0);
+				if (lost > 0) {
+					long[] pg = pendingGain.get(e.getKey());
+					if (pg != null) {
+						int back = (int) Math.min(lost, pg[0]);
+						pg[0] -= back;
+						lost -= back;
+						if (pg[0] <= 0) {
+							pendingGain.remove(e.getKey());
+						}
+					}
+				}
 				if (lost > 0) {
 					long[] l = recentLoss.computeIfAbsent(e.getKey(), k -> new long[2]);
 					l[0] += lost;
@@ -177,7 +197,9 @@ public class ItemPickupToastModule extends Module {
 					}
 				}
 				if (gained > 0) {
-					addToast(e.getKey(), gained, e.getValue(), now);
+					long[] pg = pendingGain.computeIfAbsent(e.getKey(), k -> new long[2]);
+					pg[0] += gained;
+					pg[1] = now + GAIN_DELAY_MS;
 				}
 			}
 		} else if (lastCounts != null) {
@@ -194,6 +216,17 @@ public class ItemPickupToastModule extends Module {
 			}
 		}
 		lastCounts = counts;
+		// 기다린 만큼 지난 늘어남만 알림으로
+		java.util.Iterator<Map.Entry<Key, long[]>> pit = pendingGain.entrySet().iterator();
+		while (pit.hasNext()) {
+			Map.Entry<Key, long[]> pe = pit.next();
+			if (now >= pe.getValue()[1]) {
+				if (pe.getValue()[0] > 0) {
+					addToast(pe.getKey(), (int) pe.getValue()[0], counts.getOrDefault(pe.getKey(), 0), now);
+				}
+				pit.remove();
+			}
+		}
 	}
 
 	private void addToast(Key key, int gained, int total, long now) {
