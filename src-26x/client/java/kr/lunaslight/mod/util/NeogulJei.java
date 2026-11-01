@@ -99,9 +99,10 @@ public final class NeogulJei {
 	private static final String[][] GROUPS = {
 		{"crop", "작물"}, {"gather", "채집물"}, {"ember", "잉걸불"}, {"coin", "채집 코인"}, {"tool", "채집 도구"},
 		{"rod", "낚싯대"}, {"fish", "물고기"}, {"gem", "광물"}, {"dungeon", "던전 전리품"}, {"mat", "요리 재료"},
-		{"food", "요리"}, {"food_gold", "황금 요리"}, {"plate", "플레이팅"}, {"enhance", "강화 재료"}, {"ticket", "티켓"}, {"consume", "소모품"},
+		{"food", "요리"}, {"food_gold", "황금 요리"}, {"plate", "플레이팅"}, {"enhance", "강화 재료"}, {"ticket", "티켓"}, {"consume", "소모품"}, {"conv", "편의 도구"},
 		{"set_elder", "엘더우드 장비"}, {"set_lotus", "블랙로터스 장비"}, {"set_nord", "노르드 장비"},
-		{"set_burgonet", "버거넷 장비"}, {"set_oakhark", "오크하크 장비"}, {"gear", "장비"}, {"etc", "기타"}};
+		{"set_burgonet", "버거넷 장비"}, {"set_oakhark", "오크하크 장비"}, {"gear", "장비"},
+		{"cos_hat", "치장 모자"}, {"cos_back", "치장 등"}, {"cos_offhand", "치장 왼손"}, {"cos_wear", "치장 옷"}, {"etc", "기타"}};
 
 	private static String groupOf(NeogulData.Entry e) {
 		String k = e.key();
@@ -311,6 +312,13 @@ public final class NeogulJei {
 			while (!shownQ.isEmpty() && font.width(shownQ) > sw - 8) {
 				shownQ = shownQ.substring(1);
 			}
+			// 49-485차: 쪽 번호(검색 칸 오른쪽 끝)
+			int pages = Math.max(1, (lines.size() + Math.max(1, visLines) - 1) / Math.max(1, visLines));
+			if (pages > 1) {
+				int cur = Math.min(pages, (scroll + Math.max(1, visLines) - 1) / Math.max(1, visLines) + 1);
+				String pg = cur + "/" + pages;
+				g.text(font, LunaCompat.textLiteral(pg), gx + sw - 4 - font.width(pg), sy + 3, 0xFF7D848F, false);
+			}
 			if (shownQ.isEmpty() && !focused) {
 				g.text(font, LunaCompat.textLiteral("검색"), gx + (sw - font.width("검색")) / 2, sy + 3, 0xFF6E7580, false);
 			} else {
@@ -368,7 +376,10 @@ public final class NeogulJei {
 		if (!shown || mx < gx - 4 || mx >= gx + sw || v == 0) {
 			return false;
 		}
-		scroll = Math.max(0, Math.min(Math.max(0, lines.size() - visLines), scroll + (v > 0 ? -2 : 2)));
+		// 49-485차(사용자: "휠로 페이지 넘어가게 JEI처럼"): 휠 한 칸 = 한 쪽(보이는 줄 수만큼)
+		int pageLines = Math.max(1, visLines);
+		int page = scroll / pageLines + (v > 0 ? -1 : 1);
+		scroll = Math.max(0, Math.min(Math.max(0, lines.size() - visLines), page * pageLines));
 		return true;
 	}
 

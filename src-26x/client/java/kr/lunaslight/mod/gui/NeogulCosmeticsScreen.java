@@ -60,7 +60,8 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 			boolean e = lunaV.enter();
 			double k = lunaV.k(e);
 			lunaV.exit(e);
-			spin = (float) Math.max(-260, Math.min(260, spin + deltaX * k * 2));
+			// 49-486차(사용자: "치장 미리보기 뒤가 잘 안 보이고 각도가 너무 좁아"): 끌면 한 바퀴 다 돈다(1px = 1.5도)
+			spin = (float) ((spin + deltaX * k * 1.5) % 360.0);
 			return true;
 		}
 		return false;
@@ -409,6 +410,37 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 		}
 	}
 
+	private static java.lang.reflect.Method renderStateOf;
+
+	/**
+	 * 49-486차: 바닐라 InventoryScreen.extractEntityInInventoryFollowsMouse는 마우스 쪽으로 30도 남짓만 돌아서 등(날개, 가방)이 안 보였다.
+	 * 같은 그리기(GuiGraphicsExtractor.entity)를 쓰되 몸 방향을 yaw(도)로 직접 준다 - 0 = 정면, 180 = 등. 살짝 위에서 내려다본다(10도).
+	 */
+	private static void drawDoll(GuiGraphicsExtractor ctx, int x1, int y1, int x2, int y2, int size, float yaw,
+			net.minecraft.world.entity.LivingEntity e) throws Exception {
+		if (renderStateOf == null) {
+			renderStateOf = InventoryScreen.class.getDeclaredMethod("extractRenderState", net.minecraft.world.entity.LivingEntity.class);
+			renderStateOf.setAccessible(true);
+		}
+		Object st = renderStateOf.invoke(null, e);
+		if (!(st instanceof net.minecraft.client.renderer.entity.state.EntityRenderState es)) {
+			return;
+		}
+		org.joml.Quaternionf rot = new org.joml.Quaternionf().rotateZ((float) Math.PI);
+		org.joml.Quaternionf cam = new org.joml.Quaternionf().rotateX(10f * 0.017453292f);
+		rot.mul(cam);
+		if (es instanceof net.minecraft.client.renderer.entity.state.LivingEntityRenderState ls) {
+			ls.bodyRot = 180f + yaw;
+			ls.yRot = 0f;
+			ls.xRot = 0f;
+			ls.boundingBoxWidth = ls.boundingBoxWidth / ls.scale;
+			ls.boundingBoxHeight = ls.boundingBoxHeight / ls.scale;
+			ls.scale = 1f;
+		}
+		org.joml.Vector3f off = new org.joml.Vector3f(0f, es.boundingBoxHeight / 2f + 0.0625f, 0f);
+		ctx.entity(es, (float) size, off, rot, cam, x1, y1, x2, y2);
+	}
+
 	private void drawPanel(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int txt, int sub, int dim, int acc) {
 		int px = panelX;
 		int py = CHIP_Y;
@@ -428,15 +460,14 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 		RemotePlayer d = doll();
 		if (d != null) {
 			dress(d);
-			int size = Math.max(20, Math.round(dh * 0.36f));
+			// 49-486차: 모자처럼 머리 위로 크게 나오는 치장이 칸에 잘리지 않게 인형을 조금 작게(높이의 3할), 돌리기는 한 바퀴 다.
+			int size = Math.max(18, Math.round(dh * 0.30f));
 			float k = curK <= 0f ? 1f : curK;
-			float fx = dx + dw / 2f - spin;
-			float fy = dy + dh * 0.3f;
 			LunaCompat.guiPush(ctx);
 			try {
 				LunaCompat.guiScale(ctx, k, k);
-				InventoryScreen.extractEntityInInventoryFollowsMouse(ctx, Math.round(dx / k), Math.round(dy / k), Math.round((dx + dw) / k),
-					Math.round((dy + dh) / k), Math.round(size / k), 0.0625f, fx / k, fy / k, d);
+				drawDoll(ctx, Math.round(dx / k), Math.round(dy / k), Math.round((dx + dw) / k), Math.round((dy + dh) / k),
+					Math.round(size / k), spin, d);
 			} catch (Throwable t) {
 				LunaCompat.warnOnce("neogulCosmetics:doll", t);
 			} finally {

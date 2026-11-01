@@ -174,6 +174,8 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.misc.TodoHudModule());
 		// 49-477차: 서버 리소스팩이 안 오면 지난번 팩 다시 받기
 		register(new kr.lunaslight.mod.module.impl.misc.ServerPackRescueModule());
+		// 49-483차: 인벤토리에서 HUD 숨기기
+		register(new kr.lunaslight.mod.module.impl.misc.InventoryHudHideModule());
 		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----
@@ -302,6 +304,11 @@ public final class ModuleManager {
 			}
 			// 49-303차(사용자: "탭 눌렀을 때 그 탭 근처에 있는 HUD들 가려줘"): 탭 목록이 떠 있으면 그 자리와 겹치는 HUD는 그동안 안 그린다
 			int[] tabArea = kr.lunaslight.mod.util.TabArea.rect(mc, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+			// 49-483차: 인벤토리, 상자 같은 창이 열려 있으면 HUD를 안 그린다(인벤토리에서 HUD 숨기기)
+			if (kr.lunaslight.mod.module.impl.misc.InventoryHudHideModule.on
+					&& LunaCompat.screenOf(mc) instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+				return;
+			}
 			for (Module module : hudOrder()) {
 				if (module.isEnabled()) {
 					// 49-22차: F3 화면에서는 F3 꾸미기 모듈만 그리고 나머지 HUD는 전부 숨김

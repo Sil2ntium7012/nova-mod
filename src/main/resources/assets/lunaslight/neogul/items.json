@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가. 49-480차: 소모품 모델(서버 팩 nexo 아이템 그림 보고 맞춤, 확실치 않은 것은 게임에서 보면 실제 모양으로 바뀜).",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가. 49-480차: 소모품 모델(서버 팩 nexo 아이템 그림 보고 맞춤, 확실치 않은 것은 게임에서 보면 실제 모양으로 바뀜). 49-485차: 도토리 상점 가격(사용자가 준 목록), 편의 도구, 치장 135종(부위별 묶음).",
  "stations": {
   "farm": {
    "name": "농사",
@@ -245,6 +245,14 @@
     "minecraft:chest"
    ],
    "model": "nexo:sd_chest_lock"
+  },
+  "cosmetic": {
+   "name": "치장",
+   "note": "손에 들고 우클릭하면 얻고 /치장 으로 입음",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:cow_hat"
   }
  },
  "categories": [
@@ -326,6 +334,41 @@
     "minecraft:paper"
    ],
    "model": "nexo:coupon"
+  },
+  {
+   "id": "conv",
+   "name": "편의 도구",
+   "icon": [
+    "minecraft:golden_hoe"
+   ]
+  },
+  {
+   "id": "cos_hat",
+   "name": "치장 모자",
+   "icon": [
+    "minecraft:leather_helmet"
+   ]
+  },
+  {
+   "id": "cos_back",
+   "name": "치장 등",
+   "icon": [
+    "minecraft:elytra"
+   ]
+  },
+  {
+   "id": "cos_offhand",
+   "name": "치장 왼손",
+   "icon": [
+    "minecraft:shield"
+   ]
+  },
+  {
+   "id": "cos_wear",
+   "name": "치장 옷",
+   "icon": [
+    "minecraft:leather_chestplate"
+   ]
   }
  ],
  "items": [
@@ -2293,6 +2336,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "16개 1,990도토리"
+    },
+    {
      "at": "dg1",
      "note": "모든 몬스터 약 7~8.5%"
     },
@@ -2927,7 +2974,8 @@
    "cat": "gear",
    "icon": [
     "minecraft:wooden_sword"
-   ]
+   ],
+   "model": "nexo:archer_sword"
   },
   {
    "key": "lotus_helmet",
@@ -3124,7 +3172,7 @@
    "from": [
     {
      "at": "dotori",
-     "note": "초월강화 1회마다 1장 (대장간 NPC 탱구)"
+     "note": "4,900도토리, 초월강화 1회마다 1장 (대장간 NPC 탱구)"
     }
    ],
    "model": "nexo:transcend"
@@ -3139,7 +3187,7 @@
    "from": [
     {
      "at": "dotori",
-     "note": "초월 8단계 무기에 드래그하면 랜덤 초월스킬 각인"
+     "note": "19,900도토리, 초월 8단계 무기에 드래그하면 랜덤 초월스킬 각인"
     }
    ],
    "model": "nexo:cube"
@@ -3266,6 +3314,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "1,490도토리"
+    },
+    {
      "at": "treasure",
      "note": "대박성공 +4%"
     },
@@ -3284,6 +3336,10 @@
     "minecraft:paper"
    ],
    "from": [
+    {
+     "at": "dotori",
+     "note": "2,990도토리"
+    },
     {
      "at": "treasure",
      "note": "고급, 대박성공 +7%"
@@ -3332,7 +3388,7 @@
     },
     {
      "at": "dotori",
-     "note": "30% 복구"
+     "note": "1,990도토리, 30% 복구"
     },
     {
      "at": "hottime",
@@ -3378,7 +3434,7 @@
    "from": [
     {
      "at": "dotori",
-     "note": "100% 확률로 강화횟수 1회 복구"
+     "note": "3,190도토리, 100% 확률로 강화횟수 1회 복구"
     },
     {
      "at": "hottime",
@@ -3403,7 +3459,8 @@
      "at": "dg2",
      "note": "몬스터 3%"
     }
-   ]
+   ],
+   "model": "nexo:bronze_ingot"
   },
   {
    "key": "silver_ingot",
@@ -3425,7 +3482,8 @@
      "at": "dg5",
      "note": "몬스터 3%"
     }
-   ]
+   ],
+   "model": "nexo:silver_ingot"
   },
   {
    "key": "gold_ingot",
@@ -3447,7 +3505,8 @@
      "at": "dg8",
      "note": "몬스터 3%"
     }
-   ]
+   ],
+   "model": "nexo:gold_ingot"
   },
   {
    "key": "bronze_bowl",
@@ -3455,7 +3514,8 @@
    "cat": "food",
    "icon": [
     "minecraft:bowl"
-   ]
+   ],
+   "model": "nexo:bronze_bowl"
   },
   {
    "key": "silver_bowl",
@@ -3463,7 +3523,8 @@
    "cat": "food",
    "icon": [
     "minecraft:bowl"
-   ]
+   ],
+   "model": "nexo:silver_bowl"
   },
   {
    "key": "gold_bowl",
@@ -3471,7 +3532,8 @@
    "cat": "food",
    "icon": [
     "minecraft:bowl"
-   ]
+   ],
+   "model": "nexo:gold_bowl"
   },
   {
    "key": "plane_ticket1",
@@ -3482,6 +3544,10 @@
    ],
    "model": "nexo:plane_ticket1",
    "from": [
+    {
+     "at": "dotori",
+     "note": "2,000도토리 (1일 2개 한정)"
+    },
     {
      "at": "trade",
      "note": "1위 20개, 2위 15개, 3위 12개, 4위 10개, 5위 8개, 6위 7개, 7~8위 5개, 9위 3개, 10위 2개"
@@ -3660,6 +3726,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "1,490도토리"
+    },
+    {
      "at": "scarecrow",
      "note": "처치 보상 5%"
     },
@@ -3729,6 +3799,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "64개 790도토리 (1일 20개 한정)"
+    },
+    {
      "at": "login",
      "note": "3시간 32개"
     },
@@ -3783,6 +3857,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "2,000도토리 (1일 2개 한정)"
+    },
+    {
      "at": "login",
      "note": "12시간 1개"
     },
@@ -3813,6 +3891,10 @@
     "minecraft:experience_bottle"
    ],
    "from": [
+    {
+     "at": "dotori",
+     "note": "2,900도토리 (1일 5개 한정)"
+    },
     {
      "at": "hottime",
      "note": "목요일 상자(+10~30%, 10~30분)"
@@ -3921,6 +4003,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "30,000도토리"
+    },
+    {
      "at": "trade",
      "note": "1~4위 1개"
     }
@@ -3966,6 +4052,10 @@
    ],
    "from": [
     {
+     "at": "dotori",
+     "note": "880도토리"
+    },
+    {
      "at": "trade",
      "note": "1~10위 5~20개"
     }
@@ -4010,7 +4100,7 @@
    "from": [
     {
      "at": "dotori",
-     "note": "쓰면 30일 멤버십"
+     "note": "24,900도토리, 쓰면 30일 멤버십"
     }
    ],
    "model": "nexo:membership_ticket"
@@ -4025,7 +4115,2257 @@
    "from": [
     {
      "at": "dotori",
-     "note": "광물 생성기용, 참나무 울타리보다 광물 확률 높음"
+     "note": "네더벽돌 광물 생성기 5,900도토리, 광물 생성기용, 참나무 울타리보다 광물 확률 높음"
+    }
+   ]
+  },
+  {
+   "key": "autoplant_inf",
+   "name": "자동심기 쿠폰(무제한)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:wheat_seeds"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "19,900도토리"
+    },
+    {
+     "at": "trade",
+     "note": "1위 1개"
+    }
+   ],
+   "model": "nexo:auto_plants"
+  },
+  {
+   "key": "fly_inf",
+   "name": "플라이 쿠폰(무제한)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:feather"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "19,900도토리"
+    },
+    {
+     "at": "trade",
+     "note": "1~2위 1개"
+    }
+   ],
+   "model": "nexo:fly3"
+  },
+  {
+   "key": "storage5",
+   "name": "5번 창고 확장권",
+   "cat": "consume",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "9,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "storage6",
+   "name": "6번 창고 확장권",
+   "cat": "consume",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "9,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "storage7",
+   "name": "7번 창고 확장권",
+   "cat": "consume",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "9,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "yomi_scissors",
+   "name": "요미의 수선가위(치장 전용)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:shears"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "1,490도토리, 귀속된 치장을 다시 교환 가능하게"
+    }
+   ],
+   "model": "nexo:scissors_red"
+  },
+  {
+   "key": "film_camera",
+   "name": "필름 카메라",
+   "cat": "consume",
+   "icon": [
+    "minecraft:spyglass"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "500도토리"
+    }
+   ],
+   "model": "nexo:camera"
+  },
+  {
+   "key": "magic_hoe_19",
+   "name": "요술 괭이(1x9)",
+   "cat": "conv",
+   "icon": [
+    "minecraft:golden_hoe"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "13,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "magic_hoe_33",
+   "name": "요술 괭이(3x3)",
+   "cat": "conv",
+   "icon": [
+    "minecraft:golden_hoe"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "13,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "watering_can",
+   "name": "무한 물뿌리개",
+   "cat": "conv",
+   "icon": [
+    "minecraft:bucket"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "8,900도토리"
+    }
+   ],
+   "model": "nexo:watering_can"
+  },
+  {
+   "key": "glass_hammer",
+   "name": "유리 망치",
+   "cat": "conv",
+   "icon": [
+    "minecraft:mace"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "6,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "dia_pickaxe",
+   "name": "[고급] 다이아몬드 곡괭이",
+   "cat": "conv",
+   "icon": [
+    "minecraft:diamond_pickaxe"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "4,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "dia_axe",
+   "name": "[고급] 다이아몬드 도끼",
+   "cat": "conv",
+   "icon": [
+    "minecraft:diamond_axe"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "4,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "dia_hoe",
+   "name": "[고급] 다이아몬드 괭이",
+   "cat": "conv",
+   "icon": [
+    "minecraft:diamond_hoe"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "4,900도토리"
+    }
+   ]
+  },
+  {
+   "key": "cos_1_wing_blue",
+   "name": "블루냥이 윙",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:1_wing_blue",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_1_wing_pink",
+   "name": "핑크냥이 윙",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:1_wing_pink",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_balloon_cloud",
+   "name": "내 이름 흐림",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:balloon_cloud",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_balloon_cloud_sun",
+   "name": "내 이름 맑음",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:balloon_cloud_sun",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_balloon_rain",
+   "name": "내 이름 소나기",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:balloon_rain",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_balloon_rainbow",
+   "name": "내 이름 무지개",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:balloon_rainbow",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_balloon_snow",
+   "name": "내 이름 첫눈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:balloon_snow",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_cap_blue",
+   "name": "블루냥이 캡",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:cap_blue",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_cap_pink",
+   "name": "핑크냥이 캡",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:cap_pink",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_chestnut_hat",
+   "name": "군밤 모자(베이지)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:chestnut_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_chestnut_hat_color_1",
+   "name": "군밤 모자(브라운)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:chestnut_hat_color_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_cow_hat",
+   "name": "젖소 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:cow_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_deer_hat",
+   "name": "사슴 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:deer_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_dolphin_hat",
+   "name": "돌고래 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:dolphin_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_empty_nipple",
+   "name": "쪽쪽이(블루)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:empty_nipple",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_empty_nipple_red",
+   "name": "쪽쪽이(레드)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:empty_nipple_red",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_gombangdae",
+   "name": "곰방대",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:gombangdae",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_leaf_baby",
+   "name": "나는 새싹",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:leaf_baby",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_liar_1",
+   "name": "코주부 안경",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:liar_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_liar_2",
+   "name": "바보 포스트잇",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:liar_2",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_monkey_hat",
+   "name": "원숭이 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:monkey_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_rabbit_hat",
+   "name": "토끼 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:rabbit_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_s_hat",
+   "name": "상어 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:s_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_sheep_hat",
+   "name": "양 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:sheep_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_turtle_hat",
+   "name": "거북이 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:turtle_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_fireman",
+   "name": "소방관 헬멧",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:fireman",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_miner_helmet",
+   "name": "광부 헬멧",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:miner_helmet",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_mortarboard",
+   "name": "학사모",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:mortarboard",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_safety_helmet",
+   "name": "안전모",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:safety_helmet",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_silk_hat",
+   "name": "실크햇",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:silk_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_snorkel",
+   "name": "스노클",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:snorkel",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_straw_hat",
+   "name": "밀짚모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:straw_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_toque",
+   "name": "요리사 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:toque",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_fish_backpack",
+   "name": "강태공 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:fish_backpack",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_fishing_hat",
+   "name": "강태공 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:fishing_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_move_heart_hat",
+   "name": "빙글빙글 하트(레드)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:move_heart_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_move_heart_hat_b",
+   "name": "빙글빙글 하트(블루)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:move_heart_hat_b",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_move_heart_hat_p",
+   "name": "빙글빙글 하트(핑크)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:move_heart_hat_p",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_move_heart_hat_y",
+   "name": "빙글빙글 하트(옐로우)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:move_heart_hat_y",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_sashimi",
+   "name": "사시미",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:sashimi",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_sushi",
+   "name": "모둠 초밥",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:sushi",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_sweetpotatohat",
+   "name": "군고구마 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:sweetpotatohat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_tteok_hat",
+   "name": "찹쌀떡 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:tteok_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_enfj",
+   "name": "ENFJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:enfj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_enfp",
+   "name": "ENFP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:enfp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_entj",
+   "name": "ENTJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:entj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_entp",
+   "name": "ENTP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:entp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_esfj",
+   "name": "ESFJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:esfj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_esfp",
+   "name": "ESFP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:esfp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_estj",
+   "name": "ESTJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:estj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_estp",
+   "name": "ESTP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:estp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_infj",
+   "name": "INFJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:infj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_infp",
+   "name": "INFP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:infp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_intj",
+   "name": "INTJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:intj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_intp",
+   "name": "INTP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:intp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_isfj",
+   "name": "ISFJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:isfj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_isfp",
+   "name": "ISFP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:isfp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_istj",
+   "name": "ISTJ",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:istj",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_istp",
+   "name": "ISTP",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:istp",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_mask_rabbit",
+   "name": "토끼 탈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_mask_rabbit",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_mask_penguin",
+   "name": "펭귄 탈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_mask_penguin",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_mask_bear",
+   "name": "곰돌이 탈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_mask_bear",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_mask_cat",
+   "name": "고양이 탈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_mask_cat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_mask_frog",
+   "name": "개구리 탈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_mask_frog",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_mask_dog",
+   "name": "강아지 탈",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_mask_dog",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_patch_rabbit",
+   "name": "토끼 안대",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_patch_rabbit",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_patch_cat",
+   "name": "고양이 안대",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_patch_cat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_patch_frog",
+   "name": "개구리 안대",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_patch_frog",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pin_rabbit",
+   "name": "토끼 머리핀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_pin_rabbit",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pin_penguin",
+   "name": "펭귄 머리핀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_pin_penguin",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pin_bear",
+   "name": "곰돌이 머리핀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_pin_bear",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pin_cat",
+   "name": "고양이 머리핀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_pin_cat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pin_frog",
+   "name": "개구리 머리핀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_pin_frog",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pin_puppy",
+   "name": "강아지 머리핀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_pin_puppy",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_alien_glasses",
+   "name": "외계인 안경",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_alien_glasses",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_decora_cat_hat",
+   "name": "데코라 고양이 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_decora_cat_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_milk_hat",
+   "name": "딸기우유 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_milk_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_baby_pacifier",
+   "name": "아기토끼 쪽쪽이",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:m2_baby_pacifier",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_baby_bib",
+   "name": "아기토끼 턱받이",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:m2_baby_bib",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_bag_rabbit",
+   "name": "토끼 가방",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_bag_rabbit",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_bag_penguin",
+   "name": "펭귄 가방",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_bag_penguin",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_bag_bear",
+   "name": "곰돌이 가방",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_bag_bear",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_bag_cat",
+   "name": "고양이 가방",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_bag_cat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_bag_frog",
+   "name": "개구리 가방",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_bag_frog",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_bag_puppy",
+   "name": "강아지 가방",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_bag_puppy",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_decora_cat_bag",
+   "name": "데코라 고양이 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:m2_decora_cat_bag",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_milk_bag",
+   "name": "딸기우유 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:m2_milk_bag",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pillow_rabbit",
+   "name": "토끼 베개",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:m2_pillow_rabbit",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pillow_cat",
+   "name": "고양이 베개",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:m2_pillow_cat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_pillow_frog",
+   "name": "개구리 베개",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:m2_pillow_frog",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_m2_marshmallow_stick",
+   "name": "마시멜로우 막대기",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:m2_marshmallow_stick",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_bear_earmuffs",
+   "name": "곰돌이 귀마개",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:bear_earmuffs",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_bear_gloves",
+   "name": "곰돌이 벙어리 장갑",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:bear_gloves",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_bee_bag_1",
+   "name": "꿀벌 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:bee_bag_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_bee_hat",
+   "name": "꿀벌 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:bee_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_cat_bag_1",
+   "name": "동물유치원 고양이 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:cat_bag_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_cat_hat_1",
+   "name": "동물유치원 고양이 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:cat_hat_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_crown_1",
+   "name": "반짝 왕관",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:crown_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_dog_bag_1",
+   "name": "동물유치원 강아지 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:dog_bag_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_dog_hat_1",
+   "name": "동물유치원 강아지 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:dog_hat_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_fish_hat",
+   "name": "붕어빵 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:fish_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_hanbok_hat_2",
+   "name": "한복 삿갓(레드)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:hanbok_hat_2",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_hanbok_hat_3",
+   "name": "한복 삿갓(블루)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:hanbok_hat_3",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_kid_bag_boy",
+   "name": "너굴 유치원 가방(남)",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:kid_bag_boy",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_kid_bag_girl",
+   "name": "너굴 유치원 가방(여)",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:kid_bag_girl",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_kid_hat_boy",
+   "name": "너굴 유치원 모자(남)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:kid_hat_boy",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_kid_hat_girl",
+   "name": "너굴 유치원 모자(여)",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:kid_hat_girl",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_penguin_backpack",
+   "name": "펭구 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:penguin_backpack",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_penguin_hat",
+   "name": "펭구 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:penguin_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_polar_bear_backpack",
+   "name": "폴라베어 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:polar_bear_backpack",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_polar_bear_hat",
+   "name": "폴라베어 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:polar_bear_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_rabbit_bag_1",
+   "name": "동물유치원 토끼 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:rabbit_bag_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_rabbit_ear",
+   "name": "토끼 귀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:rabbit_ear",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_rabbit_hat_1",
+   "name": "동물유치원 토끼 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:rabbit_hat_1",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_round_glasses",
+   "name": "동글이 안경",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:round_glasses",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_rudolf_backpack",
+   "name": "루돌프 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:rudolf_backpack",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_rudolf_hat",
+   "name": "루돌프 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:rudolf_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "에픽 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_squirrel_camera",
+   "name": "다람쥐 탐정 카메라",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:squirrel_camera",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_squirrel_ear_hat",
+   "name": "동물유치원 다람쥐 귀",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:squirrel_ear_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_squirrel_hat",
+   "name": "다람쥐 탐정 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:squirrel_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_squirrel_tail",
+   "name": "동물유치원 다람쥐 꼬리",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:squirrel_tail",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_umbrella",
+   "name": "눈이 펑펑 우산",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:umbrella",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "유니크 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_b_satgat",
+   "name": "동백꽃잎 삿갓",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:b_satgat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_b_umbrella",
+   "name": "동백꽃잎 양산",
+   "cat": "cos_offhand",
+   "icon": [
+    "minecraft:shield"
+   ],
+   "model": "nexo:b_umbrella",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_devil_bag",
+   "name": "악마 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:devil_bag",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_devil_hat",
+   "name": "악마 뿔",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:devil_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_fairy_bag",
+   "name": "요정 가방",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:fairy_bag",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_fairy_hat",
+   "name": "요정 화관",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:fairy_hat",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_galaxy_wing",
+   "name": "심연의 항성 윙",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:galaxy_wing",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금은 못 얻음"
+    }
+   ]
+  },
+  {
+   "key": "cos_sunset_wing",
+   "name": "금의 환향",
+   "cat": "cos_back",
+   "icon": [
+    "minecraft:elytra"
+   ],
+   "model": "nexo:sunset_wing",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "전설 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_transparent_hat",
+   "name": "투명 모자",
+   "cat": "cos_hat",
+   "icon": [
+    "minecraft:leather_helmet"
+   ],
+   "model": "nexo:transparent_hat",
+   "from": [
+    {
+     "at": "dotori",
+     "note": "2,490도토리"
+    },
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_transparent_chest",
+   "name": "투명 상의",
+   "cat": "cos_wear",
+   "icon": [
+    "minecraft:leather_chestplate"
+   ],
+   "model": "nexo:transparent_chest",
+   "from": [
+    {
+     "at": "dotori",
+     "note": "2,490도토리"
+    },
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_transparent_legs",
+   "name": "투명 하의",
+   "cat": "cos_wear",
+   "icon": [
+    "minecraft:leather_leggings"
+   ],
+   "model": "nexo:transparent_legs",
+   "from": [
+    {
+     "at": "dotori",
+     "note": "2,490도토리"
+    },
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_transparent_boots",
+   "name": "투명 신발",
+   "cat": "cos_wear",
+   "icon": [
+    "minecraft:leather_boots"
+   ],
+   "model": "nexo:transparent_boots",
+   "from": [
+    {
+     "at": "dotori",
+     "note": "2,490도토리"
+    },
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금 얻을 수 있음"
+    }
+   ]
+  },
+  {
+   "key": "cos_youain_efx_foot",
+   "name": "너구리 발걸음",
+   "cat": "cos_wear",
+   "icon": [
+    "minecraft:blaze_powder"
+   ],
+   "model": "nexo:youain_efx_foot",
+   "from": [
+    {
+     "at": "cosmetic",
+     "note": "레어 | 지금은 못 얻음"
     }
    ]
   }

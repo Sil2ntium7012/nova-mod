@@ -66,6 +66,30 @@ public class ContainerTabsModule extends Module {
 		}
 	}
 
+	/** 49-483차(사용자: "인벤토리 탭 이렇게 말고 상자 왼쪽이랑 오른쪽에 룰렛처럼 안 열린 상자가 조금 어둡게 쪽 있고, 클릭 드래그로 넘기면 그 상자로"). */
+	public enum Style {
+		ROULETTE("돌림판"),
+		TABS("칸");
+
+		private final String label;
+
+		Style(String label) {
+			this.label = label;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
+	private final EnumSetting<Style> style = register(new EnumSetting<>(
+			"style", "모양", "돌림판: 지금 상자 왼쪽과 오른쪽에 옆 상자가 어둡게 살짝 보이고, 끌어서 넘기거나 눌러서 엽니다. 칸: 예전처럼 상자 칸을 늘어놓습니다.",
+			Style.ROULETTE, Style.class));
+
+	private final IntSetting sideBright = register(new IntSetting(
+			"side_bright", "옆 상자 밝기", "돌림판에서 양옆 상자를 얼마나 밝게 보일지(%)입니다.", 45, 10, 100, 5));
+
 	private final IntSetting maxTabs = register(new IntSetting(
 			"max_tabs", "최대 개수", "한 번에 보여줄 상자 칸 수입니다.", MAX, 1, MAX, 1));
 
@@ -118,7 +142,7 @@ public class ContainerTabsModule extends Module {
 	private long pendingSince;
 
 	public ContainerTabsModule() {
-		super("container_tabs", "인벤토리 탭", ModuleCategory.INVENTORY, "상자 화면에서 근처 상자를 바로 열기");
+		super("container_tabs", "인벤토리 탭", ModuleCategory.INVENTORY, "상자 양옆 돌림판으로 근처 상자를 바로 열기");
 		defaultEnabled(true);
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
 		kr.lunaslight.mod.util.SlotDrawHook.register(this::beforeSlot);
@@ -487,7 +511,36 @@ public class ContainerTabsModule extends Module {
 		if (screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) {
 			return false;
 		}
+		// 49-486차(사용자 사진: 너굴마을 "업그레이드" 창 - "너굴 리팩 들어간 이런 거는 안 뜨게"): 서버가 리소스팩 글꼴(사용자 영역 글자 U+E000~)로
+		// 창 그림을 그리는 메뉴는 상자가 아니라 서버 화면이다 - 제목에 그런 글자가 있으면 칸을 안 띄운다.
+		if (customGui((AbstractContainerScreen<?>) screen)) {
+			return false;
+		}
 		return inInventory.get() || !(screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen);
+	}
+
+	private Object customFor;
+	private boolean customWas;
+
+	private boolean customGui(AbstractContainerScreen<?> hs) {
+		if (hs == customFor) {
+			return customWas;
+		}
+		customFor = hs;
+		customWas = false;
+		try {
+			String t = hs.getTitle().getString();
+			for (int i = 0; i < t.length(); ) {
+				int cp = t.codePointAt(i);
+				if ((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000) {
+					customWas = true;
+					break;
+				}
+				i += Character.charCount(cp);
+			}
+		} catch (Throwable ignored) {
+		}
+		return customWas;
 	}
 
 	/** 위치 설정 + 끌어 옮긴 거리로 판 자리를 정한다(화면 밖으로는 안 나간다). */
@@ -661,7 +714,11 @@ public class ContainerTabsModule extends Module {
 		LunaCompat.guiPush(ctx);
 		LunaCompat.guiTranslate(ctx, -box[0], -box[1]);
 		try {
-			drawPanel(ctx, layout(screen, hs), lastMouseX, lastMouseY);
+			if (style.get() == Style.ROULETTE) {
+				drawCarousel(ctx, hs, lastMouseX, lastMouseY);
+			} else {
+				drawPanel(ctx, layout(screen, hs), lastMouseX, lastMouseY);
+			}
 		} finally {
 			LunaCompat.guiPop(ctx);
 		}
@@ -675,6 +732,13 @@ public class ContainerTabsModule extends Module {
 			return;
 		}
 		AbstractContainerScreen<?> hs = (AbstractContainerScreen<?>) screen;
+		if (style.get() == Style.ROULETTE) {
+			if (System.currentTimeMillis() - slotDrawnAt > 250) {
+				drawCarousel(ctx, hs, mouseX, mouseY);   // 칸 훅이 없는 버전
+			}
+			carouselInput(hs, mouseX, mouseY);
+			return;
+		}
 		int sw = client.getWindow().getGuiScaledWidth();
 		int sh = client.getWindow().getGuiScaledHeight();
 		Layout L = layout(screen, hs);
@@ -792,6 +856,220 @@ public class ContainerTabsModule extends Module {
 			}
 		}
 		LunaCompat.guiPop(ctx);
+	}
+
+	// ==================== 49-483차: 돌림판 ====================
+	// 지금 연 상자(가운데 GUI) 왼쪽에 이전 상자, 오른쪽에 다음 상자가 어둡게 살짝(옆 판의 안쪽 끝만) 보인다. 옆 판을 누르면 그 상자를,
+	// 옆 판을 잡고 왼쪽으로 끌면 다음(오른쪽) 상자, 오른쪽으로 끌면 이전(왼쪽) 상자를 연다 - 돌림판을 돌리듯. 끝에서 처음으로 돈다.
+	// 판 안에는 마지막으로 본 내용물(아이템 찾기 색인)을 슬롯 격자로. 밝기는 [옆 상자 밝기].
+
+	private static final int PEEK = 96;
+	private static final int GAP = 6;
+	private static final int SWIPE = 28;
+
+	private boolean carDown;
+	private boolean carDragging;
+	private int carPress;        // 누른 쪽: -1 왼쪽, 1 오른쪽, 0 없음
+	private double carStartX;
+	private int carDx;
+
+	/** 가운데 상자의 칸 번호(내 인벤토리 등 모르면 -1). */
+	private int centerIndex(AbstractContainerScreen<?> hs) {
+		if (hs instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen || current == null) {
+			return -1;
+		}
+		for (int i = 0; i < tabs.size(); i++) {
+			if (tabs.get(i).pos().equals(current)) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/** {왼쪽 상자, 오른쪽 상자} (없으면 null). */
+	private Tab[] neighbours(AbstractContainerScreen<?> hs) {
+		int n = Math.min(tabs.size(), Math.min(MAX, maxTabs.get()));
+		if (n == 0) {
+			return new Tab[]{null, null};
+		}
+		int c = centerIndex(hs);
+		if (c < 0) {
+			return new Tab[]{n > 1 ? tabs.get(n - 1) : null, tabs.get(0)};
+		}
+		if (n == 1) {
+			return new Tab[]{null, null};
+		}
+		Tab right = tabs.get((c + 1) % n);
+		Tab left = tabs.get((c - 1 + n) % n);
+		return new Tab[]{left == right ? null : left, right};
+	}
+
+	/** {왼쪽 보이는 띠 x1, x2, 오른쪽 띠 x1, x2, y, h}. 자리가 없으면 그 쪽 폭 0. */
+	private int[] stripRects(AbstractContainerScreen<?> hs) {
+		int[] box = guiBox(hs);
+		int sw = client.getWindow().getGuiScaledWidth();
+		int rightEdge = box[0] + box[2];
+		int helper = kr.lunaslight.mod.util.SidePanels.rightEdge(hs);
+		if (helper > rightEdge) {
+			rightEdge = helper;
+		}
+		int lw = Math.max(0, Math.min(PEEK, box[0] - GAP - 2));
+		int rw = Math.max(0, Math.min(PEEK, sw - rightEdge - GAP - 2));
+		int lx2 = box[0] - GAP;
+		int rx1 = rightEdge + GAP;
+		// 49-484차(사용자: "상자 아래쪽 인벤 가려진 거 저런 느낌 싹 없애고 조금 더 많이 보이게 최대한"): 옆 판은 GUI 높이 그대로, 내용물 격자로 꽉 채운다
+		return new int[]{lx2 - lw, lx2, rx1, rx1 + rw, box[1], Math.max(40, box[3])};
+	}
+
+	private void drawCarousel(GuiGraphicsExtractor ctx, AbstractContainerScreen<?> hs, int mouseX, int mouseY) {
+		Tab[] nb = neighbours(hs);
+		int[] r = stripRects(hs);
+		int[] box = guiBox(hs);
+		int dx = carDragging ? carDx : 0;
+		int y = r[4];
+		int h = r[5];
+		int cw = box[2];
+		if (nb[0] != null && r[1] > r[0]) {
+			boolean hov = !carDragging && LunaDraw.in(mouseX, mouseY, r[0], y, r[1] - r[0], h);
+			int x = r[1] - cw + Math.max(0, dx);   // 판의 오른쪽(안쪽) 끝이 보이게
+			ctx.enableScissor(r[0], y, r[1], y + h);
+			try {
+				drawCard(ctx, nb[0], x, y, cw, h, hov || dx > SWIPE);
+				LunaIcons2.arrow(ctx, client, r[0] + 4, y + h / 2 - 6, true);
+			} finally {
+				ctx.disableScissor();
+			}
+		}
+		if (nb[1] != null && r[3] > r[2]) {
+			boolean hov = !carDragging && LunaDraw.in(mouseX, mouseY, r[2], y, r[3] - r[2], h);
+			int x = r[2] + Math.min(0, dx);
+			ctx.enableScissor(r[2], y, r[3], y + h);
+			try {
+				drawCard(ctx, nb[1], x, y, cw, h, hov || dx < -SWIPE);
+				LunaIcons2.arrow(ctx, client, r[3] - 16, y + h / 2 - 6, false);
+			} finally {
+				ctx.disableScissor();
+			}
+		}
+	}
+
+	/** 옆 상자 판 하나: 바닐라 판 + 블록 아이콘과 이름 + 마지막으로 본 내용물 + 어둡게 덮기. */
+	private void drawCard(GuiGraphicsExtractor ctx, Tab t, int x, int y, int w, int h, boolean lit) {
+		LunaDraw.mcPanel(ctx, x, y, w, h);
+		try {
+			ctx.item(t.icon(), x + 8, y + 6);
+		} catch (Throwable ignored) {
+		}
+		ctx.text(client.font, LunaCompat.textLiteral(LunaDraw.ellipsize(client.font, t.name(), w - 40)), x + 28, y + 10, 0xFF404040, false);
+		ContainerIndex.Entry e = ContainerIndex.get(client, t.pos());
+		int gx = x + BORDER;
+		int gy = y + 26;
+		int rows = Math.max(1, (h - 26 - BORDER) / SLOT);   // 49-484차: 판 아래까지 칸으로 꽉
+		List<ItemStack> stacks = new ArrayList<>();
+		if (e != null) {
+			List<Map.Entry<String, Integer>> items = new ArrayList<>((e.looks.isEmpty() ? e.items : e.looks).entrySet());
+			items.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+			for (Map.Entry<String, Integer> it : items) {
+				ItemStack look = ContainerIndex.stackOfLook(it.getKey(), Math.max(1, it.getValue()));
+				if (!look.isEmpty()) {
+					look.setCount(Math.max(1, it.getValue()));
+					stacks.add(look);
+				}
+				if (stacks.size() >= PREVIEW_COLS * rows) {
+					break;
+				}
+			}
+		}
+		for (int i = 0; i < PREVIEW_COLS * rows; i++) {
+			int sx = gx + (i % PREVIEW_COLS) * SLOT;
+			int sy = gy + (i / PREVIEW_COLS) * SLOT;
+			if (sx + SLOT > x + w - BORDER + 1) {
+				continue;
+			}
+			LunaDraw.mcSlot(ctx, sx, sy);
+			ItemStack st = e == null ? (i == PREVIEW_COLS / 2 ? new ItemStack(Items.BARRIER) : ItemStack.EMPTY)
+				: (i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY);
+			if (!st.isEmpty()) {
+				try {
+					ctx.item(st, sx + 1, sy + 1);
+					if (e != null) {
+						LunaCompat.drawItemOverlay(ctx, client.font, st, sx + 1, sy + 1);
+					}
+				} catch (Throwable ignored) {
+				}
+			}
+		}
+		// 어둡게: 밝기 100% = 그대로, 10% = 거의 검정. 마우스를 올리거나 끄는 중이면 조금 밝게.
+		int bright = Math.max(10, Math.min(100, sideBright.get()));
+		if (lit) {
+			bright = Math.min(100, bright + (100 - bright) / 2);
+		}
+		int a = Math.round((100 - bright) * 2.3f);
+		if (a > 0) {
+			LunaCompat.guiPush(ctx);
+			LunaCompat.guiTranslateZ(ctx, 200);
+			ctx.fill(x, y, x + w, y + h, (Math.min(255, a) << 24));
+			LunaCompat.guiPop(ctx);
+		}
+	}
+
+	/** 돌림판 입력: 옆 띠를 누르면 그 상자, 끌면 넘기기. */
+	private void carouselInput(AbstractContainerScreen<?> hs, int mouseX, int mouseY) {
+		boolean down = client.getWindow() != null
+			&& kr.lunaslight.mod.util.LunaInput.mouseDown(net.minecraft.client.Minecraft.getInstance(), 0);
+		Tab[] nb = neighbours(hs);
+		int[] r = stripRects(hs);
+		if (down && !carDown) {
+			carDown = true;
+			carPress = 0;
+			if (!holdingStack() && mouseY >= r[4] && mouseY < r[4] + r[5]) {
+				if (nb[0] != null && mouseX >= r[0] && mouseX < r[1]) {
+					carPress = -1;
+				} else if (nb[1] != null && mouseX >= r[2] && mouseX < r[3]) {
+					carPress = 1;
+				}
+			}
+			if (carPress != 0) {
+				carDragging = true;
+				carStartX = mouseX;
+				carDx = 0;
+			}
+		} else if (down && carDragging) {
+			carDx = (int) Math.max(-PEEK, Math.min(PEEK, Math.round(mouseX - carStartX)));
+		} else if (!down) {
+			if (carDragging) {
+				Tab go = null;
+				if (carDx <= -SWIPE) {
+					go = nb[1];          // 왼쪽으로 끌었다 = 오른쪽(다음) 상자가 들어온다
+				} else if (carDx >= SWIPE) {
+					go = nb[0];          // 오른쪽으로 끌었다 = 왼쪽(이전) 상자
+				} else if (Math.abs(carDx) < 6) {
+					go = carPress < 0 ? nb[0] : nb[1];   // 그냥 눌렀다
+				}
+				carDragging = false;
+				carDx = 0;
+				if (go != null) {
+					open(go);
+				}
+			}
+			carDown = false;
+			carPress = 0;
+		}
+	}
+
+	/** 띠 바깥쪽 끝의 작은 화살표(흰색, 그림자). */
+	private static final class LunaIcons2 {
+		static void arrow(GuiGraphicsExtractor ctx, net.minecraft.client.Minecraft mc, int x, int y, boolean left) {
+			try {
+				LunaCompat.guiPush(ctx);
+				LunaCompat.guiTranslateZ(ctx, 250);
+				kr.lunaslight.mod.gui.LunaIcons.drawInBox(ctx, mc.font, left ? kr.lunaslight.mod.gui.LunaIcons.LEFT : kr.lunaslight.mod.gui.LunaIcons.RIGHT,
+					x, y, 12, 0xE0FFFFFF);
+			} catch (Throwable ignored) {
+			} finally {
+				LunaCompat.guiPop(ctx);
+			}
+		}
 	}
 
 	/** 지금 화면을 닫고 그 블록을 연다(블록 우클릭 한 번). */

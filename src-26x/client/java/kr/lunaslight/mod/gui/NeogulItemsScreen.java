@@ -196,6 +196,9 @@ public class NeogulItemsScreen extends LunaScreenBase {
 			case "is_harvest", "is_ocean", "is_mud", "is_meat" -> 0xFF2F9A8C;
 			case "shop", "smith" -> 0xFF8A5CB0;
 			case "cook" -> 0xFFC9822E;
+			case "dotori" -> 0xFFB0743A;
+			case "cosmetic" -> 0xFFD06AA8;
+			case "hottime", "login", "vote", "daily" -> 0xFFE0B040;
 			default -> 0xFF8B8B8B;
 		};
 	}

@@ -120,6 +120,11 @@ public class AutoRefillModule extends Module {
 			// 49-305차: 다 쓴 것 = 조금씩 줄다가 빈 것(직전 틱에 2개 이하). 여러 개가 한 번에 사라졌으면 옮기거나 버린 것이라 채우지 않는다
 			boolean usedUp = current.isEmpty() ? previous.getCount() <= 2
 				: current.getItem() == previous.getItem() && previous.getCount() - current.getCount() <= 2;
+			// 49-484차(사용자: "인벤 아이템을 너무 빠르게 소모하면 자동 채우기가 안 된대"): 우클릭/좌클릭을 누르고 있는 동안(설치, 심기, 먹기 …)
+			// 한 틱에 3개 넘게 줄어도 "다 썼다"로 본다. 버리기 키(Q)나 왼손 바꾸기(F)를 누르는 중이면 옮긴 것이라 아니다.
+			if (!usedUp && actingNow()) {
+				usedUp = current.isEmpty() || current.getItem() == previous.getItem();
+			}
 			boolean depleted = onlyWhenEmpty.get()
 				? current.isEmpty() && !previous.isEmpty() && usedUp
 				: (current.isEmpty() || current.getCount() <= 1) && !previous.isEmpty() && usedUp;
@@ -152,6 +157,18 @@ public class AutoRefillModule extends Module {
 			if (drained[i]) {
 				prevHotbar[i] = ItemStack.EMPTY;
 			}
+		}
+	}
+
+	private boolean actingNow() {
+		try {
+			var o = client.options;
+			if (o.keyDrop.isDown() || o.keySwapOffhand.isDown()) {
+				return false;
+			}
+			return o.keyUse.isDown() || o.keyAttack.isDown();
+		} catch (Throwable t) {
+			return false;
 		}
 	}
 
