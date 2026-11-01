@@ -11,7 +11,7 @@ public class BeetHitboxModule extends Module {
 	public static volatile boolean on;
 
 	public BeetHitboxModule() {
-		super("beet_hitbox", "사탕무 크게 선택", ModuleCategory.FEATURE, "사탕무를 고르는 칸을 한 칸 전체로");
+		super("beet_hitbox", "사탕무 크게 선택", ModuleCategory.FEATURE, "사탕무(벼)를 고르는 칸을 밀과 같게");
 		defaultEnabled(true);
 	}
 
