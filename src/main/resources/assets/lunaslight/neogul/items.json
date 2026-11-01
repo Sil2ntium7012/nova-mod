@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가.",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가.",
  "stations": {
   "farm": {
    "name": "농사",
@@ -213,6 +213,34 @@
    "icon": [
     "minecraft:gold_ingot"
    ]
+  },
+  "hottime": {
+   "name": "핫타임",
+   "note": "매일 20시 접속 중이면 우편함으로 지급, 당일 추천했으면 2배. 요일 상자: 월 농부, 화 광부, 수 강화, 목 성장, 금 채집, 토 머니, 일 도토리",
+   "icon": [
+    "minecraft:clock"
+   ]
+  },
+  "login": {
+   "name": "접속보상",
+   "note": "/접속보상, 하루 플레이타임 1, 3, 6, 12시간 달성",
+   "icon": [
+    "minecraft:clock"
+   ]
+  },
+  "vote": {
+   "name": "추천 보상",
+   "note": "마인리스트에서 서버 추천하면 /우편함으로 지급(하루 1번)",
+   "icon": [
+    "minecraft:emerald"
+   ]
+  },
+  "block_shop": {
+   "name": "블럭상점",
+   "note": "상점 1층 블럭상점 > 기능상점",
+   "icon": [
+    "minecraft:chest"
+   ]
   }
  },
  "categories": [
@@ -286,6 +314,13 @@
     "minecraft:paper"
    ],
    "model": "nexo:plane_ticket1"
+  },
+  {
+   "id": "consume",
+   "name": "소모품",
+   "icon": [
+    "minecraft:paper"
+   ]
   }
  ],
  "items": [
@@ -466,6 +501,10 @@
     {
      "at": "is_harvest",
      "note": "작물을 채집"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:farmer_vege"
@@ -481,6 +520,10 @@
     {
      "at": "is_harvest",
      "note": "작물을 채집"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:farmer_leak"
@@ -496,6 +539,10 @@
     {
      "at": "is_harvest",
      "note": "작물을 채집"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:farmer_garlic"
@@ -608,6 +655,10 @@
     {
      "at": "is_ocean",
      "note": "해양 광석 채집 시 랜덤"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:fisher_seafood1"
@@ -623,6 +674,10 @@
     {
      "at": "is_ocean",
      "note": "해양 광석 채집 시 랜덤"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:fisher_seafood2"
@@ -638,6 +693,10 @@
     {
      "at": "is_ocean",
      "note": "해양 광석 채집 시 랜덤"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:fisher_seafood3"
@@ -750,6 +809,10 @@
     {
      "at": "is_mud",
      "note": "갯벌 블럭 채집 시 랜덤"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:fisher_crab"
@@ -765,6 +828,10 @@
     {
      "at": "is_mud",
      "note": "갯벌 블럭 채집 시 랜덤"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:fisher_squid"
@@ -780,6 +847,10 @@
     {
      "at": "is_mud",
      "note": "갯벌 블럭 채집 시 랜덤"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:fisher_shrimp"
@@ -892,6 +963,10 @@
     {
      "at": "is_meat",
      "note": "동물을 잡아 획득"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:meat_beef"
@@ -907,6 +982,10 @@
     {
      "at": "is_meat",
      "note": "동물을 잡아 획득"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:meat_porkchop"
@@ -922,6 +1001,10 @@
     {
      "at": "is_meat",
      "note": "동물을 잡아 획득"
+    },
+    {
+     "at": "hottime",
+     "note": "금요일 상자 16개 8.33%"
     }
    ],
    "model": "nexo:meat_chicken"
@@ -2239,6 +2322,34 @@
     {
      "at": "scarecrow",
      "note": "16개 9.9%"
+    },
+    {
+     "at": "hottime",
+     "note": "수요일 상자 4~32개"
+    },
+    {
+     "at": "login",
+     "note": "6시간 16개"
+    },
+    {
+     "at": "vote",
+     "note": "4개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "8개 9.9%"
+    },
+    {
+     "at": "fishdex",
+     "note": "2단계 32개, 3단계 96개"
+    },
+    {
+     "at": "trade",
+     "note": "뭉치(64개입) 3~10개"
+    },
+    {
+     "at": "donate",
+     "note": "64~128개"
     }
    ],
    "model": "nexo:spell_trace"
@@ -3068,6 +3179,10 @@
     {
      "at": "treasure",
      "note": "강화 성공 +2%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 2.5%"
     }
    ],
    "model": "nexo:talisman_gray"
@@ -3087,6 +3202,10 @@
     {
      "at": "dotori",
      "note": "강화 성공 +4%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 1.3%"
     }
    ],
    "model": "nexo:talisman_yellow"
@@ -3106,6 +3225,10 @@
     {
      "at": "dotori",
      "note": "강화 성공 +7%"
+    },
+    {
+     "at": "trade",
+     "note": "1~8위 3~10개"
     }
    ],
    "model": "nexo:talisman_red"
@@ -3121,6 +3244,10 @@
     {
      "at": "treasure",
      "note": "대박성공 +2%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 2.1%"
     }
    ],
    "model": "nexo:clover_gray"
@@ -3136,6 +3263,10 @@
     {
      "at": "treasure",
      "note": "대박성공 +4%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 1.2%"
     }
    ],
    "model": "nexo:clover_yellow"
@@ -3151,6 +3282,10 @@
     {
      "at": "treasure",
      "note": "고급, 대박성공 +7%"
+    },
+    {
+     "at": "trade",
+     "note": "1~8위 1~5개"
     }
    ],
    "model": "nexo:clover_blue"
@@ -3166,6 +3301,14 @@
     {
      "at": "treasure",
      "note": "10% 확률로 강화횟수 1회 복구"
+    },
+    {
+     "at": "hottime",
+     "note": "수요일 상자 1%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 5%"
     }
    ],
    "model": "nexo:protect_gray"
@@ -3185,6 +3328,14 @@
     {
      "at": "dotori",
      "note": "30% 복구"
+    },
+    {
+     "at": "hottime",
+     "note": "수요일 상자 0.5%"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 1.7%"
     }
    ],
    "model": "nexo:protect_blue"
@@ -3204,6 +3355,10 @@
     {
      "at": "treasure",
      "note": "가챠에서도 나옴"
+    },
+    {
+     "at": "trade",
+     "note": "1~8위 3~10개"
     }
    ],
    "model": "nexo:protect_yellow"
@@ -3219,6 +3374,10 @@
     {
      "at": "dotori",
      "note": "100% 확률로 강화횟수 1회 복구"
+    },
+    {
+     "at": "hottime",
+     "note": "수요일 상자 0.2%"
     }
    ],
    "model": "nexo:protect_red"
@@ -3364,6 +3523,484 @@
     }
    ],
    "note": "채집 섬 네 곳 중 골라서 이동. 쓰는 곳: /워프 → 비행장 NPC 토부(23:30~00:10 사용 불가)"
+  },
+  {
+   "key": "money_lottery",
+   "name": "머니 복권",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "hottime",
+     "note": "요일 상자 대부분에서(토요일 상자 최대 16개)"
+    },
+    {
+     "at": "login",
+     "note": "1시간 1개"
+    },
+    {
+     "at": "vote",
+     "note": "1만~5만원 1개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 11.6%"
+    }
+   ]
+  },
+  {
+   "key": "dotori_lottery",
+   "name": "도토리 복권",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "hottime",
+     "note": "요일 상자 10%, 일요일 상자 최대 6개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 1~3개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 9.9%"
+    }
+   ]
+  },
+  {
+   "key": "hottime_coin",
+   "name": "핫타임 코인",
+   "cat": "consume",
+   "icon": [
+    "minecraft:gold_nugget"
+   ],
+   "from": [
+    {
+     "at": "hottime",
+     "note": "매일 1개"
+    }
+   ]
+  },
+  {
+   "key": "hottime_box",
+   "name": "요일 핫타임상자",
+   "cat": "consume",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "from": [
+    {
+     "at": "hottime",
+     "note": "매일 그 요일 상자 1개, 열면 품목 1개"
+    }
+   ]
+  },
+  {
+   "key": "vote_coin",
+   "name": "추천 코인",
+   "cat": "consume",
+   "icon": [
+    "minecraft:gold_nugget"
+   ],
+   "from": [
+    {
+     "at": "vote",
+     "note": "1개"
+    }
+   ]
+  },
+  {
+   "key": "fly3",
+   "name": "플라이 쿠폰(3분)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:feather"
+   ],
+   "from": [
+    {
+     "at": "login",
+     "note": "1시간 2개, 3시간 2개, 6시간 2개, 12시간 3개"
+    },
+    {
+     "at": "vote",
+     "note": "4개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 3~5개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 11.6%"
+    }
+   ]
+  },
+  {
+   "key": "fly20",
+   "name": "플라이 쿠폰(20분)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:feather"
+   ],
+   "from": [
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 5%"
+    },
+    {
+     "at": "trade",
+     "note": "3~6위 15~20개, 7~10위 10~12개"
+    }
+   ]
+  },
+  {
+   "key": "autoplant500",
+   "name": "자동심기 쿠폰(500회)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:wheat_seeds"
+   ],
+   "from": [
+    {
+     "at": "login",
+     "note": "1시간 1개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 1~20레벨에 함께"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 6.6%"
+    }
+   ]
+  },
+  {
+   "key": "autoplant1000",
+   "name": "자동심기 쿠폰(1,000회)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:wheat_seeds"
+   ],
+   "from": [
+    {
+     "at": "login",
+     "note": "3시간 1개"
+    },
+    {
+     "at": "vote",
+     "note": "1개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 1,000~3,000회"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 5%"
+    }
+   ]
+  },
+  {
+   "key": "stack_ticket",
+   "name": "중첩 티켓",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "login",
+     "note": "3시간 32개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 32~128개"
+    },
+    {
+     "at": "trade",
+     "note": "뭉치(64개입) 10~20개"
+    }
+   ]
+  },
+  {
+   "key": "crop_scroll",
+   "name": "농작물 스크롤",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "hottime",
+     "note": "월요일 상자 1~16개"
+    },
+    {
+     "at": "login",
+     "note": "6시간 2개"
+    },
+    {
+     "at": "vote",
+     "note": "2개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 2~10개"
+    },
+    {
+     "at": "trade",
+     "note": "48~128개"
+    }
+   ]
+  },
+  {
+   "key": "fatigue_vending",
+   "name": "피로회복제 자판기",
+   "cat": "consume",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "login",
+     "note": "12시간 1개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 2.5%"
+    },
+    {
+     "at": "fishdex",
+     "note": "1단계 2개, 2단계 3개, 3단계 10개"
+    },
+    {
+     "at": "trade",
+     "note": "1위 40개 … 10위 5개"
+    },
+    {
+     "at": "donate",
+     "note": "단계마다 2~20개"
+    }
+   ]
+  },
+  {
+   "key": "exp_coupon",
+   "name": "경험치 쿠폰",
+   "cat": "consume",
+   "icon": [
+    "minecraft:experience_bottle"
+   ],
+   "from": [
+    {
+     "at": "hottime",
+     "note": "목요일 상자(+10~30%, 10~30분)"
+    },
+    {
+     "at": "login",
+     "note": "12시간 +10% 20분"
+    },
+    {
+     "at": "scarecrow",
+     "note": "+10% 3.3%, +15% 2.5%"
+    },
+    {
+     "at": "trade",
+     "note": "+10%, +20%, +50% 각 3~10개"
+    },
+    {
+     "at": "donate",
+     "note": "+20%, +50%, +100%"
+    }
+   ]
+  },
+  {
+   "key": "trade_ticket1",
+   "name": "무역선 출항 티켓(일반)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 9.9%"
+    }
+   ]
+  },
+  {
+   "key": "trade_ticket2",
+   "name": "무역선 출항 티켓(고급)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "daily",
+     "note": "올클리어 21레벨부터 5~10개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 5%"
+    },
+    {
+     "at": "trade",
+     "note": "8~30개"
+    }
+   ]
+  },
+  {
+   "key": "trade_ticket3",
+   "name": "무역선 출항 티켓(로얄)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "daily",
+     "note": "올클리어 41레벨부터 2~3개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 1.7%"
+    },
+    {
+     "at": "trade",
+     "note": "1~9위 3~15개"
+    }
+   ]
+  },
+  {
+   "key": "dotori_check",
+   "name": "도토리 수표(1만 도토리)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "trade",
+     "note": "1위 10장 … 10위 1장"
+    }
+   ]
+  },
+  {
+   "key": "nick_ticket",
+   "name": "한글 닉네임 변경권",
+   "cat": "consume",
+   "icon": [
+    "minecraft:name_tag"
+   ],
+   "from": [
+    {
+     "at": "trade",
+     "note": "1~4위 1개"
+    }
+   ]
+  },
+  {
+   "key": "title_box",
+   "name": "일반 칭호 랜덤박스",
+   "cat": "consume",
+   "icon": [
+    "minecraft:chest"
+   ],
+   "from": [
+    {
+     "at": "trade",
+     "note": "1위 10개, 2~3위 5개, 4~5위 3개"
+    }
+   ]
+  },
+  {
+   "key": "glow_gacha",
+   "name": "랜덤 발광포션 뽑기",
+   "cat": "consume",
+   "icon": [
+    "minecraft:glowstone_dust"
+   ],
+   "from": [
+    {
+     "at": "trade",
+     "note": "1~3위 1개"
+    }
+   ]
+  },
+  {
+   "key": "elevator",
+   "name": "엘리베이터 블럭(20칸)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:iron_block"
+   ],
+   "from": [
+    {
+     "at": "trade",
+     "note": "1~10위 5~20개"
+    }
+   ]
+  },
+  {
+   "key": "elevator_hi",
+   "name": "고급 엘리베이터 블럭(100칸)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:gold_block"
+   ],
+   "from": [
+    {
+     "at": "trade",
+     "note": "1~3위 6~10개"
+    }
+   ]
+  },
+  {
+   "key": "lock",
+   "name": "자물쇠",
+   "cat": "consume",
+   "icon": [
+    "minecraft:tripwire_hook"
+   ],
+   "from": [
+    {
+     "at": "block_shop",
+     "note": "상자, 통, 화로 잠금. 들고 웅크려 우클릭, 써도 안 없어짐"
+    }
+   ]
+  },
+  {
+   "key": "membership",
+   "name": "멤버십 이용권(30일)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "쓰면 30일 멤버십"
+    }
+   ]
+  },
+  {
+   "key": "nether_fence",
+   "name": "네더 벽돌 울타리(광물 생성기)",
+   "cat": "consume",
+   "icon": [
+    "minecraft:nether_brick_fence"
+   ],
+   "from": [
+    {
+     "at": "dotori",
+     "note": "광물 생성기용, 참나무 울타리보다 광물 확률 높음"
+    }
+   ]
   }
  ],
  "recipes": [

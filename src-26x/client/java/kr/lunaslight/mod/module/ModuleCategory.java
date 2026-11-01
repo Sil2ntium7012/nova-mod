@@ -32,7 +32,9 @@ public enum ModuleCategory {
 	INVENTORY("인벤토리"),
 	FEATURE("기능"),
 	/** 49-138차(사용자: "너굴마을 같은 서버 전용 기능은 따로 서버 기능 분류하고 거기서 또 서버별로"): 특정 서버에서만 쓰는 기능. {@link Module#serverGroup()}로 서버별로 나뉜다. */
-	SERVER("서버");
+	SERVER("서버"),
+	/** 49-473차(사용자: "기능에 카테고리에 서버처럼 할 일 목록"): 할 일 목록과 그 HUD. */
+	TODO("할 일");
 
 	private final String displayName;
 

@@ -105,7 +105,7 @@ public final class ModuleManager {
 		register(new ShieldOffsetModule());       // 49-75차(2-3 뒤 절반): 1인칭 방패 높이
 		register(new FreeLookModule());
 		register(new FreeViewModule());          // 49-349차: 자유 시점(배그식 ALT 둘러보기)
-		register(new kr.lunaslight.mod.module.impl.misc.AnimalPassModule());   // 49-456차 → 49-460차: 잔디 관통(풀/작물 너머 동물, 몹 때리기)
+		register(new kr.lunaslight.mod.module.impl.misc.AnimalPassModule());   // 49-456차 → 49-472차: 몹 조준 보정(발밑 작물 보고 때려도 몹)
 		register(new kr.lunaslight.mod.module.impl.misc.BeetHitboxModule());   // 49-463차: 사탕무 크게 선택
 
 		// ---- 인벤토리 ----
@@ -167,7 +167,11 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCosmeticsModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
 		}
+		// 49-473차: 할 일 목록(목록 화면, 늘 켜짐) + 할 일 HUD
+		register(new kr.lunaslight.mod.module.impl.misc.TodoModule());
+		register(new kr.lunaslight.mod.module.impl.misc.TodoHudModule());
 		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----

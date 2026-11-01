@@ -193,6 +193,7 @@ public final class LunaIcons {
 			case INVENTORY -> "\uE903";
 			case FEATURE -> "\uE952";
 			case SERVER -> WIFI;   // 49-138차: 서버 전용 기능
+			case TODO -> CHECK;    // 49-473차: 할 일 목록
 		};
 	}
 

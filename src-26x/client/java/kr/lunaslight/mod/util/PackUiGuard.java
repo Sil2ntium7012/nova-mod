@@ -42,6 +42,33 @@ public final class PackUiGuard {
 	private static final String[] CROP_PREFIXES = {"textures/block", "blockstates", "models/block"};
 
 	private static final String[] PREFIXES = {"shaders", "textures/gui"};
+
+	/**
+	 * 49-473차(사용자: "내 리소스팩 우선 폰트 글 말고는 하지 말라고, 왜 핑도 제대로 안 되고 공격 게이지도 제대로 안 되고"): [글꼴만]이 켜져 있으면
+	 * 서버 팩이 깔린 동안 내 팩(file/…)에서는 <b>글꼴과 글</b>(font/, textures/font/, lang/, texts/)만 쓰고 나머지 파일은 전부 없는 것처럼 숨긴다.
+	 * 서버 팩에 없는 파일도 숨긴다 - 서버 셰이더, HUD(핑, 공격 게이지 …)는 바닐라 그림을 기준으로 짜여 있어 내 팩 그림이 섞이면 어긋난다.
+	 */
+	public static volatile java.util.function.BooleanSupplier fontOnly;
+	private static volatile boolean serverLoaded;
+	private static final String[] FONT_PREFIXES = {"font/", "textures/font/", "lang/", "texts/"};
+
+	private static boolean fontOnlyOn() {
+		java.util.function.BooleanSupplier e = fontOnly;
+		try {
+			return e != null && e.getAsBoolean() && !PackOrderHook.off;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	private static boolean fontPath(String path) {
+		for (String f : FONT_PREFIXES) {
+			if (path.startsWith(f)) {
+				return true;
+			}
+		}
+		return false;
+	}
 	private static volatile Set<String> serverUi = Set.of();
 
 	private static boolean cropsOn() {
@@ -65,7 +92,16 @@ public final class PackUiGuard {
 	/** 팩 목록이 정해진 직후(PackOrderMixin): 서버 팩의 UI 파일 목록을 새로 모은다. */
 	public static void prepare(List<?> packs) {
 		Set<String> out = new HashSet<>();
+		boolean server = false;
 		try {
+			if (packs != null) {
+				for (Object o : packs) {
+					if (o instanceof PackResources pr && PackOrderHook.isServerPackId(pr.packId())) {
+						server = true;
+						break;
+					}
+				}
+			}
 			boolean ui = on();
 			boolean crops = cropsOn();
 			if (packs != null && (ui || crops)) {
@@ -94,6 +130,11 @@ public final class PackUiGuard {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("packUiGuard", t);
 		}
+		boolean was = serverLoaded;
+		serverLoaded = server;
+		if (server && !was && fontOnlyOn()) {
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 내 리소스팩 우선: 서버 팩이 있어 내 팩은 글꼴과 글만 씁니다");
+		}
 		boolean changed = !out.equals(serverUi);
 		serverUi = out.isEmpty() ? Set.of() : out;
 		if (changed && !out.isEmpty()) {
@@ -104,7 +145,7 @@ public final class PackUiGuard {
 	/** 내 팩(file/…)의 이 파일을 숨길까(서버 팩에 같은 UI 파일이 있으면). */
 	public static boolean hides(PackResources self, Identifier id) {
 		Set<String> s = serverUi;
-		if (s.isEmpty() || self == null || id == null) {
+		if ((s.isEmpty() && !serverLoaded) || self == null || id == null) {
 			return false;
 		}
 		String pid;
@@ -115,6 +156,9 @@ public final class PackUiGuard {
 		}
 		if (pid == null || !pid.startsWith("file/")) {
 			return false;
+		}
+		if (serverLoaded && fontOnlyOn()) {
+			return !fontPath(id.getPath());
 		}
 		String key = id.toString();
 		if (s.contains(key)) {
@@ -132,6 +176,6 @@ public final class PackUiGuard {
 	}
 
 	public static boolean active() {
-		return !serverUi.isEmpty();
+		return !serverUi.isEmpty() || (serverLoaded && fontOnlyOn());
 	}
 }

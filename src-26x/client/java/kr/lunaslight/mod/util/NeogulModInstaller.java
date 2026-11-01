@@ -106,10 +106,20 @@ public final class NeogulModInstaller {
 			boolean needVoiceAddon = !hasJar("ng-voiceaddon");
 			boolean needSvc = !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("voicechat") && !hasJar("voicechat");
 			boolean needSkill = !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("ng_skillkeydown") && !hasJar("ng-skillkeydown");
+			// 49-473차(사용자: "V가 보이스 설정이던데 안 켜져"): 49-454차에 넣은 voicechat-fabric jar가 런처 프로필 휴지통(.trash/mods)으로
+			// 옮겨져 있었다(그러면 너굴 보이스는 Simple Voice Chat이 없어 아무것도 안 함). 휴지통에 있으면 받지 않고 그걸 되돌린다.
+			if (needSvc && restoreFromTrash("voicechat", added)) {
+				needSvc = false;
+			}
+			if (needVoiceAddon && restoreFromTrash("ng-voiceaddon", added)) {
+				needVoiceAddon = false;
+			}
 			HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
 				.followRedirects(HttpClient.Redirect.NORMAL).build();
 			if (needVoiceAddon || needSvc) {
-				install(http, VOICE_URL, name -> (needVoiceAddon && name.startsWith("ng-voiceaddon")) || (needSvc && name.startsWith("voicechat")), added);
+				boolean wantAddon = needVoiceAddon;
+				boolean wantSvc = needSvc;
+				install(http, VOICE_URL, name -> (wantAddon && name.startsWith("ng-voiceaddon")) || (wantSvc && name.startsWith("voicechat")), added);
 			}
 			if (needSkill) {
 				install(http, SKILL_URL, name -> name.startsWith("ng-skillkeydown"), added);
@@ -121,6 +131,33 @@ public final class NeogulModInstaller {
 			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 너굴마을 모드 넣음: " + String.join(", ", added));
 			pendingNotice = "§e[Nova] §f너굴마을 보이스챗, 스킬 키 모드를 넣었어요. §7게임을 다시 켜면 적용돼요. (" + String.join(", ", added) + ")";
 		}
+	}
+
+	/** 런처 프로필 휴지통(게임 폴더/.trash/mods)에 이 이름으로 시작하는 jar가 있으면 mods로 되돌린다. */
+	private static boolean restoreFromTrash(String prefix, List<String> added) {
+		Path trash = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve(".trash").resolve("mods");
+		if (!Files.isDirectory(trash)) {
+			return false;
+		}
+		String p = prefix.toLowerCase(Locale.ROOT);
+		try (Stream<Path> s = Files.list(trash)) {
+			for (Path f : (Iterable<Path>) s::iterator) {
+				String n = f.getFileName().toString();
+				String low = n.toLowerCase(Locale.ROOT);
+				if (low.startsWith(p) && low.endsWith(".jar")) {
+					Path dst = modsDir().resolve(n);
+					if (!Files.exists(dst)) {
+						Files.move(f, dst);
+						added.add(n);
+						kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 휴지통에 있던 " + n + " 을(를) mods로 되돌림");
+						return true;
+					}
+				}
+			}
+		} catch (Throwable t) {
+			kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 휴지통 되돌리기 실패: " + t);
+		}
+		return false;
 	}
 
 	private static void install(HttpClient http, String url, java.util.function.Predicate<String> want, List<String> added) throws Exception {

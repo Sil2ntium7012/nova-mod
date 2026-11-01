@@ -41,39 +41,11 @@ public final class ImeKeyFix {
 	private static final boolean[] LAST_PHYS = new boolean[26];
 	private static boolean lastWasScreen = true;
 
-	/**
-	 * 49-467차: 입력기가 E를 먹으면 인벤토리를 E로 닫지도 못했다. 상자류 화면에서(글 쓰는 칸이 아닐 때) 인벤토리 키를 새로 누른 걸 보고,
-	 * 한 틱 기다려도 같은 화면이 그대로면(게임이 키를 못 받음) 대신 닫는다. 게임이 받았으면 그 사이 이미 닫혀 있어 아무 일 없다.
+	/*
+	 * 49-467차의 closeByInventoryKey(입력기가 E를 먹으면 대신 닫기)는 49-471차에 뺐다(사용자: "이제 E를 수십 번 눌러야 인벤이 열려"):
+	 * 게임에서 E로 인벤토리가 열린 바로 다음 틱에 손이 아직 E에 있으면 "상자 화면에서 E를 새로 누름"으로 보고 도로 닫았다.
+	 * 이제 글 쓰는 칸이 아닌 화면에서도 입력기를 떼어 두므로 바닐라가 E를 그대로 받아 닫는다.
 	 */
-	private static Object pendingClose;
-
-	private static void closeByInventoryKey(Minecraft mc) {
-		Object screen = LunaCompat.screenOf(mc);
-		if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) || HangulInput.textFocused() || !resolve()) {
-			pendingClose = null;
-			return;
-		}
-		if (pendingClose != null) {
-			Object p = pendingClose;
-			pendingClose = null;
-			if (p == screen && mc.player != null) {
-				mc.player.closeContainer();
-				return;
-			}
-		}
-		try {
-			Object k = LunaCompat.boundKeyOfBinding(mc.options.keyInventory);
-			if (k instanceof InputConstants.Key key && "KEYSYM".equals(key.getType().name())
-					&& key.getValue() >= InputConstants.KEY_A && key.getValue() <= InputConstants.KEY_Z) {
-				int li = key.getValue() - InputConstants.KEY_A;
-				if (physicallyDown('A' + li) && !LAST_PHYS[li]) {
-					pendingClose = screen;
-				}
-			}
-		} catch (Throwable t) {
-			LunaCompat.warnOnce("imeKeyFix:close", t);
-		}
-	}
 
 	private static void rememberPhys() {
 		if (!resolve()) {
@@ -131,9 +103,11 @@ public final class ImeKeyFix {
 		// 아닐 때는 윈도우 입력기를 게임 창에서 아예 떼어 낸다(ImmAssociateContext(창, NULL)). 그러면 한글 상태여도 윈도우가 글자 키를 먹지 않고
 		// 진짜 키(W A S D …)로 보내 바닐라가 그대로 받는다. 화면(채팅, 상자 …)이 열리면 다시 붙여 예전처럼 한글을 친다.
 		// (26.1~26.2만 - 49-390차에 늘 떼어 두었더니 바닐라 입력칸과 싸웠던 건 채팅 중에도 떼서였다. 게임 화면에서는 입력칸이 없다.)
+		// 49-471차: 게임 화면만이 아니라 글 쓰는 칸이 없는 화면(인벤토리, 상자 …)에서도 뗀다 - 한글 상태여도 E로 바로 닫힌다.
+		// 채팅, 표지판, 책, 초점 받은 입력칸(검색, 모루 …)일 때만 붙여 한글을 친다.
 		try {
-			boolean inGame = mc != null && mc.player != null && LunaCompat.screenOf(mc) == null && mc.isWindowActive();
-			if (inGame) {
+			boolean detach = mc != null && mc.isWindowActive() && !HangulInput.textFocused();
+			if (detach) {
 				WinIme.detach();
 			} else {
 				WinIme.restore();
@@ -147,10 +121,7 @@ public final class ImeKeyFix {
 			}
 			lastWasScreen = true;
 			if (mc != null && mc.isWindowActive()) {
-				closeByInventoryKey(mc);
 				rememberPhys();   // 화면에서 누른 채 넘어오는 키를 새 누름으로 치지 않게
-			} else {
-				pendingClose = null;
 			}
 			return;
 		}
