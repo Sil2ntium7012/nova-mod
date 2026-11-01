@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가.",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가.",
  "stations": {
   "farm": {
    "name": "농사",
@@ -184,6 +184,35 @@
     "minecraft:chest"
    ],
    "model": "nexo:treasurebox_wood"
+  },
+  "trade": {
+   "name": "무역 순위 보상",
+   "note": "무역 기여도 순위 1~10위, 섬장 우편함으로 지급",
+   "icon": [
+    "minecraft:emerald"
+   ]
+  },
+  "fishdex": {
+   "name": "낚시도감 보상",
+   "note": "낚시도감 등급 완료 보상",
+   "icon": [
+    "minecraft:book"
+   ],
+   "model": "nexo:a_fish_6"
+  },
+  "daily": {
+   "name": "일일퀘스트",
+   "note": "올클리어 보상(레벨 구간별)",
+   "icon": [
+    "minecraft:writable_book"
+   ]
+  },
+  "donate": {
+   "name": "누적 후원보상",
+   "note": "후원 누적 단계 보상",
+   "icon": [
+    "minecraft:gold_ingot"
+   ]
   }
  },
  "categories": [
@@ -249,6 +278,14 @@
     "minecraft:enchanted_book"
    ],
    "model": "nexo:transcend"
+  },
+  {
+   "id": "ticket",
+   "name": "티켓",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "model": "nexo:plane_ticket1"
   }
  ],
  "items": [
@@ -3271,6 +3308,62 @@
    "icon": [
     "minecraft:bowl"
    ]
+  },
+  {
+   "key": "plane_ticket1",
+   "name": "일반 채집섬 비행티켓",
+   "cat": "ticket",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "model": "nexo:plane_ticket1",
+   "from": [
+    {
+     "at": "trade",
+     "note": "1위 20개, 2위 15개, 3위 12개, 4위 10개, 5위 8개, 6위 7개, 7~8위 5개, 9위 3개, 10위 2개"
+    },
+    {
+     "at": "fishdex",
+     "note": "도감 완료 보상 2개, 전체 완료 5개"
+    },
+    {
+     "at": "daily",
+     "note": "올클리어 1~40레벨 1개, 41~80레벨 2개, 81~100레벨 3개"
+    },
+    {
+     "at": "scarecrow",
+     "note": "처치 보상 1.7%"
+    },
+    {
+     "at": "donate",
+     "note": "누적 후원 단계 보상"
+    }
+   ],
+   "note": "채집 섬 네 곳 중 랜덤 이동(피로도 남은 곳만). 쓰는 곳: /워프 → 비행장 NPC 토부(23:30~00:10 사용 불가)"
+  },
+  {
+   "key": "plane_ticket2",
+   "name": "고급 채집섬 비행티켓",
+   "cat": "ticket",
+   "icon": [
+    "minecraft:paper"
+   ],
+   "model": "nexo:plane_ticket2",
+   "from": [
+    {
+     "at": "trade",
+     "note": "1~2위 5개, 3위 3개"
+    },
+    {
+     "at": "fishdex",
+     "note": "전체 완료 보상 2개"
+    },
+    {
+     "at": "donate",
+     "note": "누적 후원 단계 보상"
+    }
+   ],
+   "note": "채집 섬 네 곳 중 골라서 이동. 쓰는 곳: /워프 → 비행장 NPC 토부(23:30~00:10 사용 불가)"
   }
  ],
  "recipes": [

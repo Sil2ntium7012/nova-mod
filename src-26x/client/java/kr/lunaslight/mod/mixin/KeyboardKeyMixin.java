@@ -25,7 +25,7 @@ public abstract class KeyboardKeyMixin {
 			return;
 		}
 		// 49-431차: 너굴마을 스킬 키 세팅(서버가 정한 키 → 스킬 시전, 그 키는 게임에 안 넘김)
-		if (kr.lunaslight.mod.util.NeogulSkillKeys.active() && kr.lunaslight.mod.util.NeogulSkillKeys.onKey(event.key(), action)) {
+		if (kr.lunaslight.mod.util.NeogulSkillKeys.onKey(event.key(), action)) {   // 49-453차: NG-SkillKeydown이 있어도 HUD 반짝임용으로 부름(그때는 늘 false)
 			ci.cancel();
 			return;
 		}

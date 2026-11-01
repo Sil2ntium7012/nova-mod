@@ -66,7 +66,24 @@ public class ItemPickupToastModule extends Module {
 	}
 
 	private final List<Toast> toasts = new ArrayList<>();
-	private Map<Item, Integer> lastCounts = null;
+	/**
+	 * 49-453차(사용자 사진: 너굴마을 "굴"과 다른 재료가 한 줄로 합쳐짐 - "같은 아이템 아닌데 같은 아이템으로 인식"): 서버 아이템은
+	 * 바닐라 아이템 하나(종이 등)에 모델과 이름만 바꿔 쓰므로 Item만으로 세면 서로 다른 아이템이 합쳐진다. 아이템 + 보이는 이름으로 구분한다.
+	 */
+	private record Key(Item item, String name) {
+	}
+
+	private static Key keyOf(ItemStack s) {
+		String n;
+		try {
+			n = s.getName().getString();
+		} catch (Throwable t) {
+			n = "";
+		}
+		return new Key(s.getItem(), n);
+	}
+
+	private Map<Key, Integer> lastCounts = null;
 	private Object lastPlayer = null;
 	private long graceUntilMs = 0;
 
@@ -77,8 +94,8 @@ public class ItemPickupToastModule extends Module {
 		// 이 기능은 자기 모양(화살 막대 + 회색 판)이 정해져 있어 배경/배경 모양/배경 그리기 설정을 두지 않는다.
 	}
 
-	private Map<Item, Integer> countInventory() {
-		Map<Item, Integer> counts = new HashMap<>();
+	private Map<Key, Integer> countInventory() {
+		Map<Key, Integer> counts = new HashMap<>();
 		Object inv = LunaCompat.getPlayerInventory(client.player);
 		if (inv == null) {
 			return counts;
@@ -87,13 +104,13 @@ public class ItemPickupToastModule extends Module {
 		for (int i = 0; i < size; i++) {
 			ItemStack s = LunaCompat.invGetStack(inv, i);
 			if (s != null && !s.isEmpty()) {
-				counts.merge(s.getItem(), s.getCount(), Integer::sum);
+				counts.merge(keyOf(s), s.getCount(), Integer::sum);
 			}
 		}
 		return counts;
 	}
 
-	private ItemStack findStack(Item item) {
+	private ItemStack findStack(Key key) {
 		Object inv = LunaCompat.getPlayerInventory(client.player);
 		if (inv == null) {
 			return ItemStack.EMPTY;
@@ -101,7 +118,7 @@ public class ItemPickupToastModule extends Module {
 		int size = LunaCompat.invSize(inv);
 		for (int i = 0; i < size; i++) {
 			ItemStack s = LunaCompat.invGetStack(inv, i);
-			if (s != null && !s.isEmpty() && s.getItem() == item) {
+			if (s != null && !s.isEmpty() && keyOf(s).equals(key)) {
 				return s;
 			}
 		}
@@ -129,9 +146,9 @@ public class ItemPickupToastModule extends Module {
 			lastCounts = null;
 			graceUntilMs = now + 2000;
 		}
-		Map<Item, Integer> counts = countInventory();
+		Map<Key, Integer> counts = countInventory();
 		if (lastCounts != null && now >= graceUntilMs && client.currentScreen == null) {
-			for (Map.Entry<Item, Integer> e : counts.entrySet()) {
+			for (Map.Entry<Key, Integer> e : counts.entrySet()) {
 				int before = lastCounts.getOrDefault(e.getKey(), 0);
 				int gained = e.getValue() - before;
 				if (gained > 0) {
@@ -142,18 +159,18 @@ public class ItemPickupToastModule extends Module {
 		lastCounts = counts;
 	}
 
-	private void addToast(Item item, int gained, int total, long now) {
+	private void addToast(Key key, int gained, int total, long now) {
 		for (Toast t : toasts) {
-			if (t.icon.getItem() == item) {
+			if (keyOf(t.icon).equals(key)) {
 				t.amount += gained;
 				t.total = total;
 				t.lastMs = now;
 				return;
 			}
 		}
-		ItemStack src = findStack(item);
+		ItemStack src = findStack(key);
 		Toast t = new Toast();
-		t.icon = src.isEmpty() ? new ItemStack(item) : src.copy();
+		t.icon = src.isEmpty() ? new ItemStack(key.item()) : src.copy();
 		t.icon.setCount(1);
 		t.amount = gained;
 		t.total = total;

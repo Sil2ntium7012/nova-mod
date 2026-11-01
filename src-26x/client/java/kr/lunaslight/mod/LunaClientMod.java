@@ -22,6 +22,8 @@ import org.slf4j.LoggerFactory;
 public class LunaClientMod implements ClientModInitializer {
 	public static final String MOD_ID = "lunaslight";   // 49-206차: 모드 이름 Luna's Light(옛 id lunaslight, 49-205차 lunaslight)
 	public static final Logger LOGGER = LoggerFactory.getLogger("LunaClient");
+	/** 49-454차: 너굴마을 기능이 켜지는 버전(26.1.2). */
+	private static final boolean NEOGUL_VERSION = kr.lunaslight.mod.util.LunaVersion.isWithin("26.1.2", "26.1.2");
 	private static boolean modulesResumed;
 
 	private static Object openMenuKey;
@@ -179,6 +181,8 @@ public class LunaClientMod implements ClientModInitializer {
 		// 49-431차: 너굴마을 스킬 키 세팅 채널(ng:skillkey, ng:skillkey2, ng:skillcast) - 너굴마을 버전(26.1.2)에서만
 		if (kr.lunaslight.mod.util.LunaVersion.isWithin("26.1.2", "26.1.2")) {
 			kr.lunaslight.mod.util.NeogulSkillKeys.init();
+			// 49-454차: 너굴마을 보이스챗/스킬 키 모드 자동 설치(너굴마을 프로필이면 지금, 아니면 서버에 들어갈 때)
+			kr.lunaslight.mod.util.NeogulModInstaller.startup();
 		}
 		// 49-448차: 리소스팩 기억 기능 삭제 - 옵션 파일을 읽기 전인 지금, 예전 기능이 남긴 복사본/옵션 목록/저장소만 정리.
 		kr.lunaslight.mod.util.ServerPackMemory.cleanup();
@@ -198,6 +202,10 @@ public class LunaClientMod implements ClientModInitializer {
 			}
 			// 49-154차: 화면 멈춤 기록(렌더 스레드가 10초 넘게 멈추면 어디서 멈췄는지 로그에 남김)
 			kr.lunaslight.mod.util.StallWatch.beat();
+			// 49-454차: 너굴마을 모드 자동 설치(서버 들어갈 때 한 번 + 끝나면 채팅 알림) - 너굴마을 버전(26.1.2)만
+			if (NEOGUL_VERSION) {
+				kr.lunaslight.mod.util.NeogulModInstaller.tick(client);
+			}
 			// 49-156차: 설정 파일에서 켜짐으로 불러온 기능은 onEnable이 안 불렸다(탭리스트 먹통 원인) - 첫 틱에 한 번 준비
 			if (!modulesResumed) {
 				modulesResumed = true;

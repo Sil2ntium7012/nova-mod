@@ -2441,7 +2441,9 @@ public final class LunaCompat {
 			if (entry != null) {
 				Object addr = getFieldCompat(entry.getClass(), "address").get(entry);
 				if (addr instanceof String str && !str.isEmpty()) {
-					return str;
+					// 49-453차(사용자: "서버 주소에 25565 안 뜨게"): 기본 포트는 떼고 보여 준다(런처가 만든 항목은 "주소:25565")
+					String t = str.trim();
+					return t.endsWith(":25565") ? t.substring(0, t.length() - 6) : t;
 				}
 			}
 		} catch (Throwable ignored) {

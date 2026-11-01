@@ -83,14 +83,62 @@ public final class NeogulSkillKeys {
 		skillMode = false;
 	}
 
-	/** 지금 던전 스킬 모드인가(HUD). */
+	// ==================== 49-453차: NG-SkillKeydown 모드가 깔려 있을 때 ====================
+	// 사용자: "키 모드 내장한 거 아니었어? 안 되는데 보이지도 않고". 너굴마을 프로필에 NG-SkillKeydown이 깔려 있으면 노바는 채널을 그 모드에
+	// 맡기는데(같은 채널을 둘이 등록하면 충돌), 그동안 노바 HUD는 상태를 몰라서 키캡이 한 번도 안 떴다. 이제 그 모드의 상태
+	// (kr.mcng.skillkeydown.SkillKeys - skillMode(), keys)를 읽어서 HUD를 띄운다. 키 처리와 시전은 그대로 그 모드가 한다.
+
+	private static boolean extTried;
+	private static java.lang.reflect.Method extSkillMode;
+	private static java.lang.reflect.Field extKeys;
+
+	private static synchronized void ext() {
+		if (extTried) {
+			return;
+		}
+		extTried = true;
+		try {
+			Class<?> c = Class.forName("kr.mcng.skillkeydown.SkillKeys");
+			extSkillMode = c.getMethod("skillMode");
+			extKeys = c.getDeclaredField("keys");
+			extKeys.setAccessible(true);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulSkill:ext", t);
+		}
+	}
+
+	private static int[] keysNow() {
+		if (!otherMod) {
+			return keys;
+		}
+		ext();
+		try {
+			return extKeys == null ? null : (int[]) extKeys.get(null);
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	private static boolean modeNow() {
+		if (!otherMod) {
+			return skillMode;
+		}
+		ext();
+		try {
+			return extSkillMode != null && Boolean.TRUE.equals(extSkillMode.invoke(null));
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/** 지금 던전 스킬 모드인가(HUD). 노바가 맡았든 NG-SkillKeydown 모드가 맡았든. */
 	public static boolean skillMode() {
-		return active() && skillMode && keys != null;
+		return registered && modeNow() && keysNow() != null;
 	}
 
 	/** 1~4번 스킬 키(GLFW 번호, 없으면 -1). 숫자키 방식(서버가 키를 안 줌)이면 2~5. */
 	public static int keyOf(int slot) {
-		int[] k = keys;
+		int[] k = keysNow();
 		if (k == null || slot < 1 || slot > k.length) {
 			return -1;
 		}
@@ -106,7 +154,10 @@ public final class NeogulSkillKeys {
 		if (!skillMode()) {
 			return -1;
 		}
-		int[] k = keys;
+		int[] k = keysNow();
+		if (k == null) {
+			return -1;
+		}
 		for (int i = 0; i < k.length; i++) {
 			if (k[i] == key) {
 				return i + 1;
@@ -126,6 +177,13 @@ public final class NeogulSkillKeys {
 		}
 		int slot = slotFor(key);
 		if (slot < 0) {
+			return false;
+		}
+		if (otherMod) {
+			// 49-453차: 시전은 NG-SkillKeydown 모드가 한다 - 노바는 HUD 반짝임만
+			if (action == 1) {
+				castAt[slot] = System.currentTimeMillis();
+			}
 			return false;
 		}
 		if (action == 1) {
