@@ -157,6 +157,10 @@ public final class ModuleManager {
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScarecrowModule");
 		}
+		// 49-496차: 너굴마을 레벨업 알림(채팅 "○○ 레벨업 조건을 채웠습니다" → 소리 + 타이틀)
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelUpAlertModule");
+		}
 		// 49-149차: 너굴마을 레벨 계산기(입력 > 결과 화면, 늘 켜짐)
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelModule");
@@ -176,6 +180,8 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.misc.ServerPackRescueModule());
 		// 49-483차: 인벤토리에서 HUD 숨기기
 		register(new kr.lunaslight.mod.module.impl.misc.InventoryHudHideModule());
+		// 49-488차: 작물 캐기 모드
+		register(new kr.lunaslight.mod.module.impl.misc.HarvestModeModule());
 		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----

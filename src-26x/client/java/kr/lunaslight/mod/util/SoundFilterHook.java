@@ -53,6 +53,16 @@ public final class SoundFilterHook {
 			String path = id.getPath();                 // "ambient.cave"
 			String full = id.toString();                // "minecraft:ambient.cave"
 			for (String p : list) {
+				int star = p.indexOf('*');
+				if (star >= 0) {
+					// 49-492차: "block.*.place"처럼 * 하나 = 가운데 아무거나(앞부분 + 끝부분)
+					String a = p.substring(0, star);
+					String b = p.substring(star + 1);
+					if (path.length() >= a.length() + b.length() && path.startsWith(a) && path.endsWith(b)) {
+						return true;
+					}
+					continue;
+				}
 				if (path.startsWith(p) || full.startsWith(p)) {
 					return true;
 				}

@@ -43,6 +43,46 @@ public final class FontGlyphScan {
 
 	private FontGlyphScan() {}
 
+	/** 49-493차: 글꼴 객체 목록(같은 객체인지로 비교) → 글자별 첫 글꼴 표. */
+	private static final Map<IdentityList, Int2IntOpenHashMap> FIRST_CACHE = new java.util.LinkedHashMap<>(8, 0.75f, true) {
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<IdentityList, Int2IntOpenHashMap> e) {
+			return size() > 6;
+		}
+	};
+
+	private static final class IdentityList {
+		private final Object[] items;
+		private final int hash;
+
+		IdentityList(List<?> l) {
+			items = l.toArray();
+			int h = 1;
+			for (Object o : items) {
+				h = 31 * h + System.identityHashCode(o);
+			}
+			hash = h;
+		}
+
+		@Override
+		public int hashCode() {
+			return hash;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (!(o instanceof IdentityList other) || other.items.length != items.length || other.hash != hash) {
+				return false;
+			}
+			for (int i = 0; i < items.length; i++) {
+				if (items[i] != other.items[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
 	public static void forEach(IntSet codePoints, IntConsumer original) {
 		if (OFF || broken || codePoints == null || original == null) {
 			if (codePoints != null) runAll(codePoints, original);
@@ -69,7 +109,7 @@ public final class FontGlyphScan {
 			c.accept(cp);
 		}
 		long ms = (System.nanoTime() - t0) / 1_000_000L;
-		if (plan.fonts.size() >= 256 || ms >= 500) {
+		if (ms >= 200) {   // 49-493차: 매번 찍던 것(한 번 다시 읽기에 50줄)을 느린 것만
 			log("[Nova] 글꼴 빠른 길: 글꼴 " + plan.fonts.size() + "개, 글자 " + codePoints.size() + "개, " + ms + "ms");
 		}
 	}
@@ -162,15 +202,28 @@ public final class FontGlyphScan {
 		if (n < MIN_FONTS) return null;
 		ctor.setAccessible(true);
 
-		Int2IntOpenHashMap first = new Int2IntOpenHashMap();
-		first.defaultReturnValue(-1);
-		for (int i = 0; i < n; i++) {
-			Object font = fonts.get(i);
-			if (font == null) return null;
-			IntSet provided = provided(font);
-			if (provided == null) return null;
-			IntIterator it = provided.iterator();
-			while (it.hasNext()) first.putIfAbsent(it.nextInt(), i);
+		// 49-493차(사용자: "F3+T 누를 때 렉이 너무 심해"): 서버 팩(너굴마을)은 글꼴 50개 남짓이 거의 같은 글꼴 목록(579개, 유니폰트 포함)을
+		// 쓴다. 글자별 첫 글꼴 표(first)를 글꼴마다 새로 만들면 11만 글자 × 579 글꼴을 50번 훑었다(렌더 스레드에서 수 초).
+		// 같은 글꼴 객체 목록이면 표를 한 번만 만들어 같이 쓴다(최근 6개 기억, 다음 다시 읽기에서는 글꼴 객체가 새로 생겨 저절로 안 맞는다).
+		IdentityList key = new IdentityList(fonts);
+		Int2IntOpenHashMap first;
+		synchronized (FIRST_CACHE) {
+			first = FIRST_CACHE.get(key);
+		}
+		if (first == null) {
+			first = new Int2IntOpenHashMap();
+			first.defaultReturnValue(-1);
+			for (int i = 0; i < n; i++) {
+				Object font = fonts.get(i);
+				if (font == null) return null;
+				IntSet provided = provided(font);
+				if (provided == null) return null;
+				IntIterator it = provided.iterator();
+				while (it.hasNext()) first.putIfAbsent(it.nextInt(), i);
+			}
+			synchronized (FIRST_CACHE) {
+				FIRST_CACHE.put(key, first);
+			}
 		}
 		return new Plan(ctor, args, listArg, fonts, first);
 	}

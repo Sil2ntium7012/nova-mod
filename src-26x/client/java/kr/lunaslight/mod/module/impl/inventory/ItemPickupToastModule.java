@@ -344,11 +344,12 @@ public class ItemPickupToastModule extends Module {
 		}
 		int totalH = list.size() * ROW_H - (ROW_H - BAR_H);
 		HudPosition pos = position.get();
-		boolean flushRight = pos.anchor == HudPosition.Anchor.TOP_RIGHT || pos.anchor == HudPosition.Anchor.BOTTOM_RIGHT
-			|| pos.anchor == HudPosition.Anchor.RIGHT_CENTER;
 		int x = pos.resolveX(sw, maxW);
 		int y = pos.resolveY(sh, totalH);
-		int rightEdge = flushRight ? sw : x + maxW;   // 오른쪽 앵커면 벽에 딱 붙임(가로 오프셋 무시)
+		// 49-498차(사용자 사진: HUD 크기 0.55에서 "미리보기가 원래 위치랑 안 맞잖아"): 예전엔 오른쪽 앵커면 오른쪽 끝을 화면 끝(sw)에
+		// 붙였는데, 크기 배율은 상자 왼쪽 위(resolveX)를 축으로 걸려서 배율이 1이 아니면 줄이 상자 왼쪽 밖으로 밀렸다. 이제 늘 resolveX
+		// 상자 안 - 가로 이동 0이면 resolveX가 이미 벽에 붙여 준다.
+		int rightEdge = x + maxW;
 		int accent = countColor.getArgb();
 		int textMid = Math.round(LunaCompat.textVisualCenter());
 

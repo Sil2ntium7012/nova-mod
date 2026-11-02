@@ -331,6 +331,8 @@ public abstract class Module {
 	private kr.lunaslight.mod.module.setting.EnumSetting<HudShape> hudBgShape;
 	// 49-170차(사용자: "기능들 배경을 직접 픽셀로 그릴 수 있게"): 픽셀 그림 문자열(숨김) + [배경 그리기] 버튼.
 	private kr.lunaslight.mod.module.setting.StringSetting hudBgPixels;
+	/** 49-492차: 배경 그림 슬롯 3칸(그려 둔 것을 따로 보관, 편집기에서 저장/불러오기). */
+	private final kr.lunaslight.mod.module.setting.StringSetting[] hudBgSlots = new kr.lunaslight.mod.module.setting.StringSetting[3];
 	private kr.lunaslight.mod.util.PixelArt hudPixelArt;
 	private String hudPixelArtSrc;
 
@@ -376,6 +378,10 @@ public abstract class Module {
 		hudBgOutline.withColor(hudBgOutlineColor);
 		hudBgPixels = register(new kr.lunaslight.mod.module.setting.StringSetting("hud_bg_pixels", "배경 그림", "", ""));
 		hudBgPixels.hidden();
+		for (int i = 0; i < hudBgSlots.length; i++) {
+			hudBgSlots[i] = register(new kr.lunaslight.mod.module.setting.StringSetting("hud_bg_slot" + (i + 1), "배경 그림 슬롯 " + (i + 1), "", ""));
+			hudBgSlots[i].hidden();
+		}
 		register(new kr.lunaslight.mod.module.setting.ActionSetting("hud_bg_draw", "배경 그리기",
 			"이 기능의 배경을 픽셀 단위로 직접 그립니다. 그리면 [배경 모양]이 [직접 그림]으로 바뀝니다.", "그리기", () -> {
 				if (client != null) {
@@ -409,6 +415,35 @@ public abstract class Module {
 		}
 		hudBgPixels.setValue(art == null ? "" : art.encode());
 		if (art != null && hudBgShape != null) {
+			hudBgShape.setValue(HudShape.PIXEL);
+		}
+	}
+
+	// ---- 49-492차: 배경 그림 슬롯, 파일 내보내기/가져오기용 날 문자열 ----
+
+	/** 슬롯 i(0~2)의 그림 문자열("" = 빈 칸). 배경 설정이 없는 기능이면 null. */
+	public String hudSlotRaw(int i) {
+		return hudBgPixels == null || i < 0 || i >= hudBgSlots.length || hudBgSlots[i] == null ? null : hudBgSlots[i].get();
+	}
+
+	public void setHudSlotRaw(int i, String v) {
+		if (hudBgPixels != null && i >= 0 && i < hudBgSlots.length && hudBgSlots[i] != null) {
+			hudBgSlots[i].setValue(v == null ? "" : v);
+		}
+	}
+
+	/** 지금 쓰는 배경 그림 문자열("" = 없음). 배경 설정이 없는 기능이면 null. */
+	public String hudPixelsRaw() {
+		return hudBgPixels == null ? null : hudBgPixels.get();
+	}
+
+	/** 가져오기: 그림 문자열을 바로 넣는다(비어 있지 않으면 모양을 [직접 그림]으로). */
+	public void setHudPixelsRaw(String v) {
+		if (hudBgPixels == null) {
+			return;
+		}
+		hudBgPixels.setValue(v == null ? "" : v);
+		if (v != null && !v.isEmpty() && hudBgShape != null) {
 			hudBgShape.setValue(HudShape.PIXEL);
 		}
 	}
@@ -536,7 +571,7 @@ public abstract class Module {
 				pixelEditBoxSeen = true;
 			}
 			if (pixelEditingArt != null) {
-				pixelEditingArt.draw(context, bx, by, bw, bh, 1f);
+				pixelEditingArt.drawBox(context, bx, by, bw, bh, 1f);
 			}
 			return;
 		}
@@ -562,7 +597,7 @@ public abstract class Module {
 			// 49-170차: 직접 그린 배경(9분할 반복). 그림이 없으면 둥근 상자로.
 			kr.lunaslight.mod.util.PixelArt art = hudPixelArt();
 			if (art != null) {
-				art.draw(context, bx, by, bw, bh, alpha);
+				art.drawBox(context, bx, by, bw, bh, alpha);   // 49-497차: 여백만큼 바깥까지
 				return;
 			}
 			shape = HUD_BOX_ROUND;

@@ -56,7 +56,7 @@ public final class LunaClientConfig {
 	private static final String KEY_KEY = "_key_version";
 	/** 49-157차: 한 번만 하는 기본값 바꾸기(아이템 찾기 기본 꺼짐)를 했는지. */
 	private static final String DEFAULTS_KEY = "_defaults_version";
-	private static final int DEFAULTS_VERSION = 4;
+	private static final int DEFAULTS_VERSION = 5;
 
 	private static Path configFile() {
 		return FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("modules.json");
@@ -201,6 +201,10 @@ public final class LunaClientConfig {
 						}
 					}
 				});
+			}
+			// 49-495차(사용자: "탭리스트 기능 기본 비활성화로"): 탭리스트 기본 끔 - 켜진 채 저장된 것도 한 번 끈다.
+			if (savedDefaults < 5) {
+				ModuleManager.get().find("tab_list_limit").ifPresent(m -> m.setEnabledSilently(false));
 			}
 			LunaClientMod.LOGGER.info("[Nova] 설정 불러오기 완료: " + path);
 		} catch (Exception e) {

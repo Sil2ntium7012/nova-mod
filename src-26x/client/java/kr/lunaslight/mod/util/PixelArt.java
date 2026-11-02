@@ -29,6 +29,12 @@ public final class PixelArt {
 	public final int h;
 	public final int[] px;    // ARGB, 0 = 투명
 	public final byte[] fx;   // 효과(FX_*)
+	/**
+	 * 49-497차(사용자: "HUD보다 조금 더 훨 크게 그릴 수 있게, 옆면 같은 데"): HUD 상자 바깥 여백(px). 그림 크기 w×h는 여백까지 포함 -
+	 * HUD 상자는 (pad, pad)부터 (w-pad)×(h-pad). {@link #drawBox}가 상자 바깥으로 이만큼 넓혀 그린다.
+	 */
+	public int pad;
+	public static final int MAX_PAD = 40;
 
 	public PixelArt(int w, int h) {
 		this.w = w;
@@ -39,8 +45,69 @@ public final class PixelArt {
 
 	public PixelArt copy() {
 		PixelArt a = new PixelArt(w, h);
+		a.pad = pad;
 		System.arraycopy(px, 0, a.px, 0, px.length);
 		System.arraycopy(fx, 0, a.fx, 0, fx.length);
+		return a;
+	}
+
+	/** 49-497차: 여백을 바꾼 복사본(그림은 제자리, 줄이면 바깥이 잘림). */
+	public PixelArt withPad(int np) {
+		np = Math.max(0, Math.min(MAX_PAD, np));
+		int d = np - pad;
+		int nw = w + 2 * d, nh = h + 2 * d;
+		if (nw < 2 || nh < 2) {
+			return copy();
+		}
+		PixelArt a = new PixelArt(nw, nh);
+		a.pad = np;
+		for (int y = 0; y < h; y++) {
+			int ty = y + d;
+			if (ty < 0 || ty >= nh) {
+				continue;
+			}
+			for (int x = 0; x < w; x++) {
+				int tx = x + d;
+				if (tx >= 0 && tx < nw) {
+					a.px[ty * nw + tx] = px[y * w + x];
+					a.fx[ty * nw + tx] = fx[y * w + x];
+				}
+			}
+		}
+		return a;
+	}
+
+	/** 49-497차: HUD 상자 크기(bw×bh)에 맞춘 복사본 - 여백은 그대로 두고 바깥까지 같이 늘린다. */
+	public PixelArt resizedBox(int bw, int bh) {
+		PixelArt a = resized(bw + 2 * pad, bh + 2 * pad);
+		a.pad = pad;
+		return a;
+	}
+
+	/** 49-497차: (x, y)에 다른 그림을 찍는다(투명한 칸은 건너뜀). */
+	public void stamp(PixelArt src, int x, int y) {
+		for (int yy = 0; yy < src.h; yy++) {
+			for (int xx = 0; xx < src.w; xx++) {
+				int c = src.px[yy * src.w + xx];
+				int tx = x + xx, ty = y + yy;
+				if ((c >>> 24) != 0 && tx >= 0 && ty >= 0 && tx < w && ty < h) {
+					px[ty * w + tx] = c;
+					fx[ty * w + tx] = src.fx[yy * src.w + xx];
+				}
+			}
+		}
+		cacheKey = -1;
+	}
+
+	/** 49-497차: 네모 칸을 잘라 낸 복사본(여백 0). */
+	public PixelArt region(int x, int y, int rw, int rh) {
+		PixelArt a = new PixelArt(Math.max(1, rw), Math.max(1, rh));
+		for (int yy = 0; yy < rh; yy++) {
+			for (int xx = 0; xx < rw; xx++) {
+				a.px[yy * a.w + xx] = get(x + xx, y + yy);
+				a.fx[yy * a.w + xx] = (byte) effect(x + xx, y + yy);
+			}
+		}
 		return a;
 	}
 
@@ -75,7 +142,8 @@ public final class PixelArt {
 
 	/** 모서리 크기(9분할). 짧은 변의 1/3(2~12). 그림이 HUD 상자와 같은 크기면 1:1로 그려지고, 상자가 커질 때만 가운데가 반복된다. */
 	public int inset() {
-		return Math.max(2, Math.min(12, Math.min(w, h) / 3));
+		// 49-497차: 여백은 모서리에 그대로 들어간다(여백 + 안쪽 모서리)
+		return pad + Math.max(2, Math.min(12, Math.min(w - 2 * pad, h - 2 * pad) / 3));
 	}
 
 	/** 49-172차: 다른 크기로 옮긴 복사본(겹치는 부분은 그대로, 나머지는 9분할 규칙으로 채움). */
@@ -120,6 +188,9 @@ public final class PixelArt {
 
 	public String encode() {
 		StringBuilder sb = new StringBuilder(16 + px.length * 9);
+		if (pad > 0) {
+			sb.append('p').append(pad).append(':');   // 49-497차: 여백(없으면 예전과 같은 글자)
+		}
 		sb.append(w).append(',').append(h).append(',');
 		for (int v : px) {
 			sb.append(String.format(Locale.ROOT, "%08X", v));
@@ -146,11 +217,17 @@ public final class PixelArt {
 			return null;
 		}
 		try {
+			int pad = 0;
+			if (s.charAt(0) == 'p') {
+				int colon = s.indexOf(':');
+				pad = Math.max(0, Math.min(MAX_PAD, Integer.parseInt(s.substring(1, colon))));
+				s = s.substring(colon + 1);
+			}
 			int c1 = s.indexOf(',');
 			int c2 = s.indexOf(',', c1 + 1);
 			int w = Integer.parseInt(s.substring(0, c1));
 			int h = Integer.parseInt(s.substring(c1 + 1, c2));
-			if (w < 2 || h < 2 || w > 600 || h > 300) {
+			if (w < 2 || h < 2 || w > 700 || h > 400 || w - 2 * pad < 2 || h - 2 * pad < 2) {
 				return null;
 			}
 			int c3 = s.indexOf(',', c2 + 1);
@@ -159,6 +236,7 @@ public final class PixelArt {
 				return null;
 			}
 			PixelArt a = new PixelArt(w, h);
+			a.pad = pad;
 			for (int i = 0; i < w * h; i++) {
 				a.px[i] = (int) Long.parseLong(data.substring(i * 8, i * 8 + 8), 16);
 			}
@@ -330,7 +408,12 @@ public final class PixelArt {
 		cacheKey = bw * 100003 + bh;
 	}
 
-	/** (x, y, bw, bh) 상자를 이 그림으로 채운다. alpha는 곱하는 값(0~1). */
+	/** 49-497차: HUD 상자(x, y, bw, bh)에 그린다 - 여백만큼 상자 바깥으로 넓혀서. */
+	public void drawBox(GuiGraphicsExtractor ctx, int x, int y, int bw, int bh, float alpha) {
+		draw(ctx, x - pad, y - pad, bw + 2 * pad, bh + 2 * pad, alpha);
+	}
+
+	/** (x, y, bw, bh) 상자를 이 그림(여백 포함 전체)으로 채운다. alpha는 곱하는 값(0~1). */
 	public void draw(GuiGraphicsExtractor ctx, int x, int y, int bw, int bh, float alpha) {
 		if (bw <= 0 || bh <= 0) {
 			return;
