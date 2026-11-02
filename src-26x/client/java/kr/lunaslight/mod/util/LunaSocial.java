@@ -615,6 +615,58 @@ public final class LunaSocial {
 		});
 	}
 
+	/**
+	 * 49-501차(Supabase 요청 줄이기, 다른 세션 인계: "4가지를 한 번에 묻기"): 남의 치장 칸 여러 개를 한 번에 - uuid → (칸 → 값, "" = 안 낌).
+	 */
+	public static CompletableFuture<java.util.Map<String, java.util.Map<String, String>>> fetchCosmeticColumns(java.util.Collection<String> ids, String... columns) {
+		load();
+		if (!available() || ids == null || ids.isEmpty() || columns.length == 0) {
+			return CompletableFuture.completedFuture(java.util.Collections.emptyMap());
+		}
+		StringBuilder in = new StringBuilder();
+		for (String id : ids) {
+			String n = normalize(id);
+			if (n.isEmpty()) {
+				continue;
+			}
+			if (in.length() > 0) {
+				in.append(',');
+			}
+			in.append('"').append(n).append("\",\"").append(dashed(n)).append('"');
+		}
+		return rest("/nova_player_tiers?mc_uuid=in." + enc("(" + in + ")") + "&select=mc_uuid," + String.join(",", columns)).thenApply(arr -> {
+			java.util.Map<String, java.util.Map<String, String>> out = new java.util.HashMap<>();
+			if (arr != null && arr.isJsonArray()) {
+				for (JsonElement e : arr.getAsJsonArray()) {
+					if (!e.isJsonObject()) {
+						continue;
+					}
+					JsonObject r = e.getAsJsonObject();
+					String u = normalize(str(r, "mc_uuid"));
+					if (u.isEmpty()) {
+						continue;
+					}
+					java.util.Map<String, String> row = new java.util.HashMap<>();
+					for (String c : columns) {
+						String k = r.has(c) && !r.get(c).isJsonNull() ? str(r, c) : "";
+						row.put(c, k == null ? "" : k);
+					}
+					out.put(u, row);
+				}
+			}
+			return out;
+		});
+	}
+
+	/** 49-501차: 게임 창이 앞에 있나(최소화되거나 다른 창을 보고 있으면 남의 치장을 묻지 않는다). */
+	public static boolean windowActive() {
+		try {
+			return net.minecraft.client.Minecraft.getInstance().isWindowActive();
+		} catch (Throwable t) {
+			return true;
+		}
+	}
+
 	private static String enc(String s) {
 		return URLEncoder.encode(s, StandardCharsets.UTF_8);
 	}

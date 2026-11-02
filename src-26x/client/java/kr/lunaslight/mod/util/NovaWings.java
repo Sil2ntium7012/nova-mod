@@ -39,7 +39,7 @@ public final class NovaWings {
 	private NovaWings() {
 	}
 
-	public static final String[] KEYS = {"butterfly", "angel"};   // 10-26: 천사 날개(런처 세션 - angel_wing.bbmodel, 3초마다 30도 펄럭)
+	public static final String[] KEYS = {"butterfly"};
 
 	// ==================== 소유(칸마다) ====================
 	// 49-351차(사용자: "토끼가방으로 치장에 추가해줘"): 날개와 같은 구조의 두 번째 칸 [가방]. 칸마다 서명 종류(kind), key 목록, Supabase 칸,
@@ -235,38 +235,67 @@ public final class NovaWings {
 		}
 
 		private void maybeFetch() {
-			long now = System.currentTimeMillis();
-			if (inFlight || want.isEmpty() || now - lastFetch < 5000L || !LunaSocial.available()) {
-				return;
-			}
-			inFlight = true;
-			lastFetch = now;
-			List<String> batch = new ArrayList<>();
-			for (String u : want) {
-				batch.add(u);
-				if (batch.size() >= 60) {
+			NovaWings.sharedMaybeFetch();   // 49-501차: 네 칸(날개, 가방, 모자, 발자취)을 한 번에
+		}
+	}
+
+	// ==================== 49-501차: 네 칸 한 번에 묻기 ====================
+	// 다른 세션 인계(Supabase 요청 수 - nova_player_tiers 대부분이 게임 안 노바 모드의 치장 조회): 게임 창이 최소화되거나 포커스가 없으면 안 묻고,
+	// 날개, 가방, 모자, 발자취를 한 요청으로, 한 번 본 사람은 6시간 기억, 요청은 2분에 한 번까지.
+	private static volatile boolean sharedInFlight;
+	private static volatile long sharedLastFetch;
+	private static final long INTERVAL = 2 * 60_000L;
+
+	private static Slot[] allSlots() {
+		return new Slot[]{WING, BAG, HAT, TRAIL};
+	}
+
+	static void sharedMaybeFetch() {
+		long now = System.currentTimeMillis();
+		if (sharedInFlight || now - sharedLastFetch < INTERVAL || !LunaSocial.available() || !LunaSocial.windowActive()) {
+			return;
+		}
+		Slot[] slots = allSlots();
+		java.util.LinkedHashSet<String> union = new java.util.LinkedHashSet<>();
+		for (Slot sl : slots) {
+			for (String u : sl.want) {
+				if (union.size() >= 60) {
 					break;
 				}
+				union.add(u);
 			}
-			want.removeAll(batch);
-			try {
-				LunaSocial.fetchCosmeticColumn(batch, column).whenComplete((map, err) -> {
-					long t = System.currentTimeMillis();
+		}
+		if (union.isEmpty()) {
+			return;
+		}
+		List<String> batch = new ArrayList<>(union);
+		String[] cols = new String[slots.length];
+		for (int i = 0; i < slots.length; i++) {
+			cols[i] = slots[i].column;
+			slots[i].want.removeAll(batch);
+		}
+		sharedInFlight = true;
+		sharedLastFetch = now;
+		try {
+			LunaSocial.fetchCosmeticColumns(batch, cols).whenComplete((map, err) -> {
+				long t = System.currentTimeMillis();
+				for (Slot sl : slots) {
 					for (String u : batch) {
-						List<String> ks = map == null ? List.of() : parseList(map.get(u));
-						others.put(u, String.join(",", ks));
-						fetched.put(u, err == null ? t : t - TTL + 60_000L);
+						java.util.Map<String, String> row = map == null ? null : map.get(u);
+						List<String> ks = row == null ? List.of() : sl.parseList(row.get(sl.column));
+						sl.others.put(u, String.join(",", ks));
+						sl.fetched.put(u, err == null ? t : t - TTL + 10 * 60_000L);   // 실패면 10분 뒤 다시
 					}
-					inFlight = false;
-				});
-			} catch (Throwable t) {
-				inFlight = false;
-			}
+				}
+				sharedInFlight = false;
+			});
+		} catch (Throwable t) {
+			sharedInFlight = false;
 		}
 	}
 
 	/** 날개 칸. */
-	public static final Slot WING = new Slot("wing", "cosmetic_wing", KEYS, Map.of("butterfly", "나비 날개", "angel", "천사 날개"),
+	public static final Slot WING = new Slot("wing", "cosmetic_wing", KEYS, Map.of("butterfly", "나비 날개"),
 			() -> kr.lunaslight.mod.module.impl.misc.CosmeticsModule.wingsOn());
 	/** 49-351차: 가방 칸(첫 번째 = 토끼 가방). 서명 글자 "NovaSig|v1|bag|ts|key|내 uuid", Supabase nova_player_tiers.cosmetic_bag. */
 	public static final String[] BAG_KEYS = {"bunny"};
@@ -301,7 +330,7 @@ public final class NovaWings {
 		return WING.nameOf(key);
 	}
 
-	private static final long TTL = 10 * 60_000L;   // 10-08(Supabase 요청 수): 1분 → 10분, 없는 사람도 같이 기억
+	private static final long TTL = 6 * 60 * 60_000L;   // 49-501차: 10분 → 6시간(없는 사람도 같이 기억)
 	private static String selfId = "";
 	private static long selfAt;
 

@@ -31,6 +31,41 @@ public class MousestrokesHudModule extends Module {
 
 	private static final int MAX_POINTS = 256;
 
+	// ==================== 49-499차: 커서 ====================
+	// 사용자: "마우스 잔상 그거 커서로 바꾸고, 거기에 커서 직접 그리기 넣어 주고, 기본이랑 그린 거 쓸 수 있게".
+	// [커서] 기본 = 운영체제 커서 그대로, 직접 그림 = 커서가 보이는 화면에서 운영체제 커서를 숨기고 그린 그림을 마우스 자리에(왼쪽 위 칸이
+	// 클릭 지점). 그림은 배경 그리기 편집기를 고정 크기(20×20)로 쓴다. 잔상은 [잔상] 스위치로 따로 켜고 끈다.
+
+	public enum CursorStyle {
+		DEFAULT("기본"),
+		CUSTOM("직접 그림");
+
+		private final String label;
+
+		CursorStyle(String label) {
+			this.label = label;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
+	private static final int CUR_W = 20;
+	private static final int CUR_H = 20;
+
+	private final kr.lunaslight.mod.module.setting.EnumSetting<CursorStyle> cursorStyle = register(new kr.lunaslight.mod.module.setting.EnumSetting<>(
+			"cursor_style", "커서", "기본은 원래 커서, 직접 그림은 [커서 그리기]로 그린 커서를 씁니다.", CursorStyle.DEFAULT, CursorStyle.class));
+	private final IntSetting cursorScale = register(new IntSetting(
+			"cursor_scale", "커서 크기", "그린 커서 한 칸이 화면 몇 픽셀인지입니다.", 2, 1, 4, 1).unit("배"));
+	private final kr.lunaslight.mod.module.setting.ActionSetting cursorDraw = register(new kr.lunaslight.mod.module.setting.ActionSetting("cursor_draw", "커서 그리기",
+			"커서를 픽셀로 직접 그립니다. 그리면 [커서]가 [직접 그림]으로 바뀝니다.", "그리기", this::openCursorEditor));
+	private final kr.lunaslight.mod.module.setting.StringSetting cursorPixels = register(
+			new kr.lunaslight.mod.module.setting.StringSetting("cursor_pixels", "커서 그림", "", "")).hidden();
+	private final kr.lunaslight.mod.module.setting.BooleanSetting trail = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"trail", "잔상", "마우스 뒤에 꼬리를 남깁니다.", true));
+
 	private final ColorSetting lineColor = register(new ColorSetting(
 			"line_color", "색", "잔상의 색입니다.", 0xFFA9D973));
 	private final IntSetting length = register(new IntSetting(
@@ -55,7 +90,11 @@ public class MousestrokesHudModule extends Module {
 	private final float[] stB = new float[SMAX];
 
 	public MousestrokesHudModule() {
-		super("mousestrokes_hud", "마우스 잔상", ModuleCategory.HUD, "커서가 보이는 화면에서 마우스 뒤에 남는 꼬리");
+		super("mousestrokes_hud", "커서", ModuleCategory.HUD, "커서 모양(기본, 직접 그림) | 마우스 잔상");
+		lineColor.disabledWhen(() -> !trail.get());
+		length.disabledWhen(() -> !trail.get());
+		thickness.disabledWhen(() -> !trail.get());
+		cursorScale.disabledWhen(() -> cursorStyle.get() != CursorStyle.CUSTOM);
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
 	}
 
@@ -63,6 +102,148 @@ public class MousestrokesHudModule extends Module {
 	protected void onEnable() {
 		count = 0;
 		head = -1;
+	}
+
+	@Override
+	protected void onDisable() {
+		restoreCursor();
+	}
+
+	private void openCursorEditor() {
+		if (client != null) {
+			LunaCompat.setScreen(new kr.lunaslight.mod.gui.LunaPixelEditorScreen(
+				(net.minecraft.client.gui.screens.Screen) LunaCompat.screenOf(client), this, cursorTarget()));
+		}
+	}
+
+	private boolean hidOsCursor;
+
+	private void restoreCursor() {
+		if (hidOsCursor) {
+			hidOsCursor = false;
+			kr.lunaslight.mod.util.LunaInput.showCursor(client);
+		}
+	}
+
+	@Override
+	public void onTick() {
+		// 화면이 닫혔거나 [기본]으로 바꿨으면 숨긴 운영체제 커서를 되돌린다
+		if (hidOsCursor && (LunaCompat.screenOf(client) == null || cursorStyle.get() != CursorStyle.CUSTOM || cursorArt() == null)) {
+			restoreCursor();
+		}
+	}
+
+	private kr.lunaslight.mod.util.PixelArt cursorCache;
+	private String cursorCacheSrc;
+
+	/** 그린 커서(없으면 null). */
+	private kr.lunaslight.mod.util.PixelArt cursorArt() {
+		String src = cursorPixels.get();
+		if (src == null || src.isEmpty()) {
+			return null;
+		}
+		if (!src.equals(cursorCacheSrc)) {
+			cursorCacheSrc = src;
+			cursorCache = kr.lunaslight.mod.util.PixelArt.decode(src);
+		}
+		return cursorCache;
+	}
+
+	private static final String[] ARROW = {
+		"B...........",
+		"BB..........",
+		"BWB.........",
+		"BWWB........",
+		"BWWWB.......",
+		"BWWWWB......",
+		"BWWWWWB.....",
+		"BWWWWWWB....",
+		"BWWWWWWWB...",
+		"BWWWWWWWWB..",
+		"BWWWWWWWWWB.",
+		"BWWWWWWBBBBB",
+		"BWWWBWWB....",
+		"BWWB.BWWB...",
+		"BWB..BWWB...",
+		"BB....BWWB..",
+		"B.....BWWB..",
+		".......BWWB.",
+		".......BBB..",
+	};
+
+	/** 기본 모양: 흰 화살표 + 검은 테두리. */
+	private static kr.lunaslight.mod.util.PixelArt arrowArt() {
+		kr.lunaslight.mod.util.PixelArt a = new kr.lunaslight.mod.util.PixelArt(CUR_W, CUR_H);
+		for (int y = 0; y < ARROW.length && y < CUR_H; y++) {
+			for (int x = 0; x < ARROW[y].length() && x < CUR_W; x++) {
+				char c = ARROW[y].charAt(x);
+				if (c == 'B') {
+					a.set(x, y, 0xFF101010);
+				} else if (c == 'W') {
+					a.set(x, y, 0xFFFFFFFF);
+				}
+			}
+		}
+		return a;
+	}
+
+	private kr.lunaslight.mod.gui.LunaPixelEditorScreen.Target cursorTarget() {
+		return new kr.lunaslight.mod.gui.LunaPixelEditorScreen.Target() {
+			@Override
+			public String title() {
+				return "커서 그리기";
+			}
+
+			@Override
+			public int width() {
+				return CUR_W;
+			}
+
+			@Override
+			public int height() {
+				return CUR_H;
+			}
+
+			@Override
+			public kr.lunaslight.mod.util.PixelArt load() {
+				return cursorArt();
+			}
+
+			@Override
+			public kr.lunaslight.mod.util.PixelArt defaultArt() {
+				return arrowArt();
+			}
+
+			@Override
+			public void save(kr.lunaslight.mod.util.PixelArt art) {
+				cursorPixels.setValue(art == null || art.isEmpty() ? "" : art.encode());
+				if (art != null && !art.isEmpty()) {
+					cursorStyle.setValue(CursorStyle.CUSTOM);
+				}
+			}
+
+			@Override
+			public String hint() {
+				return "테두리 친 왼쪽 위 칸이 클릭 지점";
+			}
+		};
+	}
+
+	/** 그린 커서를 마우스 자리(GUI 좌표, 소수)에. px = 1 GUI 단위가 화면 몇 픽셀인지. */
+	private void drawCursor(GuiGraphicsExtractor ctx, kr.lunaslight.mod.util.PixelArt art, double mx, double my, float px) {
+		if (!LunaCompat.guiTransformSupported(ctx)) {
+			art.draw(ctx, (int) mx, (int) my, art.w, art.h, 1f);
+			return;
+		}
+		float k = cursorScale.get() / Math.max(0.25f, px);
+		LunaCompat.guiPush(ctx);
+		try {
+			LunaCompat.guiTranslate(ctx, (float) mx, (float) my);
+			LunaCompat.guiScale(ctx, k, k);
+			art.draw(ctx, 0, 0, art.w, art.h, 1f);
+		} finally {
+			LunaCompat.guiPop(ctx);
+		}
 	}
 
 	/** 화면이 한 프레임 그려진 뒤. 커서 위치를 쌓고 꼬리를 그린다. */
@@ -89,7 +270,25 @@ public class MousestrokesHudModule extends Module {
 		}
 		long now = System.nanoTime();
 		push(mx, my, now);
-		draw(ctx, now, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
+		if (trail.get()) {
+			draw(ctx, now, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
+		}
+		// 49-499차: 그린 커서
+		kr.lunaslight.mod.util.PixelArt cur = cursorStyle.get() == CursorStyle.CUSTOM ? cursorArt() : null;
+		if (cur != null) {
+			if (!hidOsCursor) {
+				hidOsCursor = kr.lunaslight.mod.util.LunaInput.hideCursor(client);
+			} else {
+				kr.lunaslight.mod.util.LunaInput.hideCursor(client);   // 다른 화면이 다시 보이게 했으면 또 숨긴다
+			}
+			try {
+				ctx.nextStratum();   // 툴팁, 아이템보다 위
+			} catch (Throwable ignored) {
+			}
+			drawCursor(ctx, cur, mx, my, drawPx);
+		} else if (hidOsCursor) {
+			restoreCursor();
+		}
 	}
 
 	private void push(double x, double y, long now) {
@@ -266,7 +465,12 @@ public class MousestrokesHudModule extends Module {
 			stA[i] = 1f - (float) s;
 		}
 		drawPx = LunaGfx.roundPx > 0f ? LunaGfx.roundPx : 2f;   // 설정 화면(가상 GUI 2) 기준
-		stampPath(context, n + 1, baseA, rgb, headW);
+		if (trail.get()) {
+			stampPath(context, n + 1, baseA, rgb, headW);
+		}
+		// 49-499차: 머리 자리에 커서(기본이면 기본 화살표)
+		kr.lunaslight.mod.util.PixelArt cur = cursorStyle.get() == CursorStyle.CUSTOM ? cursorArt() : null;
+		drawCursor(context, cur != null ? cur : arrowArt(), sxA[0], syA[0], drawPx);
 	}
 
 	@Override

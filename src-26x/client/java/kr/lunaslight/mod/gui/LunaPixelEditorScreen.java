@@ -167,10 +167,51 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 	private int framesWithoutBox;
 
 	public LunaPixelEditorScreen(Screen parent, Module module) {
-		super(LunaCompat.textLiteral("배경 그리기"));
+		this(parent, module, null);
+	}
+
+	/**
+	 * 49-499차(사용자: "마우스 잔상을 커서로 바꾸고 거기에 커서 직접 그리기"): HUD 배경이 아닌 그림(커서 등)을 그리는 대상.
+	 * 대상이 있으면 캔버스는 고정 크기 그림 하나 - HUD 미리보기, 슬롯/파일 줄, 여백, 내용 가림은 없다.
+	 */
+	public interface Target {
+		String title();
+
+		int width();
+
+		int height();
+
+		/** 저장된 그림(없으면 null). */
+		PixelArt load();
+
+		/** [기본 모양] 버튼. */
+		PixelArt defaultArt();
+
+		void save(PixelArt art);
+
+		/** 캔버스 아래 안내(없으면 null). */
+		default String hint() {
+			return null;
+		}
+	}
+
+	private final Target target;
+
+	public LunaPixelEditorScreen(Screen parent, Module module, Target target) {
+		super(LunaCompat.textLiteral(target != null ? target.title() : "배경 그리기"));
 		this.parent = parent;
 		this.module = module;
-		this.existing = module.hudPixelArt();
+		this.target = target;
+		if (target != null) {
+			PixelArt a = target.load();
+			this.existing = a;
+			boxW = target.width();
+			boxH = target.height();
+			art = a != null && a.w == boxW && a.h == boxH ? a.copy() : target.defaultArt();
+			art.pad = 0;
+		} else {
+			this.existing = module.hudPixelArt();
+		}
 		setRgb(LunaDraw.ACCENT & 0x00FFFFFF);
 	}
 
@@ -296,6 +337,9 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		secPrevY = secBtnY;
 		areaX = left;
 		layoutFileBar();
+		if (target != null) {
+			fileBarH = -8;   // 49-499차: 파일 줄 없음
+		}
 		areaY = top + 24 + fileBarH + 8;
 		areaW = contentW;
 		areaH = barY - 10 - areaY;
@@ -394,11 +438,42 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		int dim = LunaClientScreen.themeDim();
 		int acc = LunaClientScreen.themeAccent();
 
-		LunaDraw.text(ctx, font, "배경 그리기", left + 4, LunaDraw.textY(top, 16), txt);
+		LunaDraw.text(ctx, font, titleText(), left + 4, LunaDraw.textY(top, 16), txt);
 		LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, module.getDisplayName(), 220),
-			left + 4 + LunaDraw.width(font, "배경 그리기") + 10, LunaDraw.textY(top, 16), sub);
+			left + 4 + LunaDraw.width(font, titleText()) + 10, LunaDraw.textY(top, 16), sub);
 		boolean ch = LunaDraw.in(mouseX, mouseY, left + contentW - 18, top, 16, 16);
 		LunaIcons.drawInBox(ctx, font, LunaIcons.CLOSE, left + contentW - 18, top, 16, ch ? acc : sub);
+		// 49-497차: 되돌리기 / 앞으로
+		int ux = undoBtnX();
+		miniBtn(ctx, ux, top, 56, "되돌리기", !undo.isEmpty() || floating != null, mouseX, mouseY);
+		miniBtn(ctx, ux + 60, top, 56, "앞으로", !redo.isEmpty(), mouseX, mouseY);
+		if (LunaDraw.in(mouseX, mouseY, ux, top, 56, 16)) {
+			tip = "되돌리기 (Ctrl+Z)";
+		} else if (LunaDraw.in(mouseX, mouseY, ux + 60, top, 56, 16)) {
+			tip = "앞으로 가기 (Ctrl+Y)";
+		}
+		if (target == null) {
+			drawHudTopBar(ctx, mouseX, mouseY, txt, sub, acc);
+			drawFileBar(ctx, mouseX, mouseY, txt, sub, dim, acc);
+		}
+		drawCanvas(ctx, mouseX, mouseY, dim);
+		drawBar(ctx, mouseX, mouseY, txt, sub, dim, acc);
+		if (toast != null && System.currentTimeMillis() - toastAt < 2500) {
+			int tw = LunaDraw.width(font, toast) + 16;
+			LunaDraw.card3d(ctx, (vw - tw) / 2, vh - 34, tw, 18, 4, LunaClientScreen.themeCard(), LunaClientScreen.themeLine());
+			LunaDraw.textCentered(ctx, font, toast, vw / 2, LunaDraw.textY(vh - 34, 18), txt);
+		}
+		if (confirm.isOpen()) {
+			confirm.render(ctx, font, vw, vh, mouseX, mouseY);
+		}
+	}
+
+	private String titleText() {
+		return target != null ? target.title() : "배경 그리기";
+	}
+
+	/** HUD 배경일 때만: 내용 가림 + 바깥 여백. */
+	private void drawHudTopBar(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int txt, int sub, int acc) {
 		// 내용 가림 켜고 끄기
 		int lbw = lockBtnW(), lbx = lockBtnX();
 		boolean lh = LunaDraw.in(mouseX, mouseY, lbx, top, lbw, 16);
@@ -411,33 +486,12 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		if (lh) {
 			tip = "HUD 글자와 아이콘을 가리고 배경 그림만 표시 (글자는 그림에 들어가지 않음)";
 		}
-		// 49-497차: 되돌리기 / 앞으로 + 바깥 여백
-		int ux = undoBtnX();
-		miniBtn(ctx, ux, top, 56, "되돌리기", !undo.isEmpty() || floating != null, mouseX, mouseY);
-		miniBtn(ctx, ux + 60, top, 56, "앞으로", !redo.isEmpty(), mouseX, mouseY);
-		if (LunaDraw.in(mouseX, mouseY, ux, top, 56, 16)) {
-			tip = "되돌리기 (Ctrl+Z)";
-		} else if (LunaDraw.in(mouseX, mouseY, ux + 60, top, 56, 16)) {
-			tip = "앞으로 가기 (Ctrl+Y)";
-		}
 		int px0 = padCtrlX();
 		miniBtn(ctx, px0, top, 16, "-", pad() > 0, mouseX, mouseY);
 		LunaDraw.textCentered(ctx, font, "여백 " + pad() + "px", px0 + 16 + padLabelW() / 2, LunaDraw.textY(top, 16), pad() > 0 ? txt : sub);
 		miniBtn(ctx, px0 + 16 + padLabelW(), top, 16, "+", pad() < PixelArt.MAX_PAD, mouseX, mouseY);
 		if (LunaDraw.in(mouseX, mouseY, px0, top, padCtrlW(), 16)) {
 			tip = "HUD 상자 바깥으로 더 크게 그리기 (옆면, 그림자, 장식). 누를 때마다 2px, Shift는 8px";
-		}
-
-		drawFileBar(ctx, mouseX, mouseY, txt, sub, dim, acc);
-		drawCanvas(ctx, mouseX, mouseY, dim);
-		drawBar(ctx, mouseX, mouseY, txt, sub, dim, acc);
-		if (toast != null && System.currentTimeMillis() - toastAt < 2500) {
-			int tw = LunaDraw.width(font, toast) + 16;
-			LunaDraw.card3d(ctx, (vw - tw) / 2, vh - 34, tw, 18, 4, LunaClientScreen.themeCard(), LunaClientScreen.themeLine());
-			LunaDraw.textCentered(ctx, font, toast, vw / 2, LunaDraw.textY(vh - 34, 18), txt);
-		}
-		if (confirm.isOpen()) {
-			confirm.render(ctx, font, vw, vh, mouseX, mouseY);
 		}
 	}
 
@@ -688,6 +742,13 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		if (known) {
 			checker(ctx, artX(), artY(), art.w * cell, art.h * cell);
 		}
+		if (target != null && known) {
+			// 49-499차: 고정 크기 그림 - 미리보기 없이 그림만
+			view.drawScaled(ctx, artX(), artY(), cell);
+			ctx.disableScissor();
+			drawCanvasOverlay(ctx, mouseX, mouseY, dim, view);
+			return;
+		}
 		ctx.disableScissor();
 		int bx = Module.pixelEditBox[0], by = Module.pixelEditBox[1];
 		int originX = known ? canvasX - bx * cell : areaX;
@@ -739,11 +800,16 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 			LunaDraw.textCentered(ctx, font, "HUD 크기를 재는 중...", areaX + areaW / 2, areaY + areaH / 2 - 4, dim);
 			return;
 		}
+		drawCanvasOverlay(ctx, mouseX, mouseY, dim, view);
+	}
+
+	/** 바둑판 위 격자, 테두리, 9분할 선, 마우스 칸, 선택, 아래 안내. */
+	private void drawCanvasOverlay(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int dim, PixelArt view) {
 		int ax = artX(), ay = artY();
 		int aw = art.w, ah = art.h;
 		int cw = aw * cell, chh = ah * cell;
 		scissor(ctx, areaX, areaY, areaX + areaW, areaY + areaH);
-		if (hideContent) {
+		if (hideContent && target == null) {
 			// 글자와 아이콘 위를 바둑판 + 그림으로 다시 덮는다(그림 밖은 원래 그대로)
 			checker(ctx, ax, ay, cw, chh);
 			view.drawScaled(ctx, ax, ay, cell);
@@ -764,10 +830,15 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		}
 		int in = art.inset();
 		int gl = LunaDraw.withAlpha(LunaClientScreen.themeAccent(), 0x70);
-		ctx.fill(ax + in * cell, ay, ax + in * cell + 1, ay + chh, gl);
-		ctx.fill(ax + (aw - in) * cell, ay, ax + (aw - in) * cell + 1, ay + chh, gl);
-		ctx.fill(ax, ay + in * cell, ax + cw, ay + in * cell + 1, gl);
-		ctx.fill(ax, ay + (ah - in) * cell, ax + cw, ay + (ah - in) * cell + 1, gl);
+		if (target == null) {
+			ctx.fill(ax + in * cell, ay, ax + in * cell + 1, ay + chh, gl);
+			ctx.fill(ax + (aw - in) * cell, ay, ax + (aw - in) * cell + 1, ay + chh, gl);
+			ctx.fill(ax, ay + in * cell, ax + cw, ay + in * cell + 1, gl);
+			ctx.fill(ax, ay + (ah - in) * cell, ax + cw, ay + (ah - in) * cell + 1, gl);
+		} else {
+			// 클릭 지점(왼쪽 위 칸)
+			LunaDraw.roundRectOutline(ctx, ax - 1, ay - 1, cell + 2, cell + 2, 0, LunaClientScreen.themeAccent());
+		}
 		int[] p = pixelAt(mouseX, mouseY);
 		if (p != null) {
 			LunaDraw.roundRectOutline(ctx, ax + p[0] * cell, ay + p[1] * cell, cell + 1, cell + 1, 0, 0xC0FFFFFF);
@@ -777,7 +848,9 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		}
 		ctx.disableScissor();
 		String info = boxW + "×" + boxH + "px" + (art.pad > 0 ? " + 여백 " + art.pad + "px" : "") + "  |  배율 " + cell + "배(휠)  |  가운데 버튼 끌기: 이동";
-		if (tool == TOOL_SELECT) {
+		if (target != null) {
+			info = boxW + "×" + boxH + "px  |  배율 " + cell + "배(휠)" + (target.hint() != null ? "  |  " + target.hint() : "");
+		} else if (tool == TOOL_SELECT) {
 			info += "  |  끌어서 선택, 선택 안을 끌면 옮김  |  Ctrl+C 복사, Ctrl+X 잘라내기, Ctrl+V 붙여넣기, Delete 지우기";
 		} else {
 			info += "  |  모서리 " + in + "px는 그대로, 글이 길어지면 가운데만 늘어남";
@@ -818,7 +891,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 	}
 
 	private int undoBtnX() {
-		return left + 4 + LunaDraw.width(font, "배경 그리기") + 10 + Math.min(220, LunaDraw.width(font, module.getDisplayName())) + 14;
+		return left + 4 + LunaDraw.width(font, titleText()) + 10 + Math.min(220, LunaDraw.width(font, module.getDisplayName())) + 14;
 	}
 
 	private int padLabelW() {
@@ -981,7 +1054,11 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 				int pd = art.pad;
 				int dw = Math.max(1, Math.min(prevW - 8 - 2 * pd, boxW)), dh = Math.max(1, Math.min(ph - 8 - 2 * pd, boxH));
 				scissor(ctx, x + 4, y0 + 16, x + prevW - 4, y0 + 12 + ph - 4);
-				shown().drawBox(ctx, x + (prevW - dw) / 2, y0 + 12 + (ph - dh) / 2, dw, dh, 1f);
+				if (target != null) {
+					shown().draw(ctx, x + (prevW - art.w) / 2, y0 + 12 + (ph - art.h) / 2, art.w, art.h, 1f);
+				} else {
+					shown().drawBox(ctx, x + (prevW - dw) / 2, y0 + 12 + (ph - dh) / 2, dw, dh, 1f);
+				}
 				ctx.disableScissor();
 			}
 		}
@@ -991,7 +1068,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		int b2 = (150 - 6) / 2;
 		drawButton(ctx, x, y0 + 12, b2, "저장", true, mouseX, mouseY);
 		drawButton(ctx, x + b2 + 6, y0 + 12, b2, "취소", false, mouseX, mouseY);
-		drawButton(ctx, x, y0 + 38, b2, "기본 상자", false, mouseX, mouseY);
+		drawButton(ctx, x, y0 + 38, b2, target != null ? "기본 모양" : "기본 상자", false, mouseX, mouseY);
 		drawButton(ctx, x + b2 + 6, y0 + 38, b2, "비우기", false, mouseX, mouseY);
 		LunaDraw.text(ctx, font, "우클릭 지우기 | Ctrl+Z, Ctrl+Y", x, y0 + 66, dim);
 	}
@@ -1189,14 +1266,14 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		layout();
 		hexFocus = false;
 		dragChannel = 0;
-		if (button == 0 && clickFileBar(mouseX, mouseY)) {
+		if (button == 0 && target == null && clickFileBar(mouseX, mouseY)) {
 			return true;
 		}
 		if (LunaDraw.in(mouseX, mouseY, left + contentW - 18, top, 16, 16)) {
 			onClose();
 			return true;
 		}
-		if (LunaDraw.in(mouseX, mouseY, lockBtnX(), top, lockBtnW(), 16)) {
+		if (target == null && LunaDraw.in(mouseX, mouseY, lockBtnX(), top, lockBtnW(), 16)) {
 			hideContent = !hideContent;
 			return true;
 		}
@@ -1213,11 +1290,11 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		int px0 = padCtrlX();
 		int step = LunaCompat.isKeyPressed(net.minecraft.client.Minecraft.getInstance(), InputConstants.KEY_LSHIFT)
 			|| LunaCompat.isKeyPressed(net.minecraft.client.Minecraft.getInstance(), InputConstants.KEY_RSHIFT) ? 8 : 2;
-		if (LunaDraw.in(mouseX, mouseY, px0, top, 16, 16)) {
+		if (target == null && LunaDraw.in(mouseX, mouseY, px0, top, 16, 16)) {
 			changePad(-step);
 			return true;
 		}
-		if (LunaDraw.in(mouseX, mouseY, px0 + 16 + padLabelW(), top, 16, 16)) {
+		if (target == null && LunaDraw.in(mouseX, mouseY, px0 + 16 + padLabelW(), top, 16, 16)) {
 			changePad(step);
 			return true;
 		}
@@ -1335,7 +1412,10 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		int b2 = (150 - 6) / 2;
 		if (LunaDraw.in(mouseX, mouseY, x, y0 + 12, b2, 20)) {
 			settle();
-			if (art != null) {
+			if (art != null && target != null) {
+				target.save(art.copy());
+				kr.lunaslight.mod.config.LunaClientConfig.save();
+			} else if (art != null) {
 				module.setHudPixelArt(art.isEmpty() ? null : art);
 				kr.lunaslight.mod.config.LunaClientConfig.save();
 			}
@@ -1349,7 +1429,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		if (LunaDraw.in(mouseX, mouseY, x, y0 + 38, b2, 20) && art != null) {
 			settle();
 			pushUndo();
-			art = PixelArt.roundedBox(boxW, boxH, module.hudBgColorForEditor(), 4).withPad(art.pad);
+			art = target != null ? target.defaultArt() : PixelArt.roundedBox(boxW, boxH, module.hudBgColorForEditor(), 4).withPad(art.pad);
 			return true;
 		}
 		if (LunaDraw.in(mouseX, mouseY, x + b2 + 6, y0 + 38, b2, 20) && art != null) {
