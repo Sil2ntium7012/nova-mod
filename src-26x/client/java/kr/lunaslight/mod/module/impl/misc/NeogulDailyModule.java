@@ -50,7 +50,11 @@ public class NeogulDailyModule extends Module {
 	// 49-143차(사용자: "핫타임/추천 감지 글은 내가 설정할 거야 개인 설정 없애"): 감지 낱말은 설정이 아니라 여기서 고친다.
 	// 채팅 한 줄에서 띄어쓰기를 빼고 이 낱말(띄어쓰기 빼고)이 들어 있으면 체크된다.
 	/** 추천 완료로 보는 채팅 낱말. */
-	private static final List<String> REC_WORDS = List.of("추천 보상", "추천해 주셔서", "추천 감사");
+	// 49-502차(사용자: "추천 안 했는데 완료라 뜨잖아"): "추천 감사", "추천해 주셔서"는 다른 사람 추천 알림이나 플레이어 채팅("추천 감사해요")에도
+	// 들어 있어서 남이 추천해도 체크됐다. 이제 서버 알림 "<내 이름>님이 오늘 N번째로 서버를 추천해주셨습니다"와 나에게 오는 "추천 보상"만.
+	private static final List<String> REC_WORDS = List.of("추천 보상");
+	/** 플레이어 채팅 줄("(64명) 이름: 글", "[질문] 이름: 글") - 이런 줄은 감지에서 뺀다. */
+	private static final java.util.regex.Pattern PLAYER_CHAT = java.util.regex.Pattern.compile("[A-Za-z0-9_]{3,16}\\s*:\\s");
 	/** 핫타임 받음으로 보는 채팅 낱말. */
 	private static final List<String> HOT_WORDS = List.of("핫타임 보상", "핫타임 지급");
 	/** 핫타임 시각부터 이 분 동안은 "지금"(받을 수 있는 때). 그 뒤에도 못 받았으면 그날은 X. */
@@ -108,11 +112,15 @@ public class NeogulDailyModule extends Module {
 			return;   // 바닐라 형식 플레이어 채팅
 		}
 		String l = line.replace(" ", "");
-		if (!flag(1) && matches(l, REC_WORDS)) {
+		boolean playerChat = PLAYER_CHAT.matcher(line).find();
+		String me = client.player == null ? "" : client.player.getName().getString();
+		boolean mine = !me.isEmpty() && l.contains(me + "님이") && l.contains("서버를추천");
+		boolean other = !mine && l.contains("님이") && l.contains("서버를추천");
+		if (!flag(1) && (mine || (!playerChat && !other && matches(l, REC_WORDS)))) {
 			set(1, true);
 			LunaCompat.playUiSound(client, "BLOCK_NOTE_BLOCK_CHIME", 1.4f);
 		}
-		if (!flag(2) && matches(l, HOT_WORDS)) {
+		if (!flag(2) && !playerChat && matches(l, HOT_WORDS)) {
 			set(2, true);
 			LunaCompat.playUiSound(client, "BLOCK_NOTE_BLOCK_CHIME", 1.6f);
 		}

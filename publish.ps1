@@ -100,4 +100,27 @@ Write-Host ("jar " + $jars.Count + "개 올리는 중...") -ForegroundColor Cyan
 $paths = @($jars | ForEach-Object { $_.FullName })
 Run gh (@("release", "upload", "latest", "--repo", $RepoName, "--clobber") + $paths)
 (Get-Date).ToString("o") | Set-Content -LiteralPath $stampFile -Encoding ascii
+
+# 11-02(사용자: "모드 업데이트 올라오면 업뎃창 보여주면 좋을 듯 - 업데이트 내용"): 업데이트 내용을 릴리스 설명 맨 위에 쌓는다.
+#  · 이 폴더의 update-notes.txt 에 한 줄씩 적어 두면(모드 작업 세션이 적음) 그 줄들을, 없으면 publish.cmd "고친 내용" 의 글을 쓴다
+#  · 런처가 이 설명을 읽어서, 새 항목이 생기면 "노바 모드 업데이트" 창으로 보여 준다. 올린 뒤 update-notes.txt 는 비운다
+$notesFile = Join-Path $PSScriptRoot "update-notes.txt"
+$noteLines = @()
+if (Test-Path -LiteralPath $notesFile) {
+    $noteLines = @(Get-Content -LiteralPath $notesFile -Encoding UTF8 | Where-Object { $_.Trim() -ne "" })
+}
+if ($noteLines.Count -eq 0 -and $Message -ne "") { $noteLines = @($Message) }
+if ($noteLines.Count -gt 0) {
+    $old = ((& gh release view latest --repo $RepoName --json body -q .body) -join "`n")
+    $sec = "## " + (Get-Date -Format "yyyy-MM-dd HH:mm") + "`n" + (($noteLines | ForEach-Object { "- " + ($_.Trim() -replace '^[-*]\s*', '') }) -join "`n")
+    $keep = @(($old -split "(?m)^(?=## )") | Where-Object { $_ -match '^## ' } | Select-Object -First 14 | ForEach-Object { $_.Trim() })
+    $body = (@($sec) + $keep) -join "`n`n"
+    $tmp = Join-Path $env:TEMP "nova-mod-release-notes.md"
+    [System.IO.File]::WriteAllText($tmp, $body, (New-Object System.Text.UTF8Encoding($false)))
+    Run gh @("release", "edit", "latest", "--repo", $RepoName, "--notes-file", $tmp)
+    if (Test-Path -LiteralPath $notesFile) { Set-Content -LiteralPath $notesFile -Value "" -Encoding UTF8 }
+    Write-Host ("업데이트 내용 " + $noteLines.Count + "줄 올림 (런처가 창으로 보여 줌)") -ForegroundColor Green
+} else {
+    Write-Host "업데이트 내용 없음 (update-notes.txt 비어 있음) - 런처 업데이트 창은 안 뜸" -ForegroundColor DarkGray
+}
 Write-Host ("jar 올림: https://github.com/" + $RepoName + "/releases/tag/latest") -ForegroundColor Green

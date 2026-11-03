@@ -76,6 +76,9 @@ public class ClientTimeModule extends Module {
 	@Override
 	protected void onDisable() {
 		overrideEnabled = false;
+		// 49-504차: 26.x는 시계 덮어쓰기(ClockHook.override)가 정적 값이라 끌 때 지워야 원래 시간으로 돌아온다
+		// (예전엔 안 지워서 끈 뒤에도 게임을 다시 켤 때까지 고정 시간이 남았다)
+		kr.lunaslight.mod.util.LunaCompat.clearClientTimeOfDay();
 	}
 
 	public static boolean isOverrideActive() {

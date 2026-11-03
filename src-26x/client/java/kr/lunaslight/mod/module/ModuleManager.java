@@ -161,6 +161,14 @@ public final class ModuleManager {
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelUpAlertModule");
 		}
+		// 49-502차: 너굴마을 창고 미리보기(창고 목록/창고 안에서 기억한 창고를 펼쳐 보기, 이름 붙이기)
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulStorageModule");
+		}
+		// 49-503차: 너굴마을 낚시 미니게임 WASD 키캡 → 화살표(선택, 기본 끔)
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulKeyArrowsModule");
+		}
 		// 49-149차: 너굴마을 레벨 계산기(입력 > 결과 화면, 늘 켜짐)
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulLevelModule");

@@ -143,7 +143,9 @@ public class ContainerTabsModule extends Module {
 
 	public ContainerTabsModule() {
 		super("container_tabs", "인벤토리 탭", ModuleCategory.INVENTORY, "상자 양옆 돌림판으로 근처 상자를 바로 열기");
-		defaultEnabled(true);
+		// 49-502차(사용자: "기본 비활성화로 해 달라고 한 거지? 켠 사람들도 비활성화시켜 전부"): 기본 끔 + 설정 불러올 때 한 번 끔(LunaClientConfig 6)
+		defaultEnabled(false);
+		inInventory.hidden();
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
 		// 49-494차: 휠로 돌림판 넘기기
 		try {
@@ -531,7 +533,8 @@ public class ContainerTabsModule extends Module {
 		if (customGui((AbstractContainerScreen<?>) screen)) {
 			return false;
 		}
-		return inInventory.get() || !(screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen);
+		// 49-502차(사용자 사진: 내 인벤토리 양옆에 상자 판 - "인벤에서 안 보여 주게"): 내 인벤토리에선 안 띄운다
+		return !(screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen);
 	}
 
 	private Object customFor;
@@ -1027,7 +1030,7 @@ public class ContainerTabsModule extends Module {
 		if (kind.equals("shulker")) {
 			rows = 3;
 		}
-		return new int[]{176, rows * SLOT + 17 + 96, rows};
+		return new int[]{176, rows * SLOT + 17 + 7, rows};   // 49-502차: 상자 칸만(아래 인벤 부분 없음)
 	}
 
 	/** {왼쪽 판 x, 오른쪽 판 x, 왼쪽 판 w, 오른쪽 판 w, 왼쪽 판 y, 오른쪽 판 y, 왼쪽 h, 오른쪽 h, 왼쪽 줄, 오른쪽 줄}. */
@@ -1046,7 +1049,7 @@ public class ContainerTabsModule extends Module {
 			int w = sz[0];
 			int h = sz[1];
 			int x = s == 0 ? box[0] - GAP - w : rightEdge + GAP;
-			int y = box[1] + box[3] / 2 - h / 2;   // 가운데 상자와 세로 가운데 맞춤
+			int y = box[1];   // 49-502차: 가운데 상자와 위를 맞춘다(상자 칸끼리 나란히)
 			y = Math.max(0, Math.min(sh - h, y));
 			out[s] = x;
 			out[2 + s] = w;
@@ -1057,7 +1060,28 @@ public class ContainerTabsModule extends Module {
 		return out;
 	}
 
+	/** 다음 층(stratum)에서 덮을 어두운 칸 {x, y, w, h, alpha}. 아이템까지 같이 어둡게 하려고 마지막에 한 번에. */
+	private final List<int[]> dimRects = new ArrayList<>();
+
 	private void drawCarousel(GuiGraphicsExtractor ctx, AbstractContainerScreen<?> hs, int mouseX, int mouseY) {
+		dimRects.clear();
+		try {
+			drawCarousel0(ctx, hs, mouseX, mouseY);
+		} finally {
+			if (!dimRects.isEmpty()) {
+				try {
+					ctx.nextStratum();
+				} catch (Throwable ignored) {
+				}
+				for (int[] d : dimRects) {
+					ctx.fill(d[0], d[1], d[0] + d[2], d[1] + d[3], d[4] << 24);
+				}
+				dimRects.clear();
+			}
+		}
+	}
+
+	private void drawCarousel0(GuiGraphicsExtractor ctx, AbstractContainerScreen<?> hs, int mouseX, int mouseY) {
 		Tab[] nb = neighbours(hs);
 		int[] r = cardRects(hs, nb);
 		int sw = client.getWindow().getGuiScaledWidth();
@@ -1086,29 +1110,51 @@ public class ContainerTabsModule extends Module {
 	private static final net.minecraft.resources.Identifier TEX_CHEST = net.minecraft.resources.Identifier.withDefaultNamespace("textures/gui/container/generic_54.png");
 	private static final net.minecraft.resources.Identifier TEX_SHULKER = net.minecraft.resources.Identifier.withDefaultNamespace("textures/gui/container/shulker_box.png");
 
-	/** 가운데와 똑같은 상자 창: 바닐라 그림(리소스팩) + 마지막으로 본 상자 칸 + 지금 내 인벤토리 + 제목, 그리고 어둡게. */
+	/** 밝기(0.1~1). 마우스를 올리거나 끄는 중이면 조금 밝게. */
+	private float brightness(boolean lit) {
+		int bright = Math.max(10, Math.min(100, sideBright.get()));
+		if (lit) {
+			bright = Math.min(100, bright + (100 - bright) / 2);
+		}
+		return bright / 100f;
+	}
+
+	/**
+	 * 가운데와 똑같은 상자 창(상자 칸만): 바닐라 그림(리소스팩) + 마지막으로 본 상자 칸 + 제목.
+	 * 49-502차(사용자: "인벤 부분은 안 보이게, 상자 뒤에 이상한 검정 배경"): 아래 인벤 부분을 빼고 상자 칸 아래 테두리(7px)로 닫는다. 어둡게는
+	 * 판 전체를 검게 덮던 것(둥근 모서리 밖까지 검은 네모) 대신 그림 자체를 어두운 색으로 칠하고, 칸 영역만 다음 층에서 덮어 아이템도 같이 어둡게.
+	 */
 	private void drawChestCard(GuiGraphicsExtractor ctx, Tab t, int x, int y, int rows, boolean lit) {
 		int w = 176;
-		int h = rows * SLOT + 17 + 96;
+		int gridH = rows * SLOT;
+		int h = gridH + 17 + 7;
+		float b = brightness(lit);
+		int g = Math.round(255 * b);
+		int tint = 0xFF000000 | (g << 16) | (g << 8) | g;
 		String kind = client.level == null ? "" : kindOf(client.level.getBlockState(t.pos()));
+		boolean shulker = kind.equals("shulker");
+		net.minecraft.resources.Identifier tex = shulker ? TEX_SHULKER : TEX_CHEST;
+		int bottomV = shulker ? 159 : 215;
 		try {
-			if (kind.equals("shulker")) {
-				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX_SHULKER, x, y, 0f, 0f, w, h, 256, 256);
-			} else {
-				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX_CHEST, x, y, 0f, 0f, w, rows * SLOT + 17, 256, 256);
-				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX_CHEST, x, y + rows * SLOT + 17, 0f, 126f, w, 96, 256, 256);
+			ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex, x, y, 0f, 0f, w, gridH + 17, 256, 256, tint);
+			ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex, x, y + gridH + 17, 0f, (float) bottomV, w, 7, 256, 256, tint);
+			if (b < 0.999f) {
+				// 칸 영역은 원래 밝기로 깔고 다음 층에서 아이템과 같이 덮는다(겹쳐 두 번 어두워지지 않게)
+				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex, x + 7, y + 17, 7f, 17f, 162, gridH, 256, 256);
+				dimRects.add(new int[]{x + 7, y + 17, 162, gridH, Math.round((1f - b) * 255)});
 			}
 		} catch (Throwable e) {
 			LunaCompat.warnOnce("containerTabs:blit", e);
 			LunaDraw.mcPanel(ctx, x, y, w, h);
 		}
-		// 제목과 "인벤토리" - 바닐라처럼 회색, 그림자 없음
+		// 제목 - 바닐라처럼 회색, 그림자 없음(밝기만큼 어둡게)
 		try {
-			ctx.text(client.font, LunaCompat.textLiteral(LunaDraw.ellipsize(client.font, t.name(), w - 16)), x + 8, y + 6, 0xFF404040, false);
-			ctx.text(client.font, net.minecraft.network.chat.Component.translatable("container.inventory"), x + 8, y + h - 94, 0xFF404040, false);
+			int tc = Math.round(0x40 * b);
+			ctx.text(client.font, LunaCompat.textLiteral(LunaDraw.ellipsize(client.font, t.name(), w - 16)), x + 8, y + 6,
+				0xFF000000 | (tc << 16) | (tc << 8) | tc, false);
 		} catch (Throwable ignored) {
 		}
-		// 위 칸: 마지막으로 열었을 때 그대로. 처음 보는 상자면 아이템 찾기 색인(많은 순), 그것도 없으면 가운데에 방벽.
+		// 칸: 마지막으로 열었을 때 그대로. 처음 보는 상자면 아이템 찾기 색인(많은 순), 그것도 없으면 가운데에 방벽.
 		List<ItemStack> snap = snaps.get(t.pos());
 		List<ItemStack> top = snap;
 		boolean unknown = false;
@@ -1119,7 +1165,7 @@ public class ContainerTabsModule extends Module {
 				unknown = true;
 			} else {
 				List<Map.Entry<String, Integer>> items = new ArrayList<>((e.looks.isEmpty() ? e.items : e.looks).entrySet());
-				items.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+				items.sort((a, c) -> Integer.compare(c.getValue(), a.getValue()));
 				for (Map.Entry<String, Integer> it : items) {
 					ItemStack look = ContainerIndex.stackOfLook(it.getKey(), Math.max(1, it.getValue()));
 					if (!look.isEmpty()) {
@@ -1137,17 +1183,6 @@ public class ContainerTabsModule extends Module {
 				: (i < top.size() ? top.get(i) : ItemStack.EMPTY);
 			drawStack(ctx, st, x + 8 + (i % 9) * SLOT, y + 18 + (i / 9) * SLOT, !unknown);
 		}
-		// 아래: 지금 내 인벤토리와 핫바(가운데 창과 같은 것)
-		if (client.player != null) {
-			var inv = client.player.getInventory();
-			for (int i = 0; i < 27; i++) {
-				drawStack(ctx, inv.getItem(9 + i), x + 8 + (i % 9) * SLOT, y + h - 82 + (i / 9) * SLOT, true);
-			}
-			for (int i = 0; i < 9; i++) {
-				drawStack(ctx, inv.getItem(i), x + 8 + i * SLOT, y + h - 24, true);
-			}
-		}
-		darken(ctx, x, y, w, h, lit);
 	}
 
 	private void drawStack(GuiGraphicsExtractor ctx, ItemStack st, int x, int y, boolean count) {
@@ -1163,18 +1198,11 @@ public class ContainerTabsModule extends Module {
 		}
 	}
 
-	/** 어둡게: 밝기 100% = 그대로, 10% = 거의 검정. 마우스를 올리거나 끄는 중이면 조금 밝게. */
+	/** 어둡게(상자 그림이 아닌 판): 다음 층에서 판 안쪽(둥근 모서리 2px 안)을 덮는다. */
 	private void darken(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean lit) {
-		int bright = Math.max(10, Math.min(100, sideBright.get()));
-		if (lit) {
-			bright = Math.min(100, bright + (100 - bright) / 2);
-		}
-		int a = Math.round((100 - bright) * 2.3f);
+		int a = Math.round((1f - brightness(lit)) * 255);
 		if (a > 0) {
-			LunaCompat.guiPush(ctx);
-			LunaCompat.guiTranslateZ(ctx, 200);
-			ctx.fill(x, y, x + w, y + h, (Math.min(255, a) << 24));
-			LunaCompat.guiPop(ctx);
+			dimRects.add(new int[]{x + 2, y + 2, w - 4, h - 4, Math.min(255, a)});
 		}
 	}
 
