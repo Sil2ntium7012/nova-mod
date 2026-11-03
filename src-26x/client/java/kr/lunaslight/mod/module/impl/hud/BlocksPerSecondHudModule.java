@@ -6,11 +6,8 @@ import kr.lunaslight.mod.module.setting.ColorSetting;
 import kr.lunaslight.mod.module.setting.HudPosition;
 import kr.lunaslight.mod.module.setting.PositionSetting;
 import kr.lunaslight.mod.util.LunaCompat;
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Proxy;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
@@ -33,74 +30,44 @@ public class BlocksPerSecondHudModule extends Module {
 
 	// 서버/클라 스레드 양쪽에서 접근 가능 - 동시성 안전 자료구조 사용
 	private final ConcurrentLinkedDeque<Long> breakTimestamps = new ConcurrentLinkedDeque<>();
-	private boolean clientEventRegistered;
 
 	public BlocksPerSecondHudModule() {
 		super("blocks_broken_hud", "초당 블록", ModuleCategory.HUD, "초당 캔 블록 수");
 		enableHudStyle();
-
-		clientEventRegistered = tryRegisterClientBreakEvent();
-
-		// 폴백(구버전 fabric-api): 통합 서버 이벤트 + UUID 비교(싱글 전용)
-		PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
-			if (clientEventRegistered) {
-				return;
-			}
-			var cp = client.player;
-			if (cp == null || player == null || !player.getUUID().equals(cp.getUUID())) {
-				return;
-			}
-			if (isEnabled()) {
-				breakTimestamps.addLast(System.currentTimeMillis());
-			}
-			// 49-385차: 통계(캔 블록)는 LunaStats.trackMining이 센다(서버가 캐기를 처리하는 곳도) - 여기서 세면 두 번
-		});
-	}
-
-	/** 49-27차: 클라이언트 이벤트 인자(world, player, pos, state, blockEntity)에서 블록 종류를 꺼내 통계에 기록. */
-	private static void noteMined(Object[] args) {
+		// 49-506차(사용자: "bps 작동을 안 해"): 예전엔 Fabric 블록 부수기 이벤트로 셌는데, 서버가 캐기를 직접 처리하는 곳(너굴마을 등 -
+		// 클라가 끝까지 못 부수고 서버가 블록을 지운다)에서는 이벤트가 안 와서 늘 0이었다. 통계(캔 블록)와 같은 감지 - "공격 키를 누른 채
+		// 조준하던 블록이 공기나 다른 블록으로 바뀜, 작물은 자란 단계가 줄어듦"(LunaStats.trackMining) - 로 센다. 싱글, 바닐라 서버도 같다.
+		// 바닐라처럼 클라가 직접 부수는 곳(한 번에 부서지는 블록 포함)은 Fabric 클라 이벤트도 받는다. 같은 자리를 두 번 세지 않게 자리로 거른다.
+		kr.lunaslight.mod.util.LunaStats.minedListener = this::count;
 		try {
-			Object state = args != null && args.length >= 4 ? args[3] : null;
-			kr.lunaslight.mod.util.LunaStats.onBlockMined(
-					kr.lunaslight.mod.util.LunaCompat.blockId(state), kr.lunaslight.mod.util.LunaCompat.blockName(state));
-		} catch (Throwable ignored) {
-		}
-	}
-
-	/** ClientPlayerBlockBreakEvents.AFTER를 리플렉션으로 등록(클래스가 있는 fabric-api에서만). */
-	private boolean tryRegisterClientBreakEvent() {
-		try {
-			Class<?> eventsClass = Class.forName(
-					"net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents");
-			Object event = eventsClass.getField("AFTER").get(null);
-			Class<?> afterItf = Class.forName(
-					"net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents$After");
-			InvocationHandler handler = (proxy, method, args) -> {
-				if ("afterBlockBreak".equals(method.getName())) {
-					if (isEnabled()) {
-						breakTimestamps.addLast(System.currentTimeMillis());
-					}
-					return null;
-				}
-				// hashCode/equals/toString 기본 처리
-				return switch (method.getName()) {
-					case "hashCode" -> System.identityHashCode(proxy);
-					case "equals" -> proxy == args[0];
-					case "toString" -> "LunaBpsListener";
-					default -> null;
-				};
-			};
-			Object listener = Proxy.newProxyInstance(afterItf.getClassLoader(), new Class<?>[]{afterItf}, handler);
-			event.getClass().getMethod("register", Object.class).invoke(event, listener);
-			return true;
+			net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents.AFTER.register(
+				(world, player, pos, state) -> count(pos.asLong()));
 		} catch (Throwable t) {
-			return false;
+			LunaCompat.warnOnce("bps:event", t);
 		}
+	}
+
+	/** 최근에 센 자리 → 시각(같은 블록을 두 길로 두 번 세지 않게). */
+	private final java.util.Map<Long, Long> recent = new java.util.concurrent.ConcurrentHashMap<>();
+
+	private void count(long pos) {
+		if (!isEnabled()) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		Long at = recent.put(pos, now);
+		if (at != null && now - at < 2000) {
+			return;
+		}
+		breakTimestamps.addLast(now);
 	}
 
 	@Override
 	public void onTick() {
 		long now = System.currentTimeMillis();
+		if (recent.size() > 64) {
+			recent.values().removeIf(t -> now - t > 2000);
+		}
 		Long first;
 		while ((first = breakTimestamps.peekFirst()) != null && now - first > 1000) {
 			breakTimestamps.pollFirst();

@@ -116,9 +116,16 @@ public final class LunaNowPlaying {
 				clear();          // 런처가 멈춘 뒤 남은 파일 - 옛 곡을 계속 띄우지 않는다
 				return;
 			}
-			title = text(o, "title");
-			artist = text(o, "artist");
-			source = text(o, "source");
+			String t = text(o, "title"), a = text(o, "artist"), src = text(o, "source");
+			// 49-514차(사용자: "숲 하지 말라고 했잖아"): SOOP 방송은 노래가 아니다 - 런처가 걸러 주지 못해도
+			// (창 제목 "비챤 - SOOP"이 유튜브 색으로 뜸) 여기서 한 번 더 버린다.
+			if (isSoop(t) || isSoop(a) || "soop".equalsIgnoreCase(src)) {
+				clear();
+				return;
+			}
+			title = t;
+			artist = a;
+			source = src;
 			playing = o.has("playing") && !o.get("playing").isJsonNull() && o.get("playing").getAsBoolean();
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("nowPlaying:read", t);
@@ -126,6 +133,15 @@ public final class LunaNowPlaying {
 		} finally {
 			reading = false;
 		}
+	}
+
+	/** SOOP(옛 아프리카TV) 방송 제목/채널인지 - "… - SOOP", sooplive, 아프리카TV, afreeca(노래 제목 "숲"은 거르지 않는다). */
+	static boolean isSoop(String s) {
+		if (s == null || s.isEmpty()) {
+			return false;
+		}
+		String l = s.toLowerCase(java.util.Locale.ROOT);
+		return l.contains("soop") || l.contains("afreeca") || s.contains("아프리카TV") || s.contains("아프리카tv");
 	}
 
 	private static String text(JsonObject o, String key) {

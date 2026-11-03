@@ -312,6 +312,7 @@ public final class LunaStats {
 	public static void tick(Minecraft client) {
 		try {
 			ensureGlobal();
+			hookBreakEvent();
 			applyEndpointMerge();
 			if (client == null || client.player == null || client.level == null) {
 				if (world != null) {
@@ -340,6 +341,10 @@ public final class LunaStats {
 					world.label = label;   // 맵 이름을 바꿨으면 따라간다
 				}
 				world.missing = false;
+				// 49-511차: 바닐라 통계 기준점은 서버/맵마다 따로 - 바뀌면 새로 잡는다(안 그러면 다른 서버 숫자 차이가 통째로 더해짐)
+				VANILLA_BASE.clear();
+				PENDING.clear();
+				invBaseline = null;
 				world.sessions++;
 				GLOBAL.sessions++;
 				sessionStartMs = System.currentTimeMillis();
@@ -396,6 +401,8 @@ public final class LunaStats {
 			trackScreens(client);
 			trackHeldItem(client);
 			trackMining(client);
+			trackGains(client);
+			statTick++;
 			requestServerStats(client);
 			syncVanilla(client);
 
@@ -699,7 +706,7 @@ public final class LunaStats {
 					}
 					boolean mined = cur.isAir() || cur.getBlock() != was.getBlock() || cropReset(was, cur);
 					if (mined) {
-						onBlockMined(LunaCompat.blockId(was), LunaCompat.blockName(was));
+						minedAt(client, pos, was);
 					}
 					it.remove();
 				}
@@ -767,7 +774,8 @@ public final class LunaStats {
 	private static java.lang.reflect.Method statsSend;
 
 	private static void requestServerStats(Minecraft client) {
-		if (statsFailed || client.player == null || LunaCompat.isSinglePlayer(client)) {
+		// 49-511차: 싱글도 - 내 화면의 통계(ClientStatsCounter)는 서버(통합 서버 포함)가 보내 줘야 바뀐다
+		if (statsFailed || client.player == null) {
 			return;
 		}
 		long now = System.currentTimeMillis();
@@ -931,7 +939,7 @@ public final class LunaStats {
 				// 내구도가 닳았으면 그만큼 "사용"으로
 				int before = lastMainHand.getDamageValue();
 				int after = held.getDamageValue();
-				if (after > before) {
+				if (after > before && statTick - lastToolMineTick > 2) {   // 49-511차: 캐서 닳은 건 minedAt이 이미 셌다
 					final String key = variantKey(held);
 					final String name = displayName(held);
 					final String base = baseId(held);
@@ -942,6 +950,7 @@ public final class LunaStats {
 						st.base = base;
 						st.used += diff;
 					});
+					pend("u", base, diff);
 				}
 				// 개수가 줄었으면(블록 놓기·먹기 등) 그만큼 사용. Q(버리기)를 누른 중이면 "버림"으로.
 				int cnt = held.getCount();
@@ -951,16 +960,16 @@ public final class LunaStats {
 					final String key = variantKey(held);
 					final String name = displayName(held);
 					final String base = baseId(held);
-					each(s -> {
-						ItemStat st = s.item(key);
-						st.name = name;
-						st.base = base;
-						if (dropping) {
-							st.dropped += diff;
-						} else {
+					// 49-511차: 버리기는 LocalPlayer.drop(StatsDropMixin)이 정확히 센다 - 여기선 버리는 중이면 안 센다
+					if (!dropping && statTick - lastDropTick > 2) {
+						each(s -> {
+							ItemStat st = s.item(key);
+							st.name = name;
+							st.base = base;
 							st.used += diff;
-						}
-					});
+						});
+						pend("u", base, diff);
+					}
 				}
 				lastHeldCount = cnt;
 			} else {
@@ -1039,6 +1048,9 @@ public final class LunaStats {
 			return; // 5초마다
 		}
 		try {
+			// 오래된(바닐라에 끝내 안 잡힌) 우리 기록은 버린다 - 바닐라 통계가 안 오르는 서버에서 쌓이지 않게
+			long nowMs = System.currentTimeMillis();
+			PENDING.values().removeIf(v -> nowMs - v[1] > 90_000L);
 			Object handler = LunaCompat.invokeNoArg(client.player, "getStatHandler");
 			if (handler == null) {
 				return;
@@ -1058,8 +1070,13 @@ public final class LunaStats {
 			}
 			Object crafted = LunaCompat.findField(statsClass, "CRAFTED").get(null);
 			Object picked = LunaCompat.findField(statsClass, "PICKED_UP").get(null);
+			Object minedT = fieldOrNull(statsClass, "MINED", "BLOCK_MINED");
+			Object usedT = fieldOrNull(statsClass, "USED", "ITEM_USED");
+			Object droppedT = fieldOrNull(statsClass, "DROPPED", "ITEM_DROPPED");
 			java.lang.reflect.Field customField = LunaCompat.findField(statsClass, "CUSTOM");
 			Object custom = customField == null ? null : customField.get(null);
+			Map<String, Long> itemAbs = new LinkedHashMap<>();
+			Map<String, Long> customAbs = new LinkedHashMap<>();
 			for (Map.Entry<?, ?> e : m.entrySet()) {
 				Object stat = e.getKey();
 				Object value = e.getValue();
@@ -1067,13 +1084,14 @@ public final class LunaStats {
 					continue;
 				}
 				Object type = LunaCompat.invokeNoArg(stat, "getType");
-				boolean isCrafted = type == crafted;
-				boolean isPicked = type == picked;
 				boolean isCustom = custom != null && type == custom;
 				if (isCustom) {
 					// 49-28차: 상호작용(상자 열기 · 제작대 · 화로 · 낚시 · 번식 · 잠 …)은 바닐라가 이미 세고 있다
 					Object idObj = LunaCompat.invokeNoArg(stat, "getValue");
 					String cid = idObj == null ? null : idObj.toString();
+					if (cid != null) {
+						customAbs.put(cid, n.longValue());
+					}
 					String label = cid == null ? null : INTERACTION_NAMES.get(cid);
 					if (label != null) {
 						String bucket = "x:" + cid;
@@ -1090,38 +1108,176 @@ public final class LunaStats {
 					}
 					continue;
 				}
-				if (!isCrafted && !isPicked) {
+				String kind;
+				if (type == crafted) {
+					kind = "c";
+				} else if (type == picked) {
+					kind = "p";
+				} else if (minedT != null && type == minedT) {
+					kind = "m";
+				} else if (usedT != null && type == usedT) {
+					kind = "u";
+				} else if (droppedT != null && type == droppedT) {
+					kind = "d";
+				} else {
 					continue;
 				}
-				Object item = LunaCompat.invokeNoArg(stat, "getValue");
-				String id = itemIdOf(item);
+				Object obj = LunaCompat.invokeNoArg(stat, "getValue");
+				String id = kind.equals("m") ? blockIdOf(obj) : itemIdOf(obj);
 				if (id == null) {
 					continue;
 				}
-				String bucket = (isCrafted ? "c:" : "p:") + id;
-				int now = n.intValue();
-				Integer before = VANILLA_BASE.put(bucket, now);
-				if (before == null || now <= before) {
-					continue; // 처음 본 값은 기준점만 잡음(예전 기록을 통째로 더하지 않게)
-				}
-				final int diff = now - before;
-				final String key = id;
-				each(s -> {
-					ItemStat st = s.item(key);
-					if (st.base == null) {
-						st.base = key;
-					}
-					if (isCrafted) {
-						st.crafted += diff;
-						s.thisMonth().crafted += diff;
-					} else {
-						st.picked += diff;
-					}
-				});
+				itemAbs.merge(kind + ":" + id, n.longValue(), Long::sum);
 			}
+			applyVanillaFloor(itemAbs, customAbs);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("stats:vanilla", t);
 		}
+	}
+
+	/**
+	 * 49-512차(사용자: "기본적으로 마크 통계에 쌓이는 걸 이용해 보라고, 지금까지 한 거 사라질 거 아냐"): 바닐라 통계는 서버/맵마다
+	 * 처음부터 다 쌓여 있다. 예전엔 "늘어난 만큼"만 봐서 모드를 깔기 전 기록이 안 들어왔다. 이제 이 서버/맵 기록의 각 값을 바닐라 값
+	 * <b>밑으로는 내려가지 않게</b> 올린다(모자란 만큼을 이 서버/맵과 전체에 같이 더함). 우리가 더 많이 센 건 그대로 - 두 번 더하지 않는다.
+	 * 아이템(캔, 사용, 주움, 버림, 제작)은 같은 아이템의 변형을 합친 값과 비교한다. 플레이타임, 죽음, 처치, 점프, 거리, 받은 피해, 거래도.
+	 */
+	private static void applyVanillaFloor(Map<String, Long> itemAbs, Map<String, Long> customAbs) {
+		Scope w = world;
+		if (w == null) {
+			return;
+		}
+		// 아이템: 같은 기본 id의 변형 합계
+		Map<String, long[]> ours = new LinkedHashMap<>();
+		for (Map.Entry<String, ItemStat> e : w.items.entrySet()) {
+			ItemStat st = e.getValue();
+			String base = st.base != null ? st.base : e.getKey();
+			long[] a = ours.computeIfAbsent(base, k -> new long[5]);
+			a[0] += st.mined;
+			a[1] += st.used;
+			a[2] += st.picked;
+			a[3] += st.dropped;
+			a[4] += st.crafted;
+		}
+		for (Map.Entry<String, Long> e : itemAbs.entrySet()) {
+			String k = e.getKey();
+			int c = k.indexOf(':');
+			String kind = k.substring(0, c), id = k.substring(c + 1);
+			int idx = switch (kind) {
+				case "m" -> 0;
+				case "u" -> 1;
+				case "p" -> 2;
+				case "d" -> 3;
+				default -> 4;
+			};
+			long[] a = ours.get(id);
+			long have = a == null ? 0 : a[idx];
+			long add = e.getValue() - have;
+			if (add <= 0) {
+				continue;
+			}
+			each(s -> {
+				ItemStat st = s.item(id);
+				if (st.base == null) {
+					st.base = id;
+				}
+				switch (idx) {
+					case 0 -> st.mined += add;
+					case 1 -> st.used += add;
+					case 2 -> st.picked += add;
+					case 3 -> st.dropped += add;
+					default -> st.crafted += add;
+				}
+			});
+			dirty = true;
+		}
+		// 그 밖의 값
+		floorLong(customAbs, w, "minecraft:play_time", 50, s -> s.playMs, (s, d) -> s.playMs += d);
+		floorLong(customAbs, w, "minecraft:sneak_time", 50, s -> s.sneakMs, (s, d) -> s.sneakMs += d);
+		floorLong(customAbs, w, "minecraft:deaths", 1, s -> s.deaths, (s, d) -> s.deaths += d);
+		floorLong(customAbs, w, "minecraft:mob_kills", 1, s -> s.kills, (s, d) -> s.kills += d);
+		floorLong(customAbs, w, "minecraft:player_kills", 1, s -> s.playerKills, (s, d) -> s.playerKills += d);
+		floorLong(customAbs, w, "minecraft:jump", 1, s -> s.jumps, (s, d) -> s.jumps += d);
+		floorLong(customAbs, w, "minecraft:traded_with_villager", 1, s -> s.trades, (s, d) -> s.trades += d);
+		Long dmg = customAbs.get("minecraft:damage_taken");
+		if (dmg != null) {
+			double v = dmg / 10.0;   // 바닐라는 체력 1의 10분의 1 단위
+			double add = v - w.damageTaken;
+			if (add > 0.5) {
+				each(s -> s.damageTaken += add);
+				dirty = true;
+			}
+		}
+		String[][] dist = {
+			{"walk", "minecraft:walk_one_cm"}, {"sprint", "minecraft:sprint_one_cm"}, {"sneak", "minecraft:crouch_one_cm"},
+			{"swim", "minecraft:swim_one_cm", "minecraft:walk_under_water_one_cm", "minecraft:walk_on_water_one_cm"},
+			{"fly", "minecraft:fly_one_cm"}, {"elytra", "minecraft:aviate_one_cm"},
+			{"vehicle", "minecraft:boat_one_cm", "minecraft:minecart_one_cm", "minecraft:horse_one_cm", "minecraft:pig_one_cm",
+				"minecraft:strider_one_cm", "minecraft:happy_ghast_one_cm"}};
+		for (String[] d : dist) {
+			long cm = 0;
+			boolean any = false;
+			for (int i = 1; i < d.length; i++) {
+				Long v = customAbs.get(d[i]);
+				if (v != null) {
+					cm += v;
+					any = true;
+				}
+			}
+			if (!any) {
+				continue;
+			}
+			double meters = cm / 100.0;
+			double add = meters - w.distance.getOrDefault(d[0], 0d);
+			if (add > 1) {
+				String mode = d[0];
+				each(s -> s.distance.merge(mode, add, Double::sum));
+				dirty = true;
+			}
+		}
+	}
+
+	private interface LongGet {
+		long get(Scope s);
+	}
+
+	private interface LongAdd {
+		void add(Scope s, long d);
+	}
+
+	private static void floorLong(Map<String, Long> abs, Scope w, String id, long mul, LongGet get, LongAdd add) {
+		Long v = abs.get(id);
+		if (v == null) {
+			return;
+		}
+		long target = v * mul;
+		long d = target - get.get(w);
+		if (d > 0) {
+			each(s -> add.add(s, d));
+			dirty = true;
+		}
+	}
+
+	private static Object fieldOrNull(Class<?> c, String... names) {
+		for (String nm : names) {
+			try {
+				java.lang.reflect.Field f = LunaCompat.findField(c, nm);
+				if (f != null) {
+					return f.get(null);
+				}
+			} catch (Throwable ignored) {
+			}
+		}
+		return null;
+	}
+
+	private static String blockIdOf(Object block) {
+		try {
+			if (block instanceof net.minecraft.world.level.block.Block b) {
+				return String.valueOf(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b));
+			}
+		} catch (Throwable ignored) {
+		}
+		return null;
 	}
 
 	/** 49-28차: 보여 줄 상호작용 통계와 한글 이름(마인크래프트 기본 통계 id 기준). */
@@ -1231,6 +1387,172 @@ public final class LunaStats {
 			if (wrong <= 0) {
 				break;
 			}
+		}
+	}
+
+	/** 49-506차: 블록을 캔 순간 알림(그 자리 pos.asLong(), 초당 블록 HUD가 센다). */
+	public static volatile java.util.function.LongConsumer minedListener;
+
+	// ==================== 49-511차: 캔 것 / 도구 사용 / 얻음 / 버림 바로잡기 ====================
+	// 사용자: "통계가 안 돼, 바닐라 통계 가져와서 오류 수정, 캔 개수도 안 뜨고 괭이로 작물 캐도 사용이 안 뜨고 얻은 개수도 제대로 안 뜨고 버림도".
+	//  - 캔 것: 한 번에 부서지는 블록(작물)은 부서진 그 틱에 조준이 다음 블록으로 넘어가 trackMining이 못 봤다 → Fabric 클라 부수기
+	//    이벤트도 받고, 같은 자리 2초 안 중복은 거른다.
+	//  - 도구 사용: 바닐라처럼 도구로 블록을 캐면 그 도구 "사용" +1(작물은 괭이가 안 닳아서 내구도로는 0이었다).
+	//  - 얻음: 너굴마을처럼 줍지 않고 바로 가방에 넣어 주는 곳은 바닐라 "주움"이 안 오른다 → 화면이 없을 때 가방 개수가 늘어난 만큼.
+	//  - 버림: Q(LocalPlayer.drop)와 가방 화면의 Q/밖으로 던지기(handleContainerInput THROW, -999 칸)를 StatsDropMixin이 센다.
+	//  - 바닐라 통계(캔 블록, 사용, 주움, 버림, 제작)는 5초마다 늘어난 만큼을 보고, 우리가 그동안 센 것보다 많으면 모자란 만큼만 더한다
+	//    (둘 다 세도 두 번 안 더해진다). 서버 것은 1분마다 받아 온다.
+
+	/** 우리가 센 것(바닐라와 맞춰 보기 전) - "종류:아이템 id" → {개수, 처음 센 시각}. */
+	private static final Map<String, long[]> PENDING = new LinkedHashMap<>();
+	private static final Map<Long, Long> RECENT_MINED = new LinkedHashMap<>();
+	private static long statTick;
+	private static long lastToolMineTick = -100;
+	private static long lastDropTick = -100;
+	private static String lastDropKey;
+	private static boolean breakEventHooked;
+
+	private static void pend(String kind, String baseId, long n) {
+		if (baseId == null || n <= 0) {
+			return;
+		}
+		long[] v = PENDING.computeIfAbsent(kind + ":" + baseId, k -> new long[]{0, System.currentTimeMillis()});
+		v[0] += n;
+	}
+
+	/** 블록을 캤다(trackMining 또는 Fabric 클라 부수기 이벤트). 같은 자리 2초 안 중복은 한 번. */
+	static void minedAt(Minecraft client, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState was) {
+		long now = System.currentTimeMillis();
+		long key = pos.asLong();
+		Long at = RECENT_MINED.put(key, now);
+		if (RECENT_MINED.size() > 128) {
+			RECENT_MINED.values().removeIf(t -> now - t > 2000);
+		}
+		if (at != null && now - at < 2000) {
+			return;
+		}
+		java.util.function.LongConsumer l = minedListener;
+		if (l != null) {
+			l.accept(key);
+		}
+		String id = LunaCompat.blockId(was);
+		onBlockMined(id, LunaCompat.blockName(was));
+		pend("m", id, 1);
+		// 도구로 캤으면 그 도구 "사용" +1(바닐라 ItemStack.mineBlock과 같음)
+		try {
+			ItemStack held = client.player == null ? ItemStack.EMPTY : client.player.getMainHandItem();
+			if (held != null && !held.isEmpty() && (held.isDamageableItem()
+					|| held.has(net.minecraft.core.component.DataComponents.TOOL))) {
+				String vk = variantKey(held), nm = displayName(held), base = baseId(held);
+				each(s -> {
+					ItemStat st = s.item(vk);
+					st.name = nm;
+					st.base = base;
+					st.used++;
+				});
+				pend("u", base, 1);
+				lastToolMineTick = statTick;
+			}
+		} catch (Throwable ignored) {
+		}
+	}
+
+	/** Fabric 클라 부수기 이벤트(한 번에 부서지는 블록 포함) - 한 번만 건다. */
+	private static void hookBreakEvent() {
+		if (breakEventHooked) {
+			return;
+		}
+		breakEventHooked = true;
+		try {
+			net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents.AFTER.register(
+				(level, player, pos, state) -> {
+					try {
+						minedAt(Minecraft.getInstance(), pos, state);
+						dirty = true;
+					} catch (Throwable ignored) {
+					}
+				});
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:breakEvent", t);
+		}
+	}
+
+	/** 49-511차: 버렸다(StatsDropMixin). */
+	public static void noteDropped(ItemStack stack, int count) {
+		if (stack == null || stack.isEmpty() || count <= 0) {
+			return;
+		}
+		if (lastDropTick == statTick && lastDropKey != null && lastDropKey.equals(baseId(stack))) {
+			return;   // 같은 틱에 두 길(LocalPlayer.drop + dropItem)로 온 같은 버리기
+		}
+		lastDropKey = baseId(stack);
+		lastDropTick = statTick;
+		onItemDropped(stack, count);
+		pend("d", baseId(stack), count);
+	}
+
+	/** 화면이 없을 때 가방(인벤 + 갑옷 + 왼손) 개수가 늘면 "얻음". 화면이 열려 있는 동안은 기준만 다시 잡는다(상자에서 꺼냄, 제작 등). */
+	private static Map<String, Object[]> invBaseline;
+	private static int invChanged = Integer.MIN_VALUE;
+
+	private static void trackGains(Minecraft client) {
+		try {
+			var inv = client.player.getInventory();
+			boolean screen = LunaCompat.screenOf(client) != null;
+			boolean creative = client.player.isCreative();
+			int changed = inv.getTimesChanged();
+			if (!screen && !creative && invBaseline != null && changed == invChanged) {
+				return;   // 바뀐 게 없다
+			}
+			invChanged = changed;
+			Map<String, Object[]> now = new LinkedHashMap<>();
+			for (int i = 0; i < inv.getContainerSize(); i++) {
+				ItemStack st = inv.getItem(i);
+				if (st == null || st.isEmpty()) {
+					continue;
+				}
+				String k = LunaCompat.getItemId(st.getItem()) + "#" + ItemStack.hashItemAndComponents(st);
+				Object[] v = now.get(k);
+				if (v == null) {
+					now.put(k, new Object[]{st, st.getCount()});
+				} else {
+					v[1] = (Integer) v[1] + st.getCount();
+				}
+			}
+			ItemStack carried = client.player.containerMenu == null ? ItemStack.EMPTY : client.player.containerMenu.getCarried();
+			if (carried != null && !carried.isEmpty()) {
+				String k = LunaCompat.getItemId(carried.getItem()) + "#" + ItemStack.hashItemAndComponents(carried);
+				Object[] v = now.get(k);
+				if (v == null) {
+					now.put(k, new Object[]{carried, carried.getCount()});
+				} else {
+					v[1] = (Integer) v[1] + carried.getCount();
+				}
+			}
+			Map<String, Object[]> before = invBaseline;
+			invBaseline = now;
+			if (before == null || screen || creative) {
+				return;
+			}
+			for (Map.Entry<String, Object[]> e : now.entrySet()) {
+				Object[] b = before.get(e.getKey());
+				int diff = (Integer) e.getValue()[1] - (b == null ? 0 : (Integer) b[1]);
+				if (diff <= 0) {
+					continue;
+				}
+				ItemStack st = (ItemStack) e.getValue()[0];
+				String vk = variantKey(st), nm = displayName(st), base = baseId(st);
+				final int d = diff;
+				each(s -> {
+					ItemStat it = s.item(vk);
+					it.name = nm;
+					it.base = base;
+					it.picked += d;
+				});
+				pend("p", base, d);
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:gains", t);
 		}
 	}
 
@@ -2096,6 +2418,111 @@ public final class LunaStats {
 			LunaCompat.warnOnce("stats:replace", t);
 			return "불러오지 못했습니다: " + t.getClass().getSimpleName();
 		}
+	}
+
+	// ==================== 49-511차: 삭제 / 되돌리기 ====================
+	// 사용자: "통계 삭제도 넣어 주되 복구 가능해야 하고 확인 묻고". 지우기 전에 전부를 stats/trash/삭제전_날짜.json 으로 백업하고,
+	// [삭제 되돌리기]는 가장 최근 백업으로 덮어쓴다(replaceFrom - 덮어쓰기 전에 지금 기록도 또 백업). 쓴 백업은 trash/restored 로 옮긴다.
+
+	private static Path trashDir() {
+		return dir().resolve("trash");
+	}
+
+	/** key가 null이면 전부(전체 + 서버/맵), 아니면 그 서버/맵 파일만(전체 합계는 그대로). 결과 안내 글. */
+	public static String deleteRecords(Minecraft client, String key) {
+		try {
+			saveNow();
+			String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss").format(java.time.LocalDateTime.now());
+			Files.createDirectories(trashDir());
+			exportTo(client, trashDir().resolve("삭제전_" + stamp + ".json"));
+			if (key == null || "global".equals(key)) {
+				Scope g = new Scope();
+				g.key = "global";
+				g.label = "전체";
+				copyInto(g, GLOBAL);
+				Path wdir = dir().resolve("worlds");
+				if (Files.isDirectory(wdir)) {
+					try (java.util.stream.Stream<Path> files = Files.list(wdir)) {
+						for (Path p : files.toList()) {
+							if (p.getFileName().toString().endsWith(".json")) {
+								Files.deleteIfExists(p);
+							}
+						}
+					}
+				}
+				if (world != null) {
+					Scope empty = new Scope();
+					empty.key = world.key;
+					empty.label = world.label;
+					empty.folder = world.folder;
+					copyInto(empty, world);
+				}
+			} else {
+				Files.deleteIfExists(worldFile(key));
+				if (world != null && key.equals(worldKey)) {
+					Scope empty = new Scope();
+					empty.key = world.key;
+					empty.label = world.label;
+					empty.folder = world.folder;
+					copyInto(empty, world);
+				}
+			}
+			VANILLA_BASE.clear();
+			PENDING.clear();
+			dirty = true;
+			saveNow();
+			return "지웠습니다 · [삭제 되돌리기]로 되돌릴 수 있어요";
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:delete", t);
+			return "지우지 못했습니다: " + t.getClass().getSimpleName();
+		}
+	}
+
+	private static Path lastDeleted() {
+		try {
+			if (!Files.isDirectory(trashDir())) {
+				return null;
+			}
+			try (java.util.stream.Stream<Path> files = Files.list(trashDir())) {
+				return files.filter(p -> p.getFileName().toString().startsWith("삭제전_") && p.toString().endsWith(".json"))
+					.max(java.util.Comparator.comparing(p -> p.getFileName().toString())).orElse(null);
+			}
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/** 되돌릴 백업 한 줄 설명(없으면 null). */
+	public static String lastDeletedInfo() {
+		Path p = lastDeleted();
+		if (p == null) {
+			return null;
+		}
+		String n = p.getFileName().toString();
+		String when = n.substring("삭제전_".length(), n.length() - 5).replace('_', ' ').replace('.', ':');
+		String pv = previewOf(p);
+		return when + " 삭제" + (pv == null ? "" : " · " + pv);
+	}
+
+	public static String restoreLastDeleted(Minecraft client) {
+		Path p = lastDeleted();
+		if (p == null) {
+			return "되돌릴 삭제 기록이 없습니다";
+		}
+		String msg = replaceFrom(client, p);
+		try {
+			if (msg.startsWith("덮어썼습니다")) {
+				Path done = trashDir().resolve("restored");
+				Files.createDirectories(done);
+				Files.move(p, done.resolve(p.getFileName()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				VANILLA_BASE.clear();
+				PENDING.clear();
+				return "되돌렸습니다";
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:restore", t);
+		}
+		return msg;
 	}
 
 	// ==================== 표시용 ====================

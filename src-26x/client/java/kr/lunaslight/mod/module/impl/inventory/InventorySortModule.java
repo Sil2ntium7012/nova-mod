@@ -137,6 +137,10 @@ public class InventorySortModule extends Module {
 		}
 		List<Slot> region = new ArrayList<>();
 		var handler = client.player.containerMenu;
+		if (isStorage(hovered) && customGui(kr.lunaslight.mod.util.LunaCompat.screenOf(client))) {
+			// 49-513차: 서버가 그린 메뉴(너굴마을 창고 목록, 상점 …)의 칸은 버튼이다 - 누르면 안 된다
+			return;
+		}
 		if (isStorage(hovered)) {
 			for (Slot s : handler.slots) {
 				if (isStorage(s)) {
@@ -168,9 +172,16 @@ public class InventorySortModule extends Module {
 	}
 
 	/**
-	 * 매 틱 한 걸음: <b>실제 칸 상태를 다시 읽어</b> 선택정렬로 자리가 틀린 칸을 최대 {@link #SWAPS_PER_TICK}개만 바로잡는다.
-	 * 스왑은 pickup 클릭이라 개수를 안 건드린다. 더 바꿀 게 없으면(정렬 끝) 대상을 놓는다. 서버가 클릭을 씹어도 다음
-	 * 틱에 다시 읽어 남은 것만 이어서 하므로 <b>한 번 누르면 결국 전부 정렬</b>된다.
+	 * 49-513차(사용자: "여전히 인벤 정리하면 렉 걸리고 정리도 제대로 안 돼, 내 인벤에 막 아이템이 들어오거나 버벅거리고"):
+	 * 예전엔 칸 둘을 바꿀 때마다 핫바 9번 칸을 거쳐 SWAP 세 번(상자 정리인데 내 핫바로 아이템이 오갔다 - 서버가 하나라도 씹으면 내 인벤에 남음)
+	 * + 매번 반사(reflection)로 아이템 비교를 수천 번 했다. 이제:
+	 * <ol>
+	 *   <li>같은 아이템의 덜 찬 묶음을 먼저 합친다(집어서 다른 묶음에 놓기).</li>
+	 *   <li>목표 배치를 한 번 계산하고, <b>커서로 집어 옮기는 순환</b>(PICKUP)으로 한 번에 옮긴다 - 칸 하나당 클릭 한 번, 그 상자(또는 내 인벤) 안에서만.</li>
+	 *   <li>같은 아이템끼리는 개수가 달라도 제자리로 본다(놓으면 합쳐지기만 하고 안 바뀌어서). 꾸러미(번들)는 그 자리에 두고 정렬하지 않는다
+	 *       (들고 누르면 꾸러미에 들어가 버림).</li>
+	 *   <li>다음 틱에 실제 칸을 다시 읽어 틀린 게 남았으면 다시(최대 3번).</li>
+	 * </ol>
 	 */
 	private void sortStep() {
 		var handler = client.player.containerMenu;
@@ -178,40 +189,53 @@ public class InventorySortModule extends Module {
 			pendingRegion = null;   // 화면이 바뀌었거나 커서에 뭔가 들려 있으면 중단
 			return;
 		}
-		if (++stepGuard > 5) {
-			pendingRegion = null;   // 안전장치(무한 방지)
+		if (++stepGuard > 3) {
+			pendingRegion = null;
 			return;
 		}
-		List<Slot> region = pendingRegion;
+		List<Slot> region = new ArrayList<>();
+		for (Slot sl : pendingRegion) {
+			if (!isBundle(sl.getItem())) {
+				region.add(sl);
+			}
+		}
 		int n = region.size();
-		ItemStack[] model = new ItemStack[n];
+		if (n < 2) {
+			pendingRegion = null;
+			return;
+		}
+		int sync = handler.containerId;
+		int[] budget = {600};
+		mergePartials(region, sync, budget);
+		if (!cursorEmpty()) {
+			pendingRegion = null;
+			return;
+		}
+		// 목표 배치(안정 정렬, 이름은 한 번만 만든다)
+		ItemStack[] snap = new ItemStack[n];
+		String[] names = new String[n];
+		Integer[] idx = new Integer[n];
 		for (int i = 0; i < n; i++) {
 			ItemStack st = region.get(i).getItem();
-			model[i] = st == null ? ItemStack.EMPTY : st;
+			snap[i] = st == null || st.isEmpty() ? ItemStack.EMPTY : st.copy();
+			names[i] = snap[i].isEmpty() ? "" : nameOf(snap[i]);
+			idx[i] = i;
 		}
 		boolean desc = order.get() == Order.DESC;
-		// 목표 배치: 지금 칸들을 한 번에 안정 정렬(같은 것끼리는 원래 순서)
-		Integer[] idx = new Integer[n];
-		String[] names = new String[n];
-		for (int i = 0; i < n; i++) {
-			idx[i] = i;
-			names[i] = model[i].isEmpty() ? "" : nameOf(model[i]);
-		}
-		final ItemStack[] snap = model.clone();
 		java.util.Arrays.sort(idx, (x, y) -> compare(snap[x], snap[y], names[x], names[y], desc));
 		ItemStack[] target = new ItemStack[n];
 		for (int p = 0; p < n; p++) {
 			target[p] = snap[idx[p]];
 		}
-		// 틀린 칸만 바꾼다 - 이 틱에 전부
-		int swapsDone = 0;
-		for (int p = 0; p < n; p++) {
-			if (same(model[p], target[p])) {
+		int clicks = 0;
+		for (int p = 0; p < n && budget[0] > 0; p++) {
+			if (eq(live(region, p), target[p])) {
 				continue;
 			}
+			// target[p]와 같은 아이템인데 제자리가 아닌 칸을 집는다
 			int q = -1;
-			for (int k = p + 1; k < n; k++) {
-				if (same(model[k], target[p])) {
+			for (int k = 0; k < n; k++) {
+				if (k != p && eq(live(region, k), target[p]) && !eq(live(region, k), target[k])) {
 					q = k;
 					break;
 				}
@@ -219,22 +243,106 @@ public class InventorySortModule extends Module {
 			if (q < 0) {
 				continue;
 			}
-			swap(region, model, p, q);
-			swapsDone++;
+			click(sync, region.get(q));          // 집기(q는 빈다)
+			click(sync, region.get(p));          // p에 놓고 p에 있던 것을 든다
+			clicks += 2;
+			// 든 것을 제자리로 - 그 자리에 있던 것을 또 들고 … 빈 칸에 놓이면 끝
+			int guard = n + 2;
+			while (!cursorEmpty() && guard-- > 0 && budget[0] > 0) {
+				ItemStack c = handler.getCarried();
+				int r = -1;
+				for (int k = 0; k < n; k++) {
+					if (eq(target[k], c) && !eq(live(region, k), target[k])) {
+						r = k;
+						if (live(region, k).isEmpty()) {
+							break;   // 빈 칸이면 바로 끝낼 수 있다
+						}
+					}
+				}
+				if (r < 0) {
+					r = q;   // 갈 데가 없으면 처음 비운 칸에
+				}
+				click(sync, region.get(r));
+				clicks++;
+			}
+			if (!cursorEmpty()) {
+				// 안전: 비어 있는 칸 아무 데나 내려놓는다
+				for (int k = 0; k < n && !cursorEmpty(); k++) {
+					if (live(region, k).isEmpty()) {
+						click(sync, region.get(k));
+					}
+				}
+				break;
+			}
+			budget[0] -= clicks;
+			clicks = 0;
 		}
-		if (swapsDone == 0) {
-			pendingRegion = null;   // 바꿀 게 없다 = 정렬 완료
+		// 다 맞았으면 끝, 아니면 다음 틱에 다시 읽어 남은 것만
+		boolean done = true;
+		for (int p = 0; p < n; p++) {
+			if (!eq(live(region, p), target[p])) {
+				done = false;
+				break;
+			}
+		}
+		if (done) {
+			pendingRegion = null;
 		}
 	}
 
-	/** 49-466차: 같은 칸으로 볼 것(둘 다 빔, 또는 같은 아이템 + 같은 개수). */
-	private static boolean same(ItemStack a, ItemStack b) {
+	/** 같은 아이템의 덜 찬 묶음 합치기: 뒤쪽 묶음을 집어 앞쪽 묶음에 놓는다(넘치면 남은 걸 도로 놓음). */
+	private void mergePartials(List<Slot> region, int sync, int[] budget) {
+		int n = region.size();
+		for (int i = 0; i < n && budget[0] > 0; i++) {
+			ItemStack a = live(region, i);
+			if (a.isEmpty() || a.getCount() >= a.getMaxStackSize()) {
+				continue;
+			}
+			for (int j = n - 1; j > i && budget[0] > 0; j--) {
+				ItemStack b = live(region, j);
+				a = live(region, i);
+				if (a.getCount() >= a.getMaxStackSize()) {
+					break;
+				}
+				if (b.isEmpty() || b.getCount() >= b.getMaxStackSize() || !ItemStack.isSameItemSameComponents(a, b)) {
+					continue;
+				}
+				click(sync, region.get(j));   // 뒤쪽 묶음 집기
+				click(sync, region.get(i));   // 앞쪽에 합치기
+				budget[0] -= 2;
+				if (!cursorEmpty()) {
+					click(sync, region.get(j));   // 남은 건 도로
+					budget[0]--;
+				}
+			}
+		}
+	}
+
+	private static ItemStack live(List<Slot> region, int k) {
+		ItemStack st = region.get(k).getItem();
+		return st == null ? ItemStack.EMPTY : st;
+	}
+
+	/** 같은 칸으로 볼 것: 둘 다 빔, 또는 같은 아이템 + 같은 성분(개수는 무관 - 놓으면 합쳐질 뿐 안 바뀐다). */
+	private static boolean eq(ItemStack a, ItemStack b) {
 		boolean ae = a == null || a.isEmpty();
 		boolean be = b == null || b.isEmpty();
 		if (ae || be) {
 			return ae && be;
 		}
-		return a.getCount() == b.getCount() && LunaCompat.sameStack(a, b);
+		return ItemStack.isSameItemSameComponents(a, b);
+	}
+
+	private static boolean isBundle(ItemStack st) {
+		try {
+			return st != null && !st.isEmpty() && st.has(net.minecraft.core.component.DataComponents.BUNDLE_CONTENTS);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	private void click(int sync, Slot s) {
+		client.gameMode.handleContainerInput(sync, s.index, 0, ContainerInput.PICKUP, client.player);
 	}
 
 	/** a가 b보다 앞에 와야 하면 음수. 빈 칸은 항상 뒤. desc면 비지 않은 것끼리 순서를 뒤집는다. 이름은 미리 만든 것(49-466차). */
@@ -259,6 +367,9 @@ public class InventorySortModule extends Module {
 		if (c == 0 && sortKey.get() != SortKey.NAME) {
 			c = nameA.compareToIgnoreCase(nameB);   // 2차 기준: 이름
 		}
+		if (c == 0 && !ItemStack.isSameItemSameComponents(a, b)) {
+			c = idOf(a).compareTo(idOf(b));   // 이름이 같아도 다른 아이템이면 id로 갈라 같은 것끼리 붙게
+		}
 		return desc ? -c : c;
 	}
 
@@ -277,43 +388,6 @@ public class InventorySortModule extends Module {
 		} catch (Throwable t) {
 			return "";
 		}
-	}
-
-	/**
-	 * region[i] ↔ region[j] 스왑(모델 + 서버 클릭). 49-416차(사용자: "아이템 정리하면 꾸러미에 아이템이 들어가 버려"):
-	 * 예전엔 커서로 집어 옮겼는데(PICKUP), 들고 있는 아이템을 꾸러미 칸에 누르면 꾸러미가 그걸 넣어 버리고, 같은 아이템끼리는
-	 * 합쳐져 개수도 바뀌었다. 이제 숫자 키 바꾸기(SWAP - 칸과 핫바 칸을 그대로 맞바꿈)만 쓴다. 커서를 안 써서 꾸러미에 들어가거나
-	 * 합쳐지는 일이 없다. 둘 다 핫바 칸이 아니면 핫바 9번 칸을 거쳐 세 번 바꾼다(9번 칸은 원래대로 돌아온다).
-	 */
-	private void swap(List<Slot> region, ItemStack[] model, int i, int j) {
-		int syncId = client.player.containerMenu.containerId;
-		int idI = region.get(i).index;
-		int idJ = region.get(j).index;
-		int hi = hotbarOf(region.get(i)), hj = hotbarOf(region.get(j));
-		try {
-			if (hi >= 0) {
-				swapWithHotbar(syncId, idJ, hi);       // j ↔ (핫바 칸인) i
-			} else if (hj >= 0) {
-				swapWithHotbar(syncId, idI, hj);       // i ↔ (핫바 칸인) j
-			} else {
-				swapWithHotbar(syncId, idI, TEMP_HOTBAR);   // i ↔ 9번
-				swapWithHotbar(syncId, idJ, TEMP_HOTBAR);   // j ↔ 9번(= 원래 i)
-				swapWithHotbar(syncId, idI, TEMP_HOTBAR);   // i ↔ 9번(= 원래 j), 9번은 원래대로
-			}
-		} catch (Throwable t) {
-			LunaCompat.warnOnce("inventorySort:swap", t);
-			return;
-		}
-		ItemStack tmp = model[i];
-		model[i] = model[j];
-		model[j] = tmp;
-	}
-
-	/** 바꿀 때 거치는 핫바 칸(9번 = index 8). */
-	private static final int TEMP_HOTBAR = 8;
-
-	private void swapWithHotbar(int syncId, int slotId, int hotbar) {
-		client.gameMode.handleContainerInput(syncId, slotId, hotbar, ContainerInput.SWAP, client.player);
 	}
 
 	/** 내 핫바 칸이면 그 번호(0~8), 아니면 -1. */
@@ -340,6 +414,22 @@ public class InventorySortModule extends Module {
 			LunaCompat.warnOnce("inventorySort:focusedSlot", t);
 			return null;
 		}
+	}
+
+	/** 제목에 리소스팩 글자(사용자 영역 U+E000~)가 있는 서버 그림 메뉴인가. */
+	private static boolean customGui(Object screen) {
+		try {
+			String t = ((AbstractContainerScreen<?>) screen).getTitle().getString();
+			for (int i = 0; i < t.length(); ) {
+				int cp = t.codePointAt(i);
+				if ((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000) {
+					return true;
+				}
+				i += Character.charCount(cp);
+			}
+		} catch (Throwable ignored) {
+		}
+		return false;
 	}
 
 	/** 저장 컨테이너(상자·통 등) 칸인가 - 플레이어 인벤토리도, 제작 격자·결과도 아닌 것. */

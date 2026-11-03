@@ -204,7 +204,12 @@ public class LunaStatsScreen extends LunaScreenBase {
 
 	// ==================== 렌더 ====================
 
+	/** 49-511차: 그래프/달력 칸에 마우스를 올렸는지 보려고(그리는 쪽에서 쓴다). */
+	private int lastMouseX = -1000, lastMouseY = -1000;
+
 	private void lunaRender0(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+		lastMouseX = mouseX;
+		lastMouseY = mouseY;
 		// 49-142차: 설정 화면과 같은 다크/라이트(포스터 이미지는 늘 어두운 판)
 		if (!poster) {
 			LunaClientScreen.applyScreenTheme();
@@ -253,6 +258,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 		}
 		if (importList != null) {
 			renderImport(ctx, mouseX, mouseY);
+		}
+		if (confirm.isOpen()) {
+			confirm.render(ctx, font, width, height, mouseX, mouseY);
 		}
 		LunaDraw.setAlpha(1f);
 
@@ -384,7 +392,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 	private static final int TABS_Y = TOP_Y + 32;
 	private static final int SCOPE_H = 18;
 	// 49-172차(사용자: "이미지 저장을 전체 요약 한 장 / 이 화면만으로 나누기")
-	private static final String[] LINKS = {"전체 요약 저장", "이 화면 저장", "파일로 저장", "불러오기", "폴더 열기"};
+	// 49-511차(사용자: "통계 삭제도 넣어 주되 복구 가능해야 하고 확인 묻고"): [기록 삭제] [삭제 되돌리기]
+	private static final String[] LINKS = {"전체 요약 저장", "이 화면 저장", "파일로 저장", "불러오기", "폴더 열기", "기록 삭제", "삭제 되돌리기"};
+	private final LunaConfirm confirm = new LunaConfirm();
 	private int railX, railW, dividerX, cx0, cw0, rightEdge, contentTop;
 
 	private void layout() {
@@ -1067,6 +1077,12 @@ public class LunaStatsScreen extends LunaScreenBase {
 	/** 세로 막대 그래프 카드(달별·날별). labels는 막대 아래 글자(null이면 안 씀). */
 	private int columnsCard(GuiGraphicsExtractor ctx, int x, int y, int w, int chartH, String title, long[] vals, String[] labels,
 			String peakText) {
+		return columnsCard(ctx, x, y, w, chartH, title, vals, labels, peakText, vals.length - 1, null);
+	}
+
+	/** hi = 진하게 칠할 칸(오늘, 지금 시간 …), fmt가 있으면 마우스를 올린 칸의 값을 제목 오른쪽에. */
+	private int columnsCard(GuiGraphicsExtractor ctx, int x, int y, int w, int chartH, String title, long[] vals, String[] labels,
+			String peakText, int hi, java.util.function.LongFunction<String> fmt) {
 		int h = CARD_HEAD + chartH + 16;
 		card(ctx, x, y, w, h, title);
 		if (peakText != null) {
@@ -1089,8 +1105,13 @@ public class LunaStatsScreen extends LunaScreenBase {
 			ctx.fill(bx, base - chartH, bx + bw, base, LunaDraw.applyAlpha(ink(0x0C)));
 			int bh = vals[i] <= 0 ? 0 : Math.max(2, Math.round(chartH * (float) (vals[i] / (double) max) * p));
 			if (bh > 0) {
-				ctx.fill(bx, base - bh, bx + bw, base, LunaDraw.applyAlpha(i == n - 1
+				ctx.fill(bx, base - bh, bx + bw, base, LunaDraw.applyAlpha(i == hi
 					? LunaClientScreen.themeAccent() : LunaDraw.withAlpha(LunaClientScreen.themeAccent(), 0xA6)));
+			}
+			if (fmt != null && LunaDraw.in(lastMouseX, lastMouseY, bx, base - chartH, bw + gap, chartH + 14)) {
+				String t = (labels != null && labels[i] != null ? labels[i] + "  " : "") + fmt.apply(vals[i]);
+				ctx.fill(bx, base - chartH, bx + bw, base, LunaDraw.applyAlpha(ink(0x14)));
+				LunaDraw.text(ctx, font, t, x + w - 10 - LunaDraw.width(font, t), y + 9, LunaClientScreen.themeText());
 			}
 			if (labels != null && labels[i] != null) {
 				String l = labels[i];
@@ -1407,34 +1428,21 @@ public class LunaStatsScreen extends LunaScreenBase {
 			{"많이 한 시간", any ? bestHour + "시" : "-"},
 			{"자리 비움", afkPct + "%"},
 			{"플레이타임", LunaStats.formatHours(s.playMs)}}) + GAP;
-		// 요일 × 시간 칸
-		int labelW = 16;
-		int cell = Math.max(5, Math.min(16, (w - 20 - labelW) / 24));
-		int hmH = CARD_HEAD + 12 + 7 * cell + 10;
-		card(ctx, x, y, w, hmH, "요일 × 시간");
-		if (!any) {
-			LunaDraw.text(ctx, font, "이번 업데이트부터 모읍니다 - 조금 놀고 오면 채워집니다", x + 10,
-				y + CARD_HEAD + 4, LunaClientScreen.themeDim());
-		} else {
-			int gx = x + 10 + labelW;
-			for (int hr = 0; hr < 24; hr += 3) {
-				LunaDraw.text(ctx, font, String.valueOf(hr), gx + hr * cell, y + CARD_HEAD, LunaClientScreen.themeDim());
-			}
-			int top = y + CARD_HEAD + 12;
-			float p = nextProgress();
-			for (int d = 0; d < 7; d++) {
-				LunaDraw.text(ctx, font, WEEK[d], x + 10, top + d * cell + Math.max(0, (cell - 8) / 2), LunaClientScreen.themeSub());
-				for (int hr = 0; hr < 24; hr++) {
-					long v = s.hourMs[d * 24 + hr];
-					float k = v <= 0 ? 0f : (0.2f + 0.8f * (float) (v / (double) hmMax)) * p;
-					int col = LunaDraw.lerpColor(ink(0x10), LunaClientScreen.themeAccent() | 0xFF000000, k);
-					int cx = gx + hr * cell;
-					int cy = top + d * cell;
-					ctx.fill(cx, cy, cx + cell - 1, cy + cell - 1, LunaDraw.applyAlpha(col));
-				}
-			}
+		// 49-511차(사용자: "습관에 요일별 시간은 그래프, 이번 달 접속률은 기존 요일별 그거처럼"): 요일 × 시간 칸은 그래프 둘로
+		// (요일별, 시간대별 - 마우스를 올리면 그 칸 시간), 칸 모양(요일 줄 × 주 칸)은 이번 달 달력으로.
+		java.time.LocalDate now0 = java.time.LocalDate.now();
+		int todayDow = now0.getDayOfWeek().getValue() - 1;
+		int curHour = java.time.LocalTime.now().getHour();
+		String[] hourLabels = new String[24];
+		for (int i = 0; i < 24; i += 3) {
+			hourLabels[i] = String.valueOf(i);
 		}
-		y += hmH + GAP;
+		y += pair(x, y, w,
+			(cx, cy, cw) -> columnsCard(ctx, cx, cy, cw, 60, "요일별 시간", dayTotal, WEEK,
+				any ? "많이 한 요일 " + WEEK[maxIndex(dayTotal)] : "아직 기록이 없습니다", todayDow, LunaStats::formatHours),
+			(cx, cy, cw) -> columnsCard(ctx, cx, cy, cw, 60, "시간대별 시간", hourTotal, hourLabels,
+				any ? "많이 한 시간 " + maxIndex(hourTotal) + "시" : "아직 기록이 없습니다", curHour, LunaStats::formatHours)) + GAP;
+		y += monthCalendar(ctx, s, x, y, w) + GAP;
 		// 최근 14일
 		java.time.LocalDate today = java.time.LocalDate.now();
 		long[] dv = new long[14];
@@ -1446,6 +1454,77 @@ public class LunaStatsScreen extends LunaScreenBase {
 		}
 		y += columnsCard(ctx, x, y, w, 60, "최근 14일", dv, dl, "오늘 " + LunaStats.formatDuration(dv[13]));
 		return y - y0 + 10;
+	}
+
+	private static int maxIndex(long[] v) {
+		int b = 0;
+		for (int i = 1; i < v.length; i++) {
+			if (v[i] > v[b]) {
+				b = i;
+			}
+		}
+		return b;
+	}
+
+	/**
+	 * 49-511차: 이번 달 접속 - 왼쪽에 요일(월~일), 칸 = 그 달의 날(주마다 한 열). 그날 플레이한 만큼 진하게, 오늘은 테두리.
+	 * 제목 오른쪽 = 접속한 날 / 지난 날(접속률). 마우스를 올리면 그날 시간.
+	 */
+	private int monthCalendar(GuiGraphicsExtractor ctx, LunaStats.Scope s, int x, int y, int w) {
+		java.time.LocalDate today = java.time.LocalDate.now();
+		java.time.LocalDate first = today.withDayOfMonth(1);
+		int days = today.lengthOfMonth();
+		int lead = first.getDayOfWeek().getValue() - 1;   // 1일 앞의 빈 칸(월요일 시작)
+		int weeks = (lead + days + 6) / 7;
+		int labelW = 16;
+		int cell = Math.max(8, Math.min(22, (w - 20 - labelW) / Math.max(1, weeks) - 2));
+		int gapC = 2;
+		int h = CARD_HEAD + 7 * (cell + gapC) + 10;
+		card(ctx, x, y, w, h, "이번 달 접속");
+		long max = 1;
+		int played = 0;
+		for (int d = 1; d <= days; d++) {
+			long v = s.days.getOrDefault(first.withDayOfMonth(d).toString(), 0L);
+			max = Math.max(max, v);
+			if (v > 0 && d <= today.getDayOfMonth()) {
+				played++;
+			}
+		}
+		int passed = today.getDayOfMonth();
+		String rate = played + "일 / " + passed + "일 (" + Math.round(played * 100.0 / Math.max(1, passed)) + "%)";
+		String hoverText = null;
+		int gx = x + 10 + labelW;
+		int top = y + CARD_HEAD + 2;
+		float p = nextProgress();
+		for (int d = 0; d < 7; d++) {
+			LunaDraw.text(ctx, font, WEEK[d], x + 10, top + d * (cell + gapC) + Math.max(0, (cell - 8) / 2), LunaClientScreen.themeSub());
+		}
+		for (int dm = 1; dm <= days; dm++) {
+			int idx = lead + dm - 1;
+			int col = idx / 7, row = idx % 7;
+			int cx = gx + col * (cell + gapC), cy = top + row * (cell + gapC);
+			java.time.LocalDate date = first.withDayOfMonth(dm);
+			long v = s.days.getOrDefault(date.toString(), 0L);
+			boolean future = dm > today.getDayOfMonth();
+			float k = v <= 0 ? 0f : (0.25f + 0.75f * (float) (v / (double) max)) * p;
+			int c = future ? ink(0x06) : LunaDraw.lerpColor(ink(0x10), LunaClientScreen.themeAccent() | 0xFF000000, k);
+			ctx.fill(cx, cy, cx + cell, cy + cell, LunaDraw.applyAlpha(c));
+			if (dm == today.getDayOfMonth()) {
+				LunaDraw.roundRectOutline(ctx, cx - 1, cy - 1, cell + 2, cell + 2, 0, LunaDraw.applyAlpha(LunaClientScreen.themeText()));
+			}
+			if (cell >= 12) {
+				String t = String.valueOf(dm);
+				LunaDraw.text(ctx, font, t, cx + (cell - LunaDraw.width(font, t)) / 2, cy + (cell - 8) / 2,
+					k > 0.6f ? 0xFFFFFFFF : LunaClientScreen.themeDim());
+			}
+			if (LunaDraw.in(lastMouseX, lastMouseY, cx, cy, cell, cell)) {
+				hoverText = date.getMonthValue() + "월 " + dm + "일  " + (v > 0 ? LunaStats.formatDuration(v) : "접속 안 함");
+			}
+		}
+		String right = hoverText != null ? hoverText : "접속률 " + rate;
+		LunaDraw.text(ctx, font, right, x + w - 10 - LunaDraw.width(font, right), y + 9,
+			hoverText != null ? LunaClientScreen.themeText() : LunaClientScreen.themeDim());
+		return h;
 	}
 
 	private int dSocial(GuiGraphicsExtractor ctx, LunaStats.Scope s, int x, int y, int w) {
@@ -2329,6 +2408,38 @@ public class LunaStatsScreen extends LunaScreenBase {
 		return true;
 	}
 
+	/** 49-511차: 보고 있는 범위(전체면 전부, 서버/맵이면 그것만)를 지운다 - 지우기 전에 통째로 백업해 [삭제 되돌리기]로 돌아갈 수 있다. */
+	private void askDelete() {
+		boolean all = scopeIndex <= 0 || scopeIndex > worlds.size();
+		LunaStats.Scope sc = scope();
+		String what = all ? "모든 통계(전체와 서버/맵 전부)" : "'" + sc.displayLabel() + "' 기록";
+		confirm.showInfo(LunaIcons.INFO, "통계 기록 삭제", what + "을(를) 지울까요?",
+			"지우기 전에 백업해 두어 [삭제 되돌리기]로 되돌릴 수 있어요" + (all ? "" : " (전체 합계는 그대로)"),
+			"삭제", "취소", () -> {
+				String msg = LunaStats.deleteRecords(minecraft, all ? null : sc.key);
+				worlds = LunaStats.worlds();
+				scopeIndex = 0;
+				restartAnim();
+				announce(msg);
+			});
+	}
+
+	private void askRestore() {
+		String last = LunaStats.lastDeletedInfo();
+		if (last == null) {
+			notice("되돌릴 삭제 기록이 없습니다");
+			return;
+		}
+		confirm.showInfo(LunaIcons.INFO, "삭제 되돌리기", "마지막으로 지우기 전 상태로 되돌릴까요?", last + " (지금 기록은 덮어쓰기 전에 다시 백업)",
+			"되돌리기", "취소", () -> {
+				String msg = LunaStats.restoreLastDeleted(minecraft);
+				worlds = LunaStats.worlds();
+				scopeIndex = 0;
+				restartAnim();
+				announce(msg);
+			});
+	}
+
 	private void openFolder() {
 		try {
 			Path dir = exportDir();
@@ -2343,6 +2454,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 	// ==================== 입력 ====================
 
 	private boolean lunaMouseClicked0(double mouseX, double mouseY, int button) {
+		if (confirm.isOpen()) {
+			return confirm.mouseClicked(mouseX, mouseY, button);
+		}
 		if (importList != null) {
 			return importClicked(mouseX, mouseY);
 		}
@@ -2398,6 +2512,8 @@ public class LunaStatsScreen extends LunaScreenBase {
 						}
 						case "파일로 저장" -> saveFile();
 						case "불러오기" -> importFile();
+						case "기록 삭제" -> askDelete();
+						case "삭제 되돌리기" -> askRestore();
 						default -> openFolder();
 					}
 					return true;
@@ -2465,6 +2581,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 	}
 
 	private boolean lunaKeyPressed0(int keyCode, int scanCode, int modifiers) {
+		if (confirm.isOpen()) {
+			return confirm.keyPressed(keyCode);
+		}
 		if (keyCode == InputConstants.KEY_ESCAPE) {
 			if (importList != null) {
 				closeImport();

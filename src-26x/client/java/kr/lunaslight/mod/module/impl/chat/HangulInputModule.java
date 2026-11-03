@@ -28,7 +28,8 @@ public class HangulInputModule extends Module {
 	public HangulInputModule() {
 		super("hangul_input", "한글 입력", ModuleCategory.FEATURE, "모드가 직접 한글 조합");
 		settingsPage(SettingsPage.GENERAL);
-		defaultEnabled(true);
+		// 49-515차(사용자: "한글챗 기능 기본 비활성화, 지금 켠 사람들도"): 기본 끔 - 켜진 채 저장된 것도 한 번 끈다(LunaClientConfig 7).
+		defaultEnabled(false);
 		instance = this;
 		HangulInput.setEmitter(new HangulInput.Emitter() {
 			@Override

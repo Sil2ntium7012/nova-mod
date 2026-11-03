@@ -1373,7 +1373,15 @@ public final class LunaCompat {
 	public static java.util.List<Object> screenButtons(Object screen) {
 		try {
 			Class<?> screens = Class.forName("net.fabricmc.fabric.api.client.screen.v1.Screens");
-			Object list = screens.getMethod("getButtons", net.minecraft.client.gui.screens.Screen.class).invoke(null, screen);
+			// 49-507차(사용자 사진: 세션 잘못됨 화면에 [세션 새로고침 후 재접속] 버튼이 안 보임): 26.x Fabric API에서 getButtons가
+			// getWidgets로 이름이 바뀌어 늘 실패했다(로그 "호환층 실패(screenButtons)") - 새 이름 먼저, 없으면 예전 이름.
+			java.lang.reflect.Method m;
+			try {
+				m = screens.getMethod("getWidgets", net.minecraft.client.gui.screens.Screen.class);
+			} catch (NoSuchMethodException e) {
+				m = screens.getMethod("getButtons", net.minecraft.client.gui.screens.Screen.class);
+			}
+			Object list = m.invoke(null, screen);
 			return list instanceof java.util.List<?> l ? (java.util.List<Object>) l : null;
 		} catch (Throwable t) {
 			warnOnce("screenButtons", t);

@@ -129,6 +129,37 @@ public final class ImeKeyFix {
 		}
 	}
 
+	/** F3(디버그 키), Ctrl, Alt 중 하나라도 눌려 있나 - 그때 글자 키는 바닐라 조합키라 대신 넣지 않는다. */
+	private static boolean comboHeld(Minecraft mc) {
+		try {
+			if (mc.options.keyDebugModifier.isDown()) {
+				return true;
+			}
+		} catch (Throwable ignored) {
+		}
+		return physicallyDown(0x72) || physicallyDown(0x11) || physicallyDown(0x12);   // VK_F3, VK_CONTROL, VK_MENU(Alt)
+	}
+
+	private static java.lang.reflect.Method overlayGetter;
+	private static boolean overlayLooked;
+
+	/** 리소스 로딩 화면이 떠 있나(26.1~26.2 Minecraft.getOverlay). */
+	private static boolean loading(Minecraft mc) {
+		if (!overlayLooked) {
+			overlayLooked = true;
+			try {
+				overlayGetter = Minecraft.class.getMethod("getOverlay");
+			} catch (Throwable t) {
+				overlayGetter = null;
+			}
+		}
+		try {
+			return overlayGetter != null && overlayGetter.invoke(mc) != null;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	private static void releaseAll() {
 		for (KeyMapping km : FORCED) {
 			try {
@@ -184,6 +215,13 @@ public final class ImeKeyFix {
 		if (lastWasScreen) {
 			// 화면이 막 닫힌 틱: 지금 눌려 있는 키는 화면에서 누른 것(닫은 E 등) - 새 누름이 아니다
 			lastWasScreen = false;
+			System.arraycopy(now, 0, LAST_PHYS, 0, 26);
+			return;
+		}
+		// 49-509차(사용자: "F3+T 하면 리소스팩 로딩 뒤에 채팅이 열려 버린대"): F3+T는 바닐라가 디버그 키로 쓰고 T(채팅) 키를 일부러 안 누른다.
+		// 그걸 "물리로는 눌렸는데 마크 키가 안 눌림 = 입력기가 먹음"으로 보고 T를 대신 넣어서, 로딩이 끝나자마자 채팅이 열렸다.
+		// F3(디버그 키)나 Ctrl/Alt를 누르고 있을 때, 그리고 로딩 화면 중에는 대신 넣지 않는다(그 사이 누른 키는 새 누름으로 치지 않게 기억만).
+		if (comboHeld(mc) || loading(mc)) {
 			System.arraycopy(now, 0, LAST_PHYS, 0, 26);
 			return;
 		}
