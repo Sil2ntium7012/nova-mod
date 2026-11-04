@@ -33,8 +33,8 @@ public class NeogulSkillKeysModule extends Module {
 	// 49-535차(사용자: "그 키가 쿨타임일 때 작동하는 거 세부 설정 넣어 주고 기본 비활"): 켜면 던전에서 스킬 키의 원래 마크 동작(F 손 바꾸기 등)을 막지 않는다.
 	private final kr.lunaslight.mod.module.setting.BooleanSetting vanillaOnCooldown = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
 			"vanilla_on_cooldown", "쿨타임일 때 원래 키 동작", "던전에서 스킬이 쿨타임이라 안 나갈 때 그 키의 원래 마크 동작(F 손 바꾸기 등)이 되게 합니다. 끄면 던전 동안 막습니다(Shift + F는 늘 됨).", false));
-	private final kr.lunaslight.mod.module.setting.BooleanSetting showHud = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
-			"show_hud", "키캡 HUD", "던전에서 노바 키캡(F, R …)을 핫바 위에 따로 띄웁니다. 서버 스킬 카드와 겹치면 끄세요.", false));
+	private final kr.lunaslight.mod.module.setting.BooleanSetting showHud = (kr.lunaslight.mod.module.setting.BooleanSetting) register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"show_hud", "키캡 HUD", "쓰지 않음(49-550차)", false)).hidden();
 
 	public NeogulSkillKeysModule() {
 		super("neogul_skill_keys", "너굴 스킬 키", ModuleCategory.SERVER, "던전 스킬 키 세팅 | 따로 모드 없이 동작");
@@ -75,11 +75,14 @@ public class NeogulSkillKeysModule extends Module {
 
 	@Override
 	public boolean hasPreview() {
-		return showHud.get();   // 49-535차(사용자: "이 키캡 미리보기가 왜 아직도 남아 있는 거고"): 키캡 HUD를 껐으면 미리보기도 없음
+		return false;   // 49-550차(사용자 사진: 키캡 F 3 4 R이 또 서버 스킬 카드 위에): 키캡 HUD는 아예 뺐다 - 미리보기도 없음
 	}
 
 	@Override
 	public void onHudRender(GuiGraphicsExtractor ctx, DeltaTracker tickCounter) {
+		if (true) {
+			return;   // 49-550차: 키캡 HUD 안 그림(서버 스킬 카드, 노바 던전 UI가 키를 보여 줌)
+		}
 		if (client == null) {
 			return;
 		}

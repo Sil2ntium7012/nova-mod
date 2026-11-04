@@ -184,8 +184,11 @@ public final class ModUpdateBanner {
 		int w = tw + 24, h = 14;
 		int x = (sw - w) / 2, y = 2;
 		float pulse = 0.75f + 0.25f * (float) Math.sin(System.currentTimeMillis() / 400.0);
-		LunaDraw.roundRect(ctx, x, y, w, h, 4, 0xE0141821);
-		LunaDraw.roundRectOutline(ctx, x, y, w, h, 4, LunaDraw.withAlpha(0xFFFFC857, Math.round(255 * pulse)));
+		// 49-548차(사용자 사진: "테두리랑 내부가 안 맞음"): 채움은 부드러운 모서리 그림, 테두리는 픽셀 원이라 모서리가 어긋났다 -
+		// 테두리도 같은 방식으로: 금색 둥근 판을 깔고 그 안에 1칸 들인 판(반지름 -1)을 덮는다.
+		LunaDraw.roundRect(ctx, x, y, w, h, 4, 0xFF141821);
+		LunaDraw.roundRect(ctx, x, y, w, h, 4, LunaDraw.withAlpha(0xFFFFC857, Math.round(255 * pulse)));
+		LunaDraw.roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 3, 0xFF141821);
 		LunaDraw.roundRect(ctx, x + 5, y + 5, 4, 4, 2, 0xFFFFC857);
 		LunaDraw.text(ctx, mc.font, msg, x + 14, y + 3, 0xFFFFE6A8);
 	}

@@ -336,6 +336,10 @@ public final class NeogulDungeonHud {
 				boolean dungeon = "dungeon".equals(location);
 				if (dungeon && !wasDungeon) {
 					active = wanted;   // 들어오는 순간에만 켠다
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 던전 UI: 던전 들어옴 - {}", active ? "켬" : "꺼져 있어 서버 화면 그대로");
+				}
+				if (!dungeon && wasDungeon) {
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 던전 UI: 던전 나감({})", location);
 				}
 				if (!dungeon) {
 					active = false;

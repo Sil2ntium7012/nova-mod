@@ -275,13 +275,18 @@ public class NeogulStorageModule extends Module {
 		}
 		if (cmdKey != null) {
 			if (screen != cmdScreen) {
-				// 새 창이 떴다: 목록이면(명령어 권한 없음 등) 그 버튼을 대신 누르고, 창고면 끝
+				// 새 창이 떴다: 목록이면(명령어 권한 없음 등) 그 버튼을 대신 누르고, 창고면 끝.
+				// 49-549차(사용자 사진: "다른 창고 누르면 이 화면 됨" - 목록에서 멈춤): 창이 뜬 첫 틱에는 칸이 아직 비어 있어 목록인지 모른다 -
+				// 그때 "창고구나" 하고 끝내 버려서 목록에서 멈췄다. 목록으로 보이거나 4틱이 지날 때까지 기다린다.
 				if (menuScreen) {
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 창고: 명령어가 목록을 열어 {} 버튼으로", cmdKey);
 					chainKey = cmdKey;
 					chainAt = System.currentTimeMillis();
 					cmdFailed.add(cmdKey);
+					cmdKey = null;
+				} else if (screenTicks >= 4) {
+					cmdKey = null;
 				}
-				cmdKey = null;
 			} else if (System.currentTimeMillis() - cmdAt > 1500) {
 				// 1.5초 안에 아무 창도 안 떴다(없는 명령어, 권한 없음) - 목록을 열어 버튼으로
 				chainKey = cmdKey;
@@ -303,6 +308,7 @@ public class NeogulStorageModule extends Module {
 			// 49-537차(사용자: "다른 창고 누르면 사운드 바바박 나면서 안 가지고 메인 창고 화면으로"): 1틱은 너무 일러 서버가 무시했다 - 3틱 뒤에 누른다(그동안 가림 판)
 			if (chainKey != null && screenTicks >= 3 && client.gameMode != null) {
 				Integer slot = buttons.get(chainKey);
+				kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 창고: 목록에서 {} 누름(칸 {}, 버튼 {})", chainKey, slot, buttons.keySet());
 				if (slot != null) {
 					pending = chainKey;
 					pendingAt = System.currentTimeMillis();
@@ -318,6 +324,7 @@ public class NeogulStorageModule extends Module {
 				Integer slot = buttons.get(retryKey);
 				if (slot != null && retries < 2 && client.gameMode != null) {
 					retries++;
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 창고: {} 다시 누름({})", retryKey, retries);
 					retryTick = screenTicks;
 					pending = retryKey;
 					pendingAt = System.currentTimeMillis();
@@ -339,7 +346,7 @@ public class NeogulStorageModule extends Module {
 			pending = null;
 		}
 		// 보고 있는 창고: 칸을 그대로 적어 둔다(상자 몫이 9의 배수일 때)
-		if (current != null && !menuScreen && n >= 9 && n <= 54 && n % 9 == 0) {
+		if (current != null && !menuScreen && screenTicks >= 3 && cmdKey == null && n >= 9 && n <= 54 && n % 9 == 0) {   // 49-549차: 칸이 다 들어온 뒤에만(목록을 빈 창고로 적지 않게)
 			Box b = boxes.computeIfAbsent(current, x -> new Box());
 			List<ItemStack> now = new ArrayList<>(n);
 			for (int i = 0; i < n; i++) {
@@ -957,6 +964,7 @@ public class NeogulStorageModule extends Module {
 			cmdKey = key;
 			cmdAt = System.currentTimeMillis();
 			cmdScreen = LunaCompat.screenOf(client);
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 창고: {} 명령어 {}", key, cmd);
 			LunaCompat.sendChatOrCommand(client, cmd);
 			return;
 		}

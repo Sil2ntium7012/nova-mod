@@ -26,14 +26,31 @@ public class NeogulDungeonUiModule extends Module {
 	private int[] btn;          // 오른쪽 아래 켜기/끄기 [x, y, w, h]
 	private int[] yesBtn, noBtn; // 처음 묻는 창 버튼
 	private boolean asking;
+	private boolean migrated;
 
 	public NeogulDungeonUiModule() {
 		super("neogul_dungeon_ui", "너굴 던전 UI", ModuleCategory.SERVER, "던전 핫바 | 하트 | 스킬 카드 | 경험치 바");
 		serverGroup("너굴마을");
-		defaultEnabled(false);
+		// 49-550차(사용자: "왜 아직도 이러냐고" - 기본 꺼짐 + 던전에서 인벤토리를 열어야만 묻는 창이 떠서 한 번도 안 켜졌다):
+		// 기본 켬. 아직 안 물어본 사람은 켜 두고, 너굴마을에서 인벤토리를 처음 열 때 "이대로 / 원래대로"를 묻는다.
+		// 켜지는 건 여전히 던전에 들어가는 순간에만(싸우는 중에 안 바뀜).
+		defaultEnabled(true);
 		asked.hidden();
 		NeogulDungeonHud.enabled = this::isEnabled;
 		NeogulDungeonHud.init();
+		try {
+			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+				if (!migrated && mc != null && mc.player != null) {
+					migrated = true;
+					if (!asked.get() && !isEnabledStored()) {
+						setEnabled(true);   // 예전 판(기본 끔)에서 묻는 창을 못 본 사람
+						kr.lunaslight.mod.config.LunaClientConfig.save();
+					}
+				}
+			});
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("dungeonUi:tick", t);
+		}
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
 		try {
 			net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
@@ -62,7 +79,10 @@ public class NeogulDungeonUiModule extends Module {
 
 	private boolean showHere(Object screen) {
 		Minecraft mc = Minecraft.getInstance();
-		return screen instanceof InventoryScreen && mc != null && mc.player != null && NeogulData.onNeogul(mc) && NeogulDungeonHud.inDungeon();
+		if (!(screen instanceof InventoryScreen) || mc == null || mc.player == null || !NeogulData.onNeogul(mc)) {
+			return false;
+		}
+		return !asked.get() || NeogulDungeonHud.inDungeon();   // 처음 묻는 창은 너굴마을 어디서나, 켜기/끄기 버튼은 던전에서
 	}
 
 	private void onScreenFrame(Object screen, GuiGraphicsExtractor ctx, int mx, int my) {
@@ -100,12 +120,12 @@ public class NeogulDungeonUiModule extends Module {
 	private void drawAsk(GuiGraphicsExtractor ctx, Minecraft mc, int sw, int sh, int mx, int my) {
 		asking = true;
 		ctx.fill(0, 0, sw, sh, 0xA0000000);
-		int w = Math.min(sw - 20, 300), h = 168;
+		int w = Math.min(sw - 20, 300), h = 180;
 		int x = (sw - w) / 2, y = Math.max(6, (sh - h) / 2);
 		LunaDraw.roundRect(ctx, x, y, w, h, 6, 0xF2141821);
 		LunaDraw.roundRectOutline(ctx, x, y, w, h, 6, 0xFFE8B84A);
-		LunaDraw.textCentered(ctx, mc.font, "던전 UI를 새 모양으로 바꿀까요?", x + w / 2, y + 8, 0xFFFFE6A8);
-		LunaDraw.textCentered(ctx, mc.font, "핫바, 하트, 스킬 카드, 경험치 바가 이렇게 바뀌어요", x + w / 2, y + 20, 0xFFB8BEC8);
+		LunaDraw.textCentered(ctx, mc.font, "던전 UI가 새 모양으로 바뀌었어요", x + w / 2, y + 8, 0xFFFFE6A8);
+		LunaDraw.textCentered(ctx, mc.font, "던전에서 핫바, 하트, 스킬 카드, 경험치 바가 이렇게 나와요", x + w / 2, y + 20, 0xFFB8BEC8);
 		// 미리보기: 실제 그리기를 작게
 		int px = x + 8, py = y + 34, pw = w - 16, ph = 92;
 		ctx.fillGradient(px, py, px + pw, py + ph, 0xFF3A4A5E, 0xFF1C2430);
@@ -126,12 +146,13 @@ public class NeogulDungeonUiModule extends Module {
 			LunaCompat.guiPop(ctx);
 			ctx.disableScissor();
 		}
-		LunaDraw.textCentered(ctx, mc.font, "켜면 다음에 던전에 들어갈 때부터 바뀌어요", x + w / 2, py + ph + 4, 0xFF8A90A0);
+		LunaDraw.textCentered(ctx, mc.font, "던전에 들어가는 순간 바뀌어요 (싸우는 중에는 안 바뀜)", x + w / 2, py + ph + 4, 0xFF8A90A0);
+		LunaDraw.textCentered(ctx, mc.font, "던전에서 인벤토리 오른쪽 아래 버튼으로 끄고 켜요", x + w / 2, py + ph + 15, 0xFF8A90A0);
 		int bw = 80, bh = 16, by = y + h - bh - 6;
 		yesBtn = new int[]{x + w / 2 - bw - 4, by, bw, bh};
 		noBtn = new int[]{x + w / 2 + 4, by, bw, bh};
-		button(ctx, mc, yesBtn, "켜기", true, mx, my);
-		button(ctx, mc, noBtn, "그대로 두기", false, mx, my);
+		button(ctx, mc, yesBtn, "이대로 쓰기", true, mx, my);
+		button(ctx, mc, noBtn, "원래대로", false, mx, my);
 	}
 
 	private static void button(GuiGraphicsExtractor ctx, Minecraft mc, int[] b, String label, boolean primary, int mx, int my) {
