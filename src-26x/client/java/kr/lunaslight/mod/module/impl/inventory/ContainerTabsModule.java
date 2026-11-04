@@ -150,7 +150,7 @@ public class ContainerTabsModule extends Module {
 	public ContainerTabsModule() {
 		super("container_tabs", "인벤토리 탭", ModuleCategory.INVENTORY, "상자 양옆 돌림판으로 근처 상자를 바로 열기");
 		// 49-502차(사용자: "기본 비활성화로 해 달라고 한 거지? 켠 사람들도 비활성화시켜 전부"): 기본 끔 + 설정 불러올 때 한 번 끔(LunaClientConfig 6)
-		defaultEnabled(false);
+		defaultEnabled(true);   // 49-530차(사용자: "창고 미리보기 모두 이번 업뎃 때 켜 주고 인벤토리 탭이랑 같이")
 		inInventory.hidden();
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
 		// 49-494차: 휠로 돌림판 넘기기
@@ -668,7 +668,9 @@ public class ContainerTabsModule extends Module {
 			} catch (Throwable ignored) {
 			}
 			if (cur) {
-				LunaDraw.roundRectOutline(ctx, sx - 1, sy - 1, BTN + 2, BTN + 2, 2, LunaDraw.applyAlpha(0xFF000000 | (LunaDraw.ACCENT & 0xFFFFFF)));
+				// 49-531차(사용자: "골라진 부분 초록 선이 안 예뻐 다른 식으로"): 테두리 대신 GUI 쪽 가장자리에 작은 흰 막대(책갈피처럼)
+				int bx = L.onRight() ? sx - 3 : sx + BTN + 1;
+				LunaDraw.roundRect(ctx, bx, sy + 4, 2, BTN - 8, 1, LunaDraw.applyAlpha(0xE6FFFFFF));
 			}
 		}
 		return hover;
@@ -1412,7 +1414,8 @@ public class ContainerTabsModule extends Module {
 		ItemFinderModule.noteOpen(t.pos());   // 아이템 찾기 색인이 이 상자 위치로 기록하게
 		savedCursor = cursorPos();
 		savedCursorAt = System.currentTimeMillis();
-		LunaCompat.setScreen(null);
+		// 49-531차(사용자: "화면이 깜빡이는데 최대한 없애 줘"): 예전엔 먼저 화면을 닫아(게임 화면이 한 번 보이고 마우스가 잡혔다 풀림) 깜빡였다.
+		// 이제 지금 창을 연 채로 블록을 누른다 - 서버가 새 상자 창을 열며 이전 창을 닫으므로 화면이 바로 바뀐다.
 		if (!LunaCompat.interactBlock(client, t.pos())) {
 			pendingOpen = null;
 			LunaCompat.sendActionBar(client, "§7이 버전에서는 바로 열 수 없습니다");

@@ -176,6 +176,7 @@ public final class ModuleManager {
 		// 49-431차: 너굴마을 위키 업데이트 - 명령어 목록(검색), 치장(미리 입어보기), 스킬 키 세팅(NG-SkillKeydown 없이)
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCommandsModule");
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCalendarModule");   // 49-529차: 너굴 달력(목록에 따로)
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCosmeticsModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터

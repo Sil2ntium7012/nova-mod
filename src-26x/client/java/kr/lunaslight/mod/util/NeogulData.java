@@ -82,6 +82,7 @@ public final class NeogulData {
 		STATIONS.clear();
 		CATEGORIES.clear();
 		ITEMS.clear();
+		USES.clear();
 		RECIPES.clear();
 		try (InputStream in = NeogulData.class.getResourceAsStream(BUNDLED)) {
 			if (in != null) {
@@ -194,6 +195,10 @@ public final class NeogulData {
 				}
 				ITEMS.put(key, new Entry(key, str(o, "name", key), str(o, "cat", ""), strings(o.get("icon")), sources(o.get("from")),
 						str(o, "model", null), o.has("hidden") && o.get("hidden").getAsBoolean()));
+				// 49-533차: 위키 기준 사용처(설명 상자의 "사용처" 줄을 이걸로 고쳐 쓴다 - NeogulLoreFix)
+				if (o.has("uses")) {
+					USES.put(key, strings(o.get("uses")));
+				}
 			}
 		}
 		if (root.has("recipes")) {
@@ -248,6 +253,14 @@ public final class NeogulData {
 			}
 		}
 		return out;
+	}
+
+	private static final Map<String, List<String>> USES = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** 49-533차: 위키 기준 사용처 줄(없으면 null). */
+	public static List<String> uses(String key) {
+		ensure();
+		return key == null ? null : USES.get(key);
 	}
 
 	public static Entry get(String key) {

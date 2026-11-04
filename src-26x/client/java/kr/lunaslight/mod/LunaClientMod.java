@@ -182,6 +182,8 @@ public class LunaClientMod implements ClientModInitializer {
 		// 49-431차: 너굴마을 스킬 키 세팅 채널(ng:skillkey, ng:skillkey2, ng:skillcast) - 너굴마을 버전(26.1.2)에서만
 		if (kr.lunaslight.mod.util.LunaVersion.isWithin("26.1.2", "26.1.2")) {
 			kr.lunaslight.mod.util.NeogulSkillKeys.init();
+			kr.lunaslight.mod.util.NeogulLoreFix.init();
+			kr.lunaslight.mod.util.NeogulScare.init();   // 49-534차: 관리자 요청 장난(angryjin, 허수아비 첫 등장 1회)   // 49-533차: 너굴 아이템 설명의 사용처를 위키 기준으로
 			// 49-454차: 너굴마을 보이스챗/스킬 키 모드 자동 설치(너굴마을 프로필이면 지금, 아니면 서버에 들어갈 때)
 			kr.lunaslight.mod.util.NeogulModInstaller.startup();
 		}

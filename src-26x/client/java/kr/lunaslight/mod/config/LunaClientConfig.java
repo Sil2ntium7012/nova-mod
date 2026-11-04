@@ -56,7 +56,7 @@ public final class LunaClientConfig {
 	private static final String KEY_KEY = "_key_version";
 	/** 49-157차: 한 번만 하는 기본값 바꾸기(아이템 찾기 기본 꺼짐)를 했는지. */
 	private static final String DEFAULTS_KEY = "_defaults_version";
-	private static final int DEFAULTS_VERSION = 8;
+	private static final int DEFAULTS_VERSION = 9;
 
 	private static Path configFile() {
 		return FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("modules.json");
@@ -217,6 +217,11 @@ public final class LunaClientConfig {
 				ModuleManager.get().find("hangul_input").ifPresent(m -> m.setEnabledSilently(false));
 			}
 			// 49-522차(사용자: "인벤토리 탭 예전처럼, 하나의 멋진 버튼으로"): 모양을 칸(버튼)으로 한 번 되돌린다.
+			// 49-530차(사용자: "창고 미리보기는 모두 이번 업뎃 때 켜 주고 인벤토리 탭이랑 같이"): 둘 다 한 번 켠다.
+			if (savedDefaults < 9) {
+				ModuleManager.get().find("neogul_storage").ifPresent(m -> m.setEnabledSilently(true));
+				ModuleManager.get().find("container_tabs").ifPresent(m -> m.setEnabledSilently(true));
+			}
 			if (savedDefaults < 8) {
 				ModuleManager.get().find("container_tabs").ifPresent(m -> {
 					for (Setting<?> setting : m.getSettings()) {

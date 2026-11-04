@@ -118,6 +118,8 @@ public class NeogulStorageModule extends Module {
 	private String cmdKey;
 	private long cmdAt;
 	private Object cmdScreen;
+	/** 49-530차: 명령어로 안 열린 창고(권한 없음 등) - 다음부터는 바로 목록을 거쳐 연다(1.5초 기다리지 않게). */
+	private final java.util.Set<String> cmdFailed = new java.util.HashSet<>();
 	/** 목록에서 본 창고 버튼 그림(창고 안에서도 쓰려고 지우지 않는다). */
 	private final Map<String, ItemStack> savedIcons = new java.util.HashMap<>();
 	private int screenTicks;
@@ -262,12 +264,14 @@ public class NeogulStorageModule extends Module {
 				if (menuScreen) {
 					chainKey = cmdKey;
 					chainAt = System.currentTimeMillis();
+					cmdFailed.add(cmdKey);
 				}
 				cmdKey = null;
 			} else if (System.currentTimeMillis() - cmdAt > 1500) {
 				// 1.5초 안에 아무 창도 안 떴다(없는 명령어, 권한 없음) - 목록을 열어 버튼으로
 				chainKey = cmdKey;
 				chainAt = System.currentTimeMillis();
+				cmdFailed.add(cmdKey);
 				cmdKey = null;
 				LunaCompat.sendChatOrCommand(client, "/창고");
 			}
@@ -281,7 +285,7 @@ public class NeogulStorageModule extends Module {
 				boxes.computeIfAbsent(k, x -> new Box());
 			}
 			// 목록이 뜨고 칸이 다 들어온 뒤(2틱) 기다리던 창고 버튼을 누른다
-			if (chainKey != null && screenTicks >= 2 && client.gameMode != null) {
+			if (chainKey != null && screenTicks >= 1 && client.gameMode != null) {
 				Integer slot = buttons.get(chainKey);
 				if (slot != null) {
 					pending = chainKey;
@@ -509,7 +513,8 @@ public class NeogulStorageModule extends Module {
 		if (boxes.isEmpty()) {
 			return out;
 		}
-		return menuScreen ? layoutPicker(hs, out) : layoutSide(hs, out);
+		// 49-530차(사용자 사진: 창고 안 왼쪽 이름 탭 - "창고 미리보기 처음부터 이런 느낌으로"): 창고 목록 화면도 같은 이름 탭(가운데 큰 판 격자 X).
+		return layoutSide(hs, out);
 	}
 
 	/** 목록 화면: 인벤 위쪽 서버 창을 가리고 가운데에 번호 창고, 인벤 양쪽에 나머지를 2개씩. */
@@ -772,10 +777,17 @@ public class NeogulStorageModule extends Module {
 			cur ? 0xFFFFFFFF : 0xFFD0D4DC);
 	}
 
+	/** 49-531차: 마지막으로 탭을 그린 때 - 창고를 바꾸는 동안(새 창이 떴는데 아직 틱 전) 탭이 한 번 사라졌다 나타나는 깜빡임을 막는다. */
+	private long lastShowMs;
+
 	private void onScreenFrame(Object screen, GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
-		if (!active() || !(screen instanceof AbstractContainerScreen<?> hs) || screen instanceof InventoryScreen || !shows()) {
+		boolean sticky = System.currentTimeMillis() - lastShowMs < 700 || (pending != null && System.currentTimeMillis() - pendingAt < 4000);
+		if (!active() || !(screen instanceof AbstractContainerScreen<?> hs) || screen instanceof InventoryScreen || !(shows() || sticky)) {
 			blocked = List.of();
 			return;
+		}
+		if (shows()) {
+			lastShowMs = System.currentTimeMillis();   // 진짜 창고/목록일 때만 갱신(이어 붙기만으로는 늘리지 않음)
 		}
 		List<Panel> panels = layout(hs);
 		List<int[]> bl = new ArrayList<>();
@@ -784,6 +796,18 @@ public class NeogulStorageModule extends Module {
 		}
 		for (Panel p : panels) {
 			bl.add(new int[]{p.x(), p.y(), p.x() + p.w(), p.y() + p.h()});
+		}
+		// 49-530차(사용자: "누르면 바로 그 상자로 안 가지고 중간 화면으로 가잖아"): 목록을 거쳐 열 때(권한이 없어 명령어로 못 여는 창고)
+		// 잠깐 뜨는 서버 목록 창을 가린다 - 그 사이 버튼을 대신 눌러 바로 그 창고가 열린다.
+		if (menuScreen && chainKey != null) {
+			int[] gb = guiBox(hs);
+			try {
+				ctx.nextStratum();
+			} catch (Throwable ignored) {
+			}
+			ctx.fill(gb[0] - 2, gb[1] - 2, gb[0] + gb[2] + 2, gb[1] + gb[3] + 2, 0xF0101216);
+			LunaDraw.textCentered(ctx, client.font, nameOf(chainKey) + " 여는 중…", gb[0] + gb[2] / 2, gb[1] + gb[3] / 2 - 4, 0xFFE8EAF0);
+			bl.add(new int[]{gb[0] - 2, gb[1] - 2, gb[0] + gb[2] + 2, gb[1] + gb[3] + 2});
 		}
 		blocked = bl;
 		if (panels.isEmpty()) {
@@ -890,7 +914,7 @@ public class NeogulStorageModule extends Module {
 		String cmd = commandOf(key);
 		pending = key;
 		pendingAt = System.currentTimeMillis();
-		if (cmd != null) {
+		if (cmd != null && !cmdFailed.contains(key)) {
 			cmdKey = key;
 			cmdAt = System.currentTimeMillis();
 			cmdScreen = LunaCompat.screenOf(client);

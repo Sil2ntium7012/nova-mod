@@ -29,6 +29,9 @@ public class NeogulSkillKeysModule extends Module {
 	// 서버 /스킬키세팅은 고를 수 있는 키가 정해져 있다(F1~F10, 숫자, 글자 몇 개) - 여기서는 아무 키, Ctrl/Shift/Alt 조합, 마우스 옆 버튼까지.
 	private final kr.lunaslight.mod.module.setting.KeybindSetting[] skillKey = new kr.lunaslight.mod.module.setting.KeybindSetting[4];
 	private final boolean[] wasDown = new boolean[4];
+	// 49-529차(사용자 사진: 노바 키캡 F 3 4 R이 서버 스킬 카드 위에 겹침): 키캡 HUD는 기본 끔 - 서버가 스킬 카드에 키를 이미 보여 준다.
+	private final kr.lunaslight.mod.module.setting.BooleanSetting showHud = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"show_hud", "키캡 HUD", "던전에서 노바 키캡(F, R …)을 핫바 위에 따로 띄웁니다. 서버 스킬 카드와 겹치면 끄세요.", false));
 
 	public NeogulSkillKeysModule() {
 		super("neogul_skill_keys", "너굴 스킬 키", ModuleCategory.SERVER, "던전 스킬 키 세팅 | 따로 모드 없이 동작");
@@ -77,6 +80,9 @@ public class NeogulSkillKeysModule extends Module {
 			return;
 		}
 		boolean preview = isPreview();
+		if (!preview && !showHud.get()) {
+			return;
+		}
 		if (!preview && !NeogulSkillKeys.skillMode()) {
 			return;
 		}

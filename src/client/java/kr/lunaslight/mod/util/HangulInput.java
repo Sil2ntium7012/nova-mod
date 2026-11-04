@@ -52,8 +52,26 @@ public final class HangulInput {
 		return korean;
 	}
 
+	/** 49-528차: 한글 입력 기능이 꺼져 있어도 노바 화면(설정 검색 등)과 노바 글자 받기에서는 켠다. 마크 입력칸(채팅 등)은 기능을 켰을 때만. */
 	private static boolean on() {
-		return HangulInputModule.on();
+		if (HangulInputModule.on()) {
+			return true;
+		}
+		try {
+			if (TextCapture.active()) {
+				return true;
+			}
+			MinecraftClient mc = MinecraftClient.getInstance();
+			Object s = mc == null ? null : mc.currentScreen;
+			for (Class<?> k = s == null ? null : s.getClass(); k != null && k != Object.class; k = k.getSuperclass()) {
+				if (k.getName().equals("kr.lunaslight.mod.gui.LunaScreenBase")) {
+					return true;
+				}
+			}
+			return false;
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** 매 틱: 윈도우 입력기 떼기, 화면이 바뀌었으면 조합 끝. */

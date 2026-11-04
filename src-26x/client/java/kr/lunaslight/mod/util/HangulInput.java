@@ -67,8 +67,24 @@ public final class HangulInput {
 		return korean;
 	}
 
+	/**
+	 * 49-528차(사용자: "기능에서 한글이 안 되잖아"): 한글 입력 기능을 기본으로 끈 뒤(49-515차, 채팅용) 노바 화면(설정 검색 등)의 입력칸까지
+	 * 한글이 안 됐다 - 노바 화면 입력칸은 이 조합기로만 한글을 받는다. 이제 기능이 꺼져 있어도 노바 화면과 노바 글자 받기(창고 이름 등)에서는 켠다.
+	 * 채팅, 표지판 같은 마크 입력칸은 기능을 켰을 때만.
+	 */
 	private static boolean on() {
-		return HangulInputModule.on();
+		if (HangulInputModule.on()) {
+			return true;
+		}
+		try {
+			if (TextCapture.active()) {
+				return true;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			return mc != null && LunaCompat.screenOf(mc) instanceof kr.lunaslight.mod.gui.LunaScreenBase;
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** 매 틱: 윈도우 입력기 떼기, 화면이 바뀌었으면 조합 끝. */
