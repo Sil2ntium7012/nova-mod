@@ -361,8 +361,115 @@ public final class NeogulDungeonHud {
 		}
 	}
 
+	// ==================== 49-553차: 토벌 레벨(/레벨 창) ====================
+	// 사용자: "본인 레벨이 적용이 제대로 안 되고 있고, /레벨 하면 본인 레벨 던전 보이는데 토벌 꺼 그거야". 서버 HUD의 Lv는 토벌 레벨이 아니다 -
+	// /레벨 창(제목에 "레벨")이 열려 있는 동안 0.5초마다 칸을 보고, 이름에 "토벌"이 든 아이템의 이름+설명에서 레벨 숫자를 읽어 기억한다
+	// (config/lunaslight/neogul-dungeon.json). 처음 열 때 창 아이템 글을 latest.log에 한 번 적는다(모양이 바뀌면 고치려고).
+
+	public static volatile int tobeolLv = -1;
+	private static boolean lvLoaded;
+	private static Object lvScreen;
+	private static int lvTick;
+	private static final Pattern LV_NUM = Pattern.compile("(?i)(?:lv\\.?|레벨)\\s*[:.]?\\s*(\\d{1,3})|(\\d{1,3})\\s*레벨");
+
+	private static java.nio.file.Path lvFile() {
+		return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("neogul-dungeon.json");
+	}
+
+	private static void loadLv() {
+		if (lvLoaded) {
+			return;
+		}
+		lvLoaded = true;
+		try {
+			java.nio.file.Path p = lvFile();
+			if (java.nio.file.Files.exists(p)) {
+				JsonObject o = JsonParser.parseString(java.nio.file.Files.readString(p, StandardCharsets.UTF_8)).getAsJsonObject();
+				if (o.has("tobeol")) {
+					tobeolLv = o.get("tobeol").getAsInt();
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("dungeonHud:lvload", t);
+		}
+	}
+
+	private static void saveLv() {
+		try {
+			JsonObject o = new JsonObject();
+			o.addProperty("tobeol", tobeolLv);
+			java.nio.file.Path p = lvFile();
+			java.nio.file.Files.createDirectories(p.getParent());
+			java.nio.file.Files.writeString(p, o.toString(), StandardCharsets.UTF_8);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("dungeonHud:lvsave", t);
+		}
+	}
+
+	private static String plainText(Component c) {
+		return c == null ? "" : c.getString().replaceAll("§.", "").replaceAll("[\\uE000-\\uF8FF]", " ").replaceAll("\\s+", " ").trim();
+	}
+
+	private static void scanLevelMenu(Minecraft mc) {
+		Object screen = LunaCompat.screenOf(mc);
+		if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> cs)
+				|| screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen
+				|| !plainText(cs.getTitle()).contains("레벨") || !NeogulData.onNeogul(mc)) {
+			lvScreen = null;
+			return;
+		}
+		boolean first = screen != lvScreen;
+		if (first) {
+			lvScreen = screen;
+			lvTick = 0;
+		}
+		if (++lvTick % 10 != 3) {
+			return;   // 칸이 들어온 뒤 0.5초마다
+		}
+		var slots = cs.getMenu().slots;
+		int n = Math.max(0, slots.size() - 36);
+		StringBuilder dump = lvTick == 3 ? new StringBuilder() : null;
+		for (int i = 0; i < n; i++) {
+			ItemStack st = slots.get(i).getItem();
+			if (st.isEmpty()) {
+				continue;
+			}
+			StringBuilder all = new StringBuilder(plainText(st.getHoverName()));
+			var lore = st.get(net.minecraft.core.component.DataComponents.LORE);
+			if (lore != null) {
+				for (Component l : lore.lines()) {
+					all.append(" | ").append(plainText(l));
+				}
+			}
+			String text = all.toString();
+			if (dump != null && dump.length() < 3000) {
+				dump.append("\n  [").append(i).append("] ").append(text);
+			}
+			if (plainText(st.getHoverName()).contains("토벌")) {
+				Matcher m = LV_NUM.matcher(text);
+				if (m.find()) {
+					int v = Integer.parseInt(m.group(1) != null ? m.group(1) : m.group(2));
+					if (v >= 1 && v <= NeogulLevels.MAX_LV && v != tobeolLv) {
+						tobeolLv = v;
+						saveLv();
+						kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 던전 UI: 토벌 레벨 {} (/레벨 창)", v);
+					}
+				}
+			}
+		}
+		if (dump != null) {
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 던전 UI: /레벨 창 내용{}", dump);
+		}
+	}
+
 	/** 매 틱: 기능을 껐거나 HUD 줄이 사라졌으면 원래대로. */
 	public static void tick() {
+		loadLv();
+		try {
+			scanLevelMenu(Minecraft.getInstance());
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("dungeonHud:lvscan", t);
+		}
 		// 서버가 HUD 줄을 한동안 안 바꿔도(가만히 있을 때) 보스바가 화면에 남아 있으면 계속 본 것으로
 		try {
 			Map<?, ?> ev = lastEvents;
@@ -597,7 +704,7 @@ public final class NeogulDungeonHud {
 	/** 다른 노바 HUD를 밀어낼 자리(화면 아래 가운데). [x0, y0, x1, y1]. */
 	public static int[] reserved(int sw, int sh) {
 		int cx = sw / 2;
-		return new int[]{cx - 163, sh - 62, cx + 163, sh};
+		return new int[]{cx - 163 - 70, sh - 62, cx + 163 + 120, sh};   // 49-554차: 곡선 밖 양옆 레벨/경험치 글자 자리까지
 	}
 
 	/** 손에 든 아이템 이름, 액션바를 스킬 카드 위로 올림(HudElementHide 믹스인). 올렸으면 true. */
@@ -655,15 +762,20 @@ public final class NeogulDungeonHud {
 		int B = sh - BAR;
 		long now = System.currentTimeMillis();
 
+		// 0) 49-555차(사용자: "체력 왼쪽이랑 오른쪽 끝부분이 딸리잖아"): 곡선 그림은 4번 칸과 하트 받침 사이(cx-19 ~ cx-15),
+		// 받침 위쪽(칸 높이)이 투명이라 하트 양옆으로 바깥 화면이 비쳤다 - 두 칸 묶음 사이를 곡선과 같은 남색으로 먼저 채운다.
+		// 49-556차(사용자: "여전히 체력바 옆이랑 이어지지가 않아, 자연스럽지가 않아, 숫자도 위치가 이상해"): 사용자가 준 LF 화면에 조각마다
+		// 그림을 대 보고(픽셀 맞춤) 자리를 그대로 옮겼다. 곡선 6조각은 이어 붙여 cx-164부터(전엔 cx-161이라 칸, 하트보다 3칸 오른쪽으로 틀어져
+		// 4번 칸 옆 투명 줄이 하트 옆으로 나와 끊겨 보였다), 칸 묶음 cx-100, 하트 (cx-19, 바닥-39), 하트 숫자 윗줄은 하트 위 + 15.
 		// 1) 금빛 곡선(6조각, 4배 그림)
-		int x = cx - 161;
+		int x = cx - 164;
 		for (int i = 0; i < 6; i++) {
 			int w = i == 5 ? 22 : 60;
 			ctx.blit(P, BACK[i], x, B - 32, 0f, 0f, w, 32, w * 4, 128, w * 4, 128);
 			x += w;
 		}
 		// 2) 칸(2배 그림) + 아이템
-		ctx.blit(P, HOTBAR, cx - 101, B - 22, 0f, 0f, 224, 22, 448, 44, 448, 44);
+		ctx.blit(P, HOTBAR, cx - 100, B - 22, 0f, 0f, 224, 22, 448, 44, 448, 44);
 		var inv = pl.getInventory();
 		int sel = inv.getSelectedSlot();
 		for (int i = 0; i < 9; i++) {
@@ -675,9 +787,11 @@ public final class NeogulDungeonHud {
 			}
 		}
 		ItemStack off = pl.getOffhandItem();
+		// 49-553차(사용자: "왼손 배경은 왜 투명이고"): 곡선 그림의 왼손 칸은 테두리만 있어 속이 비친다 - 다른 칸과 같은 바탕을 깐다
+		ctx.fill(cx - 127, B - 19, cx - 111, B - 3, 0xEB040406);
 		if (!off.isEmpty()) {
-			ctx.item(pl, off, cx - 124, B - 19, 10);
-			ctx.itemDecorations(mc.font, off, cx - 124, B - 19);
+			ctx.item(pl, off, cx - 127, B - 19, 10);
+			ctx.itemDecorations(mc.font, off, cx - 127, B - 19);
 		}
 		int sx = slotX(cx, Math.max(0, Math.min(8, sel)));
 		ctx.blit(P, SEL, sx - 4, B - 23, 0f, 0f, 24, 23, 96, 92, 96, 92);
@@ -689,74 +803,115 @@ public final class NeogulDungeonHud {
 			hpN = 1;
 		}
 		hpN = Math.max(0, Math.min(20, hpN));
-		int hx = cx - 20, hy = B - 40;
+		// 49-554차(사용자: "그림 자체가 옆으로 틀어졌잖아"): 곡선 그림의 하트 받침(금빛 V)과 칸 사이 빈자리 가운데가 cx+2 쯤이라
+		// 하트를 cx에 두면 왼쪽으로 쏠려 보였다 - 하트, 하트 숫자, 배고픔, 스킬 카드를 모두 받침 가운데(hc = cx + 2)에 맞춘다.
+		int hc = cx + 1;   // 49-556차: LF 실측(하트 cx-19 ~ cx+21)
+		int hx = hc - 20, hy = B - 39;
 		ctx.blit(P, HEART[hpN], hx, hy, 0f, 0f, 40, 38, 160, 152, 160, 152);
 		// 49-546차(사용자: "갑옷 삭제해 줘"): 하트 테두리 갑옷 표시는 뺐다.
 		String ht = hpNow >= 0 ? hpNow + "/" + Math.max(hpTop, hpNow) : Math.round(pl.getHealth()) + "/" + Math.round(pl.getMaxHealth());
 		// 체력 글자(49-545차 사용자: "폰트가 사진이랑 다르잖아"): LF 사진과 같은 글꼴 - LF 팩 hpn과 같게 배민 주아체(노바에 이미 있는 jua.ttf) 7.5 크기를
 		// lunaslight:hpn(font/hpn.json)으로 쓴다. 흰 글자 + 진한 빨강 그림자(반 칸 아래 오른쪽). 숫자 위가 하트 위 + 14(LF 사진 실측).
-		Component hc = Component.literal(ht).withStyle(HPN);
-		int htw = Math.max(1, mc.font.width(hc));
+		Component htc = Component.literal(ht).withStyle(HPN);
+		int htw = Math.max(1, mc.font.width(htc));
 		float hs = htw <= 32 ? 1f : 32f / htw;
 		LunaCompat.guiPush(ctx);
 		try {
-			LunaCompat.guiTranslate(ctx, cx - htw * hs / 2f, hy + 12.7f + (6 - 6 * hs) / 2f);
+			LunaCompat.guiTranslate(ctx, hc - htw * hs / 2f, hy + 13.7f + (6 - 6 * hs) / 2f);
 			LunaCompat.guiScale(ctx, hs, hs);
 			LunaCompat.guiPush(ctx);
 			LunaCompat.guiTranslate(ctx, 0.5f, 0.5f);
-			ctx.text(mc.font, hc, 0, 0, 0xFF7A0E18, false);
+			ctx.text(mc.font, htc, 0, 0, 0xFF7A0E18, false);
 			LunaCompat.guiPop(ctx);
-			ctx.text(mc.font, hc, 0, 0, 0xFFFFFFFF, false);
+			ctx.text(mc.font, htc, 0, 0, 0xFFFFFFFF, false);
 		} finally {
 			LunaCompat.guiPop(ctx);
 		}
 
-		// 4) 배고픔(곡선 오른쪽 끝, 작게)
+		// 4) 배고픔(49-553차 사용자: "배고픔도 어디에다 제대로 보이게"): 9번 칸 오른쪽 곡선 위에 작은 판 + 서버 고기 그림 + 주아체 숫자
 		int hg = hun >= 0 ? hun : pl.getFoodData().getFoodLevel();
-		int fxp = cx + 127;
+		String hgs = String.valueOf(hg);
+		int hsw = Math.round(jw(mc, hgs));
+		// 49-554차(사용자: "배고픔도 사이드에 있으면 안 보인다고"): 하트 바로 위 가운데(양쪽 안쪽 스킬 카드 사이)
+		int fpw = 14 + hsw + 4, fph = 11, fpx = hc - fpw / 2, fpy = B - 53;
+		LunaDraw.roundRect(ctx, fpx, fpy, fpw, fph, 3, 0xD80C0E16);
+		LunaDraw.roundRectOutline(ctx, fpx, fpy, fpw, fph, 3, hg <= 6 ? 0xC0FF7A5A : 0x80B89A5A);
 		if (!glyphs().isEmpty()) {
 			String ip = sheetPath("icon_hunger");
 			int[] it = texSize(ip);
 			int[] ib = cellBox(ip, 1, 0);
-			int ih = 8, iw = Math.max(1, Math.round(ib[2] * 8f / Math.max(1, ib[3])));
-			ctx.blit(P, texOf(ip), fxp, B - 15, ib[0], ib[1], iw, ih, ib[2], ib[3], it[0], it[1]);
-			fxp += iw + 1;
+			int ih = 9, iw = Math.max(1, Math.round(ib[2] * 9f / Math.max(1, ib[3])));
+			ctx.blit(P, texOf(ip), fpx + 2, fpy + 1, ib[0], ib[1], iw, ih, ib[2], ib[3], it[0], it[1]);
 		}
-		small(ctx, mc, String.valueOf(hg), fxp, B - 14, hg <= 6 ? 0xFFFF8A6A : 0xFFFFE6B0, 0.75f, false);
+		jua(ctx, mc, hgs, fpx + 14, fpy + 1.5f, hg <= 6 ? 0xFFFF9A7A : 0xFFFFF0D0, 1f, false);
 
 		// 5) 스킬 카드: 하트를 사이에 두고 양쪽 핫바 칸 위에 대칭으로
 		drawSkills(ctx, mc, cx, B, sk, now, sample);
 
-		// 6) 경험치 바(맨 아래 3px) + 끝에 Lv, %
-		int x0 = cx - 150, x1 = cx + 150;
-		ctx.fill(x0, sh - BAR, x1, sh, 0xC8121020);
+		// 6) 경험치 바(맨 아래 3px). 49-554차(사용자: "끊김이 여전하잖아"): 바가 곡선 그림 아래 가장자리(cx-135 ~ cx+147, 남색)와
+		// 폭, 색이 달라 이어지지 않고 끊겨 보였다 - 곡선 아래 가장자리와 똑같은 폭, 같은 남색으로 이어 붙인다.
+		int x0 = cx - 138, x1 = cx + 144;   // 49-556차: 곡선 아래 가장자리(cx-164 기준 실측)
+		ctx.fill(x0, sh - BAR, x1, sh, 0xF00E0D23);
 		int p = pc;
 		if (p < 0 && lv >= 0 && pl.experienceLevel == lv) {
 			p = Math.round(pl.experienceProgress * 100f);   // 서버가 바닐라 경험치에 같은 값을 넣는 경우
 		}
 		if (p >= 0) {
 			int fx = x0 + Math.round((x1 - x0) * p / 100f);
-			ctx.fill(x0, sh - BAR + 1, fx, sh, 0xD8D6AA4A);
-			ctx.fill(x0, sh - BAR, fx, sh - BAR + 1, 0xE6FFE496);
+			ctx.fill(x0, sh - BAR + 1, fx, sh, 0xE8D6AA4A);
+			ctx.fill(x0, sh - BAR, fx, sh - BAR + 1, 0xF0FFE496);
 		}
-		if (lv >= 0) {
-			small(ctx, mc, "Lv. " + lv, x0 + 2, sh - BAR - 6, 0xD8FFECBE, 0.6f, false);
+		// 글자는 핫바를 가리지 않게 곡선 그림 바깥 양옆(왼쪽 끝 cx-164에서 왼쪽으로, 오른쪽 끝 cx+164에서 오른쪽으로)
+		int tx0 = cx - 166, tx1 = cx + 161;
+		// 49-553차(사용자: "본인 레벨이 제대로 안 됨 - /레벨의 토벌 레벨", 글자가 깨져 보임): 레벨은 /레벨 창에서 읽은 토벌 레벨(없으면 서버 HUD 값),
+		// 글자는 주아체 1배(작은 마크 글꼴을 줄이면 깨져 보였다). 오른쪽에 %와 지금/필요 경험치(위키 표 NeogulLevels.REQ 토벌).
+		int showLv = !sample && tobeolLv > 0 ? tobeolLv : lv;
+		if (showLv >= 0) {
+			jua(ctx, mc, "Lv." + showLv + (!sample && tobeolLv > 0 ? " 토벌" : ""), tx0, sh - BAR - 9, 0xF0FFECBE, 1f, true);
 		}
 		if (p >= 0) {
-			small(ctx, mc, p + "%", x1 - 2, sh - BAR - 6, 0xD8FFECBE, 0.6f, true);
+			String right = p + "%";
+			if (showLv >= 1 && showLv < NeogulLevels.MAX_LV) {
+				long need = NeogulLevels.REQ[1][showLv];
+				if (need > 0) {
+					right = String.format("%,d / %,d  (%d%%)", need * p / 100, need, p);
+				}
+			}
+			jua(ctx, mc, right, tx1, sh - BAR - 9, 0xF0FFECBE, 1f, false);
 		}
 		if (gain != null && !sample) {
 			long age = now - gainAt;
 			if (age < 2500) {
 				int al = (int) (255 * Math.min(1f, (2500 - age) / 600f));
-				String g = gain + " 경험치";
-				small(ctx, mc, g, x1 - 2, sh - BAR - 13 - (int) (age / 500), (al << 24) | 0xAAF078, 0.7f, true);
+				jua(ctx, mc, gain + " 경험치", tx1, sh - BAR - 19 - age / 500f, (al << 24) | 0xAAF078, 1f, false);
 			}
 		}
 	}
 
+	/** 주아체(lunaslight:hpn, 7.5) 글자 + 진한 그림자. */
+	private static void jua(GuiGraphicsExtractor ctx, Minecraft mc, String s, float x, float y, int color, float scale, boolean right) {
+		Component c = Component.literal(s).withStyle(HPN);
+		float w = mc.font.width(c) * scale;
+		LunaCompat.guiPush(ctx);
+		try {
+			LunaCompat.guiTranslate(ctx, right ? x - w : x, y);
+			LunaCompat.guiScale(ctx, scale, scale);
+			LunaCompat.guiPush(ctx);
+			LunaCompat.guiTranslate(ctx, 0.5f, 0.5f);
+			ctx.text(mc.font, c, 0, 0, (color & 0xFF000000) | 0x1A1208, false);
+			LunaCompat.guiPop(ctx);
+			ctx.text(mc.font, c, 0, 0, color, false);
+		} finally {
+			LunaCompat.guiPop(ctx);
+		}
+	}
+
+	private static float jw(Minecraft mc, String s) {
+		return mc.font.width(Component.literal(s).withStyle(HPN));
+	}
+
 	private static int slotX(int cx, int i) {
-		return i < 4 ? cx - 98 + 20 * i : cx + 24 + 20 * (i - 4);
+		return i < 4 ? cx - 97 + 20 * i : cx + 25 + 20 * (i - 4);   // 49-556차: 칸 묶음 cx-100(LF 실측)
 	}
 
 	private static void drawSkills(GuiGraphicsExtractor ctx, Minecraft mc, int cx, int B, List<Skill> sk, long now, boolean sample) {
@@ -769,14 +924,14 @@ public final class NeogulDungeonHud {
 		int left = (n + 1) / 2;
 		int[] xs = new int[n];
 		int[] ys = new int[n];
-		int top = B - 52;   // 카드(20) 아래에 3칸 걸친 키캡(11) 바닥이 핫바 선택 테두리 바로 위
+		int top = B - 57;   // 49-553차: 카드(20) + 1 + 키캡(12) 바닥이 핫바 선택 테두리 바로 위(키캡이 카드를 안 가림)
 		// 하트 가운데에서 32, 56, 80 … 떨어진 자리(카드 20 + 틈 4)
 		for (int i = 0; i < left; i++) {
-			xs[i] = cx - 32 - 24 * (left - 1 - i);   // 왼쪽: 바깥 → 안쪽 순서
+			xs[i] = cx + 1 - 32 - 24 * (left - 1 - i);   // 왼쪽: 바깥 → 안쪽 순서
 			ys[i] = top;
 		}
 		for (int i = left; i < n; i++) {
-			xs[i] = cx + 32 + 24 * (i - left);   // 오른쪽: 안쪽 → 바깥
+			xs[i] = cx + 1 + 32 + 24 * (i - left);   // 오른쪽: 안쪽 → 바깥
 			ys[i] = top;
 		}
 		var P = net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
@@ -792,11 +947,7 @@ public final class NeogulDungeonHud {
 			boolean ready = !cooling && !locked && state == 0;
 			int col = cooling ? readyCol(k) : k.col;
 			int[] bx = cellBox(path, cols, col);
-			// 준비됨: 은은하게 빛나는 금빛 테두리
-			if (ready) {
-				float pulse = 0.55f + 0.45f * (float) Math.sin(now / 320.0 + i);
-				LunaDraw.roundRectOutline(ctx, x - 2, y - 2, 24, 24, 3, LunaDraw.withAlpha(0xFFFFD36A, Math.round(110 * pulse)));
-			}
+			// 49-553차(사용자: "그 스킬 키 가능한 거 삭제해 주고"): 쓸 수 있을 때 금빛 테두리 강조는 뺐다
 			ctx.blit(P, texOf(path), x, y, bx[0], bx[1], 20, 20, bx[2], bx[3], tex[0], tex[1]);
 			if (cooling) {
 				long[] st = CD.get(k.sheet + "#" + readyCol(k));
@@ -805,21 +956,43 @@ public final class NeogulDungeonHud {
 					frac = Math.max(0f, Math.min(1f, (st[2] - now) / (st[1] * 1000f)));
 				}
 				pie(ctx, x, y, 20, frac, 0xB4080A12);
+				// 49-553차(사용자: "쿨타임 돌 때 초가 제대로 안 보여"): 주아체 1.5배 + 사방 검은 테두리, 카드 가운데
 				String t = String.valueOf(k.cd);
-				outlined(ctx, mc, t, x + 10, y + 6, 0xFFFFFFFF, 0xFF000000);
+				Component tc = Component.literal(t).withStyle(HPN);
+				float sc = 1.5f, tw2 = mc.font.width(tc) * sc;
+				LunaCompat.guiPush(ctx);
+				try {
+					LunaCompat.guiTranslate(ctx, x + 10 - tw2 / 2f, y + 10 - 4.2f * sc);
+					LunaCompat.guiScale(ctx, sc, sc);
+					for (int d = 0; d < 4; d++) {
+						LunaCompat.guiPush(ctx);
+						LunaCompat.guiTranslate(ctx, d == 0 ? -0.7f : d == 1 ? 0.7f : 0f, d == 2 ? -0.7f : d == 3 ? 0.7f : 0f);
+						ctx.text(mc.font, tc, 0, 0, 0xFF000000, false);
+						LunaCompat.guiPop(ctx);
+					}
+					ctx.text(mc.font, tc, 0, 0, 0xFFFFFFFF, false);
+				} finally {
+					LunaCompat.guiPop(ctx);
+				}
 			}
-			// 키 표시(49-542차 사용자: "글자 위치가 조금 그렇고 촌스러운 느낌"): 카드 아래 가운데에 걸친 작은 키캡.
-			// 글자는 줄이지 않고 1배(또렷하게), 키캡 폭은 글자에 맞춤. 준비되면 테두리만 은은한 금색.
+			// 키 표시(49-553차 사용자: "키가 제대로 안 보이고"): 카드 바로 아래(가리지 않게) 높이 12 키캡, 주아체 흰 글자.
+			// 테두리는 둥근 판 두 장(바깥 테두리색 → 1칸 들인 바탕)이라 모서리가 어긋나지 않는다.
 			String key = keyName(k.keyCol);
 			if (key != null) {
-				int tw = Math.max(1, mc.font.width(key) - 1);   // 마지막 글자 뒤 1칸 빼고
-				int kw = Math.max(11, tw + 6), kh = 11;
-				int kx = x + 10 - kw / 2, ky = y + 17;
-				LunaDraw.roundRect(ctx, kx, ky + 1, kw, kh, 3, 0x70000000);              // 아래 그림자(키 두께)
-				LunaDraw.roundRect(ctx, kx, ky, kw, kh, 3, ready ? 0xF5302838 : 0xF01A1C24);
-				LunaDraw.roundRectOutline(ctx, kx, ky, kw, kh, 3, ready ? 0xFFD9B060 : 0xFF424654);
-				ctx.fill(kx + 2, ky + 1, kx + kw - 2, ky + 2, 0x22FFFFFF);                  // 윗면 빛
-				ctx.text(mc.font, key, kx + (kw - tw + 1) / 2, ky + 2, ready ? 0xFFFFF3D6 : 0xFFAAB0BC, false);
+				Component kc = Component.literal(key).withStyle(HPN);
+				int tw = Math.max(1, mc.font.width(kc));
+				int kw = Math.max(14, tw + 8), kh = 12;
+				int kx = x + 10 - kw / 2, ky = y + 21;
+				LunaDraw.roundRect(ctx, kx, ky + 1, kw, kh, 3, 0x80000000);   // 아래 그림자(키 두께)
+				LunaDraw.roundRect(ctx, kx, ky, kw, kh, 3, cooling ? 0xFF3A3F4C : 0xFF8A93A6);
+				LunaDraw.roundRect(ctx, kx + 1, ky + 1, kw - 2, kh - 2, 2, cooling ? 0xFF15171E : 0xFF20232C);
+				LunaCompat.guiPush(ctx);
+				try {
+					LunaCompat.guiTranslate(ctx, kx + (kw - tw) / 2f, ky + 2.2f);
+					ctx.text(mc.font, kc, 0, 0, cooling ? 0xFF9AA0AC : 0xFFFFFFFF, false);
+				} finally {
+					LunaCompat.guiPop(ctx);
+				}
 			}
 		}
 	}

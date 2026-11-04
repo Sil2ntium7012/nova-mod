@@ -35,6 +35,7 @@ public class NeogulDungeonUiModule extends Module {
 		// 기본 켬. 아직 안 물어본 사람은 켜 두고, 너굴마을에서 인벤토리를 처음 열 때 "이대로 / 원래대로"를 묻는다.
 		// 켜지는 건 여전히 던전에 들어가는 순간에만(싸우는 중에 안 바뀜).
 		defaultEnabled(true);
+		newFeature("49-552");   // 49-552차: 묻는 건 들어갈 때 뜨는 새 기능 창(NewFeatures)이 한다
 		asked.hidden();
 		NeogulDungeonHud.enabled = this::isEnabled;
 		NeogulDungeonHud.init();
@@ -70,6 +71,42 @@ public class NeogulDungeonUiModule extends Module {
 	}
 
 	@Override
+	public boolean newFeatureAsked() {
+		return asked.get();
+	}
+
+	@Override
+	public void onNewFeatureAnswered(boolean on) {
+		asked.setValue(true);
+	}
+
+	@Override
+	public boolean hasNewFeaturePreview() {
+		return true;
+	}
+
+	@Override
+	public void drawNewFeaturePreview(GuiGraphicsExtractor ctx, int px, int py, int pw, int ph) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) {
+			return;
+		}
+		float s = Math.min(0.8f, pw / 340f);
+		LunaCompat.guiPush(ctx);
+		try {
+			LunaCompat.guiTranslate(ctx, px, py);
+			LunaCompat.guiScale(ctx, s, s);
+			int vw = Math.round(pw / s), vh = Math.round(ph / s);
+			NeogulDungeonHud.drawAt(ctx, mc, vw / 2, vh, mc.player, NeogulDungeonHud.sample(),
+					NeogulDungeonHud.hp >= 0 ? NeogulDungeonHud.hp : 39, NeogulDungeonHud.hpMax > 0 ? NeogulDungeonHud.hpMax : 51,
+					-1, NeogulDungeonHud.hunger >= 0 ? NeogulDungeonHud.hunger : 20,
+					NeogulDungeonHud.level >= 0 ? NeogulDungeonHud.level : 21, NeogulDungeonHud.pct >= 0 ? NeogulDungeonHud.pct : 45, true);
+		} finally {
+			LunaCompat.guiPop(ctx);
+		}
+	}
+
+	@Override
 	public void onHudRender(GuiGraphicsExtractor ctx, DeltaTracker tickCounter) {
 		if (client == null || isPreview() || !NeogulDungeonHud.active) {
 			return;
@@ -82,7 +119,7 @@ public class NeogulDungeonUiModule extends Module {
 		if (!(screen instanceof InventoryScreen) || mc == null || mc.player == null || !NeogulData.onNeogul(mc)) {
 			return false;
 		}
-		return !asked.get() || NeogulDungeonHud.inDungeon();   // 처음 묻는 창은 너굴마을 어디서나, 켜기/끄기 버튼은 던전에서
+		return asked.get() && NeogulDungeonHud.inDungeon();   // 49-552차: 처음 묻기는 새 기능 창이 함 - 인벤토리엔 던전에서 켜기/끄기 버튼만
 	}
 
 	private void onScreenFrame(Object screen, GuiGraphicsExtractor ctx, int mx, int my) {

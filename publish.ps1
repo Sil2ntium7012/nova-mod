@@ -92,8 +92,22 @@ if (Test-Path -LiteralPath $stampFile) {
     try { $since = [datetime]::Parse((Get-Content -LiteralPath $stampFile -Raw).Trim()) } catch { }
 }
 $jars = @(Get-ChildItem -LiteralPath $jarDir -Filter "builtin-mod-*.jar" | Where-Object { $_.LastWriteTime -gt $since })
+# 49-551차(사용자: "버전 교체가 왜 전체로 뜨냐고, 너굴마을 관련인데"): .publish-skip-once 에 적힌 버전(한 줄에 하나, # 뒤는 설명)은
+# 이번 한 번 올리지 않는다 - 소스는 그대로인데 다시 빌드만 된 jar를 올리면 그 버전 사람들 모두에게 업데이트가 뜬다. 올린 뒤 파일은 지운다.
+$skipFile = Join-Path $PSScriptRoot ".publish-skip-once"
+$skipVers = @()
+if (Test-Path -LiteralPath $skipFile) {
+    $skipVers = @(Get-Content -LiteralPath $skipFile -Encoding UTF8 | ForEach-Object { ($_ -replace '#.*$', '').Trim() } | Where-Object { $_ -ne "" })
+    if ($skipVers.Count -gt 0) {
+        $before = $jars.Count
+        $jars = @($jars | Where-Object { $n = $_.Name; -not ($skipVers | Where-Object { $n.StartsWith("builtin-mod-" + $_ + "-") }) })
+        Write-Host ("이번엔 안 올림(바뀐 소스 없음): " + ($before - $jars.Count) + "개") -ForegroundColor DarkGray
+    }
+}
 if ($jars.Count -eq 0) {
     Write-Host "새로 빌드된 jar 없음 - jar 건너뜀" -ForegroundColor DarkGray
+    (Get-Date).ToString("o") | Set-Content -LiteralPath $stampFile -Encoding ascii
+    if (Test-Path -LiteralPath $skipFile) { Remove-Item -LiteralPath $skipFile -Force -ErrorAction SilentlyContinue }
     exit 0
 }
 & gh release view latest --repo $RepoName *> $null
@@ -104,6 +118,7 @@ Write-Host ("jar " + $jars.Count + "개 올리는 중...") -ForegroundColor Cyan
 $paths = @($jars | ForEach-Object { $_.FullName })
 Run gh (@("release", "upload", "latest", "--repo", $RepoName, "--clobber") + $paths)
 (Get-Date).ToString("o") | Set-Content -LiteralPath $stampFile -Encoding ascii
+if (Test-Path -LiteralPath $skipFile) { Remove-Item -LiteralPath $skipFile -Force -ErrorAction SilentlyContinue }
 
 # 11-02(사용자: "모드 업데이트 올라오면 업뎃창 보여주면 좋을 듯 - 업데이트 내용"): 업데이트 내용을 릴리스 설명 맨 위에 쌓는다.
 #  · 이 폴더의 update-notes.txt 에 한 줄씩 적어 두면(모드 작업 세션이 적음) 그 줄들을, 없으면 publish.cmd "고친 내용" 의 글을 쓴다

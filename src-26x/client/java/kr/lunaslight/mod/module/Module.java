@@ -295,6 +295,38 @@ public abstract class Module {
 		return singleOnly && onRemoteServer() ? "서버에서 안 됨" : null;
 	}
 
+	// ==================== 49-552차: 새 기능 묻기(util/NewFeatures) ====================
+	// 사용자: "앞으로는 신규 기능 나오면 맵 들어갔을 때 새로운 기능이 나왔고 킬 거냐고 물어봐".
+	// 새 기능은 생성자에서 newFeature("49-NNN")를 부른다 - 서버/월드에 들어가면 한 번 "켤까요?" 창이 뜬다(태그가 바뀌면 다시).
+	private String newFeatureTag;
+
+	protected Module newFeature(String tag) {
+		this.newFeatureTag = tag;
+		return this;
+	}
+
+	public String newFeatureTag() {
+		return newFeatureTag;
+	}
+
+	/** 기능이 따로 이미 물어봤으면 true(예전 방식에서 답한 사람은 다시 안 묻게). */
+	public boolean newFeatureAsked() {
+		return false;
+	}
+
+	/** 새 기능 창에서 답했을 때(켬/끔은 창이 이미 적용함). */
+	public void onNewFeatureAnswered(boolean on) {
+	}
+
+	/** 새 기능 창에 미리보기 그림을 그리는지. */
+	public boolean hasNewFeaturePreview() {
+		return false;
+	}
+
+	/** 새 기능 창 미리보기(x, y, w, h 안에, 잘림 처리됨). */
+	public void drawNewFeaturePreview(net.minecraft.client.gui.GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+	}
+
 	protected Module defaultEnabled(boolean value) {
 		this.enabledByDefault = value;
 		this.enabled = value;

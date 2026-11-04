@@ -51,10 +51,12 @@ import java.util.regex.Pattern;
  */
 public class NeogulStorageModule extends Module {
 
-	private static final Pattern NUMBERED = Pattern.compile("(\\d+)\\s*번\\s*창고");
+	// 49-558차(사용자: "왜 섬 업그레이드나 다른 창에서 창고 미리보기가 뜨는 거야"): "(\d+)번 창고"가 이름 <b>어디에든</b> 있으면 버튼으로 봐서
+	// 섬 업그레이드의 "3번 창고 해금" 같은 아이템 2개로 목록 화면이라고 착각했다 - 이름 전체가 "N번 창고"(뒤에 잠김 정도)일 때만.
+	private static final Pattern NUMBERED = Pattern.compile("^(\\d+)\\s*번\\s*창고(?:\\s*(?:잠김|잠금|미개방))?$");
 	/** 번호 없는 창고: 이름 끝이 "창고"나 "보관함"(던전 창고, 엔더 창고, 귀속 보관함, 낚시 창고 …). */
 	private static final Pattern SPECIAL = Pattern.compile("^\\s*((?:[가-힣A-Za-z ]{1,12}(?:창고|보관함))|엔더 ?상자)\\s*$");
-	private static final Pattern TITLE = Pattern.compile("(\\d+)\\s*번\\s*창고|창고\\s*(\\d+)");
+	private static final Pattern TITLE = Pattern.compile("^\\s*(\\d+)\\s*번\\s*창고\\s*$|^\\s*창고\\s*(\\d+)\\s*$");   // 49-558차: 제목 전체가 창고 이름일 때만
 	private static final Pattern COMMAND = Pattern.compile("^창고\\s*(\\d+)$");
 	private static final List<String> SPECIAL_ORDER = List.of("던전 창고", "엔더 창고", "귀속 보관함", "낚시 창고");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -180,7 +182,7 @@ public class NeogulStorageModule extends Module {
 			return null;
 		}
 		String n = plain(st.getHoverName().getString());
-		Matcher m = NUMBERED.matcher(n);
+		Matcher m = NUMBERED.matcher(n.replaceAll("[^가-힣A-Za-z0-9 ]", " ").replaceAll("\\s+", " ").trim());
 		if (m.find()) {
 			return m.group(1);
 		}
@@ -204,7 +206,7 @@ public class NeogulStorageModule extends Module {
 				return;
 			}
 			String k = keyOf(sl.getItem());
-			if (k != null) {
+			if (k != null && menuScreen) {   // 49-558차: 창고 목록에서 누른 것만(다른 창의 비슷한 이름 아이템은 무시)
 				pending = k;
 				pendingAt = System.currentTimeMillis();
 			}
@@ -263,7 +265,8 @@ public class NeogulStorageModule extends Module {
 			}
 		}
 		// 버튼이 2개 이상이면 목록 화면 - 창고로 적지 않는다(잠긴 창고를 누르면 서버가 목록을 다시 연다)
-		menuScreen = buttons.size() >= 2;
+		// 49-558차: 창고 목록은 버튼이 14개(1~10번 + 특수 4) - 다른 창(섬 업그레이드 등)에 창고 이름 아이템이 몇 개 있어도 목록이 아니다
+		menuScreen = buttons.size() >= 5;
 		screenTicks++;
 		if (clickKey != null && System.currentTimeMillis() - clickAt >= 300) {
 			String k = clickKey;
