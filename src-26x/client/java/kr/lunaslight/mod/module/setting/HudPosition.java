@@ -43,6 +43,10 @@ public class HudPosition {
 		};
 		// 49-76차: 화면 밖으로는 안 나가게 잘라 넣는다. 가운데 기준으로 크게 띄운 요소(키스트로크 +153)가
 		// 좁은 창에서 밖으로 나가던 것 - 요소가 화면보다 크면 왼쪽/위에 붙인다.
+		// 49-538차(사용자: "이때는 핫바에 걸리는 ui는 양쪽 옆으로 밀리게"): 너굴 던전 UI가 켜져 있으면 핫바 묶음과 겹치는 HUD를 옆으로
+		if (kr.lunaslight.mod.util.NeogulDungeonHud.active && lastHeight > 0) {
+			x = kr.lunaslight.mod.util.NeogulDungeonHud.pushX(this, x, Math.round(elementWidth * scale), lastHeight, screenWidth);
+		}
 		x = Math.max(0, Math.min(x, Math.round(screenWidth - elementWidth * scale)));
 		lastX = x;
 		lastWidth = Math.max(1, Math.round(elementWidth * scale));
@@ -61,6 +65,16 @@ public class HudPosition {
 		lastHeight = Math.max(1, Math.round(elementHeight * scale));
 		lastResolveNanos = System.nanoTime();
 		return y;
+	}
+
+	/** 지난 프레임 높이로 이번 y를 미리 셈(resolveX가 resolveY보다 먼저 불려서). */
+	public int predictY(int screenHeight, int elementHeight) {
+		int y = switch (anchor) {
+			case TOP_LEFT, TOP_RIGHT, TOP_CENTER -> Math.round(offsetY);
+			case BOTTOM_LEFT, BOTTOM_RIGHT, BOTTOM_CENTER -> Math.round(screenHeight - offsetY - elementHeight);
+			case LEFT_CENTER, RIGHT_CENTER -> Math.round((screenHeight - elementHeight) / 2f + offsetY);
+		};
+		return Math.max(0, Math.min(y, screenHeight - elementHeight));
 	}
 
 	// ---- 편집기 API ----

@@ -27,7 +27,7 @@ public abstract class HudElementHideMixin {
 
 	@Inject(method = "extractItemHotbar", at = @At("HEAD"), cancellable = true, require = 0)
 	private void lunaslight$hideHotbar(CallbackInfo ci) {
-		if (HudHideModule.hideHotbar) {
+		if (HudHideModule.hideHotbar || kr.lunaslight.mod.util.NeogulDungeonHud.active) {
 			ci.cancel();
 		}
 	}
@@ -35,8 +35,37 @@ public abstract class HudElementHideMixin {
 	// 체력, 배고픔, 방어구, 공기는 바닐라가 한 메서드에서 같이 그린다 - 하나로 묶여 숨겨진다.
 	@Inject(method = "extractPlayerHealth", at = @At("HEAD"), cancellable = true, require = 0)
 	private void lunaslight$hideStatus(CallbackInfo ci) {
-		if (HudHideModule.hideStatus) {
+		if (HudHideModule.hideStatus || kr.lunaslight.mod.util.NeogulDungeonHud.active) {
 			ci.cancel();
+		}
+	}
+
+	// 49-538차: 너굴 던전 UI가 켜져 있으면 손에 든 아이템 이름과 액션바를 스킬 카드 위로 올린다.
+	private static boolean lunaslight$liftA, lunaslight$liftB;
+
+	@Inject(method = "extractSelectedItemName", at = @At("HEAD"), require = 0)
+	private void lunaslight$liftNameHead(net.minecraft.client.gui.GuiGraphicsExtractor ctx, CallbackInfo ci) {
+		lunaslight$liftA = kr.lunaslight.mod.util.NeogulDungeonHud.liftBegin(ctx);
+	}
+
+	@Inject(method = "extractSelectedItemName", at = @At("RETURN"), require = 0)
+	private void lunaslight$liftNameEnd(net.minecraft.client.gui.GuiGraphicsExtractor ctx, CallbackInfo ci) {
+		if (lunaslight$liftA) {
+			lunaslight$liftA = false;
+			kr.lunaslight.mod.util.NeogulDungeonHud.liftEnd(ctx);
+		}
+	}
+
+	@Inject(method = "extractOverlayMessage", at = @At("HEAD"), require = 0)
+	private void lunaslight$liftBarHead(net.minecraft.client.gui.GuiGraphicsExtractor ctx, net.minecraft.client.DeltaTracker dt, CallbackInfo ci) {
+		lunaslight$liftB = kr.lunaslight.mod.util.NeogulDungeonHud.liftBegin(ctx);
+	}
+
+	@Inject(method = "extractOverlayMessage", at = @At("RETURN"), require = 0)
+	private void lunaslight$liftBarEnd(net.minecraft.client.gui.GuiGraphicsExtractor ctx, net.minecraft.client.DeltaTracker dt, CallbackInfo ci) {
+		if (lunaslight$liftB) {
+			lunaslight$liftB = false;
+			kr.lunaslight.mod.util.NeogulDungeonHud.liftEnd(ctx);
 		}
 	}
 }

@@ -179,6 +179,7 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCalendarModule");   // 49-529차: 너굴 달력(목록에 따로)
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulCosmeticsModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDungeonUiModule");   // 49-538차: 너굴 던전 UI
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
 			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)

@@ -252,9 +252,30 @@ public final class NeogulSkillKeys {
 	 * (F 손 바꾸기, Q 버리기 …)의 눌림을 매 틱 처음에 비운다. NG-SkillKeydown 모드가 쿨타임 중 키를 그냥 넘겨도 마크는 아무것도 안 한다.
 	 * 숫자키 방식의 2~5는 서버가 핫바 바꾸기로 스킬을 받으므로 비우지 않는다(노바 키로 바꾼 것만).
 	 */
+	/** 49-535차: 설정 [쿨타임일 때 원래 키 동작] - 켜면 원래 동작을 안 막는다. */
+	public static volatile boolean passVanilla;
+	private static boolean skipF;
+
+	/** 49-535차(사용자: "Shift + F는 언제든 작동해야 함"): Shift가 눌려 있으면 F는 스킬 키로 안 잡고 막지도 않는다. */
+	private static boolean shiftF(Minecraft mc, int key) {
+		if (key != 70) {
+			return false;
+		}
+		try {
+			return (LunaCompat.heldModifiersAny(mc) & LunaCompat.MOD_SHIFT) != 0;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	private static void drainVanilla(Minecraft mc) {
-		if (mc == null || mc.player == null || !inSkillMode() || LunaCompat.screenOf(mc) != null) {
+		if (mc == null || mc.player == null || passVanilla || !inSkillMode() || LunaCompat.screenOf(mc) != null) {
 			return;
+		}
+		if (shiftF(mc, 70)) {
+			skipF = true;
+		} else {
+			skipF = false;
 		}
 		java.util.Set<Integer> skillKeys = new java.util.HashSet<>();
 		int[] k = keysNow();
@@ -267,6 +288,9 @@ public final class NeogulSkillKeys {
 			if (OVERRIDE[i] >= 0 && canCast() && !LunaCompat.isMouseKeyCode(LunaCompat.baseKey(OVERRIDE[i]))) {
 				skillKeys.add(LunaCompat.baseKey(OVERRIDE[i]));
 			}
+		}
+		if (skipF) {
+			skillKeys.remove(70);   // Shift + F는 늘 원래대로
 		}
 		if (skillKeys.isEmpty()) {
 			return;
@@ -287,6 +311,49 @@ public final class NeogulSkillKeys {
 		}
 	}
 
+	/**
+	 * 49-541차(사용자: "던전에서 칼을 들고 스킬을 쓰려 할 때 작동을 하든 안 하든 노바 설정 키가 눌리면 안 된다"): 던전에서 스킬 키(서버 키,
+	 * 노바 스킬 키, HUD 스킬 카드에 붙은 키)에 걸린 노바 기능 키 지정은 쉰다(KeybindSetting.isDown, KeyHook). 창이 열려 있으면 상관없음.
+	 */
+	public static boolean blocksNova(int baseKey) {
+		if (baseKey < 0) {
+			return false;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc == null || mc.player == null || LunaCompat.screenOf(mc) != null) {
+				return false;
+			}
+			boolean dungeon = NeogulDungeonHud.inDungeon();
+			boolean mode = registered && modeNow();
+			if (!dungeon && !mode) {
+				return false;
+			}
+			int[] k = keysNow();
+			if (k != null) {
+				for (int v : k) {
+					if (v == baseKey) {
+						return true;
+					}
+				}
+			} else if (mode) {
+				for (int v : KEYS_NUMBER) {
+					if (v == baseKey) {
+						return true;
+					}
+				}
+			}
+			for (int v : OVERRIDE) {
+				if (v >= 0 && LunaCompat.baseKey(v) == baseKey) {
+					return true;
+				}
+			}
+			return dungeon && NeogulDungeonHud.skillKeyCodes().contains(baseKey);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** 키 이벤트(KeyboardKeyMixin 맨 앞). true면 게임에 넘기지 않는다. action 1 누름, 2 반복, 0 뗌. */
 	public static boolean onKey(int key, int action) {
 		if (action == 0 || key < 0) {
@@ -295,6 +362,9 @@ public final class NeogulSkillKeys {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc == null || mc.player == null || LunaCompat.screenOf(mc) != null) {
 			return false;
+		}
+		if (shiftF(mc, key)) {
+			return false;   // 49-535차: Shift + F는 늘 마크로
 		}
 		// 49-521차(사용자: "기본 키들은 능력 안 나가게"): 노바 키로 바꾼 스킬의 서버 기본 키는 먹기만 한다(스킬 X, 마크 동작 X)
 		if (replacedServerKey(key)) {

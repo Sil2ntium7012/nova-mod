@@ -18,6 +18,14 @@ public class NeogulKeyArrowsModule extends Module {
 		NeogulKeyArrows.state = this::isEnabled;   // 시작할 때 첫 리소스 불러오기에도 저장된 켬/끔이 반영되게
 	}
 
+	/** 49-535차(사용자: "낚시 키 화살표 확인 메시지 한번 줘야"): 켜고 끌 때 리소스를 다시 불러오므로(몇 초 멈춤) 먼저 묻는다. */
+	@Override
+	public String[] toggleConfirm(boolean turningOn) {
+		return turningOn
+			? new String[]{"낚시 키 화살표를 켤까요?", "낚시 미니게임 W A S D 키캡이 ↑ ← ↓ →로 보여요", "리소스를 다시 불러와서 몇 초 멈출 수 있어요"}
+			: new String[]{"낚시 키 화살표를 끌까요?", "낚시 미니게임 키캡이 원래 W A S D로 돌아가요", "리소스를 다시 불러와서 몇 초 멈출 수 있어요"};
+	}
+
 	@Override
 	protected void onEnable() {
 		apply(true);

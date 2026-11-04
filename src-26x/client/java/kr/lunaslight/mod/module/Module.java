@@ -1171,6 +1171,14 @@ public abstract class Module {
 	}
 
 	/** 설정 화면에 미리보기 칸을 보여줄지. 기본: 위치 설정이 있으면. */
+	/**
+	 * 49-535차: 설정 화면에서 켜고 끄기 전에 물어볼 말({제목, 줄1, 줄2}). null이면 묻지 않고 바로 바꾼다.
+	 * @param turningOn 켜려는 중이면 true
+	 */
+	public String[] toggleConfirm(boolean turningOn) {
+		return null;
+	}
+
 	public boolean hasPreview() {
 		for (Setting<?> s : settings) {
 			if (s instanceof kr.lunaslight.mod.module.setting.PositionSetting) {

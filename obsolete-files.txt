@@ -76,3 +76,5 @@ libs/xaero-api-stub.jar
 tools/xaero-stub
 src/client/java/kr/lunaslight/mod/module/impl/misc/ServerPackMemoryModule.java
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/ServerPackMemoryModule.java
+src/main/resources/assets/lunaslight/textures/dungeon   # 49-547차: 너굴 던전 그림은 26.x 전용(src-26x/client/resources)으로 옮김 - 공통에 두면 40개 버전이 다 다시 빌드됨
+src/main/resources/assets/lunaslight/font/hpn.json   # 49-547차: 같은 이유로 src-26x/client/resources로

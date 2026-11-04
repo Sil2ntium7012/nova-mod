@@ -23,12 +23,7 @@ public abstract class TooltipBackgroundMixin {
 
 	@Inject(method = "extractTooltipBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIIILnet/minecraft/resources/Identifier;)V", at = @At("HEAD"), cancellable = true, require = 0)
 	private static void lunaslight$frameTex(GuiGraphicsExtractor ctx, int x, int y, int w, int h, Identifier texture, CallbackInfo ci) {
-		// 49-532차(사용자 사진: 너굴마을 아이템 설명 상자가 검은 네모 - "예쁘게 리팩 입혀 주라"): 너굴마을에서 자기 모양이 없는 설명 상자는
-		// 너굴마을 리소스팩 왼쪽 위 갈색 판과 같은 모양으로 그린다(NeogulTooltipStyle).
-		if (texture == null && kr.lunaslight.mod.util.NeogulTooltipStyle.draw(ctx, x, y, w, h)) {
-			ci.cancel();
-			return;
-		}
+		// 49-538차(사용자: "뭔데 없애"): 49-532차 너굴마을 갈색 설명 상자(NeogulTooltipStyle)는 잘못 알아들어 넣은 것 - 쓰지 않는다.
 		if (!LunaTooltipFrame.enabled || texture != null) {
 			return;
 		}

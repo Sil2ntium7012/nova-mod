@@ -30,6 +30,9 @@ public class NeogulSkillKeysModule extends Module {
 	private final kr.lunaslight.mod.module.setting.KeybindSetting[] skillKey = new kr.lunaslight.mod.module.setting.KeybindSetting[4];
 	private final boolean[] wasDown = new boolean[4];
 	// 49-529차(사용자 사진: 노바 키캡 F 3 4 R이 서버 스킬 카드 위에 겹침): 키캡 HUD는 기본 끔 - 서버가 스킬 카드에 키를 이미 보여 준다.
+	// 49-535차(사용자: "그 키가 쿨타임일 때 작동하는 거 세부 설정 넣어 주고 기본 비활"): 켜면 던전에서 스킬 키의 원래 마크 동작(F 손 바꾸기 등)을 막지 않는다.
+	private final kr.lunaslight.mod.module.setting.BooleanSetting vanillaOnCooldown = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"vanilla_on_cooldown", "쿨타임일 때 원래 키 동작", "던전에서 스킬이 쿨타임이라 안 나갈 때 그 키의 원래 마크 동작(F 손 바꾸기 등)이 되게 합니다. 끄면 던전 동안 막습니다(Shift + F는 늘 됨).", false));
 	private final kr.lunaslight.mod.module.setting.BooleanSetting showHud = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
 			"show_hud", "키캡 HUD", "던전에서 노바 키캡(F, R …)을 핫바 위에 따로 띄웁니다. 서버 스킬 카드와 겹치면 끄세요.", false));
 
@@ -49,6 +52,7 @@ public class NeogulSkillKeysModule extends Module {
 		for (int i = 0; i < 4; i++) {
 			NeogulSkillKeys.OVERRIDE[i] = skillKey[i].getKeyCode();
 		}
+		NeogulSkillKeys.passVanilla = vanillaOnCooldown.get();
 		// 마우스 버튼 지정은 키 이벤트로 안 오므로 여기서 눌린 순간을 본다(창이 열려 있으면 안 함)
 		if (client == null || client.player == null || LunaCompat.screenOf(client) != null || !NeogulSkillKeys.inSkillMode()) {
 			java.util.Arrays.fill(wasDown, false);
@@ -56,7 +60,7 @@ public class NeogulSkillKeysModule extends Module {
 		}
 		for (int i = 0; i < 4; i++) {
 			var k = skillKey[i];
-			boolean down = k.isBound() && k.isMouse() && k.isDown(client);
+			boolean down = k.isBound() && k.isMouse() && LunaCompat.isKeyPressedAny(client, k.getKeyCode());   // 49-541차: isDown은 던전 스킬 키를 막으므로 직접 봄
 			if (down && !wasDown[i]) {
 				NeogulSkillKeys.cast(i + 1);
 			}
@@ -71,7 +75,7 @@ public class NeogulSkillKeysModule extends Module {
 
 	@Override
 	public boolean hasPreview() {
-		return true;
+		return showHud.get();   // 49-535차(사용자: "이 키캡 미리보기가 왜 아직도 남아 있는 거고"): 키캡 HUD를 껐으면 미리보기도 없음
 	}
 
 	@Override
@@ -80,8 +84,8 @@ public class NeogulSkillKeysModule extends Module {
 			return;
 		}
 		boolean preview = isPreview();
-		if (!preview && !showHud.get()) {
-			return;
+		if (!showHud.get()) {
+			return;   // 49-535차: 미리보기(설정 화면, HUD 편집기)에서도 안 그림
 		}
 		if (!preview && !NeogulSkillKeys.skillMode()) {
 			return;

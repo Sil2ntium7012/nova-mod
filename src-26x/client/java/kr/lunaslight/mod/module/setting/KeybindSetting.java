@@ -53,6 +53,13 @@ public class KeybindSetting extends Setting<Integer> {
 		if (LunaCompat.debugComboBlocks(client, getBaseKey())) {
 			return false;
 		}
+		// 49-541차: 너굴 던전에서 스킬 키에 걸린 노바 키 지정은 안 눌린다
+		try {
+			if (kr.lunaslight.mod.util.NeogulSkillKeys.blocksNova(getBaseKey())) {
+				return false;
+			}
+		} catch (Throwable ignored) {
+		}
 		// 49-451차: 단독 지정(예: R)은 보조키가 눌려 있고 그 조합(예: Ctrl + R)이 다른 칸에 지정돼 있으면 쉰다 - 둘이 같이 안 켜지게.
 		if (LunaCompat.keyModifiers(value) == 0) {
 			int held = LunaCompat.heldModifiersAny(client);

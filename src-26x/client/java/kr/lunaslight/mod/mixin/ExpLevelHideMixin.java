@@ -36,7 +36,7 @@ public abstract class ExpLevelHideMixin {
 	}
 
 	private static void lunaslight$draw(GuiGraphicsExtractor ctx, Font font, int level) {
-		if (HudHideModule.hideExp) {
+		if (HudHideModule.hideExp || kr.lunaslight.mod.util.NeogulDungeonHud.active) {
 			return;
 		}
 		try {

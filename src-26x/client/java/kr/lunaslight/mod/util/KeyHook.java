@@ -34,6 +34,10 @@ public final class KeyHook {
 
 	public static boolean dispatch(int key, int scancode, int action, int modifiers) {
 		mixinActive = true;
+		// 49-541차: 너굴 던전에서 스킬 키를 누를 때는 노바 키 처리를 건너뛴다(뗄 때는 그대로 - 눌린 채로 남지 않게)
+		if (action != 0 && NeogulSkillKeys.blocksNova(key)) {
+			return false;
+		}
 		for (Handler h : HANDLERS) {
 			try {
 				if (h.onKey(key, scancode, action, modifiers)) {

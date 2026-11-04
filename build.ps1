@@ -10,6 +10,9 @@
 #   - 공통(전부): build.gradle, settings.gradle, gradle.properties, gradle/, libs/, src/main/
 #   - 1.14.4~1.21.11: src/client/, compat/, loom-common.gradle
 #   - 26.x: src-26x/, loom-common-modern.gradle
+#     49-547차(사용자: "버전이 왜 다 바뀌는 거야? 너굴마을만인데"): src-26x 안에서도 너굴마을 전용 파일(이름에 Neogul/NgVoice,
+#     neogul/dungeon 폴더, font/hpn.json)만 바뀌었으면 26.1.2만 빌드한다(너굴 기능은 26.1.2에서만 켜짐). 다른 26.x jar에 들어 있는
+#     예전 너굴 코드는 쓰이지 않는다. 그 밖의 파일이 바뀌면 26.x 전부.
 #   - 그 버전 폴더(versions/<버전>)의 build.gradle, gradle.properties
 #   - 런처 novamod 폴더에 그 버전 jar가 없어도 빌드
 # 일부만 빌드할 때는 --configure-on-demand로 그 버전들만 설정한다(40개 Loom 설정을 건너뜀). 설정 단계에서 실패하면 그 옵션 없이 한 번 더.
@@ -91,18 +94,37 @@ function Get-Newest([string[]]$rels) {
     return $newest
 }
 
+# 49-547차: src-26x 파일을 너굴 전용 / 나머지로 나눠 가장 최근 시각(폴더 시각은 안 봄 - 너굴 파일을 새로 넣어도 폴더 시각이 바뀌어
+# 26.x 전부가 다시 빌드되던 것). 지운 파일은 obsolete-files.txt로 지우는데, 그때는 보통 다른 파일도 같이 바뀐다.
+$NeogulOnly = '(?i)(\\(Neogul|NgVoice)[^\\]*$)|(\\neogul\\)|(\\dungeon\\)|(\\font\\hpn\.json$)'
+function Get-NewestSplit([string]$rel) {
+    $res = @{ Shared = [datetime]::MinValue; Neogul = [datetime]::MinValue }
+    $full = Join-Path $PSScriptRoot $rel
+    if (-not (Test-Path -LiteralPath $full)) { return $res }
+    Get-ChildItem -LiteralPath $full -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '\\(build|\.gradle|run|out|bin)\\' } | ForEach-Object {
+            $k = if ($_.FullName -match $NeogulOnly) { "Neogul" } else { "Shared" }
+            if ($_.LastWriteTimeUtc -gt $res[$k]) { $res[$k] = $_.LastWriteTimeUtc }
+        }
+    return $res
+}
+
 $partial = $true
 if ($Versions.Count -eq 0) {
     # 49-369차: 자동 - 바뀐 곳이 닿는 버전만
     $tCommon = Get-Newest @("build.gradle", "settings.gradle", "gradle.properties", "gradle", "libs", "src\main")
     $tMain = Get-Newest @("src\client", "compat", "loom-common.gradle")
-    $tModern = Get-Newest @("src-26x", "loom-common-modern.gradle")
+    $split26 = Get-NewestSplit "src-26x"
+    $tModern = Get-Newest @("loom-common-modern.gradle")
+    if ($split26.Shared -gt $tModern) { $tModern = $split26.Shared }
+    $tNeogul = $split26.Neogul
     $jarDir = Join-Path $env:APPDATA "NovaClient\novamod"
     $pick = @()
     foreach ($v in $allVersions) {
         $t = $tCommon
         $tree = if (Test-Modern $v) { $tModern } else { $tMain }
         if ($tree -gt $t) { $t = $tree }
+        if ($v -eq "26.1.2" -and $tNeogul -gt $t) { $t = $tNeogul }   # 너굴 전용 파일은 26.1.2만
         $tv = Get-Newest @(("versions\" + $v + "\build.gradle"), ("versions\" + $v + "\gradle.properties"))
         if ($tv -gt $t) { $t = $tv }
         $hasJar = (Test-Path -LiteralPath $jarDir) -and (@(Get-ChildItem -LiteralPath $jarDir -Filter ("builtin-mod-" + $v + "-*.jar") -ErrorAction SilentlyContinue).Count -gt 0)

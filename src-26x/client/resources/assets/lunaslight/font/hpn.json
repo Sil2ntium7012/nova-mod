@@ -1,0 +1,11 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "lunaslight:jua.ttf",
+      "size": 7.5,
+      "oversample": 6.0,
+      "shift": [0, 0]
+    }
+  ]
+}

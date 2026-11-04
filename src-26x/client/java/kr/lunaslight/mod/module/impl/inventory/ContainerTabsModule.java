@@ -817,7 +817,8 @@ public class ContainerTabsModule extends Module {
 			clickHeld = true;
 			if (hover != null && !holdingStack()) {
 				open(hover);
-			} else if (hover == null && onPanel && !holdingStack()) {
+			} else if (false && hover == null && onPanel && !holdingStack()) {
+				// 49-536차(사용자 사진: "드래그하다 이동하더니 밑으로 내려와"): 버튼 사이 틈을 누르면 판이 끌려 옮겨졌다 - 끌어 옮기기 없앰(자리는 [위치] 설정)
 				dragging = true;
 				dragMx = mouseX;
 				dragMy = mouseY;

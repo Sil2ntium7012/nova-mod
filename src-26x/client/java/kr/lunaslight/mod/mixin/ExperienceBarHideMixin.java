@@ -17,7 +17,7 @@ public abstract class ExperienceBarHideMixin {
 
 	@Inject(method = {"extractBackground", "extractRenderState"}, at = @At("HEAD"), cancellable = true, require = 0)
 	private void lunaslight$hideExpBar(CallbackInfo ci) {
-		if (HudHideModule.hideExp) {
+		if (HudHideModule.hideExp || kr.lunaslight.mod.util.NeogulDungeonHud.active) {
 			ci.cancel();
 		}
 	}

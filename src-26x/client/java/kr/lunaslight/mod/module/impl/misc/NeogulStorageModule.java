@@ -112,6 +112,13 @@ public class NeogulStorageModule extends Module {
 	private boolean menuScreen;
 	private int snapTicks;
 	/** 49-510차: 창고 안에서 다른 창고를 누르면 /창고로 목록을 열고, 목록이 뜨면 그 창고 버튼을 대신 누른다. */
+	/** 49-537차: 한 번 누른 탭(0.3초 안에 또 누르면 이름 바꾸기, 아니면 연다). */
+	private String clickKey;
+	private long clickAt;
+	private AbstractContainerScreen<?> clickScreen;
+	private String retryKey;
+	private Object retryScreen;
+	private int retryTick, retries;
 	private String chainKey;
 	private long chainAt;
 	/** 49-517차: 명령어로 연 창고(열쇠, 보낸 때, 보낸 때 화면) - 안 열리면 목록을 거쳐 연다. */
@@ -258,6 +265,14 @@ public class NeogulStorageModule extends Module {
 		// 버튼이 2개 이상이면 목록 화면 - 창고로 적지 않는다(잠긴 창고를 누르면 서버가 목록을 다시 연다)
 		menuScreen = buttons.size() >= 2;
 		screenTicks++;
+		if (clickKey != null && System.currentTimeMillis() - clickAt >= 300) {
+			String k = clickKey;
+			clickKey = null;
+			if (clickScreen != null && screen == clickScreen && !k.equals(current)) {
+				open(clickScreen, k);
+			}
+			clickScreen = null;
+		}
 		if (cmdKey != null) {
 			if (screen != cmdScreen) {
 				// 새 창이 떴다: 목록이면(명령어 권한 없음 등) 그 버튼을 대신 누르고, 창고면 끝
@@ -285,16 +300,34 @@ public class NeogulStorageModule extends Module {
 				boxes.computeIfAbsent(k, x -> new Box());
 			}
 			// 목록이 뜨고 칸이 다 들어온 뒤(2틱) 기다리던 창고 버튼을 누른다
-			if (chainKey != null && screenTicks >= 1 && client.gameMode != null) {
+			// 49-537차(사용자: "다른 창고 누르면 사운드 바바박 나면서 안 가지고 메인 창고 화면으로"): 1틱은 너무 일러 서버가 무시했다 - 3틱 뒤에 누른다(그동안 가림 판)
+			if (chainKey != null && screenTicks >= 3 && client.gameMode != null) {
 				Integer slot = buttons.get(chainKey);
 				if (slot != null) {
 					pending = chainKey;
 					pendingAt = System.currentTimeMillis();
 					client.gameMode.handleContainerInput(hs.getMenu().containerId, slot, 0, ContainerInput.PICKUP, client.player);
+					retryKey = chainKey;
+					retryScreen = screen;
+					retryTick = screenTicks;
+					retries = 0;
 				}
 				chainKey = null;
+			} else if (retryKey != null && screen == retryScreen && screenTicks - retryTick >= 15) {
+				// 눌렀는데 0.75초가 지나도 목록 그대로면 한 번 더(최대 2번)
+				Integer slot = buttons.get(retryKey);
+				if (slot != null && retries < 2 && client.gameMode != null) {
+					retries++;
+					retryTick = screenTicks;
+					pending = retryKey;
+					pendingAt = System.currentTimeMillis();
+					client.gameMode.handleContainerInput(hs.getMenu().containerId, slot, 0, ContainerInput.PICKUP, client.player);
+				} else {
+					retryKey = null;
+				}
 			}
 		} else if (changed) {
+			retryKey = null;
 			if (pending != null && System.currentTimeMillis() - pendingAt < 4000) {
 				current = pending;
 			} else {
@@ -887,10 +920,16 @@ public class NeogulStorageModule extends Module {
 			if (editing != null) {
 				commitEdit();
 			}
-			if (p.key().equals(current)) {
+			// 49-537차(사용자: "좌클릭 2번 누르면 이름 설정"): 0.3초 안에 같은 탭을 또 누르면 이름 바꾸기, 한 번이면 0.3초 뒤 연다
+			long now = System.currentTimeMillis();
+			if (p.key().equals(clickKey) && now - clickAt < 300) {
+				clickKey = null;
+				startEdit(p.key(), s);
 				return true;
 			}
-			open(hs, p.key());
+			clickKey = p.key();
+			clickAt = now;
+			clickScreen = hs;
 			return true;
 		}
 		if (editing != null) {

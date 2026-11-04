@@ -130,6 +130,26 @@ public class LunaClientScreen extends LunaScreenBase {
 	private final LunaConfirm keyConfirm = new LunaConfirm();
 	/** 49-257차: 크림 UI로 처음 들어왔을 때 한 번 - "HUD도 크림으로 바꿀 수 있어요". */
 	private final LunaConfirm creamConfirm = new LunaConfirm();
+
+	/** 49-535차: 기능 켜고 끄기 - 그 기능이 물어볼 말이 있으면(toggleConfirm) 확인 창을 먼저. after는 바꾼 뒤 할 일(없으면 null). */
+	private void toggleAsk(Module m, Runnable after) {
+		String[] ask = null;
+		try {
+			ask = m.toggleConfirm(!m.isEnabledStored());
+		} catch (Throwable ignored) {
+		}
+		Runnable run = () -> {
+			ModuleManager.get().toggleWithConflictResolution(m);
+			if (after != null) {
+				after.run();
+			}
+		};
+		if (ask == null || ask.length < 3) {
+			run.run();
+			return;
+		}
+		keyConfirm.showInfo(LunaIcons.INFO, ask[0], ask[1], ask[2], m.isEnabledStored() ? "끄기" : "켜기", "취소", run);
+	}
 	private boolean creamChecked;
 	private boolean showLibraries;
 	private int selectedMod;
@@ -1219,7 +1239,7 @@ public class LunaClientScreen extends LunaScreenBase {
 				return true;
 			}
 			if (showBigSwitch() && LunaDraw.in(mouseX, mouseY, bigSwitchX() - 3, bigSwitchY() - 3, BIG_SW_W + 6, BIG_SW_H + 6)) {
-				ModuleManager.get().toggleWithConflictResolution(openModule);
+				toggleAsk(openModule, null);
 				return true;
 			}
 		}
@@ -2578,7 +2598,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		for (Module m : ModuleManager.get().byPage(settingsPage)) {
 			if (LunaDraw.in(mouseX, mouseY, contentX, y, w, PAGE_HEAD_H)) {
 				if (m.isVersionSupported() && !m.isAlwaysOn()) {
-					ModuleManager.get().toggleWithConflictResolution(m);
+					toggleAsk(m, null);
 				}
 				return true;
 			}
@@ -4262,17 +4282,19 @@ public class LunaClientScreen extends LunaScreenBase {
 			int[] tb = toggleRect(r[0], y, r[2]);   // 49-226차: 카드 아래 [켜짐] 버튼
 			if (m.isVersionSupported() && !m.isAlwaysOn() && LunaDraw.in(mouseX, mouseY, tb[0], tb[1], tb[2], tb[3])) {
 				boolean wasOn = m.isEnabledStored();
-				ModuleManager.get().toggleWithConflictResolution(m);
-				// 49-21차: 켜는 순간 설정으로(사용자: "원하는 기능을 켜면 무조건 설정창이 뜨게")
-				if (!wasOn && m.isEnabledStored() && !visibleSettings(m).isEmpty()) {
-					openSettings(m);
-				}
+				Module mm = m;
+				toggleAsk(m, () -> {
+					// 49-21차: 켜는 순간 설정으로(사용자: "원하는 기능을 켜면 무조건 설정창이 뜨게")
+					if (!wasOn && mm.isEnabledStored() && !visibleSettings(mm).isEmpty()) {
+						openSettings(mm);
+					}
+				});
 				return true;
 			}
 			if (!visibleSettings(m).isEmpty()) {
 				openSettings(m);
 			} else if (m.isVersionSupported()) {
-				ModuleManager.get().toggleWithConflictResolution(m);
+				toggleAsk(m, null);
 			}
 			return true;
 		}
