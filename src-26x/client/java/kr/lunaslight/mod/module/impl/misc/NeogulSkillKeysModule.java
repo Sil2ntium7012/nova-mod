@@ -25,11 +25,45 @@ public class NeogulSkillKeysModule extends Module {
 	private final PositionSetting position = register(new PositionSetting(
 			"position", "위치", "표시 위치입니다.", HudPosition.of(HudPosition.Anchor.BOTTOM_CENTER, 0, 66)));
 
+	// 49-520차(사용자: "스킬 키 세팅이 원래 1~4번인데 여기서 더 많이 변경 가능하게 노바 설정에서"): 스킬별 키 직접 지정.
+	// 서버 /스킬키세팅은 고를 수 있는 키가 정해져 있다(F1~F10, 숫자, 글자 몇 개) - 여기서는 아무 키, Ctrl/Shift/Alt 조합, 마우스 옆 버튼까지.
+	private final kr.lunaslight.mod.module.setting.KeybindSetting[] skillKey = new kr.lunaslight.mod.module.setting.KeybindSetting[4];
+	private final boolean[] wasDown = new boolean[4];
+
 	public NeogulSkillKeysModule() {
 		super("neogul_skill_keys", "너굴 스킬 키", ModuleCategory.SERVER, "던전 스킬 키 세팅 | 따로 모드 없이 동작");
 		serverGroup("너굴마을");
 		defaultEnabled(true);
 		enableHudStyle(0xC80E1014, false, 0xB40B0C0E, Module.HudShape.FOLLOW);
+		for (int i = 0; i < 4; i++) {
+			skillKey[i] = register(new kr.lunaslight.mod.module.setting.KeybindSetting("skill_key_" + (i + 1), (i + 1) + "번 스킬 키 (" + NAMES[i] + ")",
+				"비워 두면 서버 /스킬키세팅 키를 씁니다. 정하면 이 키(조합키, 마우스 옆 버튼도 됨)로 씁니다. NG-SkillKeydown 모드가 깔려 있으면 그 모드 키를 따릅니다.", -1));
+		}
+	}
+
+	@Override
+	public void onTick() {
+		for (int i = 0; i < 4; i++) {
+			NeogulSkillKeys.OVERRIDE[i] = skillKey[i].getKeyCode();
+		}
+		// 마우스 버튼 지정은 키 이벤트로 안 오므로 여기서 눌린 순간을 본다(창이 열려 있으면 안 함)
+		if (client == null || client.player == null || LunaCompat.screenOf(client) != null || !NeogulSkillKeys.inSkillMode()) {
+			java.util.Arrays.fill(wasDown, false);
+			return;
+		}
+		for (int i = 0; i < 4; i++) {
+			var k = skillKey[i];
+			boolean down = k.isBound() && k.isMouse() && k.isDown(client);
+			if (down && !wasDown[i]) {
+				NeogulSkillKeys.cast(i + 1);
+			}
+			wasDown[i] = down;
+		}
+	}
+
+	@Override
+	protected void onDisable() {
+		java.util.Arrays.fill(NeogulSkillKeys.OVERRIDE, -1);
 	}
 
 	@Override

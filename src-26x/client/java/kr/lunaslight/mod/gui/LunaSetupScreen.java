@@ -26,6 +26,19 @@ public class LunaSetupScreen extends LunaScreenBase {
 	// ==================== 49-247차: GUI 배율과 무관한 크기 + 창이 작으면 같이 작게(LunaVScale) ====================
 	private final LunaVScale lunaV = new LunaVScale(this, 392, 252);
 
+	/** 49-517차: 다음 틱에 적용할 GUI 크기(-1 = 없음). */
+	private int pendingGui = -1;
+
+	@Override
+	public void tick() {
+		super.tick();
+		if (pendingGui >= 0) {
+			int v = pendingGui;
+			pendingGui = -1;
+			FirstSetup.setGuiScale(Minecraft.getInstance(), v);
+		}
+	}
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
 		boolean e = lunaV.begin(ctx);
@@ -188,7 +201,9 @@ public class LunaSetupScreen extends LunaScreenBase {
 				});
 				row(ctx, "GUI 크기", GUI, gui, y, mouseX, mouseY, i -> {
 					gui = i;
-					FirstSetup.setGuiScale(Minecraft.getInstance(), i);
+					// 49-517차(사용자: "처음 설정에서 GUI 바꿀 때 화면이 이상하게 확대돼"): 클릭 처리 안(가상 크기로 들어가 있는 중)에서
+					// 바로 배율을 바꾸면 그 안에서 화면이 다시 배치돼 크기가 어긋났다 - 다음 틱(그리기, 입력 밖)에 바꾼다.
+					pendingGui = i;
 				});
 			}
 			case 1 -> {

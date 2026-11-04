@@ -1818,17 +1818,39 @@ public class LunaStatsScreen extends LunaScreenBase {
 		y += 16;
 		// 머리글 - 49-67차(5-11): [획득] 열을 더하고, 머리글을 누르면 그 열로 정렬한다.
 		// (누를 수 있다는 걸 알리려고 지금 정렬 중인 열에 ▾를 붙이고 강조색으로 그린다)
-		int[] cols = {w - 235, w - 190, w - 145, w - 100, w - 55};
+		// 49-524차(사용자 사진: 사용 1,048,012가 버림 열과 겹침): 열 폭을 그 열의 가장 긴 숫자(와 머리글)에 맞추고 숫자는 오른쪽 맞춤.
+		String[] heads = {"사용", "버림", "제작", "캔", "획득"};
+		String arrow = itemSortDesc ? "▾" : "▴";
+		int[] cw = new int[heads.length];
+		for (int i = 0; i < heads.length; i++) {
+			cw[i] = Math.max(30, LunaDraw.width(font, heads[i] + arrow));
+		}
+		for (Map.Entry<String, LunaStats.ItemStat> e : merged.values()) {
+			LunaStats.ItemStat it = e.getValue();
+			long[] vv = {it.used, it.dropped, it.crafted, it.mined, it.picked};
+			for (int i = 0; i < vv.length; i++) {
+				if (vv[i] != 0) {
+					cw[i] = Math.max(cw[i], LunaDraw.width(font, String.format("%,d", vv[i])));
+				}
+			}
+		}
+		int colGap = 10;
+		int[] cols = new int[heads.length];
+		int cx = w - 4;
+		for (int i = heads.length - 1; i >= 0; i--) {
+			cx -= cw[i];
+			cols[i] = cx;
+			cx -= colGap;
+		}
 		itemHeadY = y;
 		itemHeadX = x;
 		itemHeadCols = cols;
-		String arrow = itemSortDesc ? "▾" : "▴";
 		LunaDraw.text(ctx, font, itemSort == 0 ? "이름 §7(합계순 " + arrow + ")" : "이름", x, y,
 			itemSort == 0 ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
-		String[] heads = {"사용", "버림", "제작", "캔", "획득"};
 		for (int i = 0; i < heads.length; i++) {
 			boolean on = itemSort == i + 1;
-			LunaDraw.text(ctx, font, on ? heads[i] + arrow : heads[i], x + cols[i], y,
+			String hd = on ? heads[i] + arrow : heads[i];
+			LunaDraw.text(ctx, font, hd, x + cols[i] + cw[i] - LunaDraw.width(font, hd), y,
 				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
 		}
 		y += 12;
@@ -1859,7 +1881,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 			long[] vals = {it.used, it.dropped, it.crafted, it.mined, it.picked};
 			for (int i = 0; i < vals.length; i++) {
 				String v = vals[i] == 0 ? "-" : animNum(vals[i], p);
-				LunaDraw.text(ctx, font, v, x + cols[i], y, vals[i] == 0 ? LunaDraw.TEXT_DIM : LunaDraw.TEXT);
+				LunaDraw.text(ctx, font, v, x + cols[i] + cw[i] - LunaDraw.width(font, v), y, vals[i] == 0 ? LunaDraw.TEXT_DIM : LunaDraw.TEXT);
 			}
 			LunaDraw.setAlpha(base);
 			y += 12;

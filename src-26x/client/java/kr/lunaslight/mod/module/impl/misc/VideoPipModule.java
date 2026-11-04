@@ -377,6 +377,7 @@ public class VideoPipModule extends Module {
 			return;
 		}
 		int w = img.getWidth(), h = img.getHeight();
+		blackFrame = isBlack(img, w, h);
 		flip ^= 1;
 		Identifier id = LunaCompat.registerImageTexture(client, "pip/frame" + flip, img);
 		if (id == null) {
@@ -388,6 +389,30 @@ public class VideoPipModule extends Module {
 		texId = id;
 		texW = w;
 		texH = h;
+	}
+
+	/** 49-517차: 마지막 장이 거의 검정인지(창이 가려졌거나 최소화돼 영상이 안 찍힘). */
+	private boolean blackFrame;
+
+	/** 고르게 뽑은 칸 64개가 모두 아주 어두우면 검정 화면. */
+	private static boolean isBlack(NativeImage img, int w, int h) {
+		try {
+			if (w <= 0 || h <= 0) {
+				return true;
+			}
+			for (int j = 0; j < 8; j++) {
+				for (int i = 0; i < 8; i++) {
+					int c = img.getPixel(Math.min(w - 1, (2 * i + 1) * w / 16), Math.min(h - 1, (2 * j + 1) * h / 16));
+					int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+					if (r + g + b > 36) {
+						return false;
+					}
+				}
+			}
+			return true;
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** 49-301차: 마지막 장이 3초 넘게 오래됐나(그리는 동안만 쓰는 값). */
@@ -407,6 +432,11 @@ public class VideoPipModule extends Module {
 			boolean hasTex = texId != null && texW > 0 && texH > 0;
 			stale = System.currentTimeMillis() - LunaPip.lastFrameMs >= 3000;
 			live = hasTex && (!stale || LunaPip.running);
+			// 49-517차(사용자: "영상 안 나오면 검정 화면 꺼 줘"): 영상이 없거나 찍힌 장이 검정뿐이면 아무것도 안 그린다.
+			// 무엇을 하면 되는지 안내는 미리보기(설정 화면, HUD 편집기)에서만.
+			if (!live || blackFrame) {
+				return;
+			}
 		}
 
 		int nameH = showName.get() && live ? 12 : 0;

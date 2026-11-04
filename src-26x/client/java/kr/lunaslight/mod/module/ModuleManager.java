@@ -180,6 +180,12 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSkillKeysModule");
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
+			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)
+			try {
+				kr.lunaslight.mod.util.NeogulHudProbe.init();
+			} catch (Throwable t) {
+				kr.lunaslight.mod.util.LunaCompat.warnOnce("neogulProbe", t);
+			}
 		}
 		// 49-473차: 할 일 목록(목록 화면, 늘 켜짐) + 할 일 HUD
 		register(new kr.lunaslight.mod.module.impl.misc.TodoModule());

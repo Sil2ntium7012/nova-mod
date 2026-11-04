@@ -43,6 +43,12 @@ import java.util.Map;
 public class ContainerTabsModule extends Module {
 
 	private static final int SLOT = 18;
+	/** 49-522차: 칸 모양 = 버튼 하나(BTN) + 간격 2. */
+	private static final int BTN = 20;
+	private static final int CELL = BTN + 2;
+	private static final int PAD = 2;
+	private static final net.minecraft.resources.Identifier BTN_SPRITE = net.minecraft.resources.Identifier.withDefaultNamespace("widget/button");
+	private static final net.minecraft.resources.Identifier BTN_HI = net.minecraft.resources.Identifier.withDefaultNamespace("widget/button_highlighted");
 	private static final int BORDER = 7;
 	private static final int PREVIEW_COLS = 9;
 	private static final int PREVIEW_ROWS = 6;
@@ -84,8 +90,8 @@ public class ContainerTabsModule extends Module {
 	}
 
 	private final EnumSetting<Style> style = register(new EnumSetting<>(
-			"style", "모양", "돌림판: 지금 상자 왼쪽과 오른쪽에 옆 상자가 어둡게 살짝 보이고, 끌어서 넘기거나 눌러서 엽니다. 칸: 예전처럼 상자 칸을 늘어놓습니다.",
-			Style.ROULETTE, Style.class));
+			"style", "모양", "칸: 상자마다 버튼 하나(리소스팩 버튼 모양)를 GUI 옆에 늘어놓습니다. 돌림판: 지금 상자 왼쪽과 오른쪽에 옆 상자가 어둡게 살짝 보이고, 끌어서 넘기거나 눌러서 엽니다.",
+			Style.TABS, Style.class));   // 49-522차: 기본 = 칸(버튼)
 
 	private final IntSetting sideBright = register(new IntSetting(
 			"side_bright", "옆 상자 밝기", "돌림판에서 양옆 상자를 얼마나 밝게 보일지(%)입니다.", 45, 10, 100, 5));
@@ -572,17 +578,17 @@ public class ContainerTabsModule extends Module {
 		int rows;
 		if (sd == Side.TOP || sd == Side.BOTTOM) {
 			// 위/아래: GUI 폭 안에 들어가는 열 수만큼 가로로 채우고 넘치면 다음 줄
-			int maxCols = Math.max(1, (box[2] - BORDER * 2) / SLOT);
+			int maxCols = Math.max(1, (box[2] - PAD * 2) / CELL);
 			rows = Math.max(1, (n + maxCols - 1) / maxCols);
 			cols = Math.max(1, (n + rows - 1) / rows);
 		} else {
-			int availH = Math.max(SLOT + BORDER * 2, Math.min(box[3], sh - box[1] - 2));
-			int maxRows = Math.max(1, (availH - BORDER * 2) / SLOT);
+			int availH = Math.max(CELL + PAD * 2, Math.min(box[3], sh - box[1] - 2));
+			int maxRows = Math.max(1, (availH - PAD * 2) / CELL);
 			cols = Math.max(1, (n + maxRows - 1) / maxRows);
 			rows = Math.max(1, (n + cols - 1) / cols);
 		}
-		int pw = cols * SLOT + BORDER * 2;
-		int ph = rows * SLOT + BORDER * 2;
+		int pw = cols * CELL + PAD * 2;
+		int ph = rows * CELL + PAD * 2;
 		int rightEdge = box[0] + box[2];
 		int helper = kr.lunaslight.mod.util.SidePanels.rightEdge(screen);
 		if (helper > rightEdge) {
@@ -619,31 +625,50 @@ public class ContainerTabsModule extends Module {
 		return new Layout(px, py, pw, ph, cols, n, px + pw / 2 >= box[0] + box[2] / 2);
 	}
 
-	/** 판 + 칸 + 아이콘(호버 칸 강조). 마우스가 올라간 탭을 돌려준다. */
+	/**
+	 * 49-522차(사용자: "인벤토리 탭 예전처럼 바꾸되 리소스팩 적용된 것처럼, 예전 건 인벤에 상자가 있는 느낌이었는데 지금은 하나의 멋진 버튼으로"):
+	 * 판(상자 GUI) + 슬롯 격자 대신 상자마다 버튼 하나. 버튼은 마크 버튼 그림(widget/button) 그대로라 서버 리소스팩 버튼 모양을 따른다.
+	 * 지금 열린 상자 = 강조 버튼 + 테마색 테두리, 마우스를 올리면 강조 버튼.
+	 */
 	private Tab drawPanel(GuiGraphicsExtractor ctx, Layout L, int mouseX, int mouseY) {
-		LunaDraw.mcPanel(ctx, L.px(), L.py(), L.pw(), L.ph());
 		Tab hover = null;
 		for (int i = 0; i < L.n(); i++) {
 			Tab t = tabs.get(i);
-			int sx = L.px() + BORDER + (i % L.cols()) * SLOT;
-			int sy = L.py() + BORDER + (i / L.cols()) * SLOT;
-			LunaDraw.mcSlot(ctx, sx, sy);
+			int sx = L.px() + PAD + (i % L.cols()) * CELL;
+			int sy = L.py() + PAD + (i / L.cols()) * CELL;
+			boolean cur = current != null && current.equals(t.pos());
+			boolean hov = !dragging && LunaDraw.in(mouseX, mouseY, sx, sy, BTN, BTN);
+			if (hov) {
+				hover = t;
+			}
 			try {
-				ctx.item(t.icon(), sx + 1, sy + 1);
+				ctx.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, (hov || cur) ? BTN_HI : BTN_SPRITE, sx, sy, BTN, BTN);
+			} catch (Throwable e) {
+				LunaDraw.mcSlot(ctx, sx, sy);   // 그림이 없으면 예전 칸
+			}
+			int lift = hov ? -1 : 0;
+			// 49-526차(사용자: "그 상자에 뭐가 있는지는 명확하게 떠야 해 - 가장 많은 아이템 띄우면 되는데"): 버튼 가운데 = 그 상자에 가장 많은
+			// 아이템(크게), 상자 종류는 왼쪽 위에 작게. 한 번도 안 열어 본 상자는 상자 그림만.
+			ItemStack top = topItem(t.pos());
+			try {
+				if (top.isEmpty()) {
+					ctx.item(t.icon(), sx + (BTN - 16) / 2, sy + (BTN - 16) / 2 + lift);
+				} else {
+					ctx.item(top, sx + (BTN - 16) / 2, sy + (BTN - 16) / 2 + lift);
+					LunaCompat.guiPush(ctx);
+					try {
+						LunaCompat.guiTranslateZ(ctx, 200);
+						LunaCompat.guiTranslate(ctx, sx + 1, sy + 1 + lift);
+						LunaCompat.guiScale(ctx, 0.5f, 0.5f);
+						ctx.item(t.icon(), 0, 0);
+					} finally {
+						LunaCompat.guiPop(ctx);
+					}
+				}
 			} catch (Throwable ignored) {
 			}
-			drawTopItem(ctx, t, sx, sy);   // 49-302차
-			if (current != null && current.equals(t.pos())) {
-				// 지금 열려 있는 상자: 핫바 선택처럼 흰 테두리
-				int c = LunaDraw.applyAlpha(0xFFFFFFFF);
-				ctx.fill(sx, sy, sx + SLOT, sy + 1, c);
-				ctx.fill(sx, sy + SLOT - 1, sx + SLOT, sy + SLOT, c);
-				ctx.fill(sx, sy, sx + 1, sy + SLOT, c);
-				ctx.fill(sx + SLOT - 1, sy, sx + SLOT, sy + SLOT, c);
-			}
-			if (!dragging && LunaDraw.in(mouseX, mouseY, sx + 1, sy + 1, 16, 16)) {
-				ctx.fill(sx + 1, sy + 1, sx + 17, sy + 17, 0x80FFFFFF);   // 바닐라 슬롯 호버
-				hover = t;
+			if (cur) {
+				LunaDraw.roundRectOutline(ctx, sx - 1, sy - 1, BTN + 2, BTN + 2, 2, LunaDraw.applyAlpha(0xFF000000 | (LunaDraw.ACCENT & 0xFFFFFF)));
 			}
 		}
 		return hover;
@@ -703,9 +728,9 @@ public class ContainerTabsModule extends Module {
 	/** 마우스 아래 탭(없으면 null)과 그 칸의 y. */
 	private Tab hoverTab(Layout L, int mouseX, int mouseY, int[] outY) {
 		for (int i = 0; i < L.n(); i++) {
-			int sx = L.px() + BORDER + (i % L.cols()) * SLOT;
-			int sy = L.py() + BORDER + (i / L.cols()) * SLOT;
-			if (LunaDraw.in(mouseX, mouseY, sx + 1, sy + 1, 16, 16)) {
+			int sx = L.px() + PAD + (i % L.cols()) * CELL;
+			int sy = L.py() + PAD + (i / L.cols()) * CELL;
+			if (LunaDraw.in(mouseX, mouseY, sx, sy, BTN, BTN)) {
 				outY[0] = sy;
 				return tabs.get(i);
 			}

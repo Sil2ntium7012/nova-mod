@@ -108,6 +108,26 @@ public final class LunaCompat {
 	}
 
 	/** 49-451차: setting 패키지용(마크 타입을 안 쓰게). */
+	/**
+	 * 49-518차(사용자: "F3+키 이런 거 누를 때는 기능 작동 안 하게, 내가 직접 지정한 거 아니면"): F3(디버그 보조 키)가 눌려 있으면
+	 * 그 키 자체로 지정한 것(baseKey가 F3)만 빼고 노바 키 지정을 쉬게 한다. 디버그 키를 못 읽으면 false.
+	 */
+	public static boolean debugComboBlocks(Object client, int baseKey) {
+		try {
+			net.minecraft.client.KeyMapping dm = ((net.minecraft.client.Minecraft) client).options.keyDebugModifier;
+			if (dm == null || !dm.isDown()) {
+				return false;
+			}
+			Object k = boundKeyOfBinding(dm);
+			if (k instanceof com.mojang.blaze3d.platform.InputConstants.Key key && key.getValue() == baseKey) {
+				return false;   // F3 자체를 지정한 기능
+			}
+			return true;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	public static int heldModifiersAny(Object client) {
 		return client instanceof Minecraft mc ? heldModifiers(mc) : 0;
 	}

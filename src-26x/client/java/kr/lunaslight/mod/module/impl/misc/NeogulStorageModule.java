@@ -114,6 +114,12 @@ public class NeogulStorageModule extends Module {
 	/** 49-510차: 창고 안에서 다른 창고를 누르면 /창고로 목록을 열고, 목록이 뜨면 그 창고 버튼을 대신 누른다. */
 	private String chainKey;
 	private long chainAt;
+	/** 49-517차: 명령어로 연 창고(열쇠, 보낸 때, 보낸 때 화면) - 안 열리면 목록을 거쳐 연다. */
+	private String cmdKey;
+	private long cmdAt;
+	private Object cmdScreen;
+	/** 목록에서 본 창고 버튼 그림(창고 안에서도 쓰려고 지우지 않는다). */
+	private final Map<String, ItemStack> savedIcons = new java.util.HashMap<>();
 	private int screenTicks;
 	private boolean dirty;
 
@@ -244,11 +250,28 @@ public class NeogulStorageModule extends Module {
 			if (k != null && !buttons.containsKey(k)) {
 				buttons.put(k, i);
 				buttonIcons.put(k, st.copy());
+				savedIcons.put(k, st.copy());
 			}
 		}
 		// 버튼이 2개 이상이면 목록 화면 - 창고로 적지 않는다(잠긴 창고를 누르면 서버가 목록을 다시 연다)
 		menuScreen = buttons.size() >= 2;
 		screenTicks++;
+		if (cmdKey != null) {
+			if (screen != cmdScreen) {
+				// 새 창이 떴다: 목록이면(명령어 권한 없음 등) 그 버튼을 대신 누르고, 창고면 끝
+				if (menuScreen) {
+					chainKey = cmdKey;
+					chainAt = System.currentTimeMillis();
+				}
+				cmdKey = null;
+			} else if (System.currentTimeMillis() - cmdAt > 1500) {
+				// 1.5초 안에 아무 창도 안 떴다(없는 명령어, 권한 없음) - 목록을 열어 버튼으로
+				chainKey = cmdKey;
+				chainAt = System.currentTimeMillis();
+				cmdKey = null;
+				LunaCompat.sendChatOrCommand(client, "/창고");
+			}
+		}
 		if (chainKey != null && System.currentTimeMillis() - chainAt > 6000) {
 			chainKey = null;   // 목록이 안 떴다
 		}
@@ -547,38 +570,50 @@ public class NeogulStorageModule extends Module {
 		} else {
 			cover = new int[]{box[0] - 4, box[1] - 4, box[0] + box[2] + 4, top + 2};
 		}
-		// 인벤 양쪽: 나머지(던전 창고 …) 2개씩 나란히
+		// 인벤 양쪽: 나머지(던전 창고 …) 2개씩 나란히.
+		// 49-517차(사용자 사진: 4개가 왼쪽 번호 창고 위에 겹쳐 뜸, "위치가 인벤 양쪽에 있어야지"): 너굴 아이템 목록이 켜져 있어도
+		// 왼쪽 2개, 오른쪽 2개(오른쪽은 목록 왼쪽 끝까지만). 가린 판 아래, 인벤 높이에 맞춘다. 한쪽에 자리가 없으면 다른 쪽으로.
 		if (!others.isEmpty()) {
-			int invY = top, invH = box[1] + box[3] - top;
-			int leftW = box[0] - 8, rightW = sw - (box[0] + box[2]) - 8;
-			boolean jei = false;
+			int coverBottom = cover != null ? cover[3] : top;
+			int yMin = coverBottom + 4, yMax = sh - 6;
+			int invMid = (Math.max(yMin, top) + box[1] + box[3]) / 2;
+			int rightEnd = sw - 6;
 			try {
-				jei = kr.lunaslight.mod.util.NeogulJei.on();
+				int jl = kr.lunaslight.mod.util.NeogulJei.on() ? kr.lunaslight.mod.util.NeogulJei.listLeft() : -1;
+				if (jl > 0) {
+					rightEnd = jl - 6;
+				}
 			} catch (Throwable ignored) {
 			}
+			int leftEnd = box[0] - 6, leftStart = 6;
+			int rightStart = box[0] + box[2] + 6;
 			List<String> left = new ArrayList<>(), right = new ArrayList<>();
 			for (int i = 0; i < others.size(); i++) {
-				((jei || i % 4 < 2) ? left : right).add(others.get(i));
+				(i % 4 < 2 ? left : right).add(others.get(i));
+			}
+			if (rightEnd - rightStart < panelW(0.3f) * 2 + gap) {
+				left.addAll(right);
+				right.clear();
 			}
 			for (int side = 0; side < 2; side++) {
 				List<String> list = side == 0 ? left : right;
 				if (list.isEmpty()) {
 					continue;
 				}
-				int availSide = side == 0 ? leftW : rightW;
+				int sideW = side == 0 ? leftEnd - leftStart : rightEnd - rightStart;
 				int cols = Math.min(2, list.size());
 				int rowsN = (list.size() + cols - 1) / cols;
-				float k = 0.30f;
+				float k = 0.3f;
 				for (float t = 0.9f; t >= 0.30f; t -= 0.02f) {
-					if (cols * panelW(t) + (cols - 1) * gap <= availSide && rowsN * panelH(t, 6) + (rowsN - 1) * gap <= sh - 12) {
+					if (cols * panelW(t) + (cols - 1) * gap <= sideW && rowsN * panelH(t, 6) + (rowsN - 1) * gap <= yMax - yMin) {
 						k = t;
 						break;
 					}
 				}
 				int pw = panelW(k), ph = panelH(k, 6);
 				int gw = cols * pw + (cols - 1) * gap, gh = rowsN * ph + (rowsN - 1) * gap;
-				int x0 = side == 0 ? box[0] - 6 - gw : box[0] + box[2] + 6;
-				int y0 = Math.max(6, Math.min(sh - 6 - gh, invY + invH / 2 - gh / 2));
+				int x0 = side == 0 ? leftEnd - gw : rightStart;
+				int y0 = Math.max(yMin, Math.min(yMax - gh, invMid - gh / 2));
 				for (int i = 0; i < list.size(); i++) {
 					int c = i % cols, r = i / cols;
 					int rows = rowsOf(list.get(i));
@@ -589,69 +624,152 @@ public class NeogulStorageModule extends Module {
 		return out;
 	}
 
-	/** 창고 안: GUI 왼쪽(너굴 아이템 목록이 꺼져 있으면 오른쪽도)에 펼친다. */
+	/** 탭 한 줄 높이. */
+	private static final int TAB_H = 16;
+
+	/**
+	 * 창고 안. 49-517차(사용자: "상자를 열면 왼쪽에 이상하게 나오고"): 예전엔 GUI 옆에 모든 창고 판을 줄여 깔았다(작고 너굴 아이템 목록과 겹침).
+	 * 이제 GUI 왼쪽에 창고 이름 탭(그림 + 이름)을 세로로 - 지금 창고는 강조, 마우스를 올리면 그 창고 판을 탭 옆에 크게 보여 주고, 누르면 명령어로 연다.
+	 * 탭은 k = 0인 판으로 나타낸다.
+	 */
 	private List<Panel> layoutSide(AbstractContainerScreen<?> hs, List<Panel> out) {
-		int sw = client.getWindow().getGuiScaledWidth();
 		int sh = client.getWindow().getGuiScaledHeight();
 		int[] box = guiBox(hs);
-		List<int[]> regions = new ArrayList<>();
-		regions.add(new int[]{6, box[0] - 6});
-		boolean jei = false;
-		try {
-			jei = kr.lunaslight.mod.util.NeogulJei.on();
-		} catch (Throwable ignored) {
-		}
-		if (!jei) {
-			regions.add(new int[]{box[0] + box[2] + 6, sw - 6});
-		}
-		List<String> keys = new ArrayList<>();
-		for (var e : boxes.entrySet()) {
-			if (e.getValue().raw != null || !e.getValue().items.isEmpty() || e.getKey().equals(current)) {
-				keys.add(e.getKey());
-			}
-		}
-		int n = keys.size();
-		if (n == 0) {
+		List<String> keys = new ArrayList<>(boxes.keySet());
+		if (keys.isEmpty()) {
 			return out;
 		}
-		int gap = 4;
-		for (float k = 0.8f; k >= 0.30f; k -= 0.02f) {
-			int pw = panelW(k), ph = panelH(k, 6);
-			int rowsFit = Math.max(0, (sh - 12 + gap) / (ph + gap));
-			int cap = 0;
-			for (int[] r : regions) {
-				cap += Math.max(0, (r[1] - r[0] + gap) / (pw + gap)) * rowsFit;
-			}
-			if (cap < n && k > 0.31f) {
-				continue;
-			}
-			int idx = 0;
-			for (int ri = 0; ri < regions.size() && idx < n; ri++) {
-				int[] r = regions.get(ri);
-				int cols = Math.max(0, (r[1] - r[0] + gap) / (pw + gap));
-				if (cols == 0) {
-					continue;
-				}
-				int take = Math.min(n - idx, cols * rowsFit);
-				int usedRows = (take + cols - 1) / cols;
-				int y0 = Math.max(6, (sh - (usedRows * (ph + gap) - gap)) / 2);
-				for (int j = 0; j < take; j++) {
-					int col = j % cols, row = j / cols;
-					int x = ri == 0 ? r[1] - (col + 1) * pw - col * gap : r[0] + col * (pw + gap);
-					String key = keys.get(idx++);
-					int rows = rowsOf(key);
-					out.add(new Panel(key, x, y0 + row * (ph + gap), pw, panelH(k, rows), k, rows));
-				}
-			}
-			return out;
+		int w = 0;
+		for (String k : keys) {
+			w = Math.max(w, LunaCompat.getTextWidth(client.font, nameOf(k)));
+		}
+		w = Math.min(110, w + 26);
+		int gap = 2;
+		int perCol = Math.max(1, (sh - 12 + gap) / (TAB_H + gap));
+		int cols = (keys.size() + perCol - 1) / perCol;
+		int rows = Math.min(perCol, keys.size());
+		int gh = rows * (TAB_H + gap) - gap;
+		int y0 = Math.max(6, box[1] + Math.min(box[3], gh) / 2 - gh / 2 + (box[3] > gh ? (box[3] - gh) / 2 : 0));
+		y0 = Math.max(6, Math.min(sh - 6 - gh, y0));
+		for (int i = 0; i < keys.size(); i++) {
+			int c = i / perCol, r = i % perCol;
+			int x = box[0] - 6 - (cols - c) * (w + 4) + 4;
+			out.add(new Panel(keys.get(i), x, y0 + r * (TAB_H + gap), w, TAB_H, 0f, 0));
 		}
 		return out;
+	}
+
+	/** 탭 위에 마우스를 올렸을 때 크게 보여 줄 판 자리(탭 왼쪽, 자리가 없으면 오른쪽). */
+	private Panel hoverPanel(Panel tab, AbstractContainerScreen<?> hs) {
+		int sw = client.getWindow().getGuiScaledWidth();
+		int sh = client.getWindow().getGuiScaledHeight();
+		int rows = rowsOf(tab.key());
+		int room = tab.x() - 10;
+		float k = Math.min(0.9f, room / 176f);
+		int x;
+		if (k >= 0.5f) {
+			x = tab.x() - 4 - panelW(k);
+		} else {
+			k = Math.min(0.9f, (sw - tab.x() - tab.w() - 10) / 176f);
+			x = tab.x() + tab.w() + 4;
+		}
+		k = Math.max(0.3f, k);
+		int h = panelH(k, rows);
+		int y = Math.max(6, Math.min(sh - 6 - h, tab.y() + TAB_H / 2 - h / 2));
+		return new Panel(tab.key(), x, y, panelW(k), h, k, rows);
 	}
 
 	// ==================== 그리기 ====================
 
 	private boolean shows() {
 		return current != null || menuScreen;
+	}
+
+	/** 창고 판 하나(상자 그림, 제목, 버튼 그림, 아이템). 마우스 아래 아이템을 돌려준다. */
+	private ItemStack drawPanel(GuiGraphicsExtractor ctx, Panel p, int mouseX, int mouseY, boolean cur, boolean hov, int accent,
+			List<int[]> dims, int dimA) {
+		ItemStack hoverStack = ItemStack.EMPTY;
+		Box b = boxes.get(p.key());
+		List<ItemStack> items = b == null ? List.of() : itemsOf(b);
+		float k = p.k();
+		int rows = p.rows();
+		LunaCompat.guiPush(ctx);
+		try {
+			LunaCompat.guiTranslate(ctx, p.x(), p.y());
+			LunaCompat.guiScale(ctx, k, k);
+			// 바닐라 상자 그림(리소스팩): 위(제목 + 칸) + 아래 테두리 7px
+			ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX, 0, 0, 0f, 0f, 176, rows * 18 + 17, 256, 256);
+			ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX, 0, rows * 18 + 17, 0f, 215f, 176, 7, 256, 256);
+			String title = p.key().equals(editing) ? editBuf + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : "") : nameOf(p.key());
+			ctx.text(client.font, LunaCompat.textLiteral(LunaDraw.ellipsize(client.font, title, 176 - 30)), 8, 6,
+				p.key().equals(editing) ? 0xFF1A5FB4 : 0xFF404040, false);
+			ItemStack icon = buttonIcons.containsKey(p.key()) ? buttonIcons.get(p.key()) : savedIcons.get(p.key());
+			if (icon != null) {
+				LunaCompat.guiPush(ctx);
+				LunaCompat.guiTranslate(ctx, 176 - 18, 2);
+				LunaCompat.guiScale(ctx, 0.75f, 0.75f);
+				ctx.item(icon, 0, 0);
+				LunaCompat.guiPop(ctx);
+			}
+			if (items.isEmpty()) {
+				LunaDraw.textCentered(ctx, client.font, "열어 보면 보여요", 88, 18 + rows * 9 - 4, 0xFF404040);
+			} else {
+				for (int i = 0; i < items.size() && i < rows * 9; i++) {
+					ItemStack st = items.get(i);
+					if (st.isEmpty()) {
+						continue;
+					}
+					int ix = 8 + (i % 9) * 18, iy = 18 + (i / 9) * 18;
+					ctx.item(st, ix, iy);
+					LunaCompat.drawItemOverlay(ctx, client.font, st, ix, iy);
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulStorage:draw", t);
+		} finally {
+			LunaCompat.guiPop(ctx);
+		}
+		if (hov && !items.isEmpty()) {
+			int c = Math.round(18 * k);
+			int gx = p.x() + Math.round(8 * k), gy = p.y() + Math.round(18 * k);
+			int col = (mouseX - gx) / Math.max(1, c), row = (mouseY - gy) / Math.max(1, c);
+			int i = row * 9 + col;
+			if (mouseX >= gx && mouseY >= gy && col < 9 && row < rows && i < items.size() && !items.get(i).isEmpty()) {
+				hoverStack = items.get(i);
+			}
+		}
+		if (cur) {
+			LunaDraw.roundRectOutline(ctx, p.x() - 1, p.y() - 1, p.w() + 2, p.h() + 2, 0, 0xFF000000 | (accent & 0xFFFFFF));
+		} else if (hov) {
+			LunaDraw.roundRectOutline(ctx, p.x() - 1, p.y() - 1, p.w() + 2, p.h() + 2, 0, 0xFFFFFFFF);
+		}
+		if (!cur && !hov && dimA > 0) {
+			dims.add(new int[]{p.x() + 2, p.y() + 2, p.w() - 4, p.h() - 4});
+		}
+		return hoverStack;
+	}
+
+	/** 49-517차: 창고 안 왼쪽 탭(버튼 그림 + 이름). */
+	private void drawTab(GuiGraphicsExtractor ctx, Panel p, boolean cur, boolean hov, int accent) {
+		ctx.fill(p.x(), p.y(), p.x() + p.w(), p.y() + p.h(), cur ? 0xE0202634 : hov ? 0xE0262A33 : 0xD0101216);
+		int line = cur ? (0xFF000000 | (accent & 0xFFFFFF)) : hov ? 0xFFFFFFFF : 0x50FFFFFF;
+		LunaDraw.roundRectOutline(ctx, p.x(), p.y(), p.w(), p.h(), 0, line);
+		ItemStack icon = buttonIcons.containsKey(p.key()) ? buttonIcons.get(p.key()) : savedIcons.get(p.key());
+		int tx = p.x() + 5;
+		if (icon != null) {
+			LunaCompat.guiPush(ctx);
+			try {
+				LunaCompat.guiTranslate(ctx, p.x() + 2, p.y() + 2);
+				LunaCompat.guiScale(ctx, 0.75f, 0.75f);
+				ctx.item(icon, 0, 0);
+			} finally {
+				LunaCompat.guiPop(ctx);
+			}
+			tx = p.x() + 18;
+		}
+		String title = p.key().equals(editing) ? editBuf + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : "") : nameOf(p.key());
+		LunaDraw.text(ctx, client.font, LunaDraw.ellipsize(client.font, title, p.x() + p.w() - 4 - tx), tx, p.y() + 4,
+			cur ? 0xFFFFFFFF : 0xFFD0D4DC);
 	}
 
 	private void onScreenFrame(Object screen, GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
@@ -684,66 +802,32 @@ public class NeogulStorageModule extends Module {
 		List<int[]> dims = new ArrayList<>();
 		int dimA = menuScreen ? 0 : Math.round((100 - Math.max(15, Math.min(100, dim.get()))) * 2.55f);
 		int accent = LunaDraw.ACCENT;
+		Panel hoverTab = null;
 		for (Panel p : panels) {
 			boolean cur = p.key().equals(current);
 			boolean hov = LunaDraw.in(mouseX, mouseY, p.x(), p.y(), p.w(), p.h());
-			Box b = boxes.get(p.key());
-			List<ItemStack> items = b == null ? List.of() : itemsOf(b);
-			float k = p.k();
-			int rows = p.rows();
-			LunaCompat.guiPush(ctx);
+			if (p.k() == 0f) {
+				drawTab(ctx, p, cur, hov, accent);
+				if (hov) {
+					hoverTab = p;
+				}
+				continue;
+			}
+			ItemStack hs0 = drawPanel(ctx, p, mouseX, mouseY, cur, hov, accent, dims, dimA);
+			if (!hs0.isEmpty()) {
+				hoverStack = hs0;
+			}
+		}
+		if (hoverTab != null && screen instanceof AbstractContainerScreen<?> hsc) {
+			Panel big = hoverPanel(hoverTab, hsc);
 			try {
-				LunaCompat.guiTranslate(ctx, p.x(), p.y());
-				LunaCompat.guiScale(ctx, k, k);
-				// 바닐라 상자 그림(리소스팩): 위(제목 + 칸) + 아래 테두리 7px
-				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX, 0, 0, 0f, 0f, 176, rows * 18 + 17, 256, 256);
-				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEX, 0, rows * 18 + 17, 0f, 215f, 176, 7, 256, 256);
-				String title = p.key().equals(editing) ? editBuf + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : "") : nameOf(p.key());
-				ctx.text(client.font, LunaCompat.textLiteral(LunaDraw.ellipsize(client.font, title, 176 - 30)), 8, 6,
-					p.key().equals(editing) ? 0xFF1A5FB4 : 0xFF404040, false);
-				ItemStack icon = buttonIcons.get(p.key());
-				if (icon != null) {
-					LunaCompat.guiPush(ctx);
-					LunaCompat.guiTranslate(ctx, 176 - 18, 2);
-					LunaCompat.guiScale(ctx, 0.75f, 0.75f);
-					ctx.item(icon, 0, 0);
-					LunaCompat.guiPop(ctx);
-				}
-				if (items.isEmpty()) {
-					LunaDraw.textCentered(ctx, client.font, "열어 보면 보여요", 88, 18 + rows * 9 - 4, 0xFF404040);
-				} else {
-					for (int i = 0; i < items.size() && i < rows * 9; i++) {
-						ItemStack st = items.get(i);
-						if (st.isEmpty()) {
-							continue;
-						}
-						int ix = 8 + (i % 9) * 18, iy = 18 + (i / 9) * 18;
-						ctx.item(st, ix, iy);
-						LunaCompat.drawItemOverlay(ctx, client.font, st, ix, iy);
-					}
-				}
-			} catch (Throwable t) {
-				LunaCompat.warnOnce("neogulStorage:draw", t);
-			} finally {
-				LunaCompat.guiPop(ctx);
+				ctx.nextStratum();   // 창고 칸 위
+			} catch (Throwable ignored) {
 			}
-			if (hov && !items.isEmpty()) {
-				int c = Math.round(18 * k);
-				int gx = p.x() + Math.round(8 * k), gy = p.y() + Math.round(18 * k);
-				int col = (mouseX - gx) / Math.max(1, c), row = (mouseY - gy) / Math.max(1, c);
-				int i = row * 9 + col;
-				if (mouseX >= gx && mouseY >= gy && col < 9 && row < rows && i < items.size() && !items.get(i).isEmpty()) {
-					hoverStack = items.get(i);
-				}
-			}
-			if (cur) {
-				LunaDraw.roundRectOutline(ctx, p.x() - 1, p.y() - 1, p.w() + 2, p.h() + 2, 0, 0xFF000000 | (accent & 0xFFFFFF));
-			} else if (hov) {
-				LunaDraw.roundRectOutline(ctx, p.x() - 1, p.y() - 1, p.w() + 2, p.h() + 2, 0, 0xFFFFFFFF);
-			}
-			if (!cur && !hov && dimA > 0) {
-				dims.add(new int[]{p.x() + 2, p.y() + 2, p.w() - 4, p.h() - 4});
-			}
+			drawPanel(ctx, big, mouseX, mouseY, big.key().equals(current), false, accent, new ArrayList<>(), 0);
+			List<int[]> bl2 = new ArrayList<>(blocked);
+			bl2.add(new int[]{big.x(), big.y(), big.x() + big.w(), big.y() + big.h()});
+			blocked = bl2;
 		}
 		if (!dims.isEmpty()) {
 			try {
@@ -800,11 +884,46 @@ public class NeogulStorageModule extends Module {
 			client.gameMode.handleContainerInput(hs.getMenu().containerId, slot, 0, ContainerInput.PICKUP, client.player);
 			return;
 		}
-		// 49-510차(사용자: "창고에서 다른 창고 가려면 2번 눌러야 하는 문제"): 예전엔 /창고N을 보냈는데 권한(스킬, 멤버십)이 없으면 안 열려서
-		// 목록으로 돌아가 다시 눌러야 했다. 이제 /창고로 목록을 열고 목록이 뜨면 그 창고 버튼을 대신 누른다 - 한 번 누르면 그 창고로 바로.
+		// 49-517차(사용자: "다른 창고 갈 때 사운드 이상하게 나오고, 그냥 창고1~10 엔더상자 던전상자 이런 식으로 명령어로 열어 봐"):
+		// 창고 안에서는 목록을 거치지 않고 명령어로 바로 연다(목록 열고 닫는 소리가 겹치지 않게). 1.5초 안에 안 열리거나
+		// 목록이 뜨면(권한 없음) 49-510차처럼 목록 버튼을 대신 누른다.
+		String cmd = commandOf(key);
+		pending = key;
+		pendingAt = System.currentTimeMillis();
+		if (cmd != null) {
+			cmdKey = key;
+			cmdAt = System.currentTimeMillis();
+			cmdScreen = LunaCompat.screenOf(client);
+			LunaCompat.sendChatOrCommand(client, cmd);
+			return;
+		}
 		chainKey = key;
 		chainAt = System.currentTimeMillis();
 		LunaCompat.sendChatOrCommand(client, "/창고");
+	}
+
+	/** 창고 → 여는 명령어(모르면 null). */
+	private static String commandOf(String key) {
+		if (isNum(key)) {
+			return "/창고" + key;
+		}
+		String k = key.replace(" ", "");
+		if (k.startsWith("던전")) {
+			return "/던전상자";
+		}
+		if (k.startsWith("엔더")) {
+			return "/엔더상자";
+		}
+		if (k.startsWith("귀속")) {
+			return "/귀속보관함";
+		}
+		if (k.startsWith("낚시")) {
+			return "/낚시창고";
+		}
+		if (k.startsWith("광물")) {
+			return "/광물창고";
+		}
+		return null;
 	}
 
 	private final TextCapture.Target editTarget = new TextCapture.Target() {

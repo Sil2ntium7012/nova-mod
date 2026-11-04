@@ -225,6 +225,11 @@ public final class NeogulJei {
 	}
 
 	/** 마우스 아래 목록 아이템(없으면 null). 보기 창의 R/U도 쓴다. */
+	/** 49-517차: 지난 프레임에 그린 목록의 왼쪽 끝(안 그렸으면 -1) - 창고 판이 목록과 겹치지 않게. */
+	public static int listLeft() {
+		return shown ? gx : -1;
+	}
+
 	public static NeogulData.Entry itemAt(double mx, double my) {
 		Line l = lineAt(mx, my);
 		if (l == null || l.header()) {

@@ -177,6 +177,7 @@ public class LunaClientMod implements ClientModInitializer {
 
 		ModuleManager.get().init();
 		LunaClientConfig.load();
+		kr.lunaslight.mod.util.ModUpdateBanner.init();   // 49-523차: 새 모드 버전이 있으면 화면 맨 위에 늘 안내
 		kr.lunaslight.mod.util.NeogulJei.init();   // 49-391차: 너굴마을 인벤토리 옆 아이템 목록(JEI처럼)
 		// 49-431차: 너굴마을 스킬 키 세팅 채널(ng:skillkey, ng:skillkey2, ng:skillcast) - 너굴마을 버전(26.1.2)에서만
 		if (kr.lunaslight.mod.util.LunaVersion.isWithin("26.1.2", "26.1.2")) {

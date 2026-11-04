@@ -67,11 +67,11 @@ public class NeogulDailyModule extends Module {
 		super("neogul_daily", "너굴 추천 핫타임", ModuleCategory.SERVER, "추천 체크 | 핫타임까지 남은 시간");
 		serverGroup("너굴마을");
 		state.hidden();
-		register(new ActionSetting("toggle_rec", "추천 체크", "오늘 추천 체크를 직접 켜거나 끕니다.", "체크 전환",
-				() -> set(1, !flag(1))));
-		register(new ActionSetting("toggle_hot", "핫타임 체크", "오늘 핫타임 받음 체크를 직접 켜거나 끕니다.", "체크 전환",
-				() -> set(2, !flag(2))));
+		// 49-518차(사용자: "너굴 달력 - 조작 불가능하게"): 직접 체크 바꾸기 버튼을 없애고 감지한 것만 남긴다. 달력은 일퀘, 추천, 핫타임, 접속 시간.
+		register(new ActionSetting("calendar", "너굴 달력", "날마다 일퀘 보상, 추천, 핫타임, 접속 시간을 달력으로 봅니다(보기 전용).", "달력 열기",
+				() -> LunaCompat.setScreen(new kr.lunaslight.mod.gui.NeogulCalendarScreen((net.minecraft.client.gui.screens.Screen) LunaCompat.screenOf(client)))));
 		ChatState.addPlainListener(this::onChat);
+		kr.lunaslight.mod.util.NeogulCalendar.init();
 	}
 
 	// ==================== 상태 ====================
@@ -97,6 +97,9 @@ public class NeogulDailyModule extends Module {
 		if (!nv.equals(p[i])) {
 			p[i] = nv;
 			state.setValue(String.join("|", p));
+		}
+		if (i == 1 || i == 2) {
+			kr.lunaslight.mod.util.NeogulCalendar.mark(i == 1 ? "rec" : "hot", on);
 		}
 	}
 
@@ -140,6 +143,10 @@ public class NeogulDailyModule extends Module {
 	public void onTick() {
 		if (client == null || client.player == null || !here()) {
 			return;
+		}
+		if (client.player.tickCount % 100 == 0) {
+			kr.lunaslight.mod.util.NeogulCalendar.mark("rec", flag(1));
+			kr.lunaslight.mod.util.NeogulCalendar.mark("hot", flag(2));
 		}
 		LocalDateTime now = LocalDateTime.now();
 		if (alarm.get() && now.getHour() >= HOT_HOUR && !flag(2) && !flag(3)) {

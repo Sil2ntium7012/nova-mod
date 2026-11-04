@@ -56,7 +56,7 @@ public final class LunaClientConfig {
 	private static final String KEY_KEY = "_key_version";
 	/** 49-157차: 한 번만 하는 기본값 바꾸기(아이템 찾기 기본 꺼짐)를 했는지. */
 	private static final String DEFAULTS_KEY = "_defaults_version";
-	private static final int DEFAULTS_VERSION = 7;
+	private static final int DEFAULTS_VERSION = 8;
 
 	private static Path configFile() {
 		return FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("modules.json");
@@ -215,6 +215,16 @@ public final class LunaClientConfig {
 			// 49-515차(사용자: "한글챗 기능 기본 비활성화, 지금 켠 사람들도"): 한글 입력 기본 끔 - 켜진 채 저장된 것도 한 번 끈다.
 			if (savedDefaults < 7) {
 				ModuleManager.get().find("hangul_input").ifPresent(m -> m.setEnabledSilently(false));
+			}
+			// 49-522차(사용자: "인벤토리 탭 예전처럼, 하나의 멋진 버튼으로"): 모양을 칸(버튼)으로 한 번 되돌린다.
+			if (savedDefaults < 8) {
+				ModuleManager.get().find("container_tabs").ifPresent(m -> {
+					for (Setting<?> setting : m.getSettings()) {
+						if ("style".equals(setting.getId())) {
+							setting.resetToDefault();
+						}
+					}
+				});
 			}
 			LunaClientMod.LOGGER.info("[Nova] 설정 불러오기 완료: " + path);
 		} catch (Exception e) {

@@ -49,6 +49,10 @@ public class KeybindSetting extends Setting<Integer> {
 			}
 		} catch (Throwable ignored) {
 		}
+		// 49-518차: F3을 누른 채(F3 + T 등 마크 디버그 조합)면 노바 키 지정은 안 눌린다 - F3 자체를 지정한 것만 예외.
+		if (LunaCompat.debugComboBlocks(client, getBaseKey())) {
+			return false;
+		}
 		// 49-451차: 단독 지정(예: R)은 보조키가 눌려 있고 그 조합(예: Ctrl + R)이 다른 칸에 지정돼 있으면 쉰다 - 둘이 같이 안 켜지게.
 		if (LunaCompat.keyModifiers(value) == 0) {
 			int held = LunaCompat.heldModifiersAny(client);

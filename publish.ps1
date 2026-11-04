@@ -9,6 +9,10 @@ param(
     [switch]$SkipJars
 )
 
+# 49-517차(사용자 사진: 런처 업데이트 창 글자가 깨짐): PowerShell 5는 gh 같은 프로그램의 출력을 CP949로 읽어서, 릴리스 설명(UTF-8)을
+# 다시 받아 쌓을 때 지난 묶음이 깨졌다. 출력/입력을 UTF-8로.
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Continue"   # git은 진행 상황을 stderr로 내보내서 Stop이면 PowerShell 5가 오류로 멈춘다 - 종료 코드로만 판단
 Set-Location $PSScriptRoot
 $RepoUrl = "https://github.com/Sil2ntium7012/nova-mod.git"
@@ -113,7 +117,7 @@ if ($noteLines.Count -eq 0 -and $Message -ne "") { $noteLines = @($Message) }
 if ($noteLines.Count -gt 0) {
     $old = ((& gh release view latest --repo $RepoName --json body -q .body) -join "`n")
     $sec = "## " + (Get-Date -Format "yyyy-MM-dd HH:mm") + "`n" + (($noteLines | ForEach-Object { "- " + ($_.Trim() -replace '^[-*]\s*', '') }) -join "`n")
-    $keep = @(($old -split "(?m)^(?=## )") | Where-Object { $_ -match '^## ' } | Select-Object -First 14 | ForEach-Object { $_.Trim() })
+    $keep = @(($old -split "(?m)^(?=## )") | Where-Object { $_ -match '^## ' -and $_ -notmatch '[\u4E00-\u9FFF\uFFFD]' } | Select-Object -First 14 | ForEach-Object { $_.Trim() })
     $body = (@($sec) + $keep) -join "`n`n"
     $tmp = Join-Path $env:TEMP "nova-mod-release-notes.md"
     [System.IO.File]::WriteAllText($tmp, $body, (New-Object System.Text.UTF8Encoding($false)))
