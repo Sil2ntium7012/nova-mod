@@ -53,7 +53,7 @@ public class NeogulStorageModule extends Module {
 
 	private static final Pattern NUMBERED = Pattern.compile("(\\d+)\\s*번\\s*창고");
 	/** 번호 없는 창고: 이름 끝이 "창고"나 "보관함"(던전 창고, 엔더 창고, 귀속 보관함, 낚시 창고 …). */
-	private static final Pattern SPECIAL = Pattern.compile("^\\s*([가-힣A-Za-z ]{1,12}(창고|보관함))\\s*$");
+	private static final Pattern SPECIAL = Pattern.compile("^\\s*((?:[가-힣A-Za-z ]{1,12}(?:창고|보관함))|엔더 ?상자)\\s*$");
 	private static final Pattern TITLE = Pattern.compile("(\\d+)\\s*번\\s*창고|창고\\s*(\\d+)");
 	private static final Pattern COMMAND = Pattern.compile("^창고\\s*(\\d+)$");
 	private static final List<String> SPECIAL_ORDER = List.of("던전 창고", "엔더 창고", "귀속 보관함", "낚시 창고");
@@ -169,7 +169,9 @@ public class NeogulStorageModule extends Module {
 		if (m.find()) {
 			return m.group(1);
 		}
-		Matcher s = SPECIAL.matcher(n);
+		// 49-516차(사용자: "던전, 낚시, 엔더 등 4개의 창고가 안 보이잖아"): 버튼 이름 앞에 리소스팩 글꼴 아이콘(개인 영역 밖 글자)이 붙어
+		// "^...창고$"에 안 맞았다 - 한글, 영문, 숫자, 띄어쓰기만 남기고 맞춘다.
+		Matcher s = SPECIAL.matcher(n.replaceAll("[^가-힣A-Za-z0-9 ]", " ").replaceAll("\\s+", " ").trim());
 		if (s.find()) {
 			return s.group(1).replaceAll("\\s+", " ").trim();
 		}
