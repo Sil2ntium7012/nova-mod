@@ -561,6 +561,7 @@ public final class NeogulDungeonHud {
 		boolean slash = false, hpDone = false;
 		StringBuilder gn = null;
 		boolean inPct = false;
+		gainTrack = 0;
 		for (int i = 0; i < s.length(); ) {
 			int cp = s.codePointAt(i);
 			int n = Character.charCount(cp);
@@ -611,6 +612,8 @@ public final class NeogulDungeonHud {
 				arm = Integer.parseInt(m.group(1));
 			} else if (f.equals("lv_digits")) {
 				lv = Math.max(0, lv) * 10 + g.col;
+			} else if (f.startsWith("hud_gain_") && (f.endsWith("_combat") || f.endsWith("_farm") || f.endsWith("_mine") || f.endsWith("_fish") || f.endsWith("_life"))) {
+				gainTrack = f.endsWith("_combat") ? 1 : -1;   // 49-574차: 알림 앞 분야 그림(토벌이면 hud_gain_combat)
 			} else if (f.equals("hud_gain_plus")) {
 				gn = new StringBuilder("+");
 			} else if (f.equals("hud_gain_digits") && gn != null && !inPct) {
@@ -668,30 +671,155 @@ public final class NeogulDungeonHud {
 		if (pc >= 0) {
 			pct = Math.min(100, pc);
 		}
-		if (gn != null && gn.length() > 1) {
+		// 49-573차(사용자가 전해 준 제보: "던전 UI 실시간 경험치가 화면에서 안 올라가요, /레벨 쳐야지만 바뀌어요"): 바와 숫자를 /레벨 창에서 읽은 토벌 값으로
+		// 바꾼 뒤로 창을 다시 열기 전엔 그대로였다. 서버가 보스바 줄을 새로 보낼 때(같은 글을 다시 읽는 건 빼고) 경험치 획득 알림 "+N (P%)"이
+		// 새로 뜨면 토벌 경험치에 N을 더하고, 괄호 안 %로 어긋남을 바로잡는다(레벨이 오르면 다음 레벨로).
+		boolean freshPacket = c != lastGainRaw;
+		lastGainRaw = c;
+		boolean hasGain = gn != null && gn.length() > 1;
+		if (hasGain) {
 			String g = gn.toString();
+			boolean fresh = freshPacket && (!g.equals(gain) || !hadGain || now - gainAt > 3000);
 			if (!g.equals(gain) || now - gainAt > 3000) {
 				gainAt = now;
 			}
 			gain = g;
+			if (fresh && gainTrack >= 0) {
+				onTobeolGain(g, pc, gainTrack == 1);
+			}
+		}
+		if (freshPacket) {
+			hadGain = hasGain;
 		}
 		return cut;
 	}
 
-	private static Component cutAt(Component c, int cut) {
-		MutableComponent out = Component.empty();
-		int[] left = {cut};
-		c.visit((FormattedText.StyledContentConsumer<Object>) (style, s) -> {
-			if (left[0] <= 0) {
-				return Optional.of(Boolean.TRUE);
+	private static Object lastGainRaw;
+	private static boolean hadGain;
+	private static long lvSavedAt;
+	private static double gainFrac;
+
+	/** 49-573차: 토벌 경험치 실시간(던전에서 얻은 만큼 더하고, 알림의 % 로 맞춘다). */
+	private static int gainTrack;
+
+	private static void onTobeolGain(String g, int pc, boolean surelyCombat) {
+		try {
+			if (tobeolLv <= 0 || tobeolLv >= NeogulLevels.MAX_LV) {
+				return;
 			}
-			String part = s.length() <= left[0] ? s : s.substring(0, left[0]);
-			left[0] -= part.length();
-			out.append(Component.literal(part).setStyle(style));
-			return left[0] <= 0 ? Optional.of(Boolean.TRUE) : Optional.empty();
+			gainFrac += Double.parseDouble(g.replace("+", "").trim());   // 12.5처럼 소수도 있어 남는 값은 모아 둔다
+			long add = (long) Math.floor(gainFrac);
+			gainFrac -= add;
+			long need = NeogulLevels.REQ[1][tobeolLv];
+			long exp = Math.max(0, tobeolExp) + add;
+			while (need > 0 && exp >= need && tobeolLv < NeogulLevels.MAX_LV - 1) {
+				exp -= need;
+				tobeolLv++;
+				need = NeogulLevels.REQ[1][tobeolLv];
+			}
+			if (pc >= 0 && pc < 100 && need > 0) {
+				// 알림 괄호 %가 토벌 것인지 확실치 않아서, 우리 셈과 3% 안으로 가까울 때만 그 칸에 맞춘다(멀면 다른 분야 %로 보고 무시)
+				long bucket = exp * 100 / need;
+				if (surelyCombat && pc + 50 < bucket) {
+					tobeolLv = Math.min(NeogulLevels.MAX_LV - 1, tobeolLv + 1);   // 토벌 %가 확 줄었다 = 레벨업을 놓쳤다
+					need = NeogulLevels.REQ[1][tobeolLv];
+					exp = need * pc / 100;
+				} else if (surelyCombat ? Math.abs(bucket - pc) >= 2 : (bucket != pc && Math.abs(bucket - pc) <= 3)) {
+					exp = need * pc / 100;   // 토벌 알림이면 2% 넘게 어긋날 때 그 %로(반올림 차이 1%는 그냥 둔다), 아니면 3% 안일 때만
+				}
+			}
+			tobeolExp = exp;
+			tobeolNeed = need;
+			tobeolPct = need > 0 ? exp * 100f / need : 0f;
+			long now = System.currentTimeMillis();
+			if (now - lvSavedAt > 10_000L) {
+				lvSavedAt = now;
+				saveLv();
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("dungeonHud:gain", t);
+		}
+	}
+
+	/**
+	 * 49-574차(사용자가 전해 준 제보: "던전 들어가서 경험치 쿠폰 쓰면 시간이랑 떴었는데 안 나와요", "UI가 밀려"): 예전엔 보스바 줄을 지역 글자 뒤에서
+	 * 통째로 잘라서 그 뒤에 오는 경험치 쿠폰 시간(hud_buff_*), 처치 콤보(combo_*), 드워프 카드, 광산 획득 알림까지 같이 사라졌다.
+	 * 이제 지역 글자 뒤에서는 노바 던전 UI가 대신 그리는 것(체력, 배고픔, 방어, 레벨, 스킬 카드, 경험치 알림/바)만 빼고, 뺀 자리는 같은 폭의 빈칸
+	 * (lunaslight:neogul_space)으로 채운다 - 서버 셰이더는 글자가 줄에서 놓인 자리로 화면 위치를 정해서, 폭이 줄면 뒤 것이 밀린다.
+	 */
+	private static Component cutAt(Component c, int cut) {
+		Map<Integer, Glyph> map = glyphs();
+		Minecraft mc = Minecraft.getInstance();
+		MutableComponent out = Component.empty();
+		int[] pos = {0};
+		int[] gap = {0};   // 아직 채우지 않은 뺀 폭
+		c.visit((FormattedText.StyledContentConsumer<Object>) (style, s) -> {
+			Object f = style.getFont();
+			boolean h = f != null && f.toString().contains("ng:hud");
+			StringBuilder keep = new StringBuilder();
+			for (int i = 0; i < s.length(); ) {
+				int cp = s.codePointAt(i);
+				int n = Character.charCount(cp);
+				boolean drop = false;
+				if (pos[0] >= cut && h) {
+					Glyph g = map.get(cp);
+					drop = g != null && replaced(g);
+				}
+				if (drop) {
+					if (keep.length() > 0) {
+						out.append(Component.literal(keep.toString()).setStyle(style));
+						keep.setLength(0);
+					}
+					gap[0] += mc.font.width(Component.literal(new String(Character.toChars(cp))).setStyle(style));
+				} else {
+					if (gap[0] != 0) {
+						if (keep.length() > 0) {
+							out.append(Component.literal(keep.toString()).setStyle(style));
+							keep.setLength(0);
+						}
+						out.append(spacer(gap[0]));
+						gap[0] = 0;
+					}
+					keep.appendCodePoint(cp);
+				}
+				pos[0] += n;
+				i += n;
+			}
+			if (keep.length() > 0) {
+				out.append(Component.literal(keep.toString()).setStyle(style));
+			}
+			return Optional.empty();
 		}, Style.EMPTY);
 		return out;
 	}
+
+	/** 노바 던전 UI가 대신 그려서 서버 줄에서 빼는 글자. 쿠폰 시간, 콤보, 드워프 카드, 광산 알림은 남긴다. */
+	private static boolean replaced(Glyph g) {
+		String f = g.file();
+		if (f.startsWith("hud_buff_") || f.startsWith("combo_") || f.contains("dwarf")) {
+			return false;
+		}
+		return f.startsWith("hp_") || f.startsWith("hunger_") || f.startsWith("armor_") || f.equals("icon_hp") || f.equals("icon_hunger")
+			|| f.equals("icon_armor") || f.startsWith("txt_") || f.startsWith("lv_") || f.startsWith("skill_") || f.startsWith("hud_gain_")
+			|| g.path().contains("gain_bar/");
+	}
+
+	private static final Style SPACE = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(Identifier.fromNamespaceAndPath("lunaslight", "neogul_space")));
+
+	/** 폭 w(px)짜리 빈칸 글자(1, 2, 4 … 512의 합, 음수면 거꾸로). */
+	private static Component spacer(int w) {
+		StringBuilder sb = new StringBuilder();
+		int a = Math.abs(w);
+		int base = w >= 0 ? 0xE001 : 0xE011;
+		for (int b = 9; b >= 0; b--) {
+			while (a >= (1 << b)) {
+				sb.append((char) (base + b));
+				a -= 1 << b;
+			}
+		}
+		return Component.literal(sb.toString()).setStyle(SPACE);
+	}
+
 
 	/** 그 카드의 "준비됨" 칸(a: 스킬마다 3칸, b: 0칸은 이름표 + 스킬마다 2칸). */
 	private static int readyCol(Skill k) {

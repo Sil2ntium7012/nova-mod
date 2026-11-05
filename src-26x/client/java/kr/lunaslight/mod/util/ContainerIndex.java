@@ -50,6 +50,8 @@ public final class ContainerIndex {
 		 * 서버 아이템은 같은 바닐라 아이템에 모델(스킨)만 달라 items(id별)로는 겉모습을 못 살렸다. 인벤토리 탭의 그림에 쓴다.
 		 */
 		public final Map<String, Integer> looks = new LinkedHashMap<>();
+		/** 49-572차: 칸 수와 찬 칸 수(상자 정보창 "가득 참"). 예전 기록은 0 = 모름. */
+		public int slots, used;
 	}
 
 	/** 49-466차: 겉모습 키 "id|모델"(item_model이 기본과 같으면 모델 칸은 빔). */
@@ -461,6 +463,11 @@ public final class ContainerIndex {
 	}
 
 	public static void record(Minecraft client, BlockPos pos, String title, List<ItemStack> contents) {
+		record(client, pos, title, contents, 0);
+	}
+
+	/** 49-572차: boxSlots = 보관함 칸 수(모르면 0). */
+	public static void record(Minecraft client, BlockPos pos, String title, List<ItemStack> contents, int boxSlots) {
 		if (client == null || client.level == null || pos == null) {
 			return;
 		}
@@ -481,6 +488,8 @@ public final class ContainerIndex {
 		e.z = c.getZ();
 		e.title = title == null || title.isEmpty() ? "상자" : title;
 		e.seen = System.currentTimeMillis();
+		e.slots = boxSlots;
+		e.used = contents.size();
 		for (ItemStack stack : contents) {
 			String id = idOf(stack);
 			if (id == null) {

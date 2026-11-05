@@ -186,7 +186,8 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDungeonUiModule");   // 49-538차: 너굴 던전 UI
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
-			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulWateringModule");   // 49-564차: 물뿌리개 연속 뿌리기
+			// 49-564차 물뿌리개 연속 뿌리기는 49-572차에 삭제(사용자: "물뿌리개 기능 삭제해 주고")
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScareRateModule");   // 49-572차: 허수아비 확률
 			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)
 			try {
 				kr.lunaslight.mod.util.NeogulHudProbe.init();

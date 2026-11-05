@@ -197,7 +197,7 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 				title = screen.getTitle().getString();
 			} catch (Throwable ignored) {
 			}
-			ContainerIndex.record(client, lastLookedBlock, title, contents);
+			ContainerIndex.record(client, lastLookedBlock, title, contents, boxSlots);   // 49-572차: 칸 수(가득 참)
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("itemFinder:record", t);
 		}

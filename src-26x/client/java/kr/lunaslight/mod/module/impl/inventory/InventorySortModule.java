@@ -122,9 +122,7 @@ public class InventorySortModule extends Module {
 
 	/** 49-569차(사용자: "쉬프트 휠 누르면 아이템 정리 안 되게"): Shift를 누른 채면 아이템 펼치기(Shift + 휠클릭) 몫이라 정렬하지 않는다. */
 	private boolean spreadClick() {
-		boolean shift = LunaCompat.isKeyPressed(client, com.mojang.blaze3d.platform.InputConstants.KEY_LSHIFT)
-				|| LunaCompat.isKeyPressed(client, com.mojang.blaze3d.platform.InputConstants.KEY_RSHIFT);
-		return shift && kr.lunaslight.mod.module.ModuleManager.get().find("item_spread").map(Module::isEnabled).orElse(false);
+		return ItemSpreadModule.busy(client);   // 49-572차: 펼치기 키를 바꿀 수 있게 되어 그 키가 눌려 있는지로
 	}
 
 	private boolean cursorEmpty() {

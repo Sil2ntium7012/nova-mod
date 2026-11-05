@@ -20,16 +20,20 @@ public abstract class TodoGameModeMixin {
 
 	@Unique
 	private String lunaslight$breaking;
+	@Unique
+	private BlockState lunaslight$breakState;   // 49-572차: 허수아비 확률(NeogulScareRate)
 
 	@Inject(method = "destroyBlock(Lnet/minecraft/core/BlockPos;)Z", at = @At("HEAD"), require = 0)
 	private void lunaslight$todoBreakHead(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
 		lunaslight$breaking = null;
+		lunaslight$breakState = null;
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			if (mc.level != null) {
 				BlockState st = mc.level.getBlockState(pos);
 				if (!st.isAir()) {
 					lunaslight$breaking = st.getBlock().getName().getString();
+					lunaslight$breakState = st;
 				}
 			}
 		} catch (Throwable ignored) {
@@ -40,8 +44,10 @@ public abstract class TodoGameModeMixin {
 	private void lunaslight$todoBreak(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
 		if (Boolean.TRUE.equals(cir.getReturnValue()) && lunaslight$breaking != null) {
 			TodoList.onBreak(lunaslight$breaking);
+			kr.lunaslight.mod.util.NeogulScareRate.onBreak(lunaslight$breakState);
 		}
 		lunaslight$breaking = null;
+		lunaslight$breakState = null;
 	}
 
 	@Inject(method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V", at = @At("HEAD"), require = 0)

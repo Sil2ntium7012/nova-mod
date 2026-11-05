@@ -23,14 +23,30 @@ import java.util.List;
  */
 public class ItemSpreadModule extends Module {
 
+	// 49-572차(사용자: "아이템 펼치기 키 바꿀 수 있게"): 기본 Shift + 휠클릭, 마우스 버튼이나 키보드 키(조합키 포함)로 바꿀 수 있다.
+	private final kr.lunaslight.mod.module.setting.KeybindSetting key = register(new kr.lunaslight.mod.module.setting.KeybindSetting(
+			"key", "펼치기 키", "아이템 칸에 마우스를 올리고 누르면 빈 칸마다 1개씩 나눠 놓습니다.",
+			LunaCompat.MOD_SHIFT | LunaCompat.mouseKeyCode(2)));
+
+	private static ItemSpreadModule instance;
+
+	/** 인벤토리 정리(InventorySortModule)가 같은 누름에 같이 돌지 않게: 펼치기 키가 지금 눌려 있으면 true. */
+	public static boolean busy(net.minecraft.client.Minecraft mc) {
+		ItemSpreadModule m = instance;
+		return m != null && m.isEnabled() && m.key.isBound() && m.key.isDown(mc);
+	}
+
 	public ItemSpreadModule() {
-		super("item_spread", "아이템 펼치기", ModuleCategory.INVENTORY, "Shift + 휠클릭으로 빈 칸마다 1개씩");
+		super("item_spread", "아이템 펼치기", ModuleCategory.INVENTORY, "키(기본 Shift + 휠클릭)로 빈 칸마다 1개씩");
 		newFeature("49-565");
+		instance = this;
 		try {
 			net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
 				if (screen instanceof AbstractContainerScreen<?>) {
 					net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.allowMouseClick(screen)
-						.register((s, e) -> !(e.button() == 2 && onMiddle(s)));
+						.register((s, e) -> !(matches(LunaCompat.mouseKeyCode(e.button())) && onMiddle(s)));
+					net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents.allowKeyPress(screen)
+						.register((s, e) -> !(matches(e.key()) && onMiddle(s)));
 				}
 			});
 		} catch (Throwable t) {
@@ -38,10 +54,19 @@ public class ItemSpreadModule extends Module {
 		}
 	}
 
-	/** 휠클릭: 펼쳤으면 true(바닐라 클릭은 막음). */
+	/** 이 누름(마우스 버튼 인코딩 또는 키보드 키)이 펼치기 키이고 조합키가 맞게 눌려 있는지. */
+	private boolean matches(int pressed) {
+		if (!key.isBound() || pressed != key.getBaseKey()) {
+			return false;
+		}
+		int mods = LunaCompat.keyModifiers(key.getKeyCode());
+		return (LunaCompat.heldModifiersAny(client) & mods) == mods;
+	}
+
+	/** 펼치기 키를 눌렀다: 펼쳤으면 true(바닐라 클릭은 막음). */
 	private boolean onMiddle(Object screen) {
 		try {
-			if (!isEnabled() || client.player == null || client.gameMode == null || !shiftDown()
+			if (!isEnabled() || client.player == null || client.gameMode == null
 					|| !(screen instanceof AbstractContainerScreen<?> hs) || LunaCompat.isCreativeInventory(screen)) {
 				return false;
 			}
@@ -126,7 +151,7 @@ public class ItemSpreadModule extends Module {
 		ItemStack wheat = new ItemStack(net.minecraft.world.item.Items.WHEAT);
 		long t = System.currentTimeMillis() % 2400L;
 		int shown = (int) Math.min(5, Math.max(0, (t - 500) / 180));
-		String label = "Shift + 휠클릭";
+		String label = key.getKeyName();
 		int rowW = 5 * 18 + 4 * 2;
 		int total = rowW + 28 + rowW;
 		int sx = x + (w - total) / 2, sy = y + h / 2 - 2;

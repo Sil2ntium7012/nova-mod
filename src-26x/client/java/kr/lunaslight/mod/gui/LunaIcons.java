@@ -113,7 +113,7 @@ public final class LunaIcons {
 		MODULE_ICONS.put("shield_offset", "\uE960");
 		MODULE_ICONS.put("shulker_peek", "\uE918");
 		MODULE_ICONS.put("chest_peek", "\uE95A");   // 49-562차: 상자 정보창
-		MODULE_ICONS.put("neogul_watering", "\uE953");   // 49-564차: 물뿌리개 연속 뿌리기
+		MODULE_ICONS.put("neogul_scare_rate", "\uE980");   // 49-572차: 허수아비 확률
 		MODULE_ICONS.put("simple_health_hud", "\uE92E");
 		MODULE_ICONS.put("smooth_scroll", "\uE911");
 		MODULE_ICONS.put("sound_filter", "\uE976");

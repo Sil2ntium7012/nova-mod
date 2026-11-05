@@ -70,6 +70,7 @@ public class ChestPeekModule extends Module {
 		String title = "상자";
 		long seen;
 		boolean known;
+		boolean full;
 	}
 
 	public ChestPeekModule() {
@@ -230,6 +231,8 @@ public class ChestPeekModule extends Module {
 		// ---- 창 크기 ----
 		int n = c.stacks.size() + (c.more > 0 ? 1 : 0);
 		String ago = c.known ? agoText(c.seen) : "";
+		String fullTx = c.full ? "가득 참" : "";
+		int fullW = fullTx.isEmpty() ? 0 : LunaDraw.width(font, fullTx) + 6;
 		String title = c.title == null || c.title.isEmpty() ? "상자" : c.title;
 		int titleW = LunaDraw.width(font, title);
 		int agoW = ago.isEmpty() ? 0 : LunaDraw.width(font, ago);
@@ -237,7 +240,7 @@ public class ChestPeekModule extends Module {
 		int rows = Math.min(ROWS, (n + COLS - 1) / COLS);
 		String msg = !c.known ? "아직 안 열어 본 상자예요" : (n == 0 ? "비어 있어요" : null);
 		int bodyW = msg != null ? LunaDraw.width(font, msg) : cols * CELL;
-		int pw = Math.max(Math.max(bodyW + PAD * 2, titleW + agoW + PAD * 2 + 12), 76);
+		int pw = Math.max(Math.max(bodyW + PAD * 2, titleW + agoW + fullW + PAD * 2 + 12), 76);
 		int bodyH = msg != null ? 14 : rows * CELL + 2;
 		int ph = HEADER + 1 + 4 + bodyH + 3;
 
@@ -306,6 +309,9 @@ public class ChestPeekModule extends Module {
 			LunaDraw.text(ctx, font, title, px + PAD + 5, ty, alpha(C_TITLE, pa));
 			if (!ago.isEmpty()) {
 				LunaDraw.text(ctx, font, ago, px + pw - PAD - agoW, ty, alpha(C_SUB, pa));
+			}
+			if (!fullTx.isEmpty()) {
+				LunaDraw.text(ctx, font, fullTx, px + pw - PAD - agoW - fullW, ty, alpha(0xFFE0443A, pa));
 			}
 			int gy = py + HEADER + 1 + 4;
 			int gx = px + (pw - (msg != null ? bodyW : cols * CELL)) / 2;
@@ -392,6 +398,7 @@ public class ChestPeekModule extends Module {
 		c.known = true;
 		c.seen = e.seen;
 		c.title = e.title;
+		c.full = e.slots > 0 && e.used >= e.slots;   // 49-572차(사용자: "가득 차면 가득 참 뜨기 빨간 글로")
 		Map<String, Integer> src = e.looks.isEmpty() ? e.items : e.looks;
 		List<Map.Entry<String, Integer>> list = new ArrayList<>(src.entrySet());
 		list.sort((p, q) -> Integer.compare(q.getValue(), p.getValue()));

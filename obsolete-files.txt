@@ -82,3 +82,4 @@ src/client/java/kr/lunaslight/mod/module/impl/misc/FriendAlertModule.java   # 49
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/FriendAlertModule.java   # 49-559차: 같은 이유
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/HarvestModeModule.java   # 49-565차: 작물 캐기 모드 삭제(사용자: "작물 캐기 모드 없애고")
 src-26x/client/java/kr/lunaslight/mod/mixin/HarvestModeMixin.java   # 49-565차: 같은 이유
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/NeogulWateringModule.java   # 49-572차: 물뿌리개 연속 뿌리기 삭제(사용자: "물뿌리개 기능 삭제해 주고")
