@@ -367,6 +367,10 @@ public final class NeogulDungeonHud {
 	// (config/lunaslight/neogul-dungeon.json). 처음 열 때 창 아이템 글을 latest.log에 한 번 적는다(모양이 바뀌면 고치려고).
 
 	public static volatile int tobeolLv = -1;
+	/** 49-566차: /레벨 창 토벌 아이템 설명의 "경험치: 5,037 / 25,080 (20.1%)"(마지막으로 본 값). 모르면 -1. */
+	public static volatile long tobeolExp = -1, tobeolNeed = -1;
+	public static volatile float tobeolPct = -1f;
+	private static final Pattern EXP_NUM = Pattern.compile("경험치\\s*[:：]?\\s*([\\d,]+)\\s*/\\s*([\\d,]+)(?:\\s*\\(\\s*([\\d.]+)\\s*%\\s*\\))?");
 	private static boolean lvLoaded;
 	private static Object lvScreen;
 	private static int lvTick;
@@ -388,6 +392,11 @@ public final class NeogulDungeonHud {
 				if (o.has("tobeol")) {
 					tobeolLv = o.get("tobeol").getAsInt();
 				}
+				if (o.has("exp")) {
+					tobeolExp = o.get("exp").getAsLong();
+					tobeolNeed = o.get("need").getAsLong();
+					tobeolPct = o.get("pct").getAsFloat();
+				}
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("dungeonHud:lvload", t);
@@ -398,6 +407,11 @@ public final class NeogulDungeonHud {
 		try {
 			JsonObject o = new JsonObject();
 			o.addProperty("tobeol", tobeolLv);
+			if (tobeolNeed > 0) {
+				o.addProperty("exp", tobeolExp);
+				o.addProperty("need", tobeolNeed);
+				o.addProperty("pct", tobeolPct);
+			}
 			java.nio.file.Path p = lvFile();
 			java.nio.file.Files.createDirectories(p.getParent());
 			java.nio.file.Files.writeString(p, o.toString(), StandardCharsets.UTF_8);
@@ -414,7 +428,7 @@ public final class NeogulDungeonHud {
 		Object screen = LunaCompat.screenOf(mc);
 		if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> cs)
 				|| screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen
-				|| !plainText(cs.getTitle()).contains("레벨") || !NeogulData.onNeogul(mc)) {
+				|| !NeogulData.onNeogul(mc)) {   // 49-566차: /레벨 창 제목은 그림 글자(EXP)라 "레벨"이 없다 - 제목 대신 칸의 "토벌 레벨" 아이템으로 찾는다
 			lvScreen = null;
 			return;
 		}
@@ -428,7 +442,7 @@ public final class NeogulDungeonHud {
 		}
 		var slots = cs.getMenu().slots;
 		int n = Math.max(0, slots.size() - 36);
-		StringBuilder dump = lvTick == 3 ? new StringBuilder() : null;
+		StringBuilder dump = null;
 		for (int i = 0; i < n; i++) {
 			ItemStack st = slots.get(i).getItem();
 			if (st.isEmpty()) {
@@ -442,18 +456,39 @@ public final class NeogulDungeonHud {
 				}
 			}
 			String text = all.toString();
-			if (dump != null && dump.length() < 3000) {
-				dump.append("\n  [").append(i).append("] ").append(text);
-			}
-			if (plainText(st.getHoverName()).contains("토벌")) {
-				Matcher m = LV_NUM.matcher(text);
-				if (m.find()) {
+			String name = plainText(st.getHoverName());
+			if (name.contains("토벌") && name.contains("레벨")) {
+				if (lvTick == 3) {
+					dump = new StringBuilder("\n  [").append(i).append("] ").append(text);
+				}
+				boolean changed = false;
+				Matcher m = LV_NUM.matcher(name);
+				if (!m.find()) {
+					m = LV_NUM.matcher(text);
+					m = m.find() ? m : null;
+				}
+				if (m != null) {
 					int v = Integer.parseInt(m.group(1) != null ? m.group(1) : m.group(2));
 					if (v >= 1 && v <= NeogulLevels.MAX_LV && v != tobeolLv) {
 						tobeolLv = v;
-						saveLv();
-						kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 던전 UI: 토벌 레벨 {} (/레벨 창)", v);
+						changed = true;
 					}
+				}
+				Matcher e = EXP_NUM.matcher(text);
+				if (e.find()) {
+					long cur = Long.parseLong(e.group(1).replace(",", ""));
+					long need = Long.parseLong(e.group(2).replace(",", ""));
+					float pct = e.group(3) != null ? Float.parseFloat(e.group(3)) : (need > 0 ? cur * 100f / need : 0f);
+					if (cur != tobeolExp || need != tobeolNeed) {
+						tobeolExp = cur;
+						tobeolNeed = need;
+						tobeolPct = pct;
+						changed = true;
+					}
+				}
+				if (changed) {
+					saveLv();
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 던전 UI: 토벌 레벨 {} 경험치 {} / {} (/레벨 창)", tobeolLv, tobeolExp, tobeolNeed);
 				}
 			}
 		}
@@ -853,6 +888,10 @@ public final class NeogulDungeonHud {
 		int x0 = cx - 138, x1 = cx + 144;   // 49-556차: 곡선 아래 가장자리(cx-164 기준 실측)
 		ctx.fill(x0, sh - BAR, x1, sh, 0xF00E0D23);
 		int p = pc;
+		boolean tob = !sample && tobeolLv > 0 && tobeolNeed > 0 && tobeolPct >= 0f;
+		if (tob) {
+			p = Math.round(tobeolPct);   // 49-566차: 바도 토벌 경험치(/레벨 창에서 마지막으로 본 값)
+		}
 		if (p < 0 && lv >= 0 && pl.experienceLevel == lv) {
 			p = Math.round(pl.experienceProgress * 100f);   // 서버가 바닐라 경험치에 같은 값을 넣는 경우
 		}
@@ -871,7 +910,9 @@ public final class NeogulDungeonHud {
 		}
 		if (p >= 0) {
 			String right = p + "%";
-			if (showLv >= 1 && showLv < NeogulLevels.MAX_LV) {
+			if (tob) {
+				right = String.format("%,d / %,d  (%.1f%%)", tobeolExp, tobeolNeed, tobeolPct);
+			} else if (showLv >= 1 && showLv < NeogulLevels.MAX_LV) {
 				long need = NeogulLevels.REQ[1][showLv];
 				if (need > 0) {
 					right = String.format("%,d / %,d  (%d%%)", need * p / 100, need, p);
@@ -881,9 +922,23 @@ public final class NeogulDungeonHud {
 		}
 		if (gain != null && !sample) {
 			long age = now - gainAt;
-			if (age < 2500) {
-				int al = (int) (255 * Math.min(1f, (2500 - age) / 600f));
-				jua(ctx, mc, gain + " 경험치", tx1, sh - BAR - 19 - age / 500f, (al << 24) | 0xAAF078, 1f, false);
+			// 49-568차(사용자: "던전 경험치 들어오는 거 가운데에도 뜨게, 조금 잘 보이게, 기존 것도 조금 더 잘 보이게"):
+			// 오른쪽 것은 1.25배, 밝은 연두, 3초. 화면 가운데(조준점 아래)에도 2배 금색으로 떠올랐다가 사라진다.
+			if (age < 3000) {
+				int al = (int) (255 * Math.min(1f, (3000 - age) / 700f));
+				if (al >= 8)
+				jua(ctx, mc, gain + " 경험치", tx1, sh - BAR - 22 - age / 400f, (al << 24) | 0xC8FF8C, 1.25f, false);
+			}
+			if (age < 2200) {
+				float in = Math.min(1f, age / 150f);
+				float out = Math.min(1f, (2200 - age) / 600f);
+				int al = (int) (255 * Math.min(in, out));
+				float sc = 2.0f + 0.25f * (1f - in);
+				String t = gain + " 경험치";
+				float tw = jw(mc, t) * sc;
+				int sw = mc.getWindow().getGuiScaledWidth();
+				if (al >= 8)
+				jua(ctx, mc, t, sw / 2f - tw / 2f, mc.getWindow().getGuiScaledHeight() / 2f + 22 - age / 120f, (al << 24) | 0xFFE27A, sc, false);
 			}
 		}
 	}

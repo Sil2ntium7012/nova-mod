@@ -199,12 +199,20 @@ public class ChestPeekModule extends Module {
 		if (side == 0) {
 			side = (minX + maxX) / 2 > sw * 0.62 ? -1 : 1;
 		}
-		// 정보창 쪽 윗면 모서리에서 선이 나간다
-		double[] a = top[0];
-		for (double[] p : top) {
-			if (side > 0 ? p[0] > a[0] : p[0] < a[0]) {
-				a = p;
-			}
+		// 49-566차(사용자: "상자 한가운데가 아니라 내가 있는 쪽에서 잘 보이게"): 윗면 네 모서리 중 내 눈에 가까운 두 개(= 나를 향한 앞쪽 모서리)만 보고,
+		// 그중 정보창 쪽 것에서 선이 나간다. 예전엔 화면에서 가장 오른쪽 모서리라 뒤쪽 모서리가 잡혀 상자 가운데쯤에서 선이 나왔다.
+		net.minecraft.world.phys.Vec3 eye = LunaCompat.getEyePos(client.player);
+		Integer[] order = {0, 1, 2, 3};
+		if (eye != null) {
+			final double ex0 = eye.x, ez0 = eye.z;
+			java.util.Arrays.sort(order, (i, j) -> Double.compare(
+					(tc[i][0] - ex0) * (tc[i][0] - ex0) + (tc[i][1] - ez0) * (tc[i][1] - ez0),
+					(tc[j][0] - ex0) * (tc[j][0] - ex0) + (tc[j][1] - ez0) * (tc[j][1] - ez0)));
+		}
+		double[] a = top[order[0]];
+		double[] b2 = top[order[1]];
+		if (side > 0 ? b2[0] > a[0] : b2[0] < a[0]) {
+			a = b2;
 		}
 		float ease = t;
 		drawScene(ctx, a[0], a[1], side, c, ease, 4, 4, sw - 4, sh - 4, true);

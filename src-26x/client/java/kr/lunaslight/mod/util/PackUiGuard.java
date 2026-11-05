@@ -99,6 +99,16 @@ public final class PackUiGuard {
 		return ns + ":" + prefix + path;
 	}
 
+	/** 49-566차: [글꼴만]이 켜져 있으면 팩 순서는 바닐라 그대로(서버 팩 맨 위) 두고 글꼴만 내 팩을 위로 올린다(PackOrderMixin, FontSplitMixin). */
+	public static boolean fontOnlyWanted() {
+		return fontOnlyOn();
+	}
+
+	/** 49-566차: 지금 읽는 리소스에 서버 팩이 있고 [글꼴만]이면 글꼴 JSON 순서에서 내 팩(file/…)을 맨 위로. */
+	public static boolean fontFirst() {
+		return serverLoaded && fontOnlyOn();
+	}
+
 	private static boolean fontOnlyOn() {
 		java.util.function.BooleanSupplier e = fontOnly;
 		try {

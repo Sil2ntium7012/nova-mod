@@ -27,11 +27,18 @@ public abstract class PackOrderMixin {
 
 	@Inject(method = "openAllSelected()Ljava/util/List;", at = @At("RETURN"), cancellable = true, require = 0)
 	private void lunaslight$packOrder(CallbackInfoReturnable<List<?>> cir) {
-		if (PackOrderHook.off || lunaslight$vanillaOrderHere()) {
+		if (PackOrderHook.off) {
 			kr.lunaslight.mod.util.PackUiGuard.prepare(null);   // 49-452차: 꺼져 있으면 숨기는 것도 없음
 			return;
 		}
 		List<?> current = cir.getReturnValue();
+		// 49-566차(사용자: "내 리소스팩 우선 끄는 게 아니라 문제가 없게, 폰트 쓰는 사람이 얼마나 많은데"): [글꼴만]이면 서버 팩을 내리지 않는다.
+		// 팩 순서는 바닐라 그대로(서버 팩이 맨 위 = 노바 없을 때와 같은 화면)라 서버 HUD, 셰이더, 그림이 밀리지 않고, 내 팩의 글꼴만
+		// FontSplitMixin이 글꼴 목록 안에서 위로 올린다(기호는 서버 것 - FontSplitHook). 49-563차의 "너굴마을에서는 안 함"은 이걸로 대신한다.
+		if (kr.lunaslight.mod.util.PackUiGuard.fontOnlyWanted()) {
+			kr.lunaslight.mod.util.PackUiGuard.prepare(current);
+			return;
+		}
 		List<Object> fixed = PackOrderHook.reorder(current);
 		if (fixed != null) {
 			cir.setReturnValue(fixed);
@@ -40,17 +47,4 @@ public abstract class PackOrderMixin {
 		kr.lunaslight.mod.util.PackUiGuard.prepare(fixed != null ? fixed : current);
 	}
 
-	/**
-	 * 49-563차(사용자: "너굴마을 기본 UI(핫바, 돈 표시)가 옆으로 날아가고 돈 표시가 사라짐, 노바 끄면 정상, 내 리소스팩 우선 문제"): 너굴마을(mcng)은
-	 * HUD 전체를 서버 팩 글꼴과 셰이더로 그려서 팩 순서가 바뀌면 깨진다. 거기서는 바닐라 순서(서버 팩이 맨 위) 그대로 두고 아무것도 숨기지 않는다.
-	 */
-	@org.spongepowered.asm.mixin.Unique
-	private static boolean lunaslight$vanillaOrderHere() {
-		try {
-			String a = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(net.minecraft.client.Minecraft.getInstance());
-			return a != null && a.toLowerCase(java.util.Locale.ROOT).contains("mcng");
-		} catch (Throwable t) {
-			return false;
-		}
-	}
 }

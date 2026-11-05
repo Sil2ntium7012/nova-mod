@@ -1533,22 +1533,25 @@ public class LunaStatsScreen extends LunaScreenBase {
 			{"보낸 채팅", num(s.chatSent)},
 			{"받은 채팅", num(s.chatReceived)},
 			{"내 이름 불림", num(s.mentions)},
-			{"함께한 사람", num(s.peers.size()) + "명"},
+			{"쓴 단어", num(s.words.size()) + "종"},
 			{"들어간 서버/맵", num(worlds.size()) + "곳"},
 			{"접속", num(s.sessions) + "번"},
 			{"채팅 비율", s.chatReceived > 0 ? Math.round(s.chatSent * 100.0 / Math.max(1, s.chatReceived)) + "%" : "-"},
-			{"한 시간당 채팅", s.playMs > 3_600_000L ? String.valueOf(Math.round(s.chatSent / (s.playMs / 3_600_000.0))) : "-"}}) + GAP;
+			// 49-568차(사용자: "시간당 채팅도 제대로 안 나오고"): 보낸 채팅이 늘 0이었다(LunaStats.onChatSent). 10분 넘게 놀았으면 소수 한 자리로
+			{"한 시간당 채팅", s.playMs >= 600_000L && s.chatSent > 0
+				? String.format(java.util.Locale.ROOT, "%.1f번", s.chatSent / (s.playMs / 3_600_000.0)) : "-"}}) + GAP;
 		Map<String, Long> servers = new java.util.LinkedHashMap<>();
 		for (LunaStats.Scope w2 : worlds) {
 			servers.merge(w2.displayLabel(), w2.playMs, Long::sum);
 		}
 		Top sv = topOf(servers, 40, k -> k, LunaStats::formatHours);
-		Top pe = topOf(s.peers, 10, k -> k, LunaStats::formatDuration);
+		// 49-568차(사용자: "같이 오래 논 사람은 없애고, 많이 쓰는 단어 있으면 좋을 듯 남는 자리에")
+		Top wd = topOf(s.words, 10, k -> k, v -> num(v) + "번");
 		y += pair(x, y, w,
 			(cx, cy, cw) -> donutCard(ctx, cx, cy, cw, "서버/맵별 시간", sv.labels(), sv.values(), LunaStats::formatHours, "전체",
 				"아직 기록이 없습니다"),
-			(cx, cy, cw) -> barsCard(ctx, cx, cy, cw, "같이 오래 논 사람", pe.labels(), pe.values(), pe.shown(),
-				"이번 업데이트부터 모읍니다"));
+			(cx, cy, cw) -> barsCard(ctx, cx, cy, cw, "많이 쓰는 단어", wd.labels(), wd.values(), wd.shown(),
+				"이번 업데이트부터 내가 보낸 채팅으로 모읍니다"));
 		return y - y0 + 10;
 	}
 
@@ -1779,7 +1782,44 @@ public class LunaStatsScreen extends LunaScreenBase {
 	}
 
 	private static String itemLabel(String key, LunaStats.ItemStat it) {
-		return it.name != null && !it.name.isEmpty() ? it.name : pathOf(key).replace('_', ' ');
+		return it.name != null && !it.name.isEmpty() && !it.name.contains(":") ? it.name : itemName(baseOf(key, it));
+	}
+
+	/** 49-568차: 기본 아이템 id(변형 키 "id#…"면 앞부분). */
+	private static String baseOf(String key, LunaStats.ItemStat it) {
+		if (it != null && it.base != null && !it.base.isEmpty()) {
+			return it.base;
+		}
+		int h = key == null ? -1 : key.indexOf('#');
+		return h >= 0 ? key.substring(0, h) : key;
+	}
+
+	private static final Map<String, String> ITEM_NAMES = new java.util.HashMap<>();
+
+	/**
+	 * 49-568차(사용자: "영어 minecraft:어쩌고 뜨는 게 마음에 안 들어"): 아이템 id를 게임 언어 이름(다이아몬드 곡괭이)으로. 모르는 아이템이면 다듬은 영어.
+	 */
+	private static String itemName(String id) {
+		if (id == null) {
+			return "";
+		}
+		String hit = ITEM_NAMES.get(id);
+		if (hit != null) {
+			return hit;
+		}
+		String out = null;
+		try {
+			net.minecraft.world.item.Item item = LunaCompat.itemById(id);
+			if (item != null) {
+				out = new net.minecraft.world.item.ItemStack(item).getHoverName().getString();
+			}
+		} catch (Throwable ignored) {
+		}
+		if (out == null || out.isEmpty() || out.contains(":")) {
+			out = pathOf(id).replace('_', ' ');
+		}
+		ITEM_NAMES.put(id, out);
+		return out;
 	}
 
 	private String date(long ms) {
@@ -1814,7 +1854,12 @@ public class LunaStatsScreen extends LunaScreenBase {
 			t.mined += it.mined;
 			t.picked += it.picked;
 		}
-		sectionTitle(ctx, x, y, w, "아이템 " + merged.size() + "종");
+		// 49-568차(사용자 사진: 이름만 다른 다이아몬드 곡괭이가 따로 여러 줄): 기본 아이템이 같고 이름이 둘 이상이면 묶음 한 줄(합계) + 그 아래 이름별 줄
+		Map<String, List<Map.Entry<String, LunaStats.ItemStat>>> groups = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, LunaStats.ItemStat> e : merged.values()) {
+			groups.computeIfAbsent(baseOf(e.getKey(), e.getValue()), k -> new ArrayList<>()).add(e);
+		}
+		sectionTitle(ctx, x, y, w, "아이템 " + groups.size() + "종");
 		y += 16;
 		// 머리글 - 49-67차(5-11): [획득] 열을 더하고, 머리글을 누르면 그 열로 정렬한다.
 		// (누를 수 있다는 걸 알리려고 지금 정렬 중인 열에 ▾를 붙이고 강조색으로 그린다)
@@ -1825,8 +1870,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 		for (int i = 0; i < heads.length; i++) {
 			cw[i] = Math.max(30, LunaDraw.width(font, heads[i] + arrow));
 		}
-		for (Map.Entry<String, LunaStats.ItemStat> e : merged.values()) {
-			LunaStats.ItemStat it = e.getValue();
+		List<Object[]> rows = itemRows(groups);   // {이름, 기록, 0 = 한 줄 / 1 = 묶음 / 2 = 묶음 안}
+		for (Object[] r : rows) {
+			LunaStats.ItemStat it = (LunaStats.ItemStat) r[1];
 			long[] vv = {it.used, it.dropped, it.crafted, it.mined, it.picked};
 			for (int i = 0; i < vv.length; i++) {
 				if (vv[i] != 0) {
@@ -1854,10 +1900,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
 		}
 		y += 12;
-		List<Map.Entry<String, LunaStats.ItemStat>> list = new ArrayList<>(merged.values());
-		Comparator<Map.Entry<String, LunaStats.ItemStat>> cmp = Comparator.comparingLong(
-			(Map.Entry<String, LunaStats.ItemStat> e) -> sortValue(e.getValue()));
-		list.sort(itemSortDesc ? cmp.reversed() : cmp);
+		List<Object[]> list = rows;
 		if (posterLimit > 0 && list.size() > posterLimit) {
 			list = list.subList(0, posterLimit);
 		}
@@ -1865,10 +1908,11 @@ public class LunaStatsScreen extends LunaScreenBase {
 			LunaDraw.text(ctx, font, "아직 기록이 없습니다", x, y, LunaDraw.TEXT_DIM);
 			return y - y0 + 14;
 		}
-		for (Map.Entry<String, LunaStats.ItemStat> e : list) {
-			LunaStats.ItemStat it = e.getValue();
-			String name = it.name != null ? it.name : e.getKey();
-			boolean variant = e.getKey().contains("#");
+		for (Object[] r : list) {
+			LunaStats.ItemStat it = (LunaStats.ItemStat) r[1];
+			String name = (String) r[0];
+			int kind = (Integer) r[2];
+			int indent = kind == 2 ? 10 : 0;
 			float p = nextProgress();
 			if (p <= 0.01f) {
 				y += 12;
@@ -1876,8 +1920,11 @@ public class LunaStatsScreen extends LunaScreenBase {
 			}
 			float base = LunaDraw.alpha();
 			LunaDraw.setAlpha(base * p);
-			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, name, cols[0] - 8), x, y,
-				variant ? LunaDraw.ACCENT : LunaDraw.TEXT_SUB);
+			if (kind == 2) {
+				ctx.fill(x + 3, y - 2, x + 4, y + 8, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+			}
+			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, name, cols[0] - 8 - indent), x + indent, y,
+				kind == 1 ? LunaDraw.TEXT : kind == 2 ? LunaDraw.TEXT_DIM : LunaDraw.TEXT_SUB);
 			long[] vals = {it.used, it.dropped, it.crafted, it.mined, it.picked};
 			for (int i = 0; i < vals.length; i++) {
 				String v = vals[i] == 0 ? "-" : animNum(vals[i], p);
@@ -1887,6 +1934,44 @@ public class LunaStatsScreen extends LunaScreenBase {
 			y += 12;
 		}
 		return y - y0 + 10;
+	}
+
+	/** 49-568차: 아이템 줄 목록 - 묶음끼리 정렬하고, 묶음 안 이름별 줄도 같은 기준으로 정렬. */
+	private List<Object[]> itemRows(Map<String, List<Map.Entry<String, LunaStats.ItemStat>>> groups) {
+		List<Object[]> heads = new ArrayList<>();   // {이름, 합계 기록, 줄들}
+		for (Map.Entry<String, List<Map.Entry<String, LunaStats.ItemStat>>> g : groups.entrySet()) {
+			List<Map.Entry<String, LunaStats.ItemStat>> members = g.getValue();
+			LunaStats.ItemStat sum = new LunaStats.ItemStat();
+			for (Map.Entry<String, LunaStats.ItemStat> m : members) {
+				LunaStats.ItemStat it = m.getValue();
+				sum.used += it.used;
+				sum.dropped += it.dropped;
+				sum.crafted += it.crafted;
+				sum.mined += it.mined;
+				sum.picked += it.picked;
+			}
+			heads.add(new Object[]{g.getKey(), sum, members});
+		}
+		Comparator<Object[]> cmp = Comparator.comparingLong(h -> sortValue((LunaStats.ItemStat) h[1]));
+		heads.sort(itemSortDesc ? cmp.reversed() : cmp);
+		List<Object[]> rows = new ArrayList<>();
+		for (Object[] h : heads) {
+			@SuppressWarnings("unchecked")
+			List<Map.Entry<String, LunaStats.ItemStat>> members = new ArrayList<>((List<Map.Entry<String, LunaStats.ItemStat>>) h[2]);
+			String base = (String) h[0];
+			if (members.size() == 1) {
+				Map.Entry<String, LunaStats.ItemStat> m = members.get(0);
+				rows.add(new Object[]{itemLabel(m.getKey(), m.getValue()), m.getValue(), 0});
+				continue;
+			}
+			rows.add(new Object[]{itemName(base) + " (전체 " + members.size() + "종)", h[1], 1});
+			Comparator<Map.Entry<String, LunaStats.ItemStat>> mc = Comparator.comparingLong(m -> sortValue(m.getValue()));
+			members.sort(itemSortDesc ? mc.reversed() : mc);
+			for (Map.Entry<String, LunaStats.ItemStat> m : members) {
+				rows.add(new Object[]{itemLabel(m.getKey(), m.getValue()), m.getValue(), 2});
+			}
+		}
+		return rows;
 	}
 
 	/** 49-67차(5-11): 지금 고른 기준으로 정렬할 때 쓸 값. 0이면 합계(예전 기본값). */

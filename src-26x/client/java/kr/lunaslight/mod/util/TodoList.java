@@ -286,6 +286,56 @@ public final class TodoList {
 			return;
 		}
 		count(CHAT, line, 1);
+		if (onNeogul) {
+			String n = line.replace(" ", "");
+			// 49-567차(사용자: "허수아비 할 일이 제대로 안 차는 거 같고"): 너굴 허수아비는 내가 때린 생물이 죽는 걸로는 안 잡혔다(바닐라 생물이 아님).
+			// 서버가 나에게만 보내는 "허수아비를 잡아 보상을 획득했습니다!"로 센다(로그 11-03 실측). 남의 채팅([전체] … 허수아비 잡았을 때)과 안 겹치게 "보상"까지 본다.
+			if (n.contains("허수아비를잡아") && n.contains("보상")) {
+				count(KILL, "허수아비", 1);
+			}
+			// 49-567차(사용자: "낚시도 성공하면 타이틀에 뜨는데 그걸로 판단해 줘"): 내 낚시 성공 줄 "C급 [물고기] 송사리(을)를 낚았습니다!"(남의 큰 물고기는
+			// "OO님이 …낚으셨습니다!"라 안 걸린다). 타이틀과 같이 와도 fishCaught가 한 번만 센다.
+			if (n.contains("낚았습니다") && !n.contains("님이")) {
+				fishCaught("채팅");
+			}
+		}
+	}
+
+	private static long lastFishAt;
+	private static Object lastTitle;
+
+	/** 49-567차: 너굴마을 낚시 성공(타이틀 또는 채팅). 4초 안에 두 번 오면 한 번으로. */
+	private static void fishCaught(String from) {
+		long now = System.currentTimeMillis();
+		if (now - lastFishAt < 4000L) {
+			return;
+		}
+		lastFishAt = now;
+		fishEnd = -1000;
+		count(FISH, "", 1);
+	}
+
+	/** 49-567차: 화면 타이틀/부제가 새로 뜨면 낚시 성공 글인지 본다(Gui의 title, subtitle). */
+	private static void checkTitle(Minecraft mc) {
+		try {
+			Object gui = mc.gui;
+			Object t = LunaCompat.getFieldValue(gui, "title");
+			Object sub = LunaCompat.getFieldValue(gui, "subtitle");
+			Object key = t != null ? t : sub;
+			if (key == null || key == lastTitle) {
+				lastTitle = key;
+				return;
+			}
+			lastTitle = key;
+			String text = ((t instanceof net.minecraft.network.chat.Component c1) ? c1.getString() : "")
+					+ " " + ((sub instanceof net.minecraft.network.chat.Component c2) ? c2.getString() : "");
+			String n = text.replaceAll("[\\uE000-\\uF8FF]", "").replace(" ", "");
+			if (n.contains("낚았") || n.contains("낚시성공") || n.contains("[물고기]") || n.contains("월척")) {
+				fishCaught("타이틀");
+			}
+		} catch (Throwable ex) {
+			LunaCompat.warnOnce("todo:title", ex);
+		}
 	}
 
 	private static Map<String, Integer> lastInv;
@@ -328,6 +378,9 @@ public final class TodoList {
 			if (dead) {
 				it.remove();
 				String name = e.getName().getString();
+				if (onNeogul && name.contains("허수아비")) {
+					continue;   // 49-567차: 허수아비는 보상 채팅으로 센다(두 번 세지 않게)
+				}
 				count(KILL, name, 1);
 			} else if (tick - h.at() > 100 || e.isRemoved()) {
 				it.remove();
@@ -337,6 +390,9 @@ public final class TodoList {
 		if (++playTicks >= 1200) {
 			playTicks = 0;
 			count(PLAY, "", 1);
+		}
+		if (onNeogul) {
+			checkTitle(mc);
 		}
 		// 낚시: 찌가 걷힌 순간
 		boolean f = p.fishing != null;
@@ -356,7 +412,7 @@ public final class TodoList {
 					gained += diff;
 				}
 			}
-			if (gained > 0 && tick - fishEnd <= 40) {
+			if (gained > 0 && tick - fishEnd <= 40 && !onNeogul) {   // 49-567차: 너굴마을은 낚시 성공 글(타이틀, 채팅)로만
 				fishEnd = -1000;
 				count(FISH, "", 1);
 			}

@@ -74,6 +74,8 @@ public final class LunaStats {
 		public final Map<String, Long> days = new LinkedHashMap<>();
 		/** 탭 목록에 함께 있던 플레이어 → 함께 있던 ms. */
 		public final Map<String, Long> peers = new LinkedHashMap<>();
+		/** 49-568차: 내가 보낸 채팅에서 많이 쓴 단어 → 횟수. */
+		public final Map<String, Long> words = new LinkedHashMap<>();
 		public final Map<String, Long> deathCauses = new LinkedHashMap<>();
 		public final Map<String, Long> killTypes = new LinkedHashMap<>();
 		public final Map<String, Double> distance = new LinkedHashMap<>();  // 모드 → m
@@ -389,10 +391,7 @@ public final class LunaStats {
 				}
 			});
 			hookChat();
-			if (++peerTick >= 100) {
-				peerTick = 0;
-				trackPeers(client);
-			}
+			// 49-568차(사용자: "같이 오래 논 사람은 없애고"): 함께한 사람 모으기 끔
 
 			trackMovement(client, afk);
 			trackHealthAndDeath(client);
@@ -456,6 +455,11 @@ public final class LunaStats {
 		try {
 			ChatState.addPlainListener(LunaStats::onChatReceived);
 		} catch (Throwable ignored) {
+		}
+		try {
+			net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents.CHAT.register(LunaStats::onChatSent);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:chatSent", t);
 		}
 	}
 
@@ -1607,7 +1611,31 @@ public final class LunaStats {
 
 	/** 채팅을 보냈을 때. */
 	public static void onChatSent() {
-		each(s -> s.chatSent++);
+		onChatSent(null);
+	}
+
+	/**
+	 * 49-568차(사용자: "시간당 채팅도 제대로 안 나오고, 많이 쓰는 단어 있으면 좋을 듯"): 보낸 채팅을 세는 곳이 어디서도 안 불려 늘 0이었다.
+	 * Fabric ClientSendMessageEvents.CHAT(명령어 말고 채팅)에서 부르고, 글을 띄어쓰기로 나눠 두 글자 이상 단어를 센다(숫자만은 뺌, 범위마다 600개까지).
+	 */
+	public static void onChatSent(String message) {
+		List<String> ws = new ArrayList<>();
+		if (message != null) {
+			for (String raw : message.split("\\s+")) {
+				String w = raw.replaceAll("^[\\p{Punct}\\p{S}]+|[\\p{Punct}\\p{S}]+$", "").toLowerCase(Locale.ROOT);
+				if (w.length() >= 2 && w.length() <= 20 && !w.matches("\\d+") && !w.matches("[ㄱ-ㅎㅏ-ㅣ]+")) {
+					ws.add(w);
+				}
+			}
+		}
+		each(s -> {
+			s.chatSent++;
+			for (String w : ws) {
+				if (s.words.containsKey(w) || s.words.size() < 600) {
+					s.words.merge(w, 1L, Long::sum);
+				}
+			}
+		});
 		dirty = true;
 	}
 
@@ -1653,6 +1681,119 @@ public final class LunaStats {
 
 	// ==================== 저장 / 불러오기 ====================
 
+	// ==================== 49-568차: 예전에 지운 서버/맵 기록을 전체 합계에서 빼기 ====================
+	// 예전 [기록 삭제]는 서버/맵 파일만 지우고 전체 합계는 그대로 두었다. 지우기 전에 남긴 백업(trash/삭제전_*.json)을 시간순으로 보고,
+	// 그 백업에는 있는데 다음 백업(마지막이면 지금)에는 없는 서버/맵이 그때 지워진 것 - 그 백업의 값만큼 전체에서 뺀다. 전체를 통째로 지운 때
+	// (다음 백업의 전체 플레이 시간이 줄었음)보다 앞의 것은 이미 비워졌으니 건너뛴다. 한 백업은 한 번만(trash/.subtracted에 적음).
+
+	private static Path subtractedFile() {
+		return trashDir().resolve(".subtracted");
+	}
+
+	private static java.util.Set<String> subtracted() {
+		java.util.Set<String> out = new java.util.HashSet<>();
+		try {
+			Path f = subtractedFile();
+			if (Files.exists(f)) {
+				for (String line : Files.readAllLines(f, java.nio.charset.StandardCharsets.UTF_8)) {
+					if (!line.isBlank()) {
+						out.add(line.trim());
+					}
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		return out;
+	}
+
+	private static void markSubtracted(String name) {
+		try {
+			Files.createDirectories(trashDir());
+			Files.writeString(subtractedFile(), name + "\n", java.nio.charset.StandardCharsets.UTF_8,
+				java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:markSub", t);
+		}
+	}
+
+	private static void subtractOldDeletes() {
+		try {
+			if (!Files.isDirectory(trashDir())) {
+				return;
+			}
+			List<Path> backups;
+			try (java.util.stream.Stream<Path> st = Files.list(trashDir())) {
+				backups = st.filter(p -> p.getFileName().toString().startsWith("삭제전_") && p.toString().endsWith(".json"))
+					.sorted(java.util.Comparator.comparing(p -> p.getFileName().toString())).toList();
+			}
+			if (backups.isEmpty()) {
+				return;
+			}
+			java.util.Set<String> done = subtracted();
+			// 각 백업: 전체 플레이 시간, 서버/맵 키 → 기록
+			List<Long> gPlay = new ArrayList<>();
+			List<Map<String, JsonObject>> ws = new ArrayList<>();
+			for (Path b : backups) {
+				JsonObject root = JsonParser.parseString(Files.readString(b, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+				gPlay.add(root.has("global") && root.getAsJsonObject("global").has("playMs") ? root.getAsJsonObject("global").get("playMs").getAsLong() : 0L);
+				Map<String, JsonObject> m = new LinkedHashMap<>();
+				if (root.has("worlds") && root.get("worlds").isJsonArray()) {
+					for (com.google.gson.JsonElement e : root.getAsJsonArray("worlds")) {
+						if (e.isJsonObject() && e.getAsJsonObject().has("key")) {
+							m.put(e.getAsJsonObject().get("key").getAsString(), e.getAsJsonObject());
+						}
+					}
+				}
+				ws.add(m);
+			}
+			java.util.Set<String> nowKeys = new java.util.HashSet<>();
+			Path wdir = dir().resolve("worlds");
+			if (Files.isDirectory(wdir)) {
+				try (java.util.stream.Stream<Path> st = Files.list(wdir)) {
+					st.map(p -> p.getFileName().toString()).filter(n -> n.endsWith(".json"))
+						.forEach(n -> nowKeys.add(n.substring(0, n.length() - 5)));
+				}
+			}
+			int start = 0;
+			for (int i = 0; i < backups.size(); i++) {
+				long next = i + 1 < backups.size() ? gPlay.get(i + 1) : GLOBAL.playMs;
+				if (next + 60_000L < gPlay.get(i)) {
+					start = i + 1;   // 이때 전체를 통째로 지웠다
+				}
+			}
+			boolean changed = false;
+			for (int i = start; i < backups.size(); i++) {
+				String name = backups.get(i).getFileName().toString();
+				if (done.contains(name)) {
+					continue;
+				}
+				java.util.Set<String> nextKeys = i + 1 < backups.size() ? ws.get(i + 1).keySet() : nowKeys;
+				for (Map.Entry<String, JsonObject> e : ws.get(i).entrySet()) {
+					if (nextKeys.contains(e.getKey())) {
+						continue;
+					}
+					Scope gone = new Scope();
+					readScope(e.getValue(), gone);
+					subtractFrom(gone, GLOBAL);
+					changed = true;
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 통계: 예전에 지운 기록 '" + gone.label + "'을 전체 합계에서 뺌");
+				}
+				markSubtracted(name);
+			}
+			for (int i = 0; i < start; i++) {
+				String name = backups.get(i).getFileName().toString();
+				if (!done.contains(name)) {
+					markSubtracted(name);
+				}
+			}
+			if (changed) {
+				write(globalFile(), writeScope(GLOBAL));
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:subtractOld", t);
+		}
+	}
+
 	private static void ensureGlobal() {
 		if (globalLoaded) {
 			return;
@@ -1660,6 +1801,7 @@ public final class LunaStats {
 		globalLoaded = true;
 		Scope loaded = loadScope(globalFile(), "global", "전체");
 		copyInto(loaded, GLOBAL);
+		subtractOldDeletes();   // 49-568차
 		mergeServerDuplicates();
 		requestEndpointMerge();   // 49-403차
 	}
@@ -1894,6 +2036,7 @@ public final class LunaStats {
 		}
 		from.days.forEach((k, v) -> to.days.merge(k, v, Long::sum));
 		from.peers.forEach((k, v) -> to.peers.merge(k, v, Long::sum));
+		from.words.forEach((k, v) -> to.words.merge(k, v, Long::sum));
 		from.deathCauses.forEach((k, v) -> to.deathCauses.merge(k, v, Long::sum));
 		from.killTypes.forEach((k, v) -> to.killTypes.merge(k, v, Long::sum));
 		from.distance.forEach((k, v) -> to.distance.merge(k, v, Double::sum));
@@ -1912,6 +2055,93 @@ public final class LunaStats {
 			}
 			if (t.base == null) {
 				t.base = v.base;
+			}
+		});
+	}
+
+	/**
+	 * 49-568차(사용자: "전체에서 삭제된 통계가 아직 남아 있어"): 서버/맵 기록을 지울 때 전체 합계에서도 그만큼 뺀다(0 아래로는 안 내려감).
+	 * 최고 기록(가장 오래 산 시간 등)과 처음 본 때는 어느 기록 것인지 몰라 그대로 둔다.
+	 */
+	private static void subtractFrom(Scope from, Scope to) {
+		to.playMs = Math.max(0, to.playMs - from.playMs);
+		to.afkMs = Math.max(0, to.afkMs - from.afkMs);
+		to.sneakMs = Math.max(0, to.sneakMs - from.sneakMs);
+		to.sessions = Math.max(0, to.sessions - from.sessions);
+		to.jumps = Math.max(0, to.jumps - from.jumps);
+		to.deaths = Math.max(0, to.deaths - from.deaths);
+		to.kills = Math.max(0, to.kills - from.kills);
+		to.trades = Math.max(0, to.trades - from.trades);
+		to.chestsOpened = Math.max(0, to.chestsOpened - from.chestsOpened);
+		to.chatSent = Math.max(0, to.chatSent - from.chatSent);
+		to.damageTaken = Math.max(0, to.damageTaken - from.damageTaken);
+		to.hits = Math.max(0, to.hits - from.hits);
+		to.playerKills = Math.max(0, to.playerKills - from.playerKills);
+		to.playerDeaths = Math.max(0, to.playerDeaths - from.playerDeaths);
+		to.chatReceived = Math.max(0, to.chatReceived - from.chatReceived);
+		to.mentions = Math.max(0, to.mentions - from.mentions);
+		for (int i = 0; i < to.hourMs.length; i++) {
+			to.hourMs[i] = Math.max(0, to.hourMs[i] - from.hourMs[i]);
+		}
+		subLong(from.days, to.days);
+		subLong(from.peers, to.peers);
+		subLong(from.words, to.words);
+		subLong(from.deathCauses, to.deathCauses);
+		subLong(from.killTypes, to.killTypes);
+		subLong(from.travelMs, to.travelMs);
+		subLong(from.interactions, to.interactions);
+		from.distance.forEach((k, v) -> {
+			double left = to.distance.getOrDefault(k, 0d) - v;
+			if (left <= 0.5) {
+				to.distance.remove(k);
+			} else {
+				to.distance.put(k, left);
+			}
+		});
+		from.months.forEach((k, v) -> {
+			Period t = to.months.get(k);
+			if (t == null) {
+				return;
+			}
+			t.playMs = Math.max(0, t.playMs - v.playMs);
+			t.afkMs = Math.max(0, t.afkMs - v.afkMs);
+			t.deaths = Math.max(0, t.deaths - v.deaths);
+			t.kills = Math.max(0, t.kills - v.kills);
+			t.jumps = Math.max(0, t.jumps - v.jumps);
+			t.trades = Math.max(0, t.trades - v.trades);
+			t.chests = Math.max(0, t.chests - v.chests);
+			t.mined = Math.max(0, t.mined - v.mined);
+			t.crafted = Math.max(0, t.crafted - v.crafted);
+			t.interactions = Math.max(0, t.interactions - v.interactions);
+			t.distance = Math.max(0, t.distance - v.distance);
+			t.damageTaken = Math.max(0, t.damageTaken - v.damageTaken);
+			if (t.playMs == 0 && t.kills == 0 && t.mined == 0 && t.distance == 0) {
+				to.months.remove(k);
+			}
+		});
+		from.items.forEach((k, v) -> {
+			ItemStat t = to.items.get(k);
+			if (t == null) {
+				return;
+			}
+			t.used = Math.max(0, t.used - v.used);
+			t.dropped = Math.max(0, t.dropped - v.dropped);
+			t.crafted = Math.max(0, t.crafted - v.crafted);
+			t.mined = Math.max(0, t.mined - v.mined);
+			t.picked = Math.max(0, t.picked - v.picked);
+			if (t.total() == 0) {
+				to.items.remove(k);
+			}
+		});
+	}
+
+	private static void subLong(Map<String, Long> from, Map<String, Long> to) {
+		from.forEach((k, v) -> {
+			long left = to.getOrDefault(k, 0L) - v;
+			if (left <= 0) {
+				to.remove(k);
+			} else {
+				to.put(k, left);
 			}
 		});
 	}
@@ -1946,6 +2176,8 @@ public final class LunaStats {
 		to.days.putAll(from.days);
 		to.peers.clear();
 		to.peers.putAll(from.peers);
+		to.words.clear();
+		to.words.putAll(from.words);
 		to.deathCauses.clear();
 		to.deathCauses.putAll(from.deathCauses);
 		to.killTypes.clear();
@@ -2018,6 +2250,7 @@ public final class LunaStats {
 			s.peers.clear();   // 49-385차: 예전 기록은 노바 사용자 구분 없이 쌓여서 비우고 새로 센다
 		}
 		readLongMap(o, "deathCauses", s.deathCauses);
+		readLongMap(o, "words", s.words);
 		readLongMap(o, "interactions", s.interactions);
 		if (o.has("months") && o.get("months").isJsonObject()) {
 			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("months").entrySet()) {
@@ -2135,6 +2368,7 @@ public final class LunaStats {
 		o.add("peers", longMap(s.peers));
 		o.addProperty("peersNova", true);
 		o.add("deathCauses", longMap(s.deathCauses));
+		o.add("words", longMap(s.words));
 		o.add("interactions", longMap(s.interactions));
 		JsonObject months = new JsonObject();
 		for (Map.Entry<String, Period> e : s.months.entrySet()) {
@@ -2458,6 +2692,9 @@ public final class LunaStats {
 					copyInto(empty, world);
 				}
 			} else {
+				// 49-568차: 지우는 서버/맵 기록만큼 전체 합계에서도 뺀다
+				Scope gone = world != null && key.equals(worldKey) ? world : loadScope(worldFile(key), key, key);
+				subtractFrom(gone, GLOBAL);
 				Files.deleteIfExists(worldFile(key));
 				if (world != null && key.equals(worldKey)) {
 					Scope empty = new Scope();
@@ -2471,7 +2708,8 @@ public final class LunaStats {
 			PENDING.clear();
 			dirty = true;
 			saveNow();
-			return "지웠습니다 · [삭제 되돌리기]로 되돌릴 수 있어요";
+			markSubtracted("삭제전_" + stamp + ".json");
+			return "지웠습니다. [삭제 되돌리기]로 되돌릴 수 있어요";
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("stats:delete", t);
 			return "지우지 못했습니다: " + t.getClass().getSimpleName();
