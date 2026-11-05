@@ -138,8 +138,12 @@ public final class ModuleManager {
 		registerReflectively("kr.lunaslight.mod.module.impl.inventory.MouseTweaksModule");
 		// 49-111차: 인벤토리 정리(키 하나로 상자·인벤토리 정렬) - Slot/SlotActionType 의존, 리플렉션 등록
 		registerReflectively("kr.lunaslight.mod.module.impl.inventory.InventorySortModule");
+		// 49-565차: 아이템 펼치기(Shift + 휠클릭 = 빈 칸마다 1개씩)
+		registerReflectively("kr.lunaslight.mod.module.impl.inventory.ItemSpreadModule");
 		// 49-27차: 아이템 찾기(열어 본 상자 기록 - Slot/Container 의존)
 		registerReflectively("kr.lunaslight.mod.module.impl.inventory.ItemFinderModule");
+		// 49-562차: 상자 정보창(상자를 보면 옆에 SAO 느낌 창으로 내용물)
+		registerReflectively("kr.lunaslight.mod.module.impl.inventory.ChestPeekModule");
 		// 49-125차: 인벤토리 탭(상자 화면에서 근처 상자 바로 열기) - HandledScreen 의존, 1.15.2 제외(리플렉션 등록)
 		registerReflectively("kr.lunaslight.mod.module.impl.inventory.ContainerTabsModule");
 		// 49-33차: 제작 도우미(조합법 검색 · 만드는 순서) - 역시 Slot 의존이라 리플렉션 등록
@@ -182,6 +186,7 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDungeonUiModule");   // 49-538차: 너굴 던전 UI
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMobsModule");   // 49-443차: 던전 몬스터
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulWateringModule");   // 49-564차: 물뿌리개 연속 뿌리기
 			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)
 			try {
 				kr.lunaslight.mod.util.NeogulHudProbe.init();
@@ -196,8 +201,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.misc.ServerPackRescueModule());
 		// 49-483차: 인벤토리에서 HUD 숨기기
 		register(new kr.lunaslight.mod.module.impl.misc.InventoryHudHideModule());
-		// 49-488차: 작물 캐기 모드
-		register(new kr.lunaslight.mod.module.impl.misc.HarvestModeModule());
+		// 49-488차 작물 캐기 모드는 49-565차에 삭제(사용자: "작물 캐기 모드 없애고")
 		// 49-144차: 리소스팩 기억 - 49-448차에 삭제(ServerPackMemory는 뒷정리만)
 
 		// ---- 채팅 ----
@@ -235,7 +239,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.misc.ShortcutsModule());   // 49-89차(8-6·8-8·8-17): 내 키+명령어 키 합침, [키] 탭, 마크 보조 키
 		register(new RecorderModule());       // 49-72차(4-11): 짧은 순간을 움직이는 그림으로
 		register(new PackPriorityModule());   // 49-73차(1-7): 서버 팩보다 내 팩을 위에
-		register(new FriendAlertModule());    // 49-74차(1-4): 루나 친구가 들어오면 채팅에 한 줄
+		// 49-559차(사용자: "친구 알림 끄는 거 말고 싹 다 삭제"): 친구 접속 알림(FriendAlertModule) 삭제 - 친구 목록 요청도 없음
 		register(new kr.lunaslight.mod.module.impl.misc.PatchNoteAlertModule());   // 49-268차: 런처 새 패치노트를 화면 위 가운데에(항상 켜짐)
 		register(new NowPlayingModule());
 		register(new kr.lunaslight.mod.module.impl.misc.VideoPipModule());   // 49-177차: 보고 있는 영상(런처가 찍은 창)     // 49-74차(4-5): 지금 듣고 있는 노래를 HUD에

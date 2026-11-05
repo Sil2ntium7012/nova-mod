@@ -78,3 +78,7 @@ src/client/java/kr/lunaslight/mod/module/impl/misc/ServerPackMemoryModule.java
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/ServerPackMemoryModule.java
 src/main/resources/assets/lunaslight/textures/dungeon   # 49-547차: 너굴 던전 그림은 26.x 전용(src-26x/client/resources)으로 옮김 - 공통에 두면 40개 버전이 다 다시 빌드됨
 src/main/resources/assets/lunaslight/font/hpn.json   # 49-547차: 같은 이유로 src-26x/client/resources로
+src/client/java/kr/lunaslight/mod/module/impl/misc/FriendAlertModule.java   # 49-559차: 친구 접속 알림 삭제(사용자: "끄는 거 말고 싹 다 삭제")
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/FriendAlertModule.java   # 49-559차: 같은 이유
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/HarvestModeModule.java   # 49-565차: 작물 캐기 모드 삭제(사용자: "작물 캐기 모드 없애고")
+src-26x/client/java/kr/lunaslight/mod/mixin/HarvestModeMixin.java   # 49-565차: 같은 이유

@@ -147,48 +147,16 @@ public abstract class PlayerListHudMixin {
 			// 49-312차: AfkWatch(나 = 이 컴퓨터, 남 = 접속 정보 + 보이는 몸으로 보정)
 			boolean afk = self ? kr.lunaslight.mod.module.impl.render.AfkModule.isAfkNow()
 					: kr.lunaslight.mod.util.AfkWatch.afk(null, name);
-			boolean luna = kr.lunaslight.mod.util.LunaSocial.isLunaPlayerOnServer(name);
+			// 49-561차(사용자: "탭 눌러도 노바 사람인지 아닌지 뜨는 거 없애"): 노바 별은 아무에게도 안 붙인다. 자리 비움 ZZZ만 남긴다.
 			net.minecraft.network.chat.Component original = cir.getReturnValue();
-			// 49-209차(사용자: "클라들끼리 별 뜨는 게 안 보이는 경우가 있어"): 탭 꾸미기 플러그인 서버는 칸마다 가짜 프로필
-			// (이름이 " 001" 같은 자리표시)을 쓰고 진짜 닉네임은 표시 이름에만 넣는다 - 프로필 이름으로는 못 찾으니
-			// 표시 글자 안에 루나 유저 닉네임이 낱말로 들어 있으면 그 사람으로 본다.
-			if (!luna && !self && original != null) {
-				String shown = kr.lunaslight.mod.util.LunaSocial.lunaNameIn(original.getString());
-				if (shown != null) {
-					name = shown;
-					luna = true;
-					afk = afk || kr.lunaslight.mod.util.AfkWatch.afk(null, shown);
-				}
-			}
-			if (original == null || (!luna && !afk)) {
+			if (original == null || !afk) {
 				return;
 			}
-			// 49-312차(사용자: "TAB 목록에서 AFK인 사람은 노바 별 대신 ZZZ로"): AFK면 별 자리에 회색 ZZZ(뒤에 붙던 Zzz는 뺐다)
-			if (afk) {
-				net.minecraft.network.chat.Component zzz = kr.lunaslight.mod.util.AfkWatch.tabBadge();
-				net.minecraft.network.chat.Component put = kr.lunaslight.mod.util.PlayerStateHook.badgeBeforeName(original, name, zzz);
-				cir.setReturnValue(put != null ? put : kr.lunaslight.mod.util.LunaCompat.join(
-						zzz, kr.lunaslight.mod.util.LunaCompat.textLiteral(" "), original));
-				return;
-			}
-			// 49-358차(사용자: "우리 서버에서는 탭에 별도 안 뜨게"): 노바 서버(*.novaclient.kr)는 다 노바 유저라 별을 안 붙인다(자리 비움 ZZZ는 위에서 그대로)
-			try {
-				String addr = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(mc);
-				if (kr.lunaslight.mod.module.Module.isMyServer(addr)) {   // 49-365차: 내 서버 목록
-					return;
-				}
-			} catch (Throwable ignored) {
-			}
-			// 49-136차(사용자: "별모양으로 해달라니까 왜 다이아몬드야, 너무 커"): 로고 글리프(icons.ttf, 크게 나옴) 대신
-			// 49-191차(사용자: "우리 로고 별 쓰라고 - 흰색에 너무 크지 않게"): 로고 가운데의 네 갈래 반짝이 별을 흰색으로
-			// (lunastar.png 32×32를 글자 높이 7로 줄여 그림 - 대문자 높이와 같다). 한 글자(\uE100).
-			// 49-321차(사용자: "그냥 별을 입력해 넣으면 안 돼? 원에 바늘 달린 거 같잖아"): 직접 그린 그림(lunastar.png) 대신 진짜 글자 ✦(U+2726)를
-			// 흰색으로. 마크 기본 글꼴(유니폰트)의 ✦라 네 끝이 곡선으로 이어진 모양 그대로 나온다.
-			net.minecraft.network.chat.Component star = kr.lunaslight.mod.util.LunaCompat.coloredText("\u2726", 0xFFFFFFFF);
-			// 49-203차: 칭호/접두가 있으면 별을 닉네임 바로 앞에(별 뒤 한 칸). 못 찾으면 예전처럼 맨 앞.
-			net.minecraft.network.chat.Component placed = kr.lunaslight.mod.util.PlayerStateHook.badgeBeforeName(original, name, star);
-			cir.setReturnValue(placed != null ? placed : kr.lunaslight.mod.util.LunaCompat.join(
-					star, kr.lunaslight.mod.util.LunaCompat.textLiteral(" "), original));
+			// 49-312차(사용자: "TAB 목록에서 AFK인 사람은 노바 별 대신 ZZZ로"): AFK면 이름 앞에 회색 ZZZ
+			net.minecraft.network.chat.Component zzz = kr.lunaslight.mod.util.AfkWatch.tabBadge();
+			net.minecraft.network.chat.Component put = kr.lunaslight.mod.util.PlayerStateHook.badgeBeforeName(original, name, zzz);
+			cir.setReturnValue(put != null ? put : kr.lunaslight.mod.util.LunaCompat.join(
+					zzz, kr.lunaslight.mod.util.LunaCompat.textLiteral(" "), original));
 		} catch (Throwable ignored) {
 		}
 	}

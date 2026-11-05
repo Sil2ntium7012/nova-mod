@@ -67,7 +67,6 @@ public final class LunaIcons {
 		MODULE_ICONS.put("fov_lock", "\uE959");
 		MODULE_ICONS.put("fps_hud", "\uE900");
 		MODULE_ICONS.put("free_look", "\uE975");
-		MODULE_ICONS.put("friend_alert", "\uE970");
 		MODULE_ICONS.put("gamma_control", "\uE968");
 		MODULE_ICONS.put("glint_control", "\uE965");
 		MODULE_ICONS.put("gui_blur", "\uE91B");

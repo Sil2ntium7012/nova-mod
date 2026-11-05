@@ -66,7 +66,6 @@ public final class LunaIcons {
 		MODULE_ICONS.put("fov_lock", "\uE959");
 		MODULE_ICONS.put("fps_hud", "\uE900");
 		MODULE_ICONS.put("free_look", "\uE975");
-		MODULE_ICONS.put("friend_alert", "\uE970");
 		MODULE_ICONS.put("gamma_control", "\uE968");
 		MODULE_ICONS.put("glint_control", "\uE965");
 		MODULE_ICONS.put("gui_blur", "\uE91B");
@@ -91,6 +90,7 @@ public final class LunaIcons {
 		MODULE_ICONS.put("blueprint_hud", "\uE932");   // 49-253차: 설계도 HUD(층)
 		MODULE_ICONS.put("memory_usage_hud", "\uE93B");
 		MODULE_ICONS.put("mouse_tweaks", "\uE942");
+		MODULE_ICONS.put("item_spread", "\uE942");   // 49-565차: 아이템 펼치기
 		MODULE_ICONS.put("mousestrokes_hud", "\uE943");
 		MODULE_ICONS.put("nametag_visibility", "\uE90D");
 		MODULE_ICONS.put("now_playing", "\uE947");
@@ -112,6 +112,8 @@ public final class LunaIcons {
 		MODULE_ICONS.put("shield_cooldown", "\uE95E");
 		MODULE_ICONS.put("shield_offset", "\uE960");
 		MODULE_ICONS.put("shulker_peek", "\uE918");
+		MODULE_ICONS.put("chest_peek", "\uE95A");   // 49-562차: 상자 정보창
+		MODULE_ICONS.put("neogul_watering", "\uE953");   // 49-564차: 물뿌리개 연속 뿌리기
 		MODULE_ICONS.put("simple_health_hud", "\uE92E");
 		MODULE_ICONS.put("smooth_scroll", "\uE911");
 		MODULE_ICONS.put("sound_filter", "\uE976");

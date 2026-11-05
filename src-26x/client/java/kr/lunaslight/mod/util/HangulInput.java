@@ -73,7 +73,10 @@ public final class HangulInput {
 	 * 채팅, 표지판 같은 마크 입력칸은 기능을 켰을 때만.
 	 */
 	private static boolean on() {
-		if (HangulInputModule.on()) {
+		// 49-560차(인계: "너굴 한글채팅이 있으면 Nova 한글 입력 끄기"): NG-KoreanChat(ng_koreanchat)이 깔려 있으면 채팅, 표지판 같은
+		// 마크 입력칸은 그 모드에 맡긴다(둘이 같이 조합하면 글자가 두 번 들어가거나 입력기 떼기가 싸운다). 노바 화면과 노바 글자 받기는
+		// 그 모드가 안 다루므로 그대로 켠다.
+		if (HangulInputModule.on() && !ngKoreanChat()) {
 			return true;
 		}
 		try {
@@ -85,6 +88,20 @@ public final class HangulInput {
 		} catch (Throwable t) {
 			return false;
 		}
+	}
+
+	private static int ngKc = -1;
+
+	/** NG-KoreanChat 모드가 깔려 있나(한 번만 본다). */
+	public static boolean ngKoreanChat() {
+		if (ngKc < 0) {
+			try {
+				ngKc = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("ng_koreanchat") ? 1 : 0;
+			} catch (Throwable t) {
+				ngKc = 0;
+			}
+		}
+		return ngKc == 1;
 	}
 
 	/** 매 틱: 윈도우 입력기 떼기, 화면이 바뀌었으면 조합 끝. */

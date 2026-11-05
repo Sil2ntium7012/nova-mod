@@ -27,7 +27,7 @@ public abstract class PackOrderMixin {
 
 	@Inject(method = "openAllSelected()Ljava/util/List;", at = @At("RETURN"), cancellable = true, require = 0)
 	private void lunaslight$packOrder(CallbackInfoReturnable<List<?>> cir) {
-		if (PackOrderHook.off) {
+		if (PackOrderHook.off || lunaslight$vanillaOrderHere()) {
 			kr.lunaslight.mod.util.PackUiGuard.prepare(null);   // 49-452차: 꺼져 있으면 숨기는 것도 없음
 			return;
 		}
@@ -38,5 +38,19 @@ public abstract class PackOrderMixin {
 		}
 		// 49-452차: 서버 팩의 UI 파일(셰이더, textures/gui)은 내 팩에서 숨겨 서버 것이 나오게
 		kr.lunaslight.mod.util.PackUiGuard.prepare(fixed != null ? fixed : current);
+	}
+
+	/**
+	 * 49-563차(사용자: "너굴마을 기본 UI(핫바, 돈 표시)가 옆으로 날아가고 돈 표시가 사라짐, 노바 끄면 정상, 내 리소스팩 우선 문제"): 너굴마을(mcng)은
+	 * HUD 전체를 서버 팩 글꼴과 셰이더로 그려서 팩 순서가 바뀌면 깨진다. 거기서는 바닐라 순서(서버 팩이 맨 위) 그대로 두고 아무것도 숨기지 않는다.
+	 */
+	@org.spongepowered.asm.mixin.Unique
+	private static boolean lunaslight$vanillaOrderHere() {
+		try {
+			String a = kr.lunaslight.mod.util.LunaCompat.currentServerAddress(net.minecraft.client.Minecraft.getInstance());
+			return a != null && a.toLowerCase(java.util.Locale.ROOT).contains("mcng");
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 }

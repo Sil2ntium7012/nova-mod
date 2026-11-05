@@ -161,33 +161,9 @@ public class LunaSocialScreen extends LunaScreenBase {
 	}
 
 	private void refresh() {
-		if (!LunaSocial.signedIn()) {
-			friends = List.of();
-			return;
-		}
-		loading = true;
-		error = null;
-		lastFetchNanos = System.nanoTime();
-		// 49-74차: 들어온 친구 요청도 같이 읽는다(추가만 되고 수락은 런처에서만 되면 반쪽이다)
-		LunaSocial.fetchRequests().whenComplete((list, t) -> {
-			if (client != null) {
-				client.execute(() -> requests = t != null || list == null ? List.of() : list);
-			}
-		});
-		LunaSocial.fetchFriends().whenComplete((list, t) -> {
-			// 렌더 스레드에서 반영
-			if (client != null) {
-				client.execute(() -> {
-					loading = false;
-					if (t != null) {
-						error = "친구 목록을 불러오지 못했습니다";
-						LunaCompat.warnOnce("social:friends", t);
-					} else {
-						friends = list;
-					}
-				});
-			}
-		});
+		// 49-559차(사용자: "친구 알림, 친구 목록 요청 싹 다 삭제"): 친구 목록, 받은 요청을 더는 서버에서 읽지 않는다
+		friends = List.of();
+		requests = List.of();
 	}
 
 	// ==================== 49-47차: 귓속말 대화 ====================

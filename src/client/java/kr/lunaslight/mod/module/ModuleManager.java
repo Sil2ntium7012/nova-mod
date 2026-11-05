@@ -190,7 +190,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.misc.ShortcutsModule());   // 49-89차(8-6·8-8·8-17): 내 키+명령어 키 합침, [키] 탭, 마크 보조 키
 		register(new RecorderModule());       // 49-72차(4-11): 짧은 순간을 움직이는 그림으로
 		register(new PackPriorityModule());   // 49-73차(1-7): 서버 팩보다 내 팩을 위에
-		register(new FriendAlertModule());    // 49-74차(1-4): 루나 친구가 들어오면 채팅에 한 줄
+		// 49-559차(사용자: "친구 알림 끄는 거 말고 싹 다 삭제"): 친구 접속 알림(FriendAlertModule) 삭제 - 친구 목록 요청도 없음
 		register(new kr.lunaslight.mod.module.impl.misc.PatchNoteAlertModule());   // 49-268차: 런처 새 패치노트를 화면 위 가운데에(항상 켜짐)
 		register(new NowPlayingModule());
 		register(new kr.lunaslight.mod.module.impl.misc.VideoPipModule());   // 49-177차: 보고 있는 영상(런처가 찍은 창)     // 49-74차(4-5): 지금 듣고 있는 노래를 HUD에

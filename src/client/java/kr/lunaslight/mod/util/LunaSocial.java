@@ -360,7 +360,19 @@ public final class LunaSocial {
 	}
 
 	@SuppressWarnings("deprecation")
+	// ==================== 49-560차: 서버 기능 일시 중지 ====================
+	// 런처 세션 인계(2026-11-05, Vercel 정지 12/5까지, Supabase 전송량): "서로 상호작용이 필요하고 사이트가 꼭 있어야 하는 부분 모두 제거,
+	// 딱 로그인만". 이 값이 true인 동안 모드는 사이트(/api/app/*)와 Supabase(/rest/v1)에 <b>아무 요청도</b> 보내지 않는다 -
+	// 남의 치장(nova_player_tiers), 친구, 귓속말, 접속 상태, 탭 목록 노바 별(site_presence). 내 치장은 런처가 준 파일(.luna-launch.json)로 그린다.
+	// 다시 열 때는 false로.
+	public static final boolean SERVER_PAUSED = true;
+
 	private static CompletableFuture<JsonElement> rest(String pathAndQuery) {
+		if (SERVER_PAUSED) {
+			CompletableFuture<JsonElement> f = new CompletableFuture<>();
+			f.completeExceptionally(new RuntimeException("서버 기능 일시 중지"));
+			return f;
+		}
 		HttpRequest req = HttpRequest.newBuilder(URI.create(supabaseUrl + "/rest/v1" + pathAndQuery))
 				.timeout(Duration.ofSeconds(10))
 				.header("apikey", anonKey)
@@ -381,6 +393,11 @@ public final class LunaSocial {
 	 * 같은 표·같은 anon 키). 게임 채팅으로는 아무것도 보내지 않는다.
 	 */
 	private static CompletableFuture<JsonElement> restPost(String pathAndQuery, String jsonBody) {
+		if (SERVER_PAUSED) {
+			CompletableFuture<JsonElement> f = new CompletableFuture<>();
+			f.completeExceptionally(new RuntimeException("서버 기능 일시 중지"));
+			return f;
+		}
 		HttpRequest req = HttpRequest.newBuilder(URI.create(supabaseUrl + "/rest/v1" + pathAndQuery))
 				.timeout(Duration.ofSeconds(10))
 				.header("apikey", anonKey)
@@ -517,6 +534,11 @@ public final class LunaSocial {
 	 * 그래서 이 기능에는 <b>Supabase 정책(RLS)을 새로 넣을 필요가 없다</b> - 예전 메모가 틀렸다.
 	 */
 	private static CompletableFuture<JsonElement> restSend(String method, String pathAndQuery, String jsonBody) {
+		if (SERVER_PAUSED) {
+			CompletableFuture<JsonElement> f = new CompletableFuture<>();
+			f.completeExceptionally(new RuntimeException("서버 기능 일시 중지"));
+			return f;
+		}
 		HttpRequest.BodyPublisher body = jsonBody == null
 			? HttpRequest.BodyPublishers.noBody()
 			: HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8);
@@ -542,7 +564,7 @@ public final class LunaSocial {
 	 */
 	public static CompletableFuture<java.util.Map<String, String>> fetchCapes(java.util.Collection<String> ids) {
 		load();
-		if (!available() || ids == null || ids.isEmpty()) {
+		if (SERVER_PAUSED || !available() || ids == null || ids.isEmpty()) {   // 49-560차: 남의 치장 조회 안 함
 			return CompletableFuture.completedFuture(java.util.Collections.emptyMap());
 		}
 		StringBuilder in = new StringBuilder();
@@ -583,7 +605,7 @@ public final class LunaSocial {
 	/** 49-351차: 남의 치장 칸 하나(cosmetic_wing, cosmetic_bag …) - uuid → 값("" = 안 낌). */
 	public static CompletableFuture<java.util.Map<String, String>> fetchCosmeticColumn(java.util.Collection<String> ids, String column) {
 		load();
-		if (!available() || ids == null || ids.isEmpty()) {
+		if (SERVER_PAUSED || !available() || ids == null || ids.isEmpty()) {   // 49-560차: 남의 치장 조회 안 함
 			return CompletableFuture.completedFuture(java.util.Collections.emptyMap());
 		}
 		StringBuilder in = new StringBuilder();
@@ -621,7 +643,7 @@ public final class LunaSocial {
 	 */
 	public static CompletableFuture<java.util.Map<String, java.util.Map<String, String>>> fetchCosmeticColumns(java.util.Collection<String> ids, String... columns) {
 		load();
-		if (!available() || ids == null || ids.isEmpty() || columns.length == 0) {
+		if (SERVER_PAUSED || !available() || ids == null || ids.isEmpty() || columns.length == 0) {   // 49-560차
 			return CompletableFuture.completedFuture(java.util.Collections.emptyMap());
 		}
 		StringBuilder in = new StringBuilder();
@@ -724,6 +746,11 @@ public final class LunaSocial {
 
 	@SuppressWarnings("deprecation")
 	private static CompletableFuture<JsonObject> social(String action, JsonObject body) {
+		if (SERVER_PAUSED) {
+			CompletableFuture<JsonObject> f = new CompletableFuture<>();
+			f.completeExceptionally(new RuntimeException("서버 기능 일시 중지"));
+			return f;
+		}
 		JsonObject b = body == null ? new JsonObject() : body;
 		b.addProperty("accountId", siteId);
 		b.addProperty("sessionToken", siteToken);
@@ -847,6 +874,11 @@ public final class LunaSocial {
 	 */
 	@SuppressWarnings("deprecation")
 	private static CompletableFuture<String[]> resolveNickname(String nickname) {
+		if (SERVER_PAUSED) {
+			CompletableFuture<String[]> f = new CompletableFuture<>();
+			f.completeExceptionally(new RuntimeException("서버 기능 일시 중지"));
+			return f;
+		}
 		JsonObject body = new JsonObject();
 		body.addProperty("by", "nickname");
 		body.addProperty("nickname", nickname);
@@ -1079,21 +1111,6 @@ public final class LunaSocial {
 			});
 	}
 
-	/**
-	 * 10-25: 친구 접속 알림용. 사이트 실패를 빈 목록으로 바꾸지 않고 그대로 넘긴다 - 부르는 쪽이 다음 시도를
-	 * 늦추고(백오프), 마지막으로 받은 친구 목록을 그대로 쓰게.
-	 */
-	public static CompletableFuture<List<Friend>> fetchFriendsChecked() {
-		load();
-		if (!signedIn()) {
-			return CompletableFuture.completedFuture(List.of());
-		}
-		if (viaSite()) {
-			return siteFriends(false);
-		}
-		return fetchFriends();
-	}
-
 	/** 수락된 친구 목록(온라인 순). 로그인 안 됐으면 빈 목록. */
 	public static CompletableFuture<List<Friend>> fetchFriends() {
 		load();
@@ -1246,6 +1263,9 @@ public final class LunaSocial {
 	private static boolean lastPresenceAfk;
 
 	public static void publishPresence(MinecraftClient client) {
+		if (SERVER_PAUSED) {
+			return;   // 49-560차: 접속 상태(presence)를 런처로 안 넘긴다(런처가 사이트에 올리던 것)
+		}
 		if (client == null || !available()) {
 			return;
 		}
@@ -1378,7 +1398,7 @@ public final class LunaSocial {
 			selfLunaName = me == null || me.isEmpty() ? null : me.toLowerCase(java.util.Locale.ROOT);
 		} catch (Throwable ignored) {
 		}
-		if (!available()) {   // 사이트 정보를 못 받았으면 남의 별은 모른다(내 별만)
+		if (SERVER_PAUSED || !available()) {   // 사이트 정보를 못 받았으면(49-560차: 서버 기능 중지 동안도) 남의 별은 모른다(내 별만)
 			serverLunaNames = java.util.Collections.emptySet();
 			serverAfkNames = java.util.Collections.emptySet();
 			return;

@@ -124,7 +124,8 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 	private static boolean recordWanted() {
 		kr.lunaslight.mod.module.ModuleManager mm = kr.lunaslight.mod.module.ModuleManager.get();
 		return mm.find("block_info_hud").map(Module::isEnabled).orElse(false)
-			|| mm.find("container_tabs").map(Module::isEnabled).orElse(false);
+			|| mm.find("container_tabs").map(Module::isEnabled).orElse(false)
+			|| mm.find("chest_peek").map(Module::isEnabled).orElse(false);   // 49-562차: 상자 정보창
 	}
 
 	private void recordTick() {
