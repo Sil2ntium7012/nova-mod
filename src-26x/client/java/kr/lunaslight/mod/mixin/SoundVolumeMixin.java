@@ -25,6 +25,8 @@ public abstract class SoundVolumeMixin {
 		if (!SoundFilterHook.off
 				&& SoundFilterHook.muted((net.minecraft.client.resources.sounds.SoundInstance) (Object) this)) {
 			cir.setReturnValue(0.0f);
+		} else if (SoundFilterHook.dupMuted((net.minecraft.client.resources.sounds.SoundInstance) (Object) this)) {
+			cir.setReturnValue(0.0f);   // 49-571차: 창고 넘어갈 때 겹치는 소리
 		}
 	}
 }

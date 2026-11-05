@@ -44,8 +44,20 @@ public final class NewFeatures {
 		}
 	}
 
+	/** 49-570차: 묻는 창이 답 없이 다른 창에 덮였다 - 창이 닫히고 3초 뒤 다시 묻는다. */
+	public static void askAgain() {
+		joinAt = System.currentTimeMillis();
+	}
+
 	private static void tick(Minecraft mc) {
-		if (joinAt == 0 || mc == null || mc.player == null || System.currentTimeMillis() - joinAt < 3000) {
+		if (joinAt == 0 || mc == null || mc.player == null || mc.level == null) {
+			return;
+		}
+		if (LunaCompat.screenOf(mc) != null) {
+			joinAt = Math.max(joinAt, System.currentTimeMillis() - 1000);   // 49-570차: 창(연결 중, 리소스팩 받기 …)이 닫힌 뒤 2초는 기다린다
+			return;
+		}
+		if (System.currentTimeMillis() - joinAt < 3000) {
 			return;
 		}
 		if (LunaCompat.screenOf(mc) != null) {

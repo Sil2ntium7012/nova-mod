@@ -50,7 +50,6 @@ public class ChestPeekModule extends Module {
 	private static final int C_ACCENT = 0xFFF2A534;
 	private static final int C_CELL = 0x40000000;
 	private static final int C_LINE = 0xFFFFFFFF;
-	private static final int C_LINE_UNDER = 0x66000000;
 
 	/** 이번 틱에 조준한 보관함(없으면 null). */
 	private volatile BlockPos target;
@@ -282,8 +281,7 @@ public class ChestPeekModule extends Module {
 			segment(ctx, mx, my, ex, ey, len - l1, l2, la, sw, sh);
 		}
 		// 상자 쪽 고리
-		LunaDraw.roundRect(ctx, (int) Math.round(ax) - 3, (int) Math.round(ay) - 3, 7, 7, 3, alpha(0x70000000, la));
-		LunaDraw.roundRect(ctx, (int) Math.round(ax) - 2, (int) Math.round(ay) - 2, 5, 5, 2, alpha(C_LINE, la));
+		LunaDraw.roundRect(ctx, (int) Math.round(ax) - 2, (int) Math.round(ay) - 2, 5, 5, 2, alpha(C_LINE, la));   // 49-570차: 검은 테두리 없는 흰 점
 		if (panelK <= 0f) {
 			return;
 		}
@@ -346,7 +344,7 @@ public class ChestPeekModule extends Module {
 		}
 		double f = Math.min(1.0, len / full);
 		double xe = x0 + (x1 - x0) * f, ye = y0 + (y1 - y0) * f;
-		LunaProjection.lineAA(ctx, x0, y0, xe, ye, 2.6f, alpha(C_LINE_UNDER, a), sw, sh);
+		// 49-570차(사용자: "원 테두리 검정 저런 게 이상하다고"): 어두운 밑줄 없이 흰 선 한 줄
 		LunaProjection.lineAA(ctx, x0, y0, xe, ye, 1.1f, alpha(C_LINE, a), sw, sh);
 	}
 

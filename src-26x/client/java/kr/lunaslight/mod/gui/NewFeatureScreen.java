@@ -28,7 +28,6 @@ public class NewFeatureScreen extends LunaScreenBase {
 	private final List<Module> list;
 	private final boolean[] on;
 	private final LunaVScale lunaV = new LunaVScale(this, 420, 300);
-	private int[][] rows;
 	private int[] okBtn;
 	private boolean applied;
 
@@ -37,7 +36,6 @@ public class NewFeatureScreen extends LunaScreenBase {
 		this.list = list;
 		this.on = new boolean[list.size()];
 		java.util.Arrays.fill(on, true);
-		this.rows = new int[list.size()][];
 	}
 
 	@Override
@@ -60,52 +58,75 @@ public class NewFeatureScreen extends LunaScreenBase {
 		}
 	}
 
-	private static final int PREV_H = 92;
+	private static final int PREV_H = 96;
+
+	// 49-571차: 새 기능이 여러 개면 미리보기까지 한 창에 다 넣으면 화면 밖으로 넘쳤다 - 한 번에 하나씩(쪽 넘기기).
+	private int page;
+	private int[] prevBtn, nextBtn, rowBox;
 
 	private void draw(GuiGraphicsExtractor ctx, int mx, int my) {
 		Minecraft mc = Minecraft.getInstance();
 		ctx.fill(0, 0, width, height, 0xA0000000);
+		int n = list.size();
+		page = Math.max(0, Math.min(page, n - 1));
+		Module m = list.get(page);
+		boolean prev = m.hasNewFeaturePreview();
 		int w = Math.min(width - 20, 360);
-		int h = 52 + 26;
-		for (Module m : list) {
-			h += 30 + (m.hasNewFeaturePreview() ? PREV_H + 4 : 0);
-		}
-		h = Math.min(h, height - 20);
+		int rh = 30 + (prev ? PREV_H + 6 : 0);
+		int h = 40 + rh + 50;
 		int x = (width - w) / 2, y = (height - h) / 2;
 		LunaDraw.panel3d(ctx, x, y, w, h, 6);
 		LunaDraw.textCentered(ctx, mc.font, "새 기능이 나왔어요", x + w / 2, y + 10, LunaDraw.TEXT);
-		LunaDraw.textCentered(ctx, mc.font, "켤 기능을 골라 주세요", x + w / 2, y + 22, LunaDraw.TEXT_SUB);
+		LunaDraw.textCentered(ctx, mc.font, n > 1 ? "켤 기능을 골라 주세요 (" + (page + 1) + " / " + n + ")" : "켤까요?", x + w / 2, y + 22, LunaDraw.TEXT_SUB);
 		int ry = y + 38;
-		for (int i = 0; i < list.size(); i++) {
-			Module m = list.get(i);
-			boolean prev = m.hasNewFeaturePreview();
-			int rh = 26 + (prev ? PREV_H + 4 : 0);
-			rows[i] = new int[]{x + 8, ry, w - 16, rh};
-			boolean hov = mx >= x + 8 && mx < x + w - 8 && my >= ry && my < ry + 26;
-			LunaDraw.card3d(ctx, x + 8, ry, w - 16, rh, hov ? 1f : 0f, on[i]);
-			LunaDraw.text(ctx, mc.font, m.getDisplayName(), x + 16, ry + 4, LunaDraw.TEXT);
-			String d = m.getDescription() == null ? "" : m.getDescription();
-			LunaDraw.text(ctx, mc.font, LunaDraw.ellipsize(mc.font, d, w - 80), x + 16, ry + 15, LunaDraw.TEXT_SUB);
-			LunaDraw.toggle(ctx, x + w - 44, ry + 6, 28, 14, on[i] ? 1f : 0f, true);
-			if (prev) {
-				int px = x + 14, py = ry + 28, pw = w - 28;
-				ctx.fillGradient(px, py, px + pw, py + PREV_H, 0xFF3A4A5E, 0xFF1C2430);
-				ctx.enableScissor(px, py, px + pw, py + PREV_H);
-				try {
-					m.drawNewFeaturePreview(ctx, px, py, pw, PREV_H);
-				} catch (Throwable t) {
-					LunaCompat.warnOnce("newFeature:preview", t);
-				} finally {
-					ctx.disableScissor();
-				}
+		rowBox = new int[]{x + 8, ry, w - 16, 30};
+		boolean hov = mx >= x + 8 && mx < x + w - 8 && my >= ry && my < ry + 30;
+		LunaDraw.card3d(ctx, x + 8, ry, w - 16, rh, hov ? 1f : 0f, on[page]);
+		LunaDraw.text(ctx, mc.font, m.getDisplayName(), x + 16, ry + 5, LunaDraw.TEXT);
+		String d = m.getDescription() == null ? "" : m.getDescription();
+		LunaDraw.text(ctx, mc.font, LunaDraw.ellipsize(mc.font, d, w - 80), x + 16, ry + 17, LunaDraw.TEXT_SUB);
+		LunaDraw.toggle(ctx, x + w - 44, ry + 8, 28, 14, on[page] ? 1f : 0f, true);
+		if (prev) {
+			int px = x + 14, py = ry + 32, pw = w - 28;
+			ctx.fillGradient(px, py, px + pw, py + PREV_H, 0xFF3A4A5E, 0xFF1C2430);
+			ctx.enableScissor(px, py, px + pw, py + PREV_H);
+			try {
+				m.drawNewFeaturePreview(ctx, px, py, pw, PREV_H);
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("newFeature:preview", t);
+			} finally {
+				ctx.disableScissor();
 			}
-			ry += rh + 4;
+		}
+		// 쪽 점
+		if (n > 1) {
+			int dotsW = n * 8 - 3;
+			for (int i = 0; i < n; i++) {
+				ctx.fill(x + (w - dotsW) / 2 + i * 8, y + h - 44, x + (w - dotsW) / 2 + i * 8 + 5, y + h - 41,
+						i == page ? LunaDraw.ACCENT | 0xFF000000 : 0x60FFFFFF);
+			}
 		}
 		LunaDraw.textCentered(ctx, mc.font, "설정(Right Shift)에서 언제든 바꿀 수 있어요", x + w / 2, y + h - 36, LunaDraw.TEXT_DIM);
-		int bw = 90, bh = 18;
-		okBtn = new int[]{x + (w - bw) / 2, y + h - bh - 8, bw, bh};
-		boolean hovOk = mx >= okBtn[0] && mx < okBtn[0] + bw && my >= okBtn[1] && my < okBtn[1] + bh;
-		LunaDraw.button3d(ctx, mc.font, okBtn[0], okBtn[1], bw, bh, "확인", LunaDraw.B_PRIMARY, hovOk ? 1f : 0f);
+		int bw = 90, bh = 18, by = y + h - bh - 8;
+		boolean last = page >= n - 1;
+		if (n > 1) {
+			prevBtn = new int[]{x + w / 2 - bw - 4, by, bw, bh};
+			nextBtn = new int[]{x + w / 2 + 4, by, bw, bh};
+			boolean hp = page > 0 && in(prevBtn, mx, my);
+			LunaDraw.button3d(ctx, mc.font, prevBtn[0], prevBtn[1], bw, bh, "이전", LunaDraw.B_NEUTRAL, hp ? 1f : 0f);
+			if (page == 0) {
+				ctx.fill(prevBtn[0], prevBtn[1], prevBtn[0] + bw, prevBtn[1] + bh, 0x80000000);
+			}
+		} else {
+			prevBtn = null;
+			nextBtn = new int[]{x + (w - bw) / 2, by, bw, bh};
+		}
+		LunaDraw.button3d(ctx, mc.font, nextBtn[0], nextBtn[1], bw, bh, last ? "확인" : "다음", LunaDraw.B_PRIMARY, in(nextBtn, mx, my) ? 1f : 0f);
+		okBtn = last ? nextBtn : null;
+	}
+
+	private static boolean in(int[] r, double mx, double my) {
+		return r != null && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3];
 	}
 
 	@Override
@@ -117,18 +138,24 @@ public class NewFeatureScreen extends LunaScreenBase {
 			if (button != 0) {
 				return true;
 			}
-			if (okBtn != null && mx >= okBtn[0] && mx < okBtn[0] + okBtn[2] && my >= okBtn[1] && my < okBtn[1] + okBtn[3]) {
+			if (in(nextBtn, mx, my)) {
 				LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
-				onClose();
+				if (page >= list.size() - 1) {
+					onClose();
+				} else {
+					page++;
+				}
 				return true;
 			}
-			for (int i = 0; i < rows.length; i++) {
-				int[] r = rows[i];
-				if (r != null && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + 26) {
-					on[i] = !on[i];
-					LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.2f);
-					return true;
-				}
+			if (page > 0 && in(prevBtn, mx, my)) {
+				LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.0f);
+				page--;
+				return true;
+			}
+			if (in(rowBox, mx, my)) {
+				on[page] = !on[page];
+				LunaCompat.playUiSound(Minecraft.getInstance(), "UI_BUTTON_CLICK", 1.2f);
+				return true;
 			}
 			return true;
 		} finally {
@@ -144,7 +171,11 @@ public class NewFeatureScreen extends LunaScreenBase {
 
 	@Override
 	public void removed() {
-		apply();   // 다른 창이 덮어써도 답한 걸로
+		// 49-570차(사용자: "신규 기능은 항상 겜 들어갔을 때 물어보라고"): 너굴마을은 들어가자마자 서버를 옮겨(로비 → 섬) 이 창이 연결 화면에 덮여
+		// 사라졌는데, 그때도 "답한 걸로" 적어서 사용자는 한 번도 못 보고 지나갔다. 확인이나 Esc로 닫을 때만 답한 걸로 치고, 다른 창이 덮으면 다시 묻는다.
+		if (!applied) {
+			NewFeatures.askAgain();
+		}
 		super.removed();
 	}
 

@@ -113,4 +113,32 @@ public class NeogulWateringModule extends Module {
 			return false;
 		}
 	}
+
+	// 49-570차: 새 기능 창 미리보기 - 밭 여덟 칸 위로 물뿌리개(물 양동이 그림)가 지나가며 칸마다 바로 물이 차는 그림(2.4초마다 다시).
+	@Override
+	public boolean hasNewFeaturePreview() {
+		return true;
+	}
+
+	@Override
+	public void drawNewFeaturePreview(net.minecraft.client.gui.GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		var font = client.font;
+		int n = 8, tile = 18, gap = 2;
+		int rowW = n * tile + (n - 1) * gap;
+		int sx = x + (w - rowW) / 2, sy = y + h / 2 - 4;
+		long t = System.currentTimeMillis() % 2400L;
+		float pos = Math.min(n, t / 220f);   // 지나간 칸 수
+		for (int i = 0; i < n; i++) {
+			int cx = sx + i * (tile + gap);
+			boolean wet = i < (int) pos;
+			ctx.fill(cx, sy, cx + tile, sy + tile, wet ? 0xFF3F76E4 : 0xFF6B4A2B);
+			ctx.fill(cx, sy, cx + tile, sy + 3, wet ? 0xFF6E9CF2 : 0xFF8A6239);
+		}
+		int ix = sx + Math.round(Math.min(pos, n - 0.5f) * (tile + gap)) - 8;
+		ctx.item(new ItemStack(net.minecraft.world.item.Items.WATER_BUCKET), ix, sy - 18);
+		String label = "우클릭을 꾹 누른 채 지나가면";
+		String sub = "칸마다 바로 물을 뿌려요";
+		kr.lunaslight.mod.gui.LunaDraw.text(ctx, font, label, x + (w - kr.lunaslight.mod.gui.LunaDraw.width(font, label)) / 2, y + 8, 0xFFFFE08A);
+		kr.lunaslight.mod.gui.LunaDraw.text(ctx, font, sub, x + (w - kr.lunaslight.mod.gui.LunaDraw.width(font, sub)) / 2, sy + tile + 8, 0xFFB8C2CF);
+	}
 }

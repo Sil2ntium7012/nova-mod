@@ -112,4 +112,41 @@ public class ItemSpreadModule extends Module {
 			return null;
 		}
 	}
+
+	// 49-570차(사용자: "신규 기능은 항상 겜 들어갔을 때 추가할 거냐고 물어보라고, 미리보기랑 함께"): 새 기능 창 미리보기 -
+	// 왼쪽 칸 하나에 든 5개가 Shift + 휠클릭으로 오른쪽 다섯 칸에 1개씩 차례로 퍼지는 그림(2.4초마다 다시).
+	@Override
+	public boolean hasNewFeaturePreview() {
+		return true;
+	}
+
+	@Override
+	public void drawNewFeaturePreview(net.minecraft.client.gui.GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		var font = client.font;
+		ItemStack wheat = new ItemStack(net.minecraft.world.item.Items.WHEAT);
+		long t = System.currentTimeMillis() % 2400L;
+		int shown = (int) Math.min(5, Math.max(0, (t - 500) / 180));
+		String label = "Shift + 휠클릭";
+		int rowW = 5 * 18 + 4 * 2;
+		int total = rowW + 28 + rowW;
+		int sx = x + (w - total) / 2, sy = y + h / 2 - 2;
+		kr.lunaslight.mod.gui.LunaDraw.text(ctx, font, label, x + (w - kr.lunaslight.mod.gui.LunaDraw.width(font, label)) / 2, y + 12, 0xFFFFE08A);
+		for (int k = 0; k < 2; k++) {
+			int rx = sx + k * (rowW + 28);
+			for (int i = 0; i < 5; i++) {
+				int cx = rx + i * 20;
+				kr.lunaslight.mod.gui.LunaDraw.roundRect(ctx, cx, sy, 18, 18, 2, 0x40FFFFFF);
+				boolean has = k == 0 ? i == 0 : i < shown;
+				if (has) {
+					ctx.item(wheat, cx + 1, sy + 1);
+					String c = k == 0 ? "5" : "1";
+					kr.lunaslight.mod.gui.LunaDraw.text(ctx, font, c, cx + 18 - kr.lunaslight.mod.gui.LunaDraw.width(font, c), sy + 10, 0xFFFFFFFF);
+				}
+			}
+		}
+		String arrow = "→";
+		kr.lunaslight.mod.gui.LunaDraw.text(ctx, font, arrow, sx + rowW + 14 - kr.lunaslight.mod.gui.LunaDraw.width(font, arrow) / 2, sy + 5, 0xFFFFFFFF);
+		String sub = "빈 칸마다 1개씩, 남으면 원래 칸에";
+		kr.lunaslight.mod.gui.LunaDraw.text(ctx, font, sub, x + (w - kr.lunaslight.mod.gui.LunaDraw.width(font, sub)) / 2, sy + 26, 0xFFB8C2CF);
+	}
 }

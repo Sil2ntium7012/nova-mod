@@ -235,6 +235,16 @@ public class NeogulStorageModule extends Module {
 		}
 		ensureLoaded();
 		Object screen = LunaCompat.screenOf(client);
+		if (switchUntil != 0L) {
+			if (screen != switchScreen && screen != null) {
+				switchUntil = 0L;   // 새 창이 왔다
+			} else if (System.currentTimeMillis() >= switchUntil) {
+				switchUntil = 0L;
+				if (closeHeld && screen == switchScreen && client.player != null) {
+					client.player.closeContainer();   // 서버가 닫았는데 새 창이 안 왔다 - 미뤘던 닫기
+				}
+			}
+		}
 		boolean changed = screen != lastScreen;
 		if (changed) {
 			lastScreen = screen;
@@ -315,6 +325,7 @@ public class NeogulStorageModule extends Module {
 				if (slot != null) {
 					pending = chainKey;
 					pendingAt = System.currentTimeMillis();
+					beginSwitch();
 					client.gameMode.handleContainerInput(hs.getMenu().containerId, slot, 0, ContainerInput.PICKUP, client.player);
 					retryKey = chainKey;
 					retryScreen = screen;
@@ -930,16 +941,10 @@ public class NeogulStorageModule extends Module {
 			if (editing != null) {
 				commitEdit();
 			}
-			// 49-537차(사용자: "좌클릭 2번 누르면 이름 설정"): 0.3초 안에 같은 탭을 또 누르면 이름 바꾸기, 한 번이면 0.3초 뒤 연다
-			long now = System.currentTimeMillis();
-			if (p.key().equals(clickKey) && now - clickAt < 300) {
-				clickKey = null;
-				startEdit(p.key(), s);
-				return true;
+			// 49-571차(사용자: "클릭 2번 이름 바꾸기에서 우클릭으로 바꾸기"): 이름 바꾸기는 우클릭만 - 좌클릭은 기다리지 않고 바로 연다
+			if (!p.key().equals(current)) {
+				open(hs, p.key());
 			}
-			clickKey = p.key();
-			clickAt = now;
-			clickScreen = hs;
 			return true;
 		}
 		if (editing != null) {
@@ -949,7 +954,32 @@ public class NeogulStorageModule extends Module {
 		return cover != null && mx >= cover[0] && mx < cover[2] && my >= cover[1] && my < cover[3];
 	}
 
+	/**
+	 * 49-571차(사용자: "창고 넘어갈 때 중간 화면 안 뜨고 부드럽게, 소리 2번 나는 거"): 창고를 바꾸는 동안 서버가 보내는 "창 닫기"를 받지 않고
+	 * (NeogulContainerCloseMixin) 지금 창을 띄운 채로 다음 창을 기다린다 - 그 사이 월드가 비치거나 마우스가 가운데로 튀지 않는다.
+	 * 겹치는 소리는 한 번만(SoundFilterHook.switchSounds). 2.5초 안에 새 창이 안 오면 닫기를 그대로 한다.
+	 */
+	public static volatile long switchUntil;
+	private static volatile boolean closeHeld;
+	private Object switchScreen;
+
+	public static boolean holdClose() {
+		if (switchUntil != 0L && System.currentTimeMillis() < switchUntil) {
+			closeHeld = true;
+			return true;
+		}
+		return false;
+	}
+
+	private void beginSwitch() {
+		switchUntil = System.currentTimeMillis() + 2500L;
+		closeHeld = false;
+		switchScreen = LunaCompat.screenOf(client);
+		kr.lunaslight.mod.util.SoundFilterHook.switchSounds(2000L);
+	}
+
 	private void open(AbstractContainerScreen<?> hs, String key) {
+		beginSwitch();
 		Integer slot = buttons.get(key);
 		if (slot != null && client.gameMode != null) {
 			pending = key;

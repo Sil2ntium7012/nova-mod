@@ -26,6 +26,43 @@ public final class SoundFilterHook {
 	private SoundFilterHook() {
 	}
 
+	// ==================== 49-571차: 창고 넘어갈 때 소리 한 번만 ====================
+	// 사용자: "창고 미리보기 넘어갈 때 소리 2번 나는 거". 창고를 바꾸는 동안(switchSounds로 연 잠깐)은 닫는 소리(…close)를 끄고,
+	// 같은 소리가 또 오면 처음 것만 낸다.
+	private static volatile long dedupeUntil;
+	private static final java.util.Map<String, Object> FIRST = new java.util.HashMap<>();
+
+	public static synchronized void switchSounds(long ms) {
+		dedupeUntil = System.currentTimeMillis() + ms;
+		FIRST.clear();
+	}
+
+	public static boolean dupMuted(net.minecraft.client.resources.sounds.SoundInstance sound) {
+		if (dedupeUntil == 0L || sound == null) {
+			return false;
+		}
+		if (System.currentTimeMillis() > dedupeUntil) {
+			dedupeUntil = 0L;
+			return false;
+		}
+		try {
+			Identifier id = sound.getIdentifier();
+			if (id == null) {
+				return false;
+			}
+			String path = id.getPath();
+			if (path.contains(".close") || path.endsWith("close")) {
+				return true;
+			}
+			synchronized (SoundFilterHook.class) {
+				Object first = FIRST.putIfAbsent(id.toString(), sound);
+				return first != null && first != sound;
+			}
+		} catch (Throwable ignored) {
+			return false;
+		}
+	}
+
 	/** 켜져 있는 동안에만 false. 모듈이 꺼지면 믹스인은 이 한 줄만 읽고 빠져나간다. */
 	public static volatile boolean off = true;
 
