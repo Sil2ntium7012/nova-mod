@@ -73,6 +73,15 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 
 	private static volatile long notedAt;
 
+	/** 49-576차: 내가 마지막으로 우클릭한 블록(TodoGameModeMixin.useItemOn) - 명령어로 연 창(유저상점 등)을 상자로 적지 않으려고. */
+	private static volatile BlockPos usedPos;
+	private static volatile long usedAt;
+
+	public static void noteUse(BlockPos pos) {
+		usedPos = pos;
+		usedAt = System.currentTimeMillis();
+	}
+
 	public static void noteOpen(BlockPos pos) {
 		noted = pos;
 		notedAt = System.currentTimeMillis();
@@ -148,8 +157,12 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 				if (noted != null) {
 					lastLookedBlock = noted;
 					noted = null;
+				} else if (usedPos != null && System.currentTimeMillis() - usedAt < 2000) {
+					// 49-576차(사용자 사진: 유저상점을 열고 나면 상자 정보창에 상점 물건이 뜸): 상자를 보면서 /유저상점을 치면 그 메뉴가
+					// 보고 있던 상자 자리에 적혔다. 상자를 실제로 우클릭해서 연 창만 그 자리에 적는다(2초 안).
+					lastLookedBlock = usedPos;
 				} else {
-					lastLookedBlock = lookCandidate;
+					lastLookedBlock = null;
 				}
 			}
 		} else if (screen instanceof AbstractContainerScreen<?> hs) {

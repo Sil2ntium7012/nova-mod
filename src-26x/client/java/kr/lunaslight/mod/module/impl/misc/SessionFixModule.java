@@ -108,6 +108,14 @@ public class SessionFixModule extends Module {
 		if (buttons == null || buttons.isEmpty()) {
 			return;
 		}
+		// 49-577차(사용자 사진: [세션 새로고침 후 재접속]이 두 개): 화면 init 뒤 알림이 한 화면에 두 번 와서 버튼이 두 번 얹혔다 -
+		// 이미 얹은 우리 버튼이 있으면 다시 얹지 않는다.
+		for (Object b : buttons) {
+			String msg = buttonText(b);
+			if (msg != null && (msg.contains("세션 새로") || msg.contains("다시 접속하는 중") || msg.equals(RECONNECT_LABEL))) {
+				return;
+			}
+		}
 		Object last = null;
 		int lastY = Integer.MIN_VALUE;
 		for (Object b : buttons) {
@@ -135,6 +143,27 @@ public class SessionFixModule extends Module {
 			}
 		});
 		buttonScreen = button == null ? null : screen;
+		// 49-577차(사용자: "하나 없애 주고 없앤 자리에 재접속 버튼"): 세션은 그대로 두고 마지막 서버로 바로 다시 들어가는 버튼
+		String addr = AutoReconnectModule.lastServerAddress();
+		if (button != null && addr != null && !addr.isBlank()) {
+			LunaCompat.addVanillaButton(screen, x, lastY + (h + 4) * 2, w, h, RECONNECT_LABEL, () -> {
+				String a = AutoReconnectModule.lastServerAddress();
+				if (a != null && !a.isBlank()) {
+					AutoReconnectModule.reconnectTo(a);
+				}
+			});
+		}
+	}
+
+	private static final String RECONNECT_LABEL = "재접속";
+
+	private static String buttonText(Object b) {
+		try {
+			Object m = LunaCompat.callNoArg(b, "getMessage");
+			return m instanceof net.minecraft.network.chat.Component c ? c.getString() : null;
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	private void startRefresh() {

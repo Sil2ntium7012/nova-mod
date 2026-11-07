@@ -30,7 +30,7 @@ import net.minecraft.resources.Identifier;
  * 없애고 HUD 편집기의 크기 조절(배율)을 쓴다 - 배율은 가로세로를 같이 키우므로 비율이 안 바뀐다. 비율은 일반(16:9)과
  * 쇼츠(9:16) 둘뿐이고, 찍어 온 창은 그 비율로 <b>가운데를 잘라</b> 채운다(찌그러지지 않게).
  */
-public class VideoPipModule extends Module {
+public class VideoPipModule extends Module implements kr.lunaslight.mod.module.BackgroundTick {
 
 	public enum Ratio {
 		NORMAL("일반"),
@@ -66,6 +66,10 @@ public class VideoPipModule extends Module {
 			"opacity", "불투명도", "100이면 또렷하고, 낮출수록 게임 화면이 비쳐 보입니다.", 100, 30, 100, 5).unit("%"));
 	private final BooleanSetting showName = register(new BooleanSetting(
 			"show_name", "창 이름", "영상 아래에 찍고 있는 창의 이름을 보여 줍니다.", false));
+	// 49-580차(사용자: "영상 껐다 키는 키 지정 가능하게, 기본은 없음"): 게임 화면에서 누르면 이 기능을 켜고 끈다. 꺼져 있어도 BackgroundTick으로 본다.
+	private final kr.lunaslight.mod.module.setting.KeybindSetting toggleKey = register(new kr.lunaslight.mod.module.setting.KeybindSetting(
+			"toggle_key", "켜고 끄는 키", "게임 화면에서 누르면 영상을 켜고 끕니다. 비워 두면 안 씁니다.", -1));
+	private boolean toggleWasDown;
 	/** 고른 창 이름(빈 값 = 자동: 영상 사이트 창 중 하나). */
 	private final StringSetting window = register(new StringSetting("window", "고른 창", "", "")).hidden();
 	/**
@@ -214,7 +218,31 @@ public class VideoPipModule extends Module {
 	private long lostSince;
 
 	@Override
+	public void backgroundTick() {
+		pollToggleKey();
+	}
+
+	/** 켜고 끄는 키: 눌린 순간 한 번만(누르고 있는 동안 계속 안 바뀌게). 메뉴, 채팅이 열려 있으면 안 본다. */
+	private void pollToggleKey() {
+		boolean down = false;
+		try {
+			down = toggleKey.isBound() && client.player != null && LunaCompat.screenOf(client) == null && toggleKey.isDown(client);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("videoPip:key", t);
+		}
+		if (down && !toggleWasDown) {
+			toggle();
+			kr.lunaslight.mod.config.LunaClientConfig.save();
+		}
+		toggleWasDown = down;
+	}
+
+	@Override
 	public void onTick() {
+		pollToggleKey();
+		if (!isEnabled()) {
+			return;
+		}
 		// 49-222차: 게임을 다시 켜거나 영상이 바뀌면 탭 제목이 달라져 고른 창을 못 찾고 멈춘다("고른 창이 닫혔거나 이름이 바뀜").
 		// 그 이름이 창 목록에도 없는 채로 3초가 지나면 [자동](영상 사이트 창 중에서)으로 돌린다.
 		String err = LunaPip.error;

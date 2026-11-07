@@ -358,10 +358,45 @@ public final class NeogulData {
 		}
 		try {
 			String a = LunaCompat.currentServerAddress(client);
-			return a != null && a.toLowerCase(java.util.Locale.ROOT).contains("mcng");
+			if (a != null && a.toLowerCase(java.util.Locale.ROOT).contains("mcng")) {
+				return true;
+			}
+			return a != null && fallbackNeogul(client);
 		} catch (Throwable t) {
 			return false;
 		}
+	}
+
+	// 49-579차(사용자 사진: 허수아비 확률이 편집기에선 예시만, 게임에선 안 뜸 - 주소에 mcng가 없는 주소(IP, 다른 도메인)로 들어온 사람):
+	// 주소로 못 알아보면 서버 목록 이름에 "너굴"이 있거나, 서버 리소스팩의 너굴 HUD 글꼴(ng:font/hud.json)이 올라와 있으면 너굴마을로 본다.
+	// 리소스 찾기가 가볍지 않아 같은 접속에선 2초에 한 번만 다시 본다.
+	private static Object fbConn;
+	private static long fbAt;
+	private static boolean fbVal;
+
+	private static boolean fallbackNeogul(Minecraft client) {
+		Object conn = client.getConnection();
+		long now = System.currentTimeMillis();
+		if (conn == fbConn && now - fbAt < 2000L) {
+			return fbVal;
+		}
+		boolean v = false;
+		try {
+			String n = LunaCompat.currentServerName(client);
+			v = n != null && (n.contains("너굴") || n.toLowerCase(java.util.Locale.ROOT).contains("neogul"));
+		} catch (Throwable ignored) {
+		}
+		if (!v) {
+			try {
+				v = client.getResourceManager().getResource(
+						net.minecraft.resources.Identifier.fromNamespaceAndPath("ng", "font/hud.json")).isPresent();
+			} catch (Throwable ignored) {
+			}
+		}
+		fbConn = conn;
+		fbAt = now;
+		fbVal = v;
+		return v;
 	}
 
 	// ==================== 아이콘 ====================

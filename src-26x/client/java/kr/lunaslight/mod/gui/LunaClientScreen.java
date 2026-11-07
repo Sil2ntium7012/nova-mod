@@ -3273,17 +3273,20 @@ public class LunaClientScreen extends LunaScreenBase {
 			// 49-89차: 버튼 설정 - 오른쪽 알약 하나
 			String lb = as.getButtonLabel();
 			int bw = LunaDraw.width(font, lb) + 18;
-			boolean bh = hovered && LunaDraw.in(mouseX, mouseY, right - bw, cy, bw, TOGGLE_H + 2);
-			LunaDraw.pillButton(ctx, font, right - bw, cy, bw, TOGGLE_H + 2, lb, bh, true);
+			// 49-580차(사용자: "고르기, 위치 편집 등 버튼이 칸 가운데보다 좀 아래 있음"): 아래 두께(2px)까지 친 버튼이 줄 카드 가운데에 오게 ctrlY로
+			int by = ctrlY(y);
+			boolean bh = hovered && LunaDraw.in(mouseX, mouseY, right - bw, by, bw, TOGGLE_H + 2);
+			LunaDraw.pillButton(ctx, font, right - bw, by, bw, TOGGLE_H + 2, lb, bh, true);
 		} else if (s instanceof KeybindListSetting kl) {
 			// 49-103차: 머리줄 오른쪽에 [추가하기], 아래에 항목마다 [명령어칸 · 키 버튼 · ×] 한 줄.
 			String lb = kl.getButtonLabel();
 			int bw = LunaDraw.width(font, lb) + 18;
 			boolean addable = kl.size() < kl.capacity();
-			boolean bh = addable && hovered && LunaDraw.in(mouseX, mouseY, right - bw, cy, bw, TOGGLE_H + 2);
-			LunaDraw.roundRect(ctx, right - bw, cy, bw, TOGGLE_H + 2, 4,
+			int by = ctrlY(y) + 1;   // 49-580차: 납작한 버튼은 줄 카드 가운데로
+			boolean bh = addable && hovered && LunaDraw.in(mouseX, mouseY, right - bw, by, bw, TOGGLE_H + 2);
+			LunaDraw.roundRect(ctx, right - bw, by, bw, TOGGLE_H + 2, 4,
 				!addable ? LunaDraw.TRACK : (bh ? 0xFFC4E796 : LunaDraw.ACCENT));
-			LunaDraw.text(ctx, font, lb, right - bw + 9, LunaDraw.textY(cy, TOGGLE_H + 2),
+			LunaDraw.text(ctx, font, lb, right - bw + 9, LunaDraw.textY(by, TOGGLE_H + 2),
 				addable ? 0xFF0A0F0C : LunaDraw.TEXT_DIM);
 			int ox = x + 10;
 			int ow = w - 20;
@@ -3305,12 +3308,12 @@ public class LunaClientScreen extends LunaScreenBase {
 				LunaDraw.textY(ky, CTRL_H), LunaDraw.TEXT);
 		} else if (s instanceof PositionSetting) {
 			// 49-122차(사용자: "위치 편집 버튼 옆 좌표 숫자 없애"): 좌표 텍스트 제거, [위치 편집] 버튼만.
+			// 49-580차: [고르기] 같은 다른 버튼과 같은 입체 버튼, 같은 세로 자리(줄 카드 가운데)
 			int bw = 62;
 			int bx = right - bw;
-			boolean bh = hovered && LunaDraw.in(mouseX, mouseY, bx, cy, bw, TOGGLE_H + 2);
-			LunaDraw.roundRect(ctx, bx, cy, bw, TOGGLE_H + 2, 4, bh ? 0xFFC4E796 : LunaDraw.ACCENT);
-			LunaDraw.text(ctx, font, "위치 편집", bx + (bw - LunaDraw.width(font, "위치 편집")) / 2,
-				LunaDraw.textY(cy, TOGGLE_H + 2), 0xFF0A0F0C);
+			int by = ctrlY(y);
+			boolean bh = hovered && LunaDraw.in(mouseX, mouseY, bx, by, bw, TOGGLE_H + 2);
+			LunaDraw.pillButton(ctx, font, bx, by, bw, TOGGLE_H + 2, "위치 편집", bh, true);
 		} else if (s instanceof StringSetting ss) {
 			boolean editing = editingString == ss;
 			if (ss.isList()) {
@@ -4467,14 +4470,14 @@ public class LunaClientScreen extends LunaScreenBase {
 			}
 		} else if (s instanceof ActionSetting as) {
 			int bw = LunaDraw.width(font, as.getButtonLabel()) + 18;
-			if (LunaDraw.in(mouseX, mouseY, right - bw, cy, bw, TOGGLE_H + 2)) {
+			if (LunaDraw.in(mouseX, mouseY, right - bw, ctrlY(y), bw, TOGGLE_H + 2)) {
 				as.run();
 			}
 		} else if (s instanceof KeybindListSetting kl) {
 			// 머리줄: [추가하기]
 			if (mouseY < y + ROW_H) {
 				int bw = LunaDraw.width(font, kl.getButtonLabel()) + 18;
-				if (kl.size() < kl.capacity() && LunaDraw.in(mouseX, mouseY, right - bw, cy, bw, TOGGLE_H + 2)) {
+				if (kl.size() < kl.capacity() && LunaDraw.in(mouseX, mouseY, right - bw, ctrlY(y) + 1, bw, TOGGLE_H + 2)) {
 					kl.add();
 				}
 				return;
@@ -4535,7 +4538,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			}
 		} else if (s instanceof PositionSetting) {
 			int bw = 62;
-			if (LunaDraw.in(mouseX, mouseY, right - bw, cy, bw, TOGGLE_H + 2)) {
+			if (LunaDraw.in(mouseX, mouseY, right - bw, ctrlY(y), bw, TOGGLE_H + 2)) {
 				openHudEditor(openModule);
 			} else if (button == 1) {
 				s.resetToDefault();

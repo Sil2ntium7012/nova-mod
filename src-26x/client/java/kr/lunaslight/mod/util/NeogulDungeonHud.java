@@ -679,7 +679,7 @@ public final class NeogulDungeonHud {
 		boolean hasGain = gn != null && gn.length() > 1;
 		if (hasGain) {
 			String g = gn.toString();
-			boolean fresh = freshPacket && (!g.equals(gain) || !hadGain || now - gainAt > 3000);
+			boolean fresh = freshPacket && (!g.equals(gain) || !hadGain);   // 같은 알림이 떠 있는 동안 다시 세지 않게(시간으로는 안 셈)
 			if (!g.equals(gain) || now - gainAt > 3000) {
 				gainAt = now;
 			}
@@ -717,17 +717,7 @@ public final class NeogulDungeonHud {
 				tobeolLv++;
 				need = NeogulLevels.REQ[1][tobeolLv];
 			}
-			if (pc >= 0 && pc < 100 && need > 0) {
-				// 알림 괄호 %가 토벌 것인지 확실치 않아서, 우리 셈과 3% 안으로 가까울 때만 그 칸에 맞춘다(멀면 다른 분야 %로 보고 무시)
-				long bucket = exp * 100 / need;
-				if (surelyCombat && pc + 50 < bucket) {
-					tobeolLv = Math.min(NeogulLevels.MAX_LV - 1, tobeolLv + 1);   // 토벌 %가 확 줄었다 = 레벨업을 놓쳤다
-					need = NeogulLevels.REQ[1][tobeolLv];
-					exp = need * pc / 100;
-				} else if (surelyCombat ? Math.abs(bucket - pc) >= 2 : (bucket != pc && Math.abs(bucket - pc) <= 3)) {
-					exp = need * pc / 100;   // 토벌 알림이면 2% 넘게 어긋날 때 그 %로(반올림 차이 1%는 그냥 둔다), 아니면 3% 안일 때만
-				}
-			}
+			// 49-575차(사용자: "경험치 오르는 수치가 애초에 숫자로 나오잖아, 그걸 이용하라고"): 알림의 +N(정확한 수)만 더한다 - %로 맞추지 않는다
 			tobeolExp = exp;
 			tobeolNeed = need;
 			tobeolPct = need > 0 ? exp * 100f / need : 0f;

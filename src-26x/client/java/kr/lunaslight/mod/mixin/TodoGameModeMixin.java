@@ -54,4 +54,16 @@ public abstract class TodoGameModeMixin {
 	private void lunaslight$todoAttack(Player player, Entity target, CallbackInfo ci) {
 		TodoList.onAttack(target);
 	}
+
+	/** 49-576차: 블록 우클릭(상자 열기) - 상자 기록이 명령어로 연 창을 상자로 적지 않게(ItemFinderModule.noteUse). */
+	@Inject(method = "useItemOn", at = @At("HEAD"), require = 0)
+	private void lunaslight$noteUse(net.minecraft.client.player.LocalPlayer player, net.minecraft.world.InteractionHand hand,
+			net.minecraft.world.phys.BlockHitResult hit, CallbackInfoReturnable<?> cir) {
+		try {
+			if (hit != null) {
+				kr.lunaslight.mod.module.impl.inventory.ItemFinderModule.noteUse(hit.getBlockPos());
+			}
+		} catch (Throwable ignored) {
+		}
+	}
 }
