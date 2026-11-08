@@ -531,6 +531,11 @@ public final class NeogulDungeonHud {
 		}
 	}
 
+	/** 49-606차: 왼쪽 위 서버 HUD 지역이 섬(hud_channel_island)인지. */
+	public static boolean onIsland() {
+		return "island".equals(location) && System.currentTimeMillis() - lastSeen < 4000;
+	}
+
 	public static boolean inDungeon() {
 		return "dungeon".equals(location) && System.currentTimeMillis() - lastSeen < 4000;
 	}

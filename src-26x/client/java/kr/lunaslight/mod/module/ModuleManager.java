@@ -189,6 +189,7 @@ public final class ModuleManager {
 			// 49-564차 물뿌리개 연속 뿌리기는 49-572차에 삭제(사용자: "물뿌리개 기능 삭제해 주고")
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScareRateModule");   // 49-572차: 허수아비 확률
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulQuestionModule");   // 49-589차: 질문 알림, 답변 고르기(관리자)
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulEmberModule");   // 49-606차: 섬에서 창고 잉걸불
 			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)
 			try {
 				kr.lunaslight.mod.util.NeogulHudProbe.init();

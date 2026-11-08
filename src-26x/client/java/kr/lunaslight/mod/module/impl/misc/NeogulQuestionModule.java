@@ -41,11 +41,16 @@ public class NeogulQuestionModule extends Module {
 	private final BooleanSetting sound = register(new BooleanSetting(
 			"sound", "알림 소리", "새 질문이 올라오면 소리를 냅니다.", true));
 	// 49-590차(사용자가 준 자주 묻는 질문 30개, 초월은 위키 기준으로 자세히): 목록 칸이 쉼표로 줄을 나눠서 답변 안 쉼표는 전각 쉼표(，)로 적고,
-	// 붙여 넣을 때 보통 쉼표로 되돌린다. 기본값을 바꿀 때마다 설정 이름도 바꾼다(49-591차 answers_v3: 미끼 추가, 도토리 문구 / 49-592차 answers_v4: 곡괭이 획득처, 강화 장비 제작 장소 / 49-593차 answers_v5: 도토리 판매, 유저상점 4개 / 49-594차 answers_v6: 청크로더 범위 / answers_v7: 토벌 피로도 / 49-595차 answers_v8: 룰렛 / 49-600차 answers_v9: 내 정보).
+	// 붙여 넣을 때 보통 쉼표로 되돌린다. 기본값을 바꿀 때마다 설정 이름도 바꾼다(49-591차 answers_v3: 미끼 추가, 도토리 문구 / 49-592차 answers_v4: 곡괭이 획득처, 강화 장비 제작 장소 / 49-593차 answers_v5: 도토리 판매, 유저상점 4개 / 49-594차 answers_v6: 청크로더 범위 / answers_v7: 토벌 피로도 / 49-595차 answers_v8: 룰렛 / 49-600차 answers_v9: 내 정보 / 49-607차 answers_v10: 물고기 확률).
 	private final StringSetting answers = register(new StringSetting(
-			"answers_v9", "답변 목록", "키워드/키워드 = 답변 형식으로 한 줄씩 넣습니다. 답변 안 쉼표는 ，(전각)로 써 주세요.",
+			"answers_v10", "답변 목록", "키워드/키워드 = 답변 형식으로 한 줄씩 넣습니다. 답변 안 쉼표는 ，(전각)로 써 주세요.",
 			"기반암/제거기 = 기반암은 상점 2층 캐시상점에서 제거기를 구매하실 수 있습니다." + ", "
 					+ "미끼/진주 = 낚시하다보면 진주가 나오는데 거기서 나옵니다." + ", "
+					+ "물고기 확률/물고기확률/낚시 확률/낚시확률/물고기 등급/등급 확률/등급별 = 물고기 등급별 확률은 S급 0.78%， A급 8%， B급 57.5%， C급 33.72% 입니다!" + ", "
+					+ "S급/범고래/상어/소라고동 = S급 물고기(범고래， 상어， 소라고동)는 전체 0.78% 확률로 낚입니다." + ", "
+					+ "A급/연어/장어/해파리/랍스터/참치 = A급 물고기(연어， 장어， 해파리， 랍스터， 참치)는 전체 8% 확률로 낚입니다." + ", "
+					+ "B급/열대어/메기/베스/개복치/불가사리/멸치/해마/금붕어/쭈꾸미/개불 = B급 물고기(열대어， 메기， 베스， 개복치， 불가사리， 다시 멸치， 분홍 해마， 금붕어， 쭈꾸미， 개불)는 전체 57.5% 확률로 낚입니다." + ", "
+					+ "C급/송사리/청개구리/콜라 캔/빈 깡통/쓰레기 봉투/쓰레기 = C급(송사리， 청개구리， 콜라 캔， 빈 깡통， 쓰레기 봉투)은 전체 33.72% 확률로 낚입니다." + ", "
 					+ "곡괭이/곡/도구 어디/도구 획득 = 곡괭이 획득처는 제작 혹은 상점 2층 캐시상점 혹은 유저상점입니다!" + ", "
 					+ "강화/초월/장비 제작/장비제작/대장간 = 워프 2페이지에서 대장간에 가시면 됩니다!" + ", "
 					+ "도토리 판매/도토리판매/도토리 팔/도토리를 팔/도토리 거래/거래소 = /도토리거래소 등록 [수량] [비율] 로 판매 등록하실 수 있습니다. (비율 1000~1400) 취소는 /도토리거래소 일괄취소 입니다." + ", "
@@ -97,6 +102,10 @@ public class NeogulQuestionModule extends Module {
 	/** 지금 답하려는 질문(누른 것, 없으면 마지막 새 질문). */
 	private String focusText = "";
 	private long clickedAt, lastQuestionAt;
+	/** 49-605차: 답을 낸 질문(이름|내용) - 서버가 같은 질문을 또 보여도 답변 고르기를 다시 띄우지 않는다. */
+	private final java.util.Set<String> answered = new java.util.HashSet<>();
+	private String focusKey = "", pendingKey = "", pendingText = "";
+	private long pendingAt;
 	/** 이번 프레임에 그린 답변 줄 자리 {x, y, w, h} - 클릭 판정용. */
 	private final List<int[]> rows = new ArrayList<>();
 	private final List<String> rowAnswers = new ArrayList<>();
@@ -163,15 +172,50 @@ public class NeogulQuestionModule extends Module {
 			}
 			// 49-600차(사용자 사진: 질문을 누르면 "└ 채팅으로 답변을 입력하세요. (60초…)"): 그 안내가 오면 그때부터 60초 동안 답변 고르기를 띄운다
 			if (line.contains("채팅으로 답변을 입력")) {
-				clickedAt = System.currentTimeMillis();
+				long now = System.currentTimeMillis();
+				clickedAt = now;
+				if (now - pendingAt < 5000 && !pendingKey.isEmpty()) {
+					// 방금 다시 온 질문이 누른 질문(답한 적 있어도 또 누르면 다시 답할 수 있게)
+					focusKey = pendingKey;
+					focusText = pendingText;
+					synchronized (seen) {
+						answered.remove(pendingKey);
+					}
+				}
 				return;
 			}
+			// 49-605차(사용자 사진: 답을 내고 "답변을 제출하였습니다" 뒤에 같은 질문이 또 와서 고르기 창이 다시 떴다): 답을 내면 닫고 그 질문은 기억
 			if (!line.contains("[질문]")) {
+				// 49-607차(사용자 사진: 다른 사람이 먼저 답해 "[답변] nmiao: …" 뒤 "해당 질문을 찾을 수 없습니다", 채널이 전체채팅으로 바뀜 - 창이 그대로):
+				// 답변 줄(누구 것이든), 질문 없음, 채널 바뀜에도 닫는다
+				String pl = plain(line);
+				if (line.contains("답변을 제출") || pl.contains("[답변]") || line.contains("질문을 찾을 수 없") || line.contains("채팅 채널을")) {
+					clickedAt = 0;
+					synchronized (seen) {
+						if (!focusKey.isEmpty()) {
+							answered.add(focusKey);
+						}
+					}
+				} else if (line.contains("답변") && line.contains("취소")) {
+					clickedAt = 0;
+				}
 				return;
 			}
 			String p = plain(line);
-			if (p.contains("[답변]")) {
-				return;   // 답이 달린 질문(질문 + 답변이 같이 온 줄)은 알리지 않는다
+			int ai = p.indexOf("[답변]");
+			if (ai >= 0) {
+				// 답이 달린 질문(질문 + 답변이 같이 온 줄)은 알리지 않는다. 49-607차: 그 질문을 보고 있었으면 닫고 답한 것으로
+				Matcher am = Q.matcher(p.substring(0, ai));
+				if (am.find()) {
+					String ak = am.group(1).trim() + "|" + am.group(2).replace("\r", "").replaceAll("\\s*\\n\\s*", " ").trim();
+					synchronized (seen) {
+						answered.add(ak);
+					}
+					if (ak.equals(focusKey)) {
+						clickedAt = 0;
+					}
+				}
+				return;
 			}
 			Matcher m = Q.matcher(p);
 			if (!m.find()) {
@@ -185,16 +229,24 @@ public class NeogulQuestionModule extends Module {
 				seen.values().removeIf(t -> now - t > DUP_MS);
 				Long first = seen.get(key);
 				if (first != null) {
-					// 같은 질문이 또 왔다 = 내가 그 질문을 눌렀다 - 알림 없이 답변 고르기 대상으로
-					focusText = text;
-					clickedAt = now;
+					// 같은 질문이 또 왔다 = 내가 그 질문을 눌렀거나(그 뒤 "채팅으로 답변을 입력"이 옴) 서버가 다시 보여 준 것
+					pendingKey = key;
+					pendingText = text;
+					pendingAt = now;
+					if (!answered.contains(key)) {
+						focusKey = key;
+						focusText = text;
+						clickedAt = now;
+					}
 					return;
 				}
 				seen.put(key, now);
 				while (seen.size() > 300) {
 					seen.remove(seen.keySet().iterator().next());
 				}
+				answered.retainAll(seen.keySet());
 			}
+			focusKey = key;
 			focusText = text;
 			lastQuestionAt = now;
 			if (alert.get()) {
@@ -232,15 +284,13 @@ public class NeogulQuestionModule extends Module {
 	private void drawAlert(GuiGraphicsExtractor ctx, int cx, int y, String name, String text, float alpha) {
 		var font = client.font;
 		int maxW = Math.min(260, client.getWindow().getGuiScaledWidth() - 40);
-		List<net.minecraft.util.FormattedCharSequence> ls = font.split(LunaCompat.textLiteral(text), maxW - 16);
-		int lines = Math.min(2, ls.size());
+		List<String> ls = wrap(font, text, maxW - 16, 2);
 		int tw = 0;
-		for (int i = 0; i < lines; i++) {
-			tw = Math.max(tw, font.width(ls.get(i)));
+		for (String l : ls) {
+			tw = Math.max(tw, LunaDraw.width(font, l));
 		}
-		String head = "질문  " + name;
-		tw = Math.max(tw, font.width(head) + 4);
-		int w = tw + 16, h = 14 + lines * 10 + 6;
+		tw = Math.max(tw, LunaDraw.width(font, "질문  " + name) + 4);
+		int w = tw + 16, h = 15 + ls.size() * LH + 5;
 		int x = cx - w / 2;
 		float base = LunaDraw.alpha();
 		LunaDraw.setAlpha(base * alpha);
@@ -248,15 +298,48 @@ public class NeogulQuestionModule extends Module {
 			LunaDraw.shadow(ctx, x, y, w, h, 6);
 			LunaDraw.roundRectBordered(ctx, x, y, w, h, 6, 0xE8121820, 0x66FFD36A);
 			LunaDraw.roundRect(ctx, x + 6, y + 5, 3, 8, 1, 0xFFFFD36A);
-			int ai = Math.max(4, Math.round(255 * alpha)) << 24;
-			ctx.text(font, "질문", x + 12, y + 5, ai | 0xFFD36A, false);
-			ctx.text(font, name, x + 12 + font.width("질문  "), y + 5, ai | 0xB8C2CF, false);
-			for (int i = 0; i < lines; i++) {
-				ctx.text(font, ls.get(i), x + 8, y + 17 + i * 10, ai | 0xFFFFFF, true);
+			LunaDraw.text(ctx, font, "질문", x + 12, y + 5, 0xFFFFD36A);
+			LunaDraw.text(ctx, font, name, x + 12 + LunaDraw.width(font, "질문  "), y + 5, 0xFFB8C2CF);
+			for (int i = 0; i < ls.size(); i++) {
+				LunaDraw.text(ctx, font, ls.get(i), x + 8, y + 17 + i * LH, 0xFFFFFFFF);
 			}
 		} finally {
 			LunaDraw.setAlpha(base);
 		}
+	}
+
+	private static final int LH = 11;
+
+	/** 49-605차: 노바 글꼴 폭으로 줄 나누기(빈칸에서 우선 끊음), 넘치면 마지막 줄 "…". */
+	private static List<String> wrap(net.minecraft.client.gui.Font f, String s, int maxW, int maxLines) {
+		List<String> out = new ArrayList<>();
+		String rest = s == null ? "" : s.trim();
+		while (!rest.isEmpty() && out.size() < maxLines) {
+			if (LunaDraw.width(f, rest) <= maxW) {
+				out.add(rest);
+				rest = "";
+				break;
+			}
+			if (out.size() == maxLines - 1) {
+				out.add(LunaDraw.ellipsize(f, rest, maxW));
+				rest = "";
+				break;
+			}
+			int cut = 1;
+			while (cut < rest.length() && LunaDraw.width(f, rest.substring(0, cut + 1)) <= maxW) {
+				cut++;
+			}
+			int sp = rest.lastIndexOf(' ', cut);
+			if (sp > cut / 2) {
+				cut = sp;
+			}
+			out.add(rest.substring(0, cut).trim());
+			rest = rest.substring(cut).trim();
+		}
+		if (out.isEmpty()) {
+			out.add("");
+		}
+		return out;
 	}
 
 	@Override
@@ -377,6 +460,7 @@ public class NeogulQuestionModule extends Module {
 	 */
 	private List<Cand> rank(String q, List<String[]> all) {
 		List<Cand> out = new ArrayList<>();
+		q = q.toLowerCase(java.util.Locale.ROOT);   // 49-607차: "a급"도 "A급" 키워드에 맞게
 		// 줄임말을 원래 말로도 본다(질문 뒤에 덧붙임 - 원래 말 키워드도 그대로 맞게)
 		for (String[] al : ALIAS) {
 			if (q.contains(al[0]) && !q.contains(al[1])) {
@@ -390,7 +474,7 @@ public class NeogulQuestionModule extends Module {
 			if (!qn.isEmpty()) {
 				boolean fuzzy = false;
 				for (String k : a[0].split("[/|]")) {
-					String t = k.trim().replace(" ", "");
+					String t = k.trim().replace(" ", "").toLowerCase(java.util.Locale.ROOT);
 					if (t.isEmpty()) {
 						continue;
 					}
@@ -406,7 +490,7 @@ public class NeogulQuestionModule extends Module {
 						}
 					}
 				}
-				String an = a[1].replace(" ", "");
+				String an = a[1].replace(" ", "").toLowerCase(java.util.Locale.ROOT);
 				for (String w : st) {
 					if (w.length() >= 2 && an.contains(w)) {
 						sc += 2;
@@ -545,45 +629,103 @@ public class NeogulQuestionModule extends Module {
 				sorted.add(new String[]{c.keys, c.answer, c.command ? "c" : ""});
 			}
 			int total = sorted.size();
-			int n = Math.min(8, total);
-			pickerScroll = Math.max(0, Math.min(pickerScroll, total - n));
 			int sw = client.getWindow().getGuiScaledWidth(), sh = client.getWindow().getGuiScaledHeight();
-			// 49-601차(사용자: "리스트가 너무 복사하기 어려운 위치"): 오른쪽 아래 구석 → 화면 가운데(입력칸 위), 넓고 줄 높이도 크게.
-			// Ctrl + 1~8로 키보드로도 고른다(줄 앞 번호).
-			int w = Math.min(340, sw - 20);
-			int rowH = 15;
-			int h = 18 + n * rowH + 4;
-			int x = (sw - w) / 2, y = Math.max(4, (sh - 16 - h) / 2 + 10);
-			LunaDraw.roundRectBordered(g, x, y, w, h, 5, 0xE8121820, 0x4DFFFFFF);
-			pickerBox = new int[]{x, y, w, h, total};
-			String head = (q.isEmpty() ? "답변 고르기" : "답변 고르기 | " + q);
-			if (total > n) {
-				String pg = (pickerScroll + 1) + "-" + (pickerScroll + n) + " / " + total;
-				g.text(font, pg, x + w - 6 - font.width(pg), y + 5, 0xFF8A93A0, false);
-				head = LunaDraw.ellipsize(font, head, w - 18 - font.width(pg));
+			// 49-605차(사용자: "가운데라 불편하고 UI가 조금 안 예뻐, 글꼴은 클라 기능 글꼴로, 답글 좀 더 보기 쉽게"): 채팅창 바로 오른쪽,
+			// 입력칸 위에 붙인다(채팅을 안 가림). 자리가 모자라면 화면 오른쪽. 답변은 두 줄까지 다 보이게, 글자는 노바 글꼴(LunaDraw).
+			int chatRight = 330;
+			try {
+				var o = client.options;
+				chatRight = 4 + (int) Math.ceil(net.minecraft.client.gui.components.ChatComponent.getWidth(o.chatWidth().get()) * o.chatScale().get()) + 10;
+			} catch (Throwable ignored) {
+				// 기본값
 			}
-			g.text(font, LunaDraw.ellipsize(font, head, w - 12), x + 6, y + 5, 0xFFFFD36A, false);
-			for (int i = 0; i < n; i++) {
-				int si = i + pickerScroll;
-				String[] a = sorted.get(si);
-				int ry = y + 17 + i * rowH;
-				int ry2 = ry + 2;
-				boolean hov = LunaDraw.in(mx, my, x + 2, ry, w - 4, rowH - 1);
-				LunaDraw.roundRect(g, x + 2, ry, w - 4, rowH - 1, 3, hov ? 0x40FFFFFF : 0x12FFFFFF);
-				String num = Integer.toString(i + 1);
-				g.text(font, num, x + 7, ry2 + 1, 0xFF8A93A0, false);
-				LunaDraw.roundRect(g, x + 15, ry2 + 3, 4, 4, 2, si < hit ? ("c".equals(a[2]) ? 0xFF7EC8F0 : 0xFF7EE08A) : 0x40FFFFFF);
-				String kw = a[0] + "  ";
-				int kwMax = Math.min(font.width(kw), w / 3);
-				g.text(font, LunaDraw.ellipsize(font, kw, kwMax), x + 23, ry2 + 1, 0xFF8A93A0, false);
-				int ax = x + 23 + kwMax;
-				g.text(font, LunaDraw.ellipsize(font, a[1], x + w - 6 - ax), ax, ry2 + 1, 0xFFFFFFFF, false);
-				rows.add(new int[]{x + 2, ry, w - 4, rowH - 1});
-				rowAnswers.add(a[1]);
+			int avail = sw - chatRight - 6;
+			int w, x;
+			if (avail >= 200) {
+				w = Math.min(300, avail);
+				x = chatRight;
+			} else {
+				w = Math.min(300, sw - 12);
+				x = sw - w - 6;
 			}
+			int maxH = sh - 16 - 8;
+			pickerScroll = Math.max(0, Math.min(pickerScroll, Math.max(0, total - 1)));
+			List<String[]> vis = new ArrayList<>();
+			int used = headH(font, w, q) + 14;
+			for (int si = pickerScroll; si < total && vis.size() < 8; si++) {
+				int rh = rowH(font, w, sorted.get(si)[1]);
+				if (used + rh + 3 > maxH && !vis.isEmpty()) {
+					break;
+				}
+				used += rh + 3;
+				vis.add(sorted.get(si));
+			}
+			int h = used;
+			int y = Math.max(4, sh - 16 - h - 2);
+			pickerBox = new int[]{x, y, w, h, total, vis.size()};
+			drawBox(g, x, y, w, h, q, vis, pickerScroll, hit, total, mx, my, true);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulQuestion:picker", t);
 		}
+	}
+
+	private int headH(net.minecraft.client.gui.Font font, int w, String q) {
+		return 19 + (q.isEmpty() ? 0 : wrap(font, q, w - 16, 2).size() * LH + 3);
+	}
+
+	private int rowH(net.minecraft.client.gui.Font font, int w, String answer) {
+		return 17 + wrap(font, answer, w - 4 - 26, 2).size() * LH + 3;
+	}
+
+	/** 답변 고르기 상자. items = {키워드, 답변, "c"면 명령어 답변}. record면 클릭 자리를 남긴다. */
+	private void drawBox(GuiGraphicsExtractor g, int x, int y, int w, int h, String q, List<String[]> items, int first, int hit, int total,
+			int mx, int my, boolean record) {
+		var font = client.font;
+		LunaDraw.shadow(g, x, y, w, h, 6);
+		LunaDraw.roundRectBordered(g, x, y, w, h, 6, 0xF0141A22, 0x40FFFFFF);
+		LunaDraw.roundRect(g, x + 7, y + 6, 3, 9, 1, 0xFFFFD36A);
+		LunaDraw.text(g, font, "답변 고르기", x + 14, y + 7, 0xFFFFD36A);
+		if (total > items.size()) {
+			String pg = (first + 1) + "-" + (first + items.size()) + " / " + total;
+			LunaDraw.text(g, font, pg, x + w - 8 - LunaDraw.width(font, pg), y + 7, 0xFF7D8794);
+		}
+		int cy = y + 19;
+		if (!q.isEmpty()) {
+			List<String> ql = wrap(font, q, w - 16, 2);
+			LunaDraw.roundRect(g, x + 6, cy - 1, w - 12, ql.size() * LH + 3, 3, 0x1AFFD36A);
+			for (int i = 0; i < ql.size(); i++) {
+				LunaDraw.text(g, font, ql.get(i), x + 9, cy + 1 + i * LH, 0xFFE6D3A3);
+			}
+			cy += ql.size() * LH + 3;
+		}
+		cy += 3;
+		for (int i = 0; i < items.size(); i++) {
+			String[] a = items.get(i);
+			int si = first + i;
+			int rh = rowH(font, w, a[1]);
+			int rx = x + 4, rw = w - 8;
+			boolean rec = si < hit;
+			int accent = "c".equals(a[2]) ? 0xFF7EC8F0 : 0xFF7EE08A;
+			boolean hov = LunaDraw.in(mx, my, rx, cy, rw, rh);
+			LunaDraw.roundRect(g, rx, cy, rw, rh, 4, hov ? 0x38FFFFFF : rec ? 0x1CFFFFFF : 0x10FFFFFF);
+			if (rec) {
+				LunaDraw.roundRect(g, rx, cy + 3, 2, rh - 6, 1, accent);
+			}
+			String num = Integer.toString(i + 1);
+			LunaDraw.roundRect(g, rx + 6, cy + 4, 12, 11, 3, rec ? (accent & 0x00FFFFFF) | 0x40000000 : 0x26FFFFFF);
+			LunaDraw.text(g, font, num, rx + 12 - LunaDraw.width(font, num) / 2, cy + 6, rec ? accent : 0xFFB8C2CF);
+			LunaDraw.text(g, font, LunaDraw.ellipsize(font, a[0].replace("/", ", "), rw - 30), rx + 23, cy + 6, 0xFF7D8794);
+			List<String> al = wrap(font, a[1], rw - 26, 2);
+			for (int k = 0; k < al.size(); k++) {
+				LunaDraw.text(g, font, al.get(k), rx + 23, cy + 17 + k * LH, 0xFFF2F4F7);
+			}
+			if (record) {
+				rows.add(new int[]{rx, cy, rw, rh});
+				rowAnswers.add(a[1]);
+			}
+			cy += rh + 3;
+		}
+		LunaDraw.text(g, font, "누르거나 Ctrl+번호로 붙이기, 휠로 넘기기", x + 8, y + h - 12, 0xFF5F6874);
 	}
 
 	/** 목록 위에서 휠이면 목록을 넘기고 true. */
@@ -592,7 +734,7 @@ public class NeogulQuestionModule extends Module {
 		if (b == null || rows.isEmpty() || !LunaDraw.in(mx, my, b[0], b[1], b[2], b[3])) {
 			return false;
 		}
-		pickerScroll = Math.max(0, Math.min(b[4] - 8, pickerScroll + (va > 0 ? -1 : 1)));
+		pickerScroll = Math.max(0, Math.min(b[4] - b[5], pickerScroll + (va > 0 ? -1 : 1)));
 		return true;
 	}
 
@@ -651,14 +793,16 @@ public class NeogulQuestionModule extends Module {
 
 	@Override
 	public void drawNewFeaturePreview(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-		drawAlert(ctx, x + w / 2, y + 6, "cowin0301", "룰렛 쿠폰은 어디서 쓰나요?", 1f);
+		drawAlert(ctx, x + w / 2, y + 4, "cowin0301", "룰렛 쿠폰은 어디서 쓰나요?", 1f);
 		var font = client.font;
-		int bx = x + 10, by = y + 46, bw = w - 20;
-		LunaDraw.roundRectBordered(ctx, bx, by, bw, 40, 5, 0xE8121820, 0x4DFFFFFF);
-		ctx.text(font, "답변 고르기 | 룰렛 쿠폰은 어디서…", bx + 6, by + 4, 0xFFFFD36A, false);
-		LunaDraw.roundRect(ctx, bx + 6, by + 19, 4, 4, 2, 0xFF7EE08A);
-		ctx.text(font, LunaDraw.ellipsize(font, "룰렛  스폰 오른쪽에서 돌릴 수 있어요", bw - 22), bx + 14, by + 17, 0xFFFFFFFF, false);
-		LunaDraw.roundRect(ctx, bx + 6, by + 31, 4, 4, 2, 0x40FFFFFF);
-		ctx.text(font, LunaDraw.ellipsize(font, "멤버십/하트  멤버십 혜택이에요!", bw - 22), bx + 14, by + 29, 0xFFFFFFFF, false);
+		int bw = Math.min(260, w - 16), bx = x + (w - bw) / 2;
+		List<String[]> items = List.of(new String[]{"룰렛/룰렛쿠폰", "스폰 우측에서 사용가능합니다", ""},
+				new String[]{"/룰렛", "/룰렛 을 입력하시면 됩니다!", "c"});
+		String q = "룰렛 쿠폰은 어디서 쓰나요?";
+		int bh = headH(font, bw, q) + 14;
+		for (String[] a : items) {
+			bh += rowH(font, bw, a[1]) + 3;
+		}
+		drawBox(ctx, bx, Math.max(y + 34, y + h - bh - 4), bw, bh, q, items, 0, 2, 2, -1, -1, false);
 	}
 }

@@ -140,6 +140,7 @@ public class NeogulStorageModule extends Module {
 
 	public NeogulStorageModule() {
 		super("neogul_storage", "창고 미리보기", ModuleCategory.SERVER, "창고를 모두 펼쳐 보기 | 창고 고르기 | 창고 이름");
+		instance = this;
 		serverGroup("너굴마을");
 		defaultEnabled(true);
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
@@ -496,6 +497,61 @@ public class NeogulStorageModule extends Module {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulStorage:save", t);
 		}
+	}
+
+	private static NeogulStorageModule instance;
+
+	/** 49-606차: 창고에 든 잉걸불 한 가지(그림, 전체 개수, 든 창고 이름들). */
+	public record EmberSpot(String name, ItemStack icon, int count, String where) {
+	}
+
+	public static final List<String> EMBERS = List.of("초록 잉걸불", "푸른 잉걸불", "잿빛 잉걸불", "붉은 잉걸불");
+	private static List<EmberSpot> emberCache = List.of();
+	private static long emberAt;
+
+	/** 기억한 창고(/창고)에서 4가지 잉걸불을 찾는다(1초에 한 번만 다시 셈). 창고를 열어 봐야 안다. */
+	public static List<EmberSpot> embers() {
+		NeogulStorageModule m = instance;
+		long now = System.currentTimeMillis();
+		if (m == null || now - emberAt < 1000) {
+			return emberCache;
+		}
+		emberAt = now;
+		List<EmberSpot> out = new ArrayList<>();
+		try {
+			m.ensureLoaded();
+			for (String en : EMBERS) {
+				int count = 0;
+				ItemStack icon = null;
+				List<String> where = new ArrayList<>();
+				for (var e : m.boxes.entrySet()) {
+					int c = 0;
+					for (ItemStack st : m.itemsOf(e.getValue())) {
+						if (st == null || st.isEmpty()) {
+							continue;
+						}
+						String n = plain(st.getHoverName().getString()).replaceAll("\\s+", " ");
+						if (n.contains(en)) {
+							c += st.getCount();
+							if (icon == null) {
+								icon = st;
+							}
+						}
+					}
+					if (c > 0) {
+						count += c;
+						where.add(m.nameOf(e.getKey()));
+					}
+				}
+				if (count > 0) {
+					out.add(new EmberSpot(en, icon, count, String.join(", ", where)));
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulStorage:embers", t);
+		}
+		emberCache = out;
+		return out;
 	}
 
 	private String nameOf(String k) {
