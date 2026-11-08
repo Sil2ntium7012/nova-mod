@@ -83,3 +83,5 @@ src-26x/client/java/kr/lunaslight/mod/module/impl/misc/FriendAlertModule.java   
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/HarvestModeModule.java   # 49-565차: 작물 캐기 모드 삭제(사용자: "작물 캐기 모드 없애고")
 src-26x/client/java/kr/lunaslight/mod/mixin/HarvestModeMixin.java   # 49-565차: 같은 이유
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/NeogulWateringModule.java   # 49-572차: 물뿌리개 연속 뿌리기 삭제(사용자: "물뿌리개 기능 삭제해 주고")
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/NowPlayingBarModule.java   # 49-597차: 노래 시간 게이지를 듣고 있는 노래 설정(time_bar)으로 옮김
+src-26x/client/java/kr/lunaslight/mod/module/impl/misc/TabStyleModule.java   # 49-599차: 탭 목록 꾸미기 삭제(사용자: "그거 일단 없애 줘")

@@ -174,6 +174,16 @@ public class NeogulItemsScreen extends LunaScreenBase {
 				out.add(new Object[]{r.at(), r.in(), r.out(), r.count(), r.note()});
 			}
 		} else {
+			// 49-588차: 글로 된 쓰임새(위키 기준 uses + 게임에서 본 아이템 설명의 사용처, 효과, 피로도 줄) - 줄마다 글 카드
+			java.util.LinkedHashSet<String> texts = new java.util.LinkedHashSet<>();
+			List<String> wiki = NeogulData.uses(sel.key());
+			if (wiki != null) {
+				texts.addAll(wiki);
+			}
+			texts.addAll(NeogulData.learnedUses(sel.key()));
+			for (String t : texts) {
+				out.add(new Object[]{TEXT_ROW, null, null, 0, t});
+			}
 			for (NeogulData.Recipe r : NeogulData.usesOf(sel.key())) {
 				out.add(new Object[]{r.at(), r.in(), r.out(), r.count(), r.note()});
 			}
@@ -298,9 +308,32 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		}
 	}
 
+	private static final String TEXT_ROW = "#text";
+
+	/** 49-588차: 글로 된 쓰임새 카드 - 금색 띠 + "쓰임새" + 줄바꿈한 글(최대 3줄). */
+	private void drawTextCard(GuiGraphicsExtractor ctx, String text, int x, int y, int w, int mx, int my) {
+		int h = CARD - 4;
+		ctx.fill(x, y, x + w, y + h, 0xFFB9B9B9);
+		ctx.fill(x, y, x + w, y + 1, 0xFF8B8B8B);
+		ctx.fill(x, y, x + 1, y + h, 0xFF8B8B8B);
+		ctx.fill(x, y + h - 1, x + w, y + h, 0xFFE4E4E4);
+		ctx.fill(x + w - 1, y, x + w, y + h, 0xFFE4E4E4);
+		ctx.fill(x + 1, y + 1, x + 4, y + h - 1, 0xFFE0B040);
+		ctx.text(font, LunaCompat.textLiteral("쓰임새"), x + 8, y + 3, TEXT, false);
+		List<net.minecraft.util.FormattedCharSequence> ls = font.split(LunaCompat.textLiteral(text), w - 14);
+		for (int i = 0; i < Math.min(3, ls.size()); i++) {
+			ctx.text(font, ls.get(i), x + 8, y + 13 + i * 9, TEXT_SUB, false);
+		}
+		hots.add(new Hot(x + 1, y + 1, w - 2, h - 2, tip("§e쓰임새", "§f" + text), null, ACT_NONE));
+	}
+
 	@SuppressWarnings("unchecked")
 	private void drawCard(GuiGraphicsExtractor ctx, Object[] r, int x, int y, int w, int mx, int my) {
 		String stId = (String) r[0];
+		if (TEXT_ROW.equals(stId)) {
+			drawTextCard(ctx, (String) r[4], x, y, w, mx, my);
+			return;
+		}
 		NeogulData.Station st = NeogulData.station(stId);
 		String note = (String) r[4];
 		int h = CARD - 4;

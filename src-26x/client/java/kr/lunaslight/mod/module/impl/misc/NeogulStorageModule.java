@@ -1012,6 +1012,9 @@ public class NeogulStorageModule extends Module {
 			return "/창고" + key;
 		}
 		String k = key.replace(" ", "");
+		if (k.startsWith("던전창고")) {
+			return "/던전창고";   // 49-588차: 11/02 패치로 생긴 던전 창고
+		}
 		if (k.startsWith("던전")) {
 			return "/던전상자";
 		}

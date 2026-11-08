@@ -59,6 +59,8 @@ public final class NeogulCalendar {
 	private static boolean loaded, registered;
 	private static Object lastScreen;
 	private static String questDate;
+	private static Object probedScreen;
+	private static int probeTicks;
 	private static long claimAt;
 	private static String claimDate;
 
@@ -149,18 +151,32 @@ public final class NeogulCalendar {
 			if (!NeogulData.onNeogul(mc)) {
 				return;
 			}
-			String title = plain(hs.getTitle().getString());
-			if (!title.contains("퀘스트")) {
+			String rawTitle = hs.getTitle().getString();
+			// 49-586차: 너굴마을 창 제목, 칸 이름 기록(일퀘 화면 모양 확인용) - 창이 뜨고 0.5초 뒤(내용이 늦게 와서) 한 번
+			if (screen != probedScreen) {
+				probedScreen = screen;
+				probeTicks = 0;
+			}
+			if (++probeTicks == 10) {
+				probe(hs, rawTitle);
+			}
+			String title = plain(rawTitle);
+			// 49-586차(사용자: "일퀘 인식이 안 됨", 달력 파일 11-05~08 전부 NONE 0/0): 제목에 "퀘스트"가 없거나(그림 글자 제목) 날짜가 없어도
+			// 칸 이름, 설명에 "일일 퀘스트"가 보이면 오늘 일퀘 화면으로 본다
+			boolean dailyItems = itemsMention(hs, "일일퀘스트") || itemsMention(hs, "일일 퀘스트") || itemsMention(hs, "데일리");
+			if (!title.contains("퀘스트") && !dailyItems) {
 				questDate = null;
 				return;
 			}
 			Matcher m = TITLE_DATE.matcher(title);
 			LocalDate today = LocalDate.now();
 			String date = today.toString();
-			if (!m.find()) {
+			boolean dated = m.find();
+			if (!dated && !dailyItems && !title.contains("일일") && !title.contains("오늘") && !title.contains("데일리")) {
 				questDate = null;   // 날짜 없는 퀘스트 화면(길라잡이 등)은 일퀘가 아니다
 				return;
 			}
+			if (dated)
 			{
 				try {
 					int mo = Integer.parseInt(m.group(1)), dd = Integer.parseInt(m.group(2));
@@ -173,14 +189,97 @@ public final class NeogulCalendar {
 				}
 			}
 			questDate = date;
-			readQuestScreen(hs, date);
+			readQuestScreen(hs, date, title);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulCalendar:read", t);
 		}
 		lastScreen = screen;
 	}
 
-	private static void readQuestScreen(AbstractContainerScreen<?> hs, String date) {
+	/** 칸 이름이나 설명 어딘가에 word가 있는지(공백 무시). */
+	private static boolean itemsMention(AbstractContainerScreen<?> hs, String word) {
+		String w = word.replace(" ", "");
+		var slots = hs.getMenu().slots;
+		int n = Math.max(0, slots.size() - 36);
+		for (int i = 0; i < n; i++) {
+			ItemStack st = slots.get(i).getItem();
+			if (st == null || st.isEmpty()) {
+				continue;
+			}
+			if (plain(st.getHoverName().getString()).replace(" ", "").contains(w)) {
+				return true;
+			}
+			try {
+				var lore = st.get(DataComponents.LORE);
+				if (lore != null) {
+					for (Component c : lore.lines()) {
+						if (plain(c.getString()).replace(" ", "").contains(w)) {
+							return true;
+						}
+					}
+				}
+			} catch (Throwable ignored) {
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 49-586차: 너굴마을에서 연 보관함 창의 제목(그림 글자는 16진수 코드)과 칸 이름, 첫 설명 줄을 config/lunaslight/neogul-screen-probe.txt에 남긴다
+	 * (일퀘 화면이 어떻게 오는지 실측용, 512KB에서 멈춤). 창이 바뀐 틱에 한 번, 내용이 늦게 오면 0.5초 뒤 한 번 더.
+	 */
+	private static void probe(AbstractContainerScreen<?> hs, String title) {
+		try {
+			Path p = file().getParent().resolve("neogul-screen-probe.txt");
+			if (Files.exists(p) && Files.size(p) > 512 * 1024) {
+				return;
+			}
+			StringBuilder sb = new StringBuilder();
+			sb.append(java.time.LocalDateTime.now().withNano(0)).append(" | ").append(esc(title)).append('\n');
+			var slots = hs.getMenu().slots;
+			int n = Math.max(0, slots.size() - 36);
+			for (int i = 0; i < n; i++) {
+				ItemStack st = slots.get(i).getItem();
+				if (st == null || st.isEmpty()) {
+					continue;
+				}
+				sb.append("  [").append(i).append("] ").append(esc(st.getHoverName().getString()));
+				try {
+					var lore = st.get(DataComponents.LORE);
+					if (lore != null) {
+						int k = 0;
+						for (Component c : lore.lines()) {
+							if (k++ >= 4) {
+								break;
+							}
+							sb.append(" / ").append(esc(c.getString()));
+						}
+					}
+				} catch (Throwable ignored) {
+				}
+				sb.append('\n');
+			}
+			Files.createDirectories(p.getParent());
+			Files.writeString(p, sb.toString(), java.nio.charset.StandardCharsets.UTF_8,
+				java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulCalendar:probe", t);
+		}
+	}
+
+	private static String esc(String s) {
+		StringBuilder sb = new StringBuilder();
+		s.codePoints().forEach(cp -> {
+			if ((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000 || cp < 0x20) {
+				sb.append(String.format("\\u%04X", cp));
+			} else {
+				sb.appendCodePoint(cp);
+			}
+		});
+		return sb.toString();
+	}
+
+	private static void readQuestScreen(AbstractContainerScreen<?> hs, String date, String title) {
 		var slots = hs.getMenu().slots;
 		int n = Math.max(0, slots.size() - 36);
 		int total = 0, done = 0;
@@ -229,6 +328,32 @@ public final class NeogulCalendar {
 				}
 			}
 		}
+		// 49-587차(사용자 사진: 11월 8일 일요일의 퀘스트 - "서버를 추천해주세요! 완료!", "던전에서 몬스터 50마리 사냥 0 / 50" …): 퀘스트 줄은 칸 아이템이
+		// 아니라 창 제목 글자(그림 글자로 자리를 옮겨 그린 것)라 칸에서 못 읽었다. 칸에서 못 찾으면 제목의 "퀘스트" 뒤 글에서
+		// "a / b"(진행)와 "완료"(끝난 줄)를 센다.
+		if (total == 0 && title != null) {
+			int at = title.indexOf("퀘스트");
+			String body = at >= 0 ? title.substring(at + 3) : title;
+			Matcher pm = PROGRESS.matcher(body);
+			while (pm.find()) {
+				try {
+					long a = Long.parseLong(pm.group(1).replace(",", "")), b = Long.parseLong(pm.group(2).replace(",", ""));
+					if (b > 0) {
+						total++;
+						if (a >= b) {
+							done++;
+						}
+					}
+				} catch (Throwable ignored) {
+				}
+			}
+			int from = 0;
+			while ((from = body.indexOf("완료", from)) >= 0) {
+				total++;
+				done++;
+				from += 2;
+			}
+		}
 		if (total == 0) {
 			return;
 		}
@@ -257,8 +382,17 @@ public final class NeogulCalendar {
 			if (sl == null) {
 				return;
 			}
-			String name = plain(sl.getItem().getHoverName().getString());
-			if (name.contains("보상") && name.contains("받기")) {
+			String name = sl.getItem().isEmpty() ? "" : plain(sl.getItem().getHoverName().getString());
+			// 49-587차(사용자 사진: 퀘스트 창 아래 [보상 받기] [보상 미리보기]가 그림 버튼): 버튼 칸 아이템 이름을 못 읽으면 자리로 - 맨 아랫줄 왼쪽 반은 받기
+			boolean claimBtn = name.contains("보상") && name.contains("받기");
+			if (!claimBtn && !name.contains("미리") && s instanceof AbstractContainerScreen<?> hs) {
+				int boxSlots = Math.max(0, hs.getMenu().slots.size() - 36);
+				int idx = hs.getMenu().slots.indexOf(sl);
+				if (boxSlots >= 18 && idx >= boxSlots - 9 && idx < boxSlots - 5) {
+					claimBtn = true;
+				}
+			}
+			if (claimBtn) {
 				Day d = peek(questDate);
 				if (d != null && d.quest == Quest.DONE) {
 					claimAt = System.currentTimeMillis();

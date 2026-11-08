@@ -188,6 +188,7 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
 			// 49-564차 물뿌리개 연속 뿌리기는 49-572차에 삭제(사용자: "물뿌리개 기능 삭제해 주고")
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScareRateModule");   // 49-572차: 허수아비 확률
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulQuestionModule");   // 49-589차: 질문 알림, 답변 고르기(관리자)
 			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)
 			try {
 				kr.lunaslight.mod.util.NeogulHudProbe.init();
@@ -258,6 +259,7 @@ public final class ModuleManager {
 		register(new kr.lunaslight.mod.module.impl.misc.SessionFixModule());   // 49-106차: 세션 만료 화면에서 바로 세션 새로 받아 재접속
 		// 49-6차: 실동작 없는 스텁이라 목록에서 임시 제외(가짜 기능 노출 방지) - 구현 완성 시 재등록
 		register(new TabListLimitModule()); // 49-42차: 스텁 → collectPlayerEntries 믹스인
+		// 49-584차 탭 목록 꾸미기는 49-599차에 삭제(사용자: "그거 일단 없애 줘")
 		register(new ClientTimeModule());
 		// 49-48차 신규
 		register(new kr.lunaslight.mod.module.impl.hud.ServerAddressHudModule());

@@ -82,8 +82,8 @@ public class NewFeatureScreen extends LunaScreenBase {
 		rowBox = new int[]{x + 8, ry, w - 16, 30};
 		boolean hov = mx >= x + 8 && mx < x + w - 8 && my >= ry && my < ry + 30;
 		LunaDraw.card3d(ctx, x + 8, ry, w - 16, rh, hov ? 1f : 0f, on[page]);
-		LunaDraw.text(ctx, mc.font, m.getDisplayName(), x + 16, ry + 5, LunaDraw.TEXT);
-		String d = m.getDescription() == null ? "" : m.getDescription();
+		LunaDraw.text(ctx, mc.font, m.newFeatureName(), x + 16, ry + 5, LunaDraw.TEXT);
+		String d = m.newFeatureDescription() == null ? "" : m.newFeatureDescription();
 		LunaDraw.text(ctx, mc.font, LunaDraw.ellipsize(mc.font, d, w - 80), x + 16, ry + 17, LunaDraw.TEXT_SUB);
 		LunaDraw.toggle(ctx, x + w - 44, ry + 8, 28, 14, on[page] ? 1f : 0f, true);
 		if (prev) {
@@ -187,7 +187,9 @@ public class NewFeatureScreen extends LunaScreenBase {
 		for (int i = 0; i < list.size(); i++) {
 			Module m = list.get(i);
 			try {
-				m.setEnabled(on[i]);
+				if (m.newFeatureTogglesModule()) {
+					m.setEnabled(on[i]);
+				}
 				m.onNewFeatureAnswered(on[i]);
 			} catch (Throwable t) {
 				LunaCompat.warnOnce("newFeature:apply", t);

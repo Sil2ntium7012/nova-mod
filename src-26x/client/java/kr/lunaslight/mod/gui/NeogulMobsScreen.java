@@ -339,6 +339,21 @@ public class NeogulMobsScreen extends LunaScreenBase {
 		}
 	}
 
+	/** 49-602차: 몬스터 처치 돈 범위 "돈 750~1,250원"(던전 평균 ±25%, 모르면 null). */
+	private static String moneyOf(NeogulMobs.Mob m) {
+		for (NeogulMobs.Dungeon dg : NeogulMobs.ALL) {
+			if (dg.mobs().contains(m)) {
+				try {
+					long avg = Long.parseLong(dg.reward().replace(",", ""));
+					return String.format(java.util.Locale.ROOT, "돈 %,d~%,d원", Math.round(avg * 0.75), Math.round(avg * 1.25));
+				} catch (Throwable t) {
+					return null;
+				}
+			}
+		}
+		return null;
+	}
+
 	/** 몬스터 카드 하나. 높이를 돌려준다. */
 	private int drawMob(GuiGraphicsExtractor ctx, NeogulMobs.Mob m, int x, int y, int w, int dc, int mouseX, int mouseY, int bottom,
 			int txt, int sub, int dim) {
@@ -360,6 +375,11 @@ public class NeogulMobsScreen extends LunaScreenBase {
 		LunaDraw.text(ctx, font, lv, lx + 4, y + 6, dc);
 		String sub2 = m.passive() ? "공격하지 않아요" : "공격해요";
 		LunaDraw.text(ctx, font, sub2, x + 34, y + 17, m.passive() ? 0xFF7CC08A : 0xFFE0866A);
+		// 49-602차(사용자: "던전 몹이 떨구는 돈도"): 이 몬스터가 있는 던전의 처치 보상(위키: 평균 N원 ±25%) - 오른쪽에 금색으로
+		String money = moneyOf(m);
+		if (money != null) {
+			LunaDraw.text(ctx, font, money, x + w - 8 - LunaDraw.width(font, money), y + 17, 0xFFE3B55A);
+		}
 
 		// 표: 레벨 | 체력 | 공격력 | 경험치
 		int ty = y + 30;

@@ -47,7 +47,11 @@ import java.util.regex.Pattern;
  */
 public class ChatEnhancementsModule extends Module {
 
-	public record TimestampedMessage(String timeLabel, String content) {
+	/**
+	 * 49-581차(사용자 사진: "검색에 리팩 적용이 안 돼" - 서버 리소스팩 글꼴 글자가 □로): 글자만 남기면 조각마다 붙은 글꼴(서버 아이콘 글꼴)이
+	 * 사라진다. 받은 그대로의 Component도 같이 들고 있다가 검색 화면이 그걸 그린다. 글자(content)는 검색어 찾기용.
+	 */
+	public record TimestampedMessage(String timeLabel, String content, Component text) {
 		public String toDisplayString() {
 			return "§7[" + timeLabel + "]§r " + content;
 		}
@@ -287,7 +291,7 @@ public class ChatEnhancementsModule extends Module {
 	}
 
 	private void captureMessage(Component message) {
-		history.add(new TimestampedMessage(LocalTime.now().format(TIME_FORMAT), message.getString()));
+		history.add(new TimestampedMessage(LocalTime.now().format(TIME_FORMAT), message.getString(), message));
 		int limit = ChatState.unlimitedHistory ? ChatState.UNLIMITED_LINES : 500;
 		while (history.size() > limit) {
 			history.remove(0);

@@ -36,6 +36,10 @@ public final class NeogulLoreFix {
 
 	private static void fix(ItemStack stack, List<Component> lines) {
 		try {
+			NeogulData.learn(stack);   // 49-588차: 마우스를 올려 본 아이템 설명의 사용처, 효과도 [쓰임새]에 기억
+		} catch (Throwable ignored) {
+		}
+		try {
 			List<String> uses = NeogulData.uses(NeogulData.keyOf(stack));
 			if (uses == null || uses.isEmpty()) {
 				return;

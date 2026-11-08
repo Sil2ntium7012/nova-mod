@@ -59,11 +59,62 @@ public class NowPlayingModule extends Module {
 	private final BooleanSetting shadow = register(new BooleanSetting(
 			"shadow", "그림자", "음악 막대에 그림자를 넣습니다.", true).style());
 
+	// 49-597차(사용자: "노래 시간 게이지를 왜 듣고 있는 노래랑 떨어뜨려"): 따로 있던 기능(now_playing_bar)을 이 기능의 설정으로 옮겼다.
+	// 업데이트 뒤 새 기능 창에서 미리보기와 함께 켤지 묻는다(기능 자체는 안 건드리고 이 설정만 - newFeatureTogglesModule false).
+	private final BooleanSetting timeBar = register(new BooleanSetting(
+			"time_bar", "시간", "노래 아래에 곡이 얼마나 지났는지 막대로 보여 줍니다(런처가 재생 시간을 보내 줄 때만 보여요).", false));
+
 	public NowPlayingModule() {
 		super("now_playing", "듣고 있는 노래", ModuleCategory.HUD,
 				"지금 나오는 곡을 화면 구석에");
 		// 49-156차(사용자: "배경 설정 따로, 배경 색도 조절"): 이 기능도 [배경] [배경 색] [윤곽선] [배경 모양] 설정을 갖는다.
 		enableHudStyle(0xD00E1116, true, (kr.lunaslight.mod.util.LunaTheme.DEFAULT_ACCENT & 0x00FFFFFF) | 0x8C000000, kr.lunaslight.mod.module.Module.HudShape.FOLLOW);
+		newFeature("49-597");
+	}
+
+	@Override
+	public boolean newFeatureTogglesModule() {
+		return false;
+	}
+
+	@Override
+	public String newFeatureName() {
+		return "듣고 있는 노래: 시간";
+	}
+
+	@Override
+	public String newFeatureDescription() {
+		return "노래 아래에 곡이 얼마나 지났는지 막대로";
+	}
+
+	/** 켜기로 답하면 게이지 설정을 켜고, 노래 표시가 꺼져 있었으면 같이 켠다. */
+	@Override
+	public void onNewFeatureAnswered(boolean on) {
+		timeBar.setValue(on);
+		if (on && !isEnabled()) {
+			setEnabled(true);
+		}
+		kr.lunaslight.mod.config.LunaClientConfig.save();
+	}
+
+	@Override
+	public boolean hasNewFeaturePreview() {
+		return true;
+	}
+
+	@Override
+	public void drawNewFeaturePreview(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		var font = client.font;
+		String text = "Your Turn §7- 고세구";
+		int tw = LunaCompat.getTextWidth(font, text);
+		int bw = tw + 26, bh = 20;
+		int bx = x + (w - bw) / 2, by = y + (h - bh) / 2;
+		LunaDraw.roundRectBordered(ctx, bx, by, bw, bh, 4, 0xD00E1116, 0x8C8FD3FF);
+		drawBars(ctx, bx + 5, by + 4, true, LunaDraw.ACCENT);
+		LunaCompat.drawHudText(ctx, font, text, bx + 18, by + 4, 0xFFFFFFFF);
+		float p = (System.currentTimeMillis() % 6000L) / 6000f;
+		LunaDraw.roundRect(ctx, bx + 5, by + bh - 5, bw - 10, 2, 1, 0x40FFFFFF);
+		LunaDraw.roundRect(ctx, bx + 5, by + bh - 5, Math.max(1, Math.round((bw - 10) * p)), 2, 1, 0xFF000000 | LunaDraw.ACCENT);
 	}
 
 	@Override
@@ -99,7 +150,10 @@ public class NowPlayingModule extends Module {
 		int gap = Math.max(3, LunaCompat.getTextWidth(client.font, " "));
 		int textX = 13 + gap;
 		int w = tw + textX + 6;
-		int h = 16;
+		// 49-589차: 노래 시간 게이지가 켜져 있고 시간을 알면 상자를 4px 늘려 아래에 막대(49-597차: 이 기능의 설정 time_bar)
+		float prog = isPreview() ? (System.currentTimeMillis() % 6000L) / 6000f : progress();
+		boolean bar = timeBar.get() && prog >= 0f;
+		int h = bar ? 20 : 16;
 		int x = position.get().resolveX(client.getWindow().getGuiScaledWidth(), w);
 		int y = position.get().resolveY(client.getWindow().getGuiScaledHeight(), h);
 		// 49-179차(사용자: "배경이 테두리 밖으로 튀어나가고 배경 없음으로 해도 테두리가 남음"): 따로 그리던 색 테두리와
@@ -123,6 +177,20 @@ public class NowPlayingModule extends Module {
 		} else {
 			LunaCompat.drawHudText(context, client.font, text, x + textX, y + 4, textColor.getArgb());
 		}
+		if (bar) {
+			int bx = x + 5, by = y + h - 5, bw = w - 10;
+			LunaDraw.roundRect(context, bx, by, bw, 2, 1, 0x40FFFFFF);
+			int fw = Math.round(bw * Math.max(0f, Math.min(1f, prog)));
+			if (fw > 0) {
+				LunaDraw.roundRect(context, bx, by, fw, 2, 1, 0xFF000000 | (brand != 0 ? brand : LunaDraw.ACCENT));
+			}
+		}
+	}
+
+	/** 49-589차: 곡 진행(0~1), 런처가 시간을 안 보내면 -1. */
+	private static float progress() {
+		long d = LunaNowPlaying.durationMs(), p = LunaNowPlaying.positionMs();
+		return d > 0 && p >= 0 ? (float) p / d : -1f;
 	}
 
 	// ==================== 49-440차: 긴 제목 흐르게 ====================

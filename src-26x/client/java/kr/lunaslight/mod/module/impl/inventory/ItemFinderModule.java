@@ -161,6 +161,9 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 					// 49-576차(사용자 사진: 유저상점을 열고 나면 상자 정보창에 상점 물건이 뜸): 상자를 보면서 /유저상점을 치면 그 메뉴가
 					// 보고 있던 상자 자리에 적혔다. 상자를 실제로 우클릭해서 연 창만 그 자리에 적는다(2초 안).
 					lastLookedBlock = usedPos;
+					// 49-583차(사용자 사진: 상자 정보창에 "프로필" 메뉴가 뜸): 우클릭 한 번엔 창 하나만. 상자를 닫고 2초 안에 연 다른 메뉴나,
+					// 상자 안에서 버튼을 눌러 넘어간 메뉴가 같은 상자 자리에 또 적히지 않게 바로 지운다.
+					usedPos = null;
 				} else {
 					lastLookedBlock = null;
 				}
@@ -175,6 +178,36 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 
 	private boolean keyHeld;
 	private int openTicks;
+
+	/**
+	 * 49-583차: 서버가 그림 글자로 꾸민 메뉴 제목인지 - 글자에 개인 영역 글자(U+E000~F8FF)가 있거나 기본이 아닌 글꼴 조각이 있으면 true.
+	 * 바닐라 상자 제목("상자", "큰 상자", 붙인 이름)은 기본 글꼴의 보통 글자라 false.
+	 */
+	private static boolean serverMenuTitle(net.minecraft.network.chat.Component title) {
+		if (title == null) {
+			return false;
+		}
+		boolean[] hit = {false};
+		try {
+			title.visit((net.minecraft.network.chat.FormattedText.StyledContentConsumer<Object>) (style, str) -> {
+				for (int i = 0; i < str.length(); i++) {
+					char c = str.charAt(i);
+					if ((c >= 0xE000 && c <= 0xF8FF) || (c >= 0xA000 && c <= 0xA4CF) || Character.isSurrogate(c)) {
+						hit[0] = true;
+						return java.util.Optional.of(Boolean.TRUE);
+					}
+				}
+				Object f = style.getFont();
+				if (!str.isEmpty() && f != null && !f.toString().contains("minecraft:default")) {
+					hit[0] = true;
+					return java.util.Optional.of(Boolean.TRUE);
+				}
+				return java.util.Optional.empty();
+			}, net.minecraft.network.chat.Style.EMPTY);
+		} catch (Throwable ignored) {
+		}
+		return hit[0];
+	}
 
 	/** 지금 열린(또는 방금 닫힌) 상자 화면의 내용물을 기록. */
 	private void recordContainer(AbstractContainerScreen<?> screen) {
@@ -204,6 +237,9 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 			}
 			if (!ContainerIndex.isStorageAt(client, lastLookedBlock, boxSlots)) {
 				return; // 49-234차: 그 자리에 보관함 블록이 없거나 칸 수가 다르다(서버 메뉴 등)
+			}
+			if (serverMenuTitle(screen.getTitle())) {
+				return; // 49-583차: 그림 글자로 꾸민 서버 메뉴(프로필, 상점 등)는 상자 내용이 아니다
 			}
 			String title = "상자";
 			try {

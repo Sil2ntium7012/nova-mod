@@ -23,6 +23,11 @@ public class ChatSearchScreen extends LunaScreenBase {
 	private String query = "";
 	private int scroll;                 // 최신 기준 몇 줄 위로 스크롤했는지
 	private List<String> matches = new ArrayList<>();
+	/**
+	 * 49-581차(사용자 사진: "검색에 리팩 적용이 안 돼"): matches와 같은 자리의 원래 Component(서버 리소스팩 글꼴이 살아 있는 것).
+	 * 글자로만 그리면 서버 아이콘 글꼴 글자가 □로 나온다. null이면 글자로 그린다.
+	 */
+	private List<net.minecraft.network.chat.Component> matchText = new ArrayList<>();
 
 	// 49-66차(4-4 채팅 복사): 이번 프레임에 그린 줄의 자리(클릭 판정을 그리기와 같은 값으로).
 	private int lastTopY = Integer.MIN_VALUE;   // 가장 위에 그린 줄의 y
@@ -68,24 +73,31 @@ public class ChatSearchScreen extends LunaScreenBase {
 	 */
 	private void refilter() {
 		matches = new ArrayList<>();
+		matchText = new ArrayList<>();
 		String q = query.trim().toLowerCase();
 
 		List<String> pool = new ArrayList<>();
+		List<net.minecraft.network.chat.Component> poolText = new ArrayList<>();
 		var opt = ModuleManager.get().find("chat_enhancements");
 		if (opt.isPresent() && opt.get() instanceof ChatEnhancementsModule chat) {
 			for (ChatEnhancementsModule.TimestampedMessage m : chat.getHistory()) {
 				pool.add(m.toDisplayString());
+				poolText.add(withTime(m.timeLabel(), m.text()));
 			}
 		}
 		if (pool.isEmpty()) {
 			List<String> vanilla = LunaCompat.chatHudMessages(minecraft);
+			List<net.minecraft.network.chat.Component> vt = LunaCompat.chatHudComponents(minecraft);
 			for (int i = vanilla.size() - 1; i >= 0; i--) {   // 오래된 것부터
 				pool.add(vanilla.get(i));
+				poolText.add(vt.size() == vanilla.size() ? vt.get(i) : null);
 			}
 		}
-		for (String line : pool) {
+		for (int i = 0; i < pool.size(); i++) {
+			String line = pool.get(i);
 			if (q.isEmpty() || line.toLowerCase().contains(q)) {
 				matches.add(line);
+				matchText.add(poolText.get(i));
 			}
 		}
 		scroll = Math.max(0, Math.min(scroll, Math.max(0, matches.size() - visibleLines())));
@@ -114,11 +126,14 @@ public class ChatSearchScreen extends LunaScreenBase {
 		for (int i = end - 1; i >= start; i--) {
 			boolean hovered = LunaDraw.in(mouseX, mouseY, 2, y, cw, lh);
 			boolean justCopied = i == copiedIndex && now < copiedUntil;
-			String line = LunaDraw.ellipsizeFormatted(font, matches.get(i), cw - 6);
 			// 49-66차(4-4): 마우스가 올라간 줄을 밝게 - "이 줄을 누르면 복사된다"가 보이게.
 			ctx.fill(2, y, 2 + cw, y + lh, justCopied ? 0xA0184A2A : (hovered ? 0xA0000000 : 0x80000000));
-			LunaCompat.drawHudText(ctx, font, justCopied ? "§a복사됨  §7" + line : line,
-				4, y + 1, 0xFFFFFFFF);
+			net.minecraft.network.chat.Component comp = i < matchText.size() ? matchText.get(i) : null;
+			if (comp == null || !drawStyled(ctx, comp, justCopied, 4, y + 1, cw - 6)) {
+				String line = LunaDraw.ellipsizeFormatted(font, matches.get(i), cw - 6);
+				LunaCompat.drawHudText(ctx, font, justCopied ? "§a복사됨  §7" + line : line,
+					4, y + 1, 0xFFFFFFFF);
+			}
 			lastTopY = y;
 			y -= lh;
 		}
@@ -142,6 +157,41 @@ public class ChatSearchScreen extends LunaScreenBase {
 		}
 	}
 
+
+	/** 받은 시각을 앞에 붙인 줄(회색 "[12:34] " + 원래 메시지 그대로). */
+	private static net.minecraft.network.chat.Component withTime(String time, net.minecraft.network.chat.Component msg) {
+		if (msg == null) {
+			return null;
+		}
+		return net.minecraft.network.chat.Component.empty()
+			.append(net.minecraft.network.chat.Component.literal("[" + time + "] ").withStyle(net.minecraft.ChatFormatting.GRAY))
+			.append(msg);
+	}
+
+	/**
+	 * 49-581차: 원래 Component를 바닐라 채팅처럼(조각마다 글꼴, 색 그대로, 그림자) 그린다. 폭이 넘치면 잘라 "..."를 붙인다.
+	 * 노바 글꼴로 바꾸지 않는다 - 서버 리소스팩의 아이콘 글꼴 글자가 그대로 나오게. 못 그리면 false(글자로 대신).
+	 */
+	private boolean drawStyled(GuiGraphicsExtractor ctx, net.minecraft.network.chat.Component comp, boolean copied, int x, int y, int maxW) {
+		try {
+			net.minecraft.network.chat.MutableComponent full = net.minecraft.network.chat.Component.empty();
+			if (copied) {
+				full.append(net.minecraft.network.chat.Component.literal("복사됨  ").withStyle(net.minecraft.ChatFormatting.GREEN));
+			}
+			full.append(comp);
+			net.minecraft.network.chat.FormattedText ft = full;
+			if (font.width(full) > maxW) {
+				int dots = font.width("...");
+				ft = net.minecraft.network.chat.FormattedText.composite(
+					font.substrByWidth(full, Math.max(0, maxW - dots)), net.minecraft.network.chat.FormattedText.of("..."));
+			}
+			ctx.text(font, net.minecraft.locale.Language.getInstance().getVisualOrder(ft), x, y, 0xFFFFFFFF, true);
+			return true;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("chatSearch:styled", t);
+			return false;
+		}
+	}
 
 	/** 49-221차: 이 칸에 초점이 있는 동안 한글 IME 유지(LunaScreenBase.lunaSyncIme). */
 	@Override

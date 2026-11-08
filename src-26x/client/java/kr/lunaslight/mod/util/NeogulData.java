@@ -555,12 +555,153 @@ public final class NeogulData {
 			return;
 		}
 		String key = KEY_BY_NAME.get(normalize(name));
-		if (key == null || LEARNED.containsKey(key)) {
+		if (key == null) {
+			return;
+		}
+		learnLore(key, stack);
+		if (LEARNED.containsKey(key)) {
 			return;
 		}
 		ItemStack c = stack.copy();
 		c.setCount(1);
 		LEARNED.put(key, c);
+	}
+
+	// ==================== 49-588차: 게임에서 본 아이템 설명의 쓰임새 ====================
+	// 사용자(황금 마늘 바게트 쓰임새 "이 아이템이 쓰이는 곳은 아직 없어요" 사진): "황금 요리 같은 거 가져다 대면 토벌 피로도 줄여 주는데 그런 사용처
+	// 만들어 줘야지, 각종 다른 아이템들도 다". 위키에 없는 효과(황금 요리의 토벌 피로도 등)는 서버 아이템 설명에만 있다 - 인벤토리나 상자에서 본
+	// 아이템 설명의 "사용처", "효과" 같은 머리 아래 줄("- …")과 "피로도"가 들어간 줄을 기억해 [쓰임새]에 보여 준다.
+	// 파일: config/lunaslight/neogul-learned-uses.json (아이템 key → 줄 목록).
+
+	private static final Map<String, List<String>> LORE_USES = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final Map<String, Integer> LORE_SEEN = new java.util.concurrent.ConcurrentHashMap<>();
+	private static boolean loreLoaded;
+	private static final java.util.regex.Pattern USE_HEAD = java.util.regex.Pattern.compile(
+		"^(사용처|사용 ?효과|효과|사용 ?방법|사용법|섭취 ?효과|기능)\\s*:?$");
+
+	private static final java.util.regex.Pattern USE_INLINE = java.util.regex.Pattern.compile(
+		"^(사용처|사용 ?효과|효과|섭취 ?효과)\\s*:\\s*(.+)$");
+
+	private static Path loreFile() {
+		return FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("neogul-learned-uses.json");
+	}
+
+	private static synchronized void loadLore() {
+		if (loreLoaded) {
+			return;
+		}
+		loreLoaded = true;
+		try {
+			Path p = loreFile();
+			if (!Files.isRegularFile(p)) {
+				return;
+			}
+			try (Reader r = Files.newBufferedReader(p, StandardCharsets.UTF_8)) {
+				JsonObject o = read(r);
+				if (o == null) {
+					return;
+				}
+				for (Map.Entry<String, JsonElement> e : o.entrySet()) {
+					List<String> l = strings(e.getValue());
+					if (!l.isEmpty()) {
+						LORE_USES.put(e.getKey(), l);
+					}
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogul:loreLoad", t);
+		}
+	}
+
+	private static synchronized void saveLore() {
+		try {
+			JsonObject o = new JsonObject();
+			for (Map.Entry<String, List<String>> e : new java.util.TreeMap<>(LORE_USES).entrySet()) {
+				JsonArray a = new JsonArray();
+				e.getValue().forEach(a::add);
+				o.add(e.getKey(), a);
+			}
+			Path p = loreFile();
+			Files.createDirectories(p.getParent());
+			Files.writeString(p, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(o), StandardCharsets.UTF_8);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogul:loreSave", t);
+		}
+	}
+
+	private static String plainLine(String s) {
+		StringBuilder sb = new StringBuilder(s.length());
+		s.codePoints().filter(cp -> !((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000 || (cp >= 0xA000 && cp <= 0xA4CF)))
+			.forEach(sb::appendCodePoint);
+		return ChatState.stripFormatting(sb.toString()).trim();
+	}
+
+	private static void learnLore(String key, ItemStack stack) {
+		try {
+			var lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
+			if (lore == null) {
+				return;
+			}
+			List<String> raw = new ArrayList<>();
+			for (net.minecraft.network.chat.Component c : lore.lines()) {
+				raw.add(plainLine(c.getString()));
+			}
+			int h = raw.hashCode();
+			Integer seen = LORE_SEEN.put(key, h);
+			if (seen != null && seen == h) {
+				return;   // 같은 설명은 다시 안 본다
+			}
+			List<String> out = new ArrayList<>();
+			boolean inBlock = false;
+			for (String l : raw) {
+				if (l.isEmpty()) {
+					inBlock = false;
+					continue;
+				}
+				if (USE_HEAD.matcher(l).matches()) {
+					inBlock = true;
+					continue;
+				}
+				java.util.regex.Matcher im = USE_INLINE.matcher(l);
+				if (im.matches()) {
+					String b = im.group(2).trim();
+					if (!b.isEmpty() && !out.contains(b)) {
+						out.add(b);
+					}
+					inBlock = false;
+					continue;
+				}
+				boolean dash = l.startsWith("-") || l.startsWith("└") || l.startsWith("•") || l.startsWith("·");
+				String body = dash ? l.substring(1).trim() : l;
+				if (inBlock && dash) {
+					if (!body.isEmpty() && !out.contains(body)) {
+						out.add(body);
+					}
+					continue;
+				}
+				inBlock = false;
+				if (l.contains("피로도") && !l.contains("획득") && !out.contains(body)) {
+					out.add(body);
+				}
+			}
+			if (out.isEmpty()) {
+				return;
+			}
+			loadLore();
+			if (!out.equals(LORE_USES.get(key))) {
+				LORE_USES.put(key, out);
+				saveLore();
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogul:learnLore", t);
+		}
+	}
+
+	/** 49-588차: 게임에서 본 설명으로 배운 쓰임새 줄(없으면 빈 목록). */
+	public static List<String> learnedUses(String key) {
+		loadLore();
+		List<String> l = key == null ? null : LORE_USES.get(key);
+		return l == null ? List.of() : l;
 	}
 
 	/** 비교용 이름: 색 코드, 앞의 [말머리], 공백 제거. */

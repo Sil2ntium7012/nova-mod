@@ -5403,6 +5403,23 @@ public final class LunaCompat {
 		}
 	}
 
+	/** 49-584차: 탭 목록 한 줄(PlayerInfo)의 스킨 텍스처. 못 구하면 null. */
+	public static Identifier skinOfInfo(Object info) {
+		if (info == null) {
+			return null;
+		}
+		try {
+			Object tex = callNoArg(info, "getSkinTexture");
+			if (tex instanceof Identifier id) {
+				return id;
+			}
+			Identifier id = skinTextureOf(callNoArg(info, "getSkin"));
+			return id != null ? id : skinTextureOf(callNoArg(info, "getSkinTextures"));
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
 	/** SkinTextures(1.20.2~1.21.8 texture() / 1.21.9+ body().texturePath()) → Identifier. */
 	private static Identifier skinTextureOf(Object skinTextures) {
 		if (skinTextures == null) {
@@ -6369,6 +6386,35 @@ public final class LunaCompat {
 	 * 49-32차: 바닐라 채팅에 남아 있는 줄들을 문자열로(최신 → 과거 순).
 	 * 우리 모듈이 켜지기 전에 온 메시지도 검색할 수 있게 하는 폴백.
 	 */
+	/** 49-581차: {@link #chatHudMessages}와 같은 줄(최신이 앞)을 글꼴, 색이 살아 있는 Component로. 못 읽은 줄은 글자로 감싼다. */
+	public static java.util.List<Component> chatHudComponents(Minecraft client) {
+		java.util.List<Component> out = new java.util.ArrayList<>();
+		try {
+			Object hud = inGameHud(client);
+			Object chatHud = hud == null ? null : callNoArg(hud, "getChatHud");
+			Object messages = chatHud == null ? null : getFieldValue(chatHud, "messages");
+			if (!(messages instanceof java.util.List<?> list)) {
+				return out;
+			}
+			for (Object line : list) {
+				Object content = callNoArg(line, "content");
+				if (content == null) {
+					content = getFieldValue(line, "content");
+				}
+				if (content == null) {
+					content = getFieldValue(line, "text");
+				}
+				if (content instanceof Component t) {
+					out.add(t);
+				} else if (content != null) {
+					out.add(textLiteral(String.valueOf(content)));
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		return out;
+	}
+
 	public static java.util.List<String> chatHudMessages(Minecraft client) {
 		java.util.List<String> out = new java.util.ArrayList<>();
 		try {

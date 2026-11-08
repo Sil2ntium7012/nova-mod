@@ -26,6 +26,7 @@ public final class ServerPackRescue {
 	public static volatile int waitSeconds = 15;
 
 	private static volatile Object pushConn;
+	private static volatile long pushMs;
 	private static Object conn;
 	private static int ticks;
 	private static boolean done;
@@ -59,6 +60,7 @@ public final class ServerPackRescue {
 	public static void onPush(UUID id, String url, String hash) {
 		Minecraft mc = Minecraft.getInstance();
 		pushConn = mc.getConnection();
+		pushMs = System.currentTimeMillis();
 		String s = server(mc);
 		if (s.isEmpty() || id == null || url == null) {
 			return;
@@ -101,6 +103,11 @@ public final class ServerPackRescue {
 			return;
 		}
 		done = true;
+		if (pushConn == c || System.currentTimeMillis() - pushMs < (Math.max(5, waitSeconds) + 60) * 1000L) {
+			// 49-604차: 서버가 이번 접속에(설정 단계 포함, 최근 1분 남짓) 팩을 보냈으면 건드리지 않는다. 큰 팩(33MB)을 받는 중에 같은 id로 다시 밀어 넣으면
+			// 바닐라가 받던 것을 버려서 "팩 1개 중 1개가 다운로드에 실패했습니다"가 떴다(11-08 21:07 로그).
+			return;
+		}
 		try {
 			if (serverPackActive(mc)) {
 				return;
@@ -120,8 +127,7 @@ public final class ServerPackRescue {
 			UUID id = UUID.fromString(o.get("id").getAsString());
 			java.net.URL url = java.net.URI.create(o.get("url").getAsString()).toURL();
 			String hash = o.get("hash").getAsString();
-			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 서버 리소스팩이 " + waitSeconds + "초 동안 안 와서(" + (pushConn == c ? "받았는데 안 켜짐" : "안 보냄")
-				+ ") 지난번 팩을 다시 받습니다: " + s);
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 서버 리소스팩이 " + waitSeconds + "초 동안 안 와서 지난번 팩을 다시 받습니다: " + s);
 			mc.getDownloadedPackSource().pushPack(id, url, hash);
 			mc.getDownloadedPackSource().allowServerPacks();
 			LunaCompat.sendActionBar(mc, "§e[Nova] §f서버 리소스팩이 안 와서 다시 받는 중이에요");

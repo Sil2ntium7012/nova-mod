@@ -132,6 +132,10 @@ public class LunaStatsScreen extends LunaScreenBase {
 	private boolean itemSortDesc = true;
 	/** 이번 프레임에 그린 아이템 머리글의 자리(클릭 판정을 그리기와 같은 값으로). */
 	private int itemHeadY = Integer.MIN_VALUE;
+	/** 49-582차(사용자: "카테고리별 닫기도 넣고 블록 이런 다른 카테고리도"): 접힌 분류 이름, 이번 프레임에 그린 분류 줄 자리 {y, 분류 번호}. */
+	private final java.util.Set<String> collapsedCats = new java.util.HashSet<>();
+	private final List<int[]> catRowsY = new ArrayList<>();
+	private final List<String> catRowKeys = new ArrayList<>();
 	private int itemHeadX;
 	private int[] itemHeadCols = new int[0];
 	/** 49-53차(5-12): 불러오기 = 파일 고르기 + 확인. null이면 창이 닫힌 상태. */
@@ -151,13 +155,78 @@ public class LunaStatsScreen extends LunaScreenBase {
 
 	private void lunaInit0() {
 		worlds = LunaStats.worlds();
+		rebuildRail();
+	}
+
+	// ==================== 49-582차: 서버 안 월드(차원, 벨로시티 뒤 서버) ====================
+	// 사용자: "월드마다 따로 볼 수 있게, 벨로시티로 월드 여러 개 하는 것도 있어서 골라서 볼 수 있게". 왼쪽 목록에서 서버를 누르면 그 서버의
+	// 월드(둘 이상일 때)가 바로 아래에 들여 써서 펼쳐진다. 월드를 우클릭하면 이름을 바꾼다(엔터 저장, ESC 취소).
+
+	/** 왼쪽 목록(전체 다음 줄부터): 서버들 + 펼친 서버의 월드들. scopeIndex는 이 목록 기준(0 = 전체). */
+	private List<LunaStats.Scope> rail = new ArrayList<>();
+	private final Map<String, Integer> subCounts = new java.util.HashMap<>();
+	private String expanded;
+	private LunaStats.Scope renaming;
+	private String renameBuf = "";
+
+	private void rebuildRail() {
+		LunaStats.Scope keep = scopeIndex > 0 && scopeIndex <= rail.size() ? rail.get(scopeIndex - 1) : null;
+		subCounts.clear();
+		List<LunaStats.Scope> out = new ArrayList<>();
+		for (LunaStats.Scope w : worlds) {
+			out.add(w);
+			List<LunaStats.Scope> subs = LunaStats.subWorlds(w.key);
+			subCounts.put(w.key, subs.size());
+			if (subs.size() >= 2 && w.key.equals(expanded)) {
+				out.addAll(subs);
+			}
+		}
+		rail = out;
+		scopeIndex = 0;
+		if (keep != null) {
+			for (int i = 0; i < rail.size(); i++) {
+				if (rail.get(i).key.equals(keep.key)) {
+					scopeIndex = i + 1;
+					break;
+				}
+			}
+		}
+	}
+
+	private String parentLabel(LunaStats.Scope s) {
+		for (LunaStats.Scope w : worlds) {
+			if (w.key.equals(s.parent)) {
+				return w.displayLabel();
+			}
+		}
+		return "";
+	}
+
+	private static boolean isSub(LunaStats.Scope s) {
+		return s != null && s.parent != null && !s.parent.isEmpty();
+	}
+
+	@Override
+	protected boolean lunaWantsText() {
+		return renaming != null;
+	}
+
+	@Override
+	protected boolean lunaCharTyped(char chr) {
+		if (renaming == null || chr < 32) {
+			return false;
+		}
+		if (renameBuf.length() < 24) {
+			renameBuf += chr;
+		}
+		return true;
 	}
 
 	private LunaStats.Scope scope() {
-		if (scopeIndex <= 0 || scopeIndex > worlds.size()) {
+		if (scopeIndex <= 0 || scopeIndex > rail.size()) {
 			return LunaStats.global();
 		}
-		return worlds.get(scopeIndex - 1);
+		return rail.get(scopeIndex - 1);
 	}
 
 	/** 탭·범위가 바뀌면 애니메이션을 다시 시작. */
@@ -481,18 +550,30 @@ public class LunaStatsScreen extends LunaScreenBase {
 		}
 		int y = scopeTop();
 		int bottom = linksTop() - 8;
-		for (int i = 0; i <= worlds.size(); i++) {
+		for (int i = 0; i <= rail.size(); i++) {
 			if (y + SCOPE_H > bottom) {
 				break;
 			}
-			LunaStats.Scope sc = i == 0 ? LunaStats.global() : worlds.get(i - 1);
-			boolean sel = scopeIndex == i || (i == 0 && (scopeIndex <= 0 || scopeIndex > worlds.size()));
+			LunaStats.Scope sc = i == 0 ? LunaStats.global() : rail.get(i - 1);
+			boolean sel = scopeIndex == i || (i == 0 && (scopeIndex <= 0 || scopeIndex > rail.size()));
 			boolean hov = LunaDraw.in(mouseX, mouseY, railX - 4, y, railW, SCOPE_H);
 			String hours = LunaStats.formatHours(sc.playMs);
 			int hw = LunaDraw.width(font, hours);
-			int lx = railX + 8;
+			boolean subRow = i > 0 && isSub(sc);
+			int lx = railX + 8 + (subRow ? 10 : 0);
 			int right = dividerX - 12;
-			gText(ctx, gFit(i == 0 ? "전체" : sc.displayLabel(), right - hw - 6 - lx), lx, y, SCOPE_H,
+			if (subRow) {
+				ctx.fill(railX + 12, y + 2, railX + 13, y + SCOPE_H - 2, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+			}
+			String label = i == 0 ? "전체" : sc.displayLabel();
+			if (i > 0 && !subRow && subCounts.getOrDefault(sc.key, 0) >= 2) {
+				label = (sc.key.equals(expanded) ? "▾ " : "▸ ") + label;   // 월드가 여럿인 서버
+			}
+			if (renaming != null && sc == renaming) {
+				label = renameBuf + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : " ");
+				ctx.fill(lx - 2, y + 2, right - hw - 4, y + SCOPE_H - 2, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+			}
+			gText(ctx, gFit(label, right - hw - 6 - lx), lx, y, SCOPE_H,
 				sc.missing ? LunaClientScreen.themeDim() : sel || hov ? LunaClientScreen.themeText() : LunaClientScreen.themeSub());
 			LunaDraw.text(ctx, font, hours, right - hw, LunaDraw.textY(y, SCOPE_H),
 				sel ? LunaClientScreen.themeAccent() : LunaClientScreen.themeDim());
@@ -533,7 +614,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 
 	private void renderTop(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
 		LunaStats.Scope s = scope();
-		String title = gFit(scopeIndex <= 0 ? "전체 통계" : s.displayLabel(), cw0 / 2 - 20);
+		String title = gFit(scopeIndex <= 0 ? "전체 통계" : isSub(s) ? parentLabel(s) + " > " + s.displayLabel() : s.displayLabel(), cw0 / 2 - 20);
 		gBig(ctx, title, cx0, TOP_Y, TITLE_H, LunaClientScreen.themeText());
 		int sx = cx0 + gBigWidth(title, ctx) + 10;
 		String sub = LunaStats.formatHours(s.playMs) + " 플레이  |  " + num(s.sessions) + "번 접속";
@@ -1908,11 +1989,34 @@ public class LunaStatsScreen extends LunaScreenBase {
 			LunaDraw.text(ctx, font, "아직 기록이 없습니다", x, y, LunaDraw.TEXT_DIM);
 			return y - y0 + 14;
 		}
+		catRowsY.clear();
+		catRowKeys.clear();
 		for (Object[] r : list) {
 			LunaStats.ItemStat it = (LunaStats.ItemStat) r[1];
 			String name = (String) r[0];
 			int kind = (Integer) r[2];
-			int indent = kind == 2 ? 10 : 0;
+			if (kind == 3) {
+				// 49-582차: 분류 줄 - 누르면 접기/펴기
+				String cat = (String) r[3];
+				catRowsY.add(new int[]{y});
+				catRowKeys.add(cat);
+				if (y > itemHeadY + 12) {
+					y += 3;
+				}
+				boolean folded = collapsedCats.contains(cat);
+				boolean hov = LunaDraw.in(mouseX, mouseY, x - 2, y - 2, w, 13);
+				ctx.fill(x - 2, y - 2, x + w - 2, y + 10, LunaDraw.applyAlpha(hov ? LunaClientScreen.themeLine() : (LunaClientScreen.themeLine() & 0x00FFFFFF) | 0x60000000));
+				LunaDraw.text(ctx, font, (folded ? "▸ " : "▾ ") + name, x + 1, y, LunaDraw.ACCENT);
+				long[] cv = {it.used, it.dropped, it.crafted, it.mined, it.picked};
+				for (int i = 0; i < cv.length; i++) {
+					String v = cv[i] == 0 ? "-" : String.format("%,d", cv[i]);
+					LunaDraw.text(ctx, font, v, x + cols[i] + cw[i] - LunaDraw.width(font, v), y, cv[i] == 0 ? LunaDraw.TEXT_DIM : LunaDraw.TEXT);
+				}
+				catRowsY.get(catRowsY.size() - 1)[0] = y;
+				y += 13;
+				continue;
+			}
+			int indent = (kind == 2 ? 10 : 0) + 6;
 			float p = nextProgress();
 			if (p <= 0.01f) {
 				y += 12;
@@ -1921,7 +2025,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 			float base = LunaDraw.alpha();
 			LunaDraw.setAlpha(base * p);
 			if (kind == 2) {
-				ctx.fill(x + 3, y - 2, x + 4, y + 8, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+				ctx.fill(x + 9, y - 2, x + 10, y + 8, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
 			}
 			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, name, cols[0] - 8 - indent), x + indent, y,
 				kind == 1 ? LunaDraw.TEXT : kind == 2 ? LunaDraw.TEXT_DIM : LunaDraw.TEXT_SUB);
@@ -1954,7 +2058,75 @@ public class LunaStatsScreen extends LunaScreenBase {
 		}
 		Comparator<Object[]> cmp = Comparator.comparingLong(h -> sortValue((LunaStats.ItemStat) h[1]));
 		heads.sort(itemSortDesc ? cmp.reversed() : cmp);
+		// 49-582차(사용자: "카테고리별 닫기, 블록 같은 다른 카테고리도"): 묶음을 분류(서버 이름 앞 [재료] [요리] 같은 머리말, 아니면 블록, 도구,
+		// 음식, 아이템)로 나눈다. 분류끼리도 같은 기준(합계 등)으로 정렬, 분류 줄을 누르면 접힌다.
+		Map<String, List<Object[]>> cats = new java.util.LinkedHashMap<>();
+		Map<String, LunaStats.ItemStat> catSum = new java.util.LinkedHashMap<>();
+		for (Object[] h : heads) {
+			@SuppressWarnings("unchecked")
+			List<Map.Entry<String, LunaStats.ItemStat>> members = (List<Map.Entry<String, LunaStats.ItemStat>>) h[2];
+			String cat = categoryOf((String) h[0], members);
+			cats.computeIfAbsent(cat, k -> new ArrayList<>()).add(h);
+			LunaStats.ItemStat cs = catSum.computeIfAbsent(cat, k -> new LunaStats.ItemStat());
+			LunaStats.ItemStat hs = (LunaStats.ItemStat) h[1];
+			cs.used += hs.used;
+			cs.dropped += hs.dropped;
+			cs.crafted += hs.crafted;
+			cs.mined += hs.mined;
+			cs.picked += hs.picked;
+		}
+		List<String> catOrder = new ArrayList<>(cats.keySet());
+		Comparator<String> cc = Comparator.comparingLong(c -> sortValue(catSum.get(c)));
+		catOrder.sort(itemSortDesc ? cc.reversed() : cc);
 		List<Object[]> rows = new ArrayList<>();
+		for (String cat : catOrder) {
+			List<Object[]> hs = cats.get(cat);
+			rows.add(new Object[]{cat + " (" + hs.size() + "종)", catSum.get(cat), 3, cat});
+			if (collapsedCats.contains(cat)) {
+				continue;
+			}
+			addGroupRows(rows, hs);
+		}
+		return rows;
+	}
+
+	/** 49-582차: 분류 이름. 이름 앞 "[재료]" 같은 머리말이 있으면 그것(가장 많은 것), 없으면 아이템 종류로. */
+	private static String categoryOf(String base, List<Map.Entry<String, LunaStats.ItemStat>> members) {
+		Map<String, Integer> tags = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, LunaStats.ItemStat> m : members) {
+			String n = itemLabel(m.getKey(), m.getValue()).trim();
+			if (n.startsWith("[")) {
+				int e = n.indexOf(']');
+				if (e > 1 && e <= 12) {
+					tags.merge(n.substring(1, e).trim(), 1, Integer::sum);
+				}
+			}
+		}
+		if (!tags.isEmpty()) {
+			return tags.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
+		}
+		try {
+			net.minecraft.world.item.Item item = LunaCompat.itemById(base);
+			if (item == null) {
+				return "블록";
+			}
+			if (item instanceof net.minecraft.world.item.BlockItem) {
+				return "블록";
+			}
+			net.minecraft.world.item.ItemStack st = new net.minecraft.world.item.ItemStack(item);
+			if (st.has(net.minecraft.core.component.DataComponents.FOOD)) {
+				return "음식";
+			}
+			if (st.isDamageableItem() || st.has(net.minecraft.core.component.DataComponents.TOOL)) {
+				return "도구, 장비";
+			}
+		} catch (Throwable ignored) {
+		}
+		return "아이템";
+	}
+
+	/** 분류 안: 묶음 줄들(묶음이 하나뿐인 종류는 한 줄). */
+	private void addGroupRows(List<Object[]> rows, List<Object[]> heads) {
 		for (Object[] h : heads) {
 			@SuppressWarnings("unchecked")
 			List<Map.Entry<String, LunaStats.ItemStat>> members = new ArrayList<>((List<Map.Entry<String, LunaStats.ItemStat>>) h[2]);
@@ -1965,13 +2137,13 @@ public class LunaStatsScreen extends LunaScreenBase {
 				continue;
 			}
 			rows.add(new Object[]{itemName(base) + " (전체 " + members.size() + "종)", h[1], 1});
-			Comparator<Map.Entry<String, LunaStats.ItemStat>> mc = Comparator.comparingLong(m -> sortValue(m.getValue()));
-			members.sort(itemSortDesc ? mc.reversed() : mc);
+			// 49-582차(사용자: "아이템 부분에서 하위 카테고리는 이름순으로"): 묶음 안 줄은 늘 이름 가나다순(묶음끼리는 머리글 기준 그대로)
+			java.text.Collator col = java.text.Collator.getInstance(java.util.Locale.KOREAN);
+			members.sort((m1, m2) -> col.compare(itemLabel(m1.getKey(), m1.getValue()), itemLabel(m2.getKey(), m2.getValue())));
 			for (Map.Entry<String, LunaStats.ItemStat> m : members) {
 				rows.add(new Object[]{itemLabel(m.getKey(), m.getValue()), m.getValue(), 2});
 			}
 		}
-		return rows;
 	}
 
 	/** 49-67차(5-11): 지금 고른 기준으로 정렬할 때 쓸 값. 0이면 합계(예전 기본값). */
@@ -2394,6 +2566,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 		announce(LunaStats.replaceFrom(minecraft, file));
 		worlds = LunaStats.worlds();
 		scopeIndex = 0;
+		rebuildRail();
 		restartAnim();
 	}
 
@@ -2517,15 +2690,16 @@ public class LunaStatsScreen extends LunaScreenBase {
 
 	/** 49-511차: 보고 있는 범위(전체면 전부, 서버/맵이면 그것만)를 지운다 - 지우기 전에 통째로 백업해 [삭제 되돌리기]로 돌아갈 수 있다. */
 	private void askDelete() {
-		boolean all = scopeIndex <= 0 || scopeIndex > worlds.size();
+		boolean all = scopeIndex <= 0 || scopeIndex > rail.size();
 		LunaStats.Scope sc = scope();
-		String what = all ? "모든 통계(전체와 서버/맵 전부)" : "'" + sc.displayLabel() + "' 기록";
+		String what = all ? "모든 통계(전체와 서버/맵 전부)" : "'" + sc.displayLabel() + "' " + (isSub(sc) ? "월드 기록" : "기록");
 		confirm.showInfo(LunaIcons.INFO, "통계 기록 삭제", what + "을(를) 지울까요?",
 			"지우기 전에 백업해 두어 [삭제 되돌리기]로 되돌릴 수 있어요" + (all ? "" : " (전체 합계는 그대로)"),
 			"삭제", "취소", () -> {
 				String msg = LunaStats.deleteRecords(minecraft, all ? null : sc.key);
 				worlds = LunaStats.worlds();
 				scopeIndex = 0;
+				rebuildRail();
 				restartAnim();
 				announce(msg);
 			});
@@ -2542,6 +2716,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 				String msg = LunaStats.restoreLastDeleted(minecraft);
 				worlds = LunaStats.worlds();
 				scopeIndex = 0;
+				rebuildRail();
 				restartAnim();
 				announce(msg);
 			});
@@ -2588,12 +2763,28 @@ public class LunaStatsScreen extends LunaScreenBase {
 			// 범위 목록(그리기와 같은 순서·간격)
 			int y = scopeTop();
 			int bottom = linksTop() - 8;
-			for (int i = 0; i <= worlds.size(); i++) {
+			for (int i = 0; i <= rail.size(); i++) {
 				if (y + SCOPE_H > bottom) {
 					break;
 				}
 				if (LunaDraw.in(mouseX, mouseY, railX - 4, y, railW, SCOPE_H)) {
+					LunaStats.Scope sc = i == 0 ? null : rail.get(i - 1);
+					if (button == 1) {
+						// 49-582차: 월드 우클릭 = 이름 바꾸기
+						if (sc != null && isSub(sc)) {
+							renaming = sc;
+							renameBuf = sc.label == null ? "" : sc.label;
+						}
+						return true;
+					}
+					commitRename();
+					boolean wasSel = scopeIndex == i;
 					scopeIndex = i;
+					if (sc != null && !isSub(sc)) {
+						// 서버를 누르면 그 서버의 월드를 펼친다. 이미 고른 펼친 서버를 다시 누르면 접는다.
+						expanded = wasSel && sc.key.equals(expanded) ? null : sc.key;
+						rebuildRail();
+					}
 					scroll = 0;
 					scrollTarget = 0;
 					restartAnim();
@@ -2655,6 +2846,19 @@ public class LunaStatsScreen extends LunaScreenBase {
 				}
 			}
 		}
+		// 49-582차: 아이템 탭 분류 줄 - 접기/펴기
+		if (tab == TAB_ITEMS) {
+			for (int i = 0; i < catRowsY.size() && i < catRowKeys.size(); i++) {
+				int ry = catRowsY.get(i)[0];
+				if (mouseY >= contentTop && LunaDraw.in(mouseX, mouseY, cx0 - 2, ry - 2, cw0, 13)) {
+					String c = catRowKeys.get(i);
+					if (!collapsedCats.remove(c)) {
+						collapsedCats.add(c);
+					}
+					return true;
+				}
+			}
+		}
 		// 49-67차(5-11): 아이템 탭 머리글 정렬
 		if (handleItemHeaderClick(mouseX, mouseY)) {
 			return true;
@@ -2687,9 +2891,29 @@ public class LunaStatsScreen extends LunaScreenBase {
 		return true;
 	}
 
+	private void commitRename() {
+		if (renaming != null) {
+			if (!renameBuf.isBlank()) {
+				LunaStats.renameSub(renaming, renameBuf);
+				rebuildRail();
+			}
+			renaming = null;
+		}
+	}
+
 	private boolean lunaKeyPressed0(int keyCode, int scanCode, int modifiers) {
 		if (confirm.isOpen()) {
 			return confirm.keyPressed(keyCode);
+		}
+		if (renaming != null) {
+			if (keyCode == InputConstants.KEY_ESCAPE) {
+				renaming = null;
+			} else if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
+				commitRename();
+			} else if (keyCode == InputConstants.KEY_BACKSPACE && !renameBuf.isEmpty()) {
+				renameBuf = renameBuf.substring(0, renameBuf.length() - 1);
+			}
+			return true;
 		}
 		if (keyCode == InputConstants.KEY_ESCAPE) {
 			if (importList != null) {

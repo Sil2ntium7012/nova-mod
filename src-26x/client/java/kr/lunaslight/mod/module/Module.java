@@ -314,6 +314,22 @@ public abstract class Module {
 		return false;
 	}
 
+	/**
+	 * 49-597차: 새 기능이 이 기능 안의 설정 하나일 때(예: 듣고 있는 노래의 노래 시간 게이지) false - 새 기능 창이 기능 자체를 켜고 끄지 않고
+	 * {@link #onNewFeatureAnswered}만 부른다. 창에 보일 이름과 설명은 {@link #newFeatureName}, {@link #newFeatureDescription}.
+	 */
+	public boolean newFeatureTogglesModule() {
+		return true;
+	}
+
+	public String newFeatureName() {
+		return getDisplayName();
+	}
+
+	public String newFeatureDescription() {
+		return getDescription();
+	}
+
 	/** 새 기능 창에서 답했을 때(켬/끔은 창이 이미 적용함). */
 	public void onNewFeatureAnswered(boolean on) {
 	}

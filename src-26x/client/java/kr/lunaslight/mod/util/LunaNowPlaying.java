@@ -43,6 +43,11 @@ public final class LunaNowPlaying {
 	private static volatile boolean playing;
 	// 49-177차: 어느 플랫폼에서 나오는지(런처가 추정: melon, spotify, ytmusic, youtube, soop, 모르면 빈 문자열)
 	private static volatile String source = "";
+	/**
+	 * 49-589차(사용자: "노래 밑에 게이지로 노래 시간"): 런처가 윈도우 미디어 세션의 재생 위치를 같이 적으면 쓴다 - pos(그 순간 위치 ms),
+	 * dur(곡 길이 ms), posTs(pos를 잰 시각). 없거나 0이면 모름(-1). 재생 중이면 posTs 뒤 지난 시간만큼 앞으로 민다.
+	 */
+	private static volatile long posMs = -1, durMs = -1, posTs;
 
 	private static long lastPollMs;
 	private static boolean reading;
@@ -66,6 +71,31 @@ public final class LunaNowPlaying {
 	/** 플랫폼 이름표(melon, spotify, ytmusic, youtube, soop 중 하나, 모르면 빈 문자열). */
 	public static String source() {
 		return source;
+	}
+
+	private static long num(JsonObject o, String k) {
+		try {
+			return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsLong() : -1L;
+		} catch (Throwable t) {
+			return -1L;
+		}
+	}
+
+	/** 49-589차: 곡 길이(ms), 모르면 -1. */
+	public static long durationMs() {
+		return durMs;
+	}
+
+	/** 49-589차: 지금 재생 위치(ms, 재생 중이면 잰 뒤 지난 시간만큼 더함), 모르면 -1. */
+	public static long positionMs() {
+		long d = durMs, p = posMs;
+		if (d <= 0 || p < 0) {
+			return -1;
+		}
+		if (playing) {
+			p += Math.max(0, System.currentTimeMillis() - posTs);
+		}
+		return Math.min(d, p);
 	}
 
 	/** 보여 줄 게 있는지. */
@@ -126,6 +156,11 @@ public final class LunaNowPlaying {
 			title = t;
 			artist = a;
 			source = src;
+			long dur = num(o, "dur"), pos = num(o, "pos");
+			durMs = dur > 0 ? dur : -1;
+			posMs = dur > 0 && pos >= 0 ? pos : -1;
+			long pts = num(o, "posTs");
+			posTs = pts > 0 ? pts : ts;
 			playing = o.has("playing") && !o.get("playing").isJsonNull() && o.get("playing").getAsBoolean();
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("nowPlaying:read", t);
@@ -162,5 +197,7 @@ public final class LunaNowPlaying {
 		artist = "";
 		source = "";
 		playing = false;
+		posMs = -1;
+		durMs = -1;
 	}
 }

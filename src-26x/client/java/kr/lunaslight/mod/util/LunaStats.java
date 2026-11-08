@@ -62,6 +62,8 @@ public final class LunaStats {
 		public String folder = "";
 		/** 49-32차: 싱글 맵인데 세이브 폴더가 사라졌으면 true → 목록에 "이름(삭제됨)". */
 		public boolean missing;
+		/** 49-582차: 서버 안 월드 기록이면 그 서버 기록의 key(저장하지 않음 - 폴더로 안다). 아니면 빈 값. */
+		public transient String parent = "";
 		public long playMs, afkMs, sneakMs;
 		public long sessions, jumps, deaths, kills, trades, chestsOpened, chatSent;
 		public double damageTaken;      // 잃은 체력(하트 반칸 = 1)
@@ -109,8 +111,14 @@ public final class LunaStats {
 
 		/** 49-32차: 목록에 보여줄 이름. 지워진 싱글 맵이면 "이름(삭제됨)". */
 		public String displayLabel() {
+			if (shownLabel != null) {
+				return shownLabel;
+			}
 			return missing ? label + "(삭제됨)" : label;
 		}
+
+		/** 49-582차: 같은 이름 월드가 여럿일 때 목록에 보일 이름("오버월드 2"). 저장하지 않는다. */
+		public transient String shownLabel;
 	}
 
 	/** 49-28차: 한 달(또는 한 해)치 요약. 무거워지지 않게 굵직한 값만 담는다. */
@@ -165,6 +173,16 @@ public final class LunaStats {
 	private static final Scope GLOBAL = new Scope();
 	private static Scope world;
 	private static String worldKey;
+	/**
+	 * 49-582차(사용자: "월드마다 따로 볼 수 있게, 벨로시티로 월드 여러 개 하는 것도 있어서 골라서 볼 수 있게"): 서버 기록 안의 <b>월드</b> 기록.
+	 * 월드는 차원 이름(overworld, the_nether, 플러그인 월드 이름)과 서버가 알려 주는 시드 지문으로 가린다 - 벨로시티로 묶인 다른 서버는
+	 * 차원 이름이 같아도 시드가 달라 따로 잡힌다. 파일: stats/subworlds/&lt;서버 key&gt;/&lt;월드 id&gt;.json. 전체, 서버 기록은 그대로 쌓이고 여기에도 같이 더한다.
+	 */
+	private static Scope sub;
+	private static String subKey;
+	private static long subSeed = Long.MIN_VALUE;
+	/** 바닐라 통계로 예전 기록을 채울 때는 월드 기록엔 넣지 않는다(서버 전체의 예전 값이 지금 월드 하나에 몰리지 않게). */
+	private static boolean noSub;
 	private static boolean globalLoaded;
 	private static boolean dirty;
 	private static long lastSaveNanos;
@@ -198,6 +216,43 @@ public final class LunaStats {
 
 	private static Path worldFile(String key) {
 		return dir().resolve("worlds").resolve(key + ".json");
+	}
+
+	private static Path subDir(String serverKey) {
+		return dir().resolve("subworlds").resolve(serverKey);
+	}
+
+	/** "sub:&lt;서버 key&gt;/&lt;월드 id&gt;" → 파일. */
+	private static Path subFile(String fullKey) {
+		String rest = fullKey.substring(4);
+		int slash = rest.lastIndexOf('/');
+		return subDir(rest.substring(0, slash)).resolve(rest.substring(slash + 1) + ".json");
+	}
+
+	/** 지금 월드의 {차원 id, 시드 지문}. 못 읽으면 null. */
+	private static String[] subIdOf(Minecraft client) {
+		try {
+			String ds = String.valueOf(client.level.dimension());   // ResourceKey[minecraft:dimension / minecraft:overworld]
+			int i = ds.lastIndexOf(" / ");
+			String dim = i >= 0 ? ds.substring(i + 3).replace("]", "").trim() : ds;
+			Object seed = LunaCompat.getFieldValue(client.level.getBiomeManager(), "biomeZoomSeed");
+			long sd = seed instanceof Long l ? l : 0L;
+			return new String[]{dim, Long.toString(sd)};
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:subId", t);
+			return null;
+		}
+	}
+
+	/** 처음 보는 월드의 이름: 기본 세 차원은 한글로, 플러그인 월드는 그 이름 그대로. */
+	private static String subLabel(String dim) {
+		String p = dim.indexOf(':') >= 0 ? dim.substring(dim.indexOf(':') + 1) : dim;
+		return switch (p) {
+			case "overworld" -> "오버월드";
+			case "the_nether" -> "네더";
+			case "the_end" -> "엔드";
+			default -> p;
+		};
 	}
 
 	/**
@@ -320,6 +375,9 @@ public final class LunaStats {
 				if (world != null) {
 					saveNow();
 					world = null;
+					sub = null;
+					subKey = null;
+					subSeed = Long.MIN_VALUE;
 					requestEndpointMerge();   // 49-403차: 나왔으니 같은 서버 기록 합치기
 					worldKey = null;
 					hasLastPos = false;
@@ -354,6 +412,7 @@ public final class LunaStats {
 				lastHealth = -1;
 				markActivity();
 			}
+			trackSubWorld(client);
 			long now = System.currentTimeMillis();
 			each(s -> {
 				if (s.firstSeen == 0) {
@@ -496,7 +555,41 @@ public final class LunaStats {
 		action.run(GLOBAL);
 		if (world != null) {
 			action.run(world);
+			if (sub != null && !noSub) {
+				action.run(sub);
+			}
 		}
+	}
+
+	/** 49-582차: 월드(차원, 벨로시티 뒤 서버)가 바뀌었으면 그 월드 기록으로 갈아 끼운다. */
+	private static void trackSubWorld(Minecraft client) {
+		if (world == null || worldKey == null) {
+			return;
+		}
+		String[] id = subIdOf(client);
+		if (id == null) {
+			return;
+		}
+		long seed = Long.parseLong(id[1]);
+		String fp = fingerprint(id[0] + "|" + seed);
+		String full = "sub:" + worldKey + "/" + sanitizeKey(id[0].replace(':', '_')) + "-" + fp;
+		if (full.equals(subKey)) {
+			return;
+		}
+		saveNow();
+		// 같은 주소인데 시드가 바뀌었다 = 벨로시티로 다른 서버에 옮겨 갔다 - 바닐라 통계 기준점을 새로 잡는다(그 서버 숫자가 통째로 더해지지 않게)
+		if (subSeed != Long.MIN_VALUE && subSeed != seed) {
+			VANILLA_BASE.clear();
+			PENDING.clear();
+			invBaseline = null;
+		}
+		subSeed = seed;
+		subKey = full;
+		sub = loadScope(subFile(full), full, subLabel(id[0]));
+		sub.parent = worldKey;
+		sub.folder = "";
+		sub.sessions++;
+		dirty = true;
 	}
 
 	// ---- 이동 ----
@@ -1146,6 +1239,15 @@ public final class LunaStats {
 	 * 아이템(캔, 사용, 주움, 버림, 제작)은 같은 아이템의 변형을 합친 값과 비교한다. 플레이타임, 죽음, 처치, 점프, 거리, 받은 피해, 거래도.
 	 */
 	private static void applyVanillaFloor(Map<String, Long> itemAbs, Map<String, Long> customAbs) {
+		noSub = true;
+		try {
+			applyVanillaFloor0(itemAbs, customAbs);
+		} finally {
+			noSub = false;
+		}
+	}
+
+	private static void applyVanillaFloor0(Map<String, Long> itemAbs, Map<String, Long> customAbs) {
 		Scope w = world;
 		if (w == null) {
 			return;
@@ -1179,10 +1281,28 @@ public final class LunaStats {
 			if (add <= 0) {
 				continue;
 			}
+			// 49-582차(사용자: "치장곡이었는데 그냥 다이아몬드 곡으로 잡힘"): 바닐라 통계는 아이템 종류만 알아서, 모자란 만큼을 늘
+			// 이름 없는 기본 줄("다이아몬드 곡괭이")에 더했다. 이 서버/맵에서 그 종류로 가장 많이 쓴 변형(치장, 이름 붙은 도구)이 있으면 거기에 더한다.
+			String target = id;
+			String targetName = null;
+			long best = -1;
+			for (Map.Entry<String, ItemStat> ve : w.items.entrySet()) {
+				ItemStat vs = ve.getValue();
+				String vb = vs.base != null ? vs.base : ve.getKey();
+				if (vb.equals(id) && vs.total() > best) {
+					best = vs.total();
+					target = ve.getKey();
+					targetName = vs.name;
+				}
+			}
+			final String tKey = target, tName = targetName;
 			each(s -> {
-				ItemStat st = s.item(id);
+				ItemStat st = s.item(tKey);
 				if (st.base == null) {
 					st.base = id;
+				}
+				if (st.name == null && tName != null) {
+					st.name = tName;
 				}
 				switch (idx) {
 					case 0 -> st.mined += add;
@@ -1648,9 +1768,32 @@ public final class LunaStats {
 
 	private static String displayName(ItemStack stack) {
 		try {
-			return stack.getHoverName().getString();
+			String n = stack.getHoverName().getString();
+			// 49-582차(사용자: "분명 그냥 다이아몬드 곡이 아닌데 그걸로 잡힘, 치장곡이였는데"): 서버가 모양(item_model)만 바꾸고 이름은 그대로 둔
+			// 치장 도구는 이름이 바닐라와 같다 - 뒤에 "(치장)"을 붙여 그냥 도구와 구분한다.
+			if (customModel(stack) != null) {
+				String plain = LunaCompat.translate(stack.getItem().getDescriptionId());
+				if (plain == null || plain.equals(n)) {
+					n = n + " (치장)";
+				}
+			}
+			return n;
 		} catch (Throwable ignored) {
 			return baseId(stack);
+		}
+	}
+
+	/** 49-582차: 서버가 바꿔 단 모양(item_model)이 기본 아이템과 다르면 그 id, 아니면 null. */
+	private static String customModel(ItemStack stack) {
+		try {
+			Object m = stack.get(net.minecraft.core.component.DataComponents.ITEM_MODEL);
+			if (m == null) {
+				return null;
+			}
+			String id = m.toString();
+			return id.equals(baseId(stack)) ? null : id;
+		} catch (Throwable ignored) {
+			return null;
 		}
 	}
 
@@ -1670,6 +1813,10 @@ public final class LunaStats {
 			List<LunaCompat.EnchantInfo> ench = LunaCompat.enchantments(stack);
 			for (LunaCompat.EnchantInfo e : ench) {
 				sb.append('|').append(e.id()).append(e.level());
+			}
+			String model = customModel(stack);   // 49-582차: 치장 모양이 다르면 다른 변형
+			if (model != null) {
+				sb.append("|model=").append(model);
 			}
 		} catch (Throwable ignored) {
 		}
@@ -1737,7 +1884,14 @@ public final class LunaStats {
 				JsonObject root = JsonParser.parseString(Files.readString(b, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
 				gPlay.add(root.has("global") && root.getAsJsonObject("global").has("playMs") ? root.getAsJsonObject("global").get("playMs").getAsLong() : 0L);
 				Map<String, JsonObject> m = new LinkedHashMap<>();
-				if (root.has("worlds") && root.get("worlds").isJsonArray()) {
+				// 49-582차: 백업(exportTo)은 worlds를 {key: 기록} 객체로 쓴다 - 예전엔 배열만 읽어 아무것도 못 빼고 "뺐음" 표시만 남겼다
+				if (root.has("worlds") && root.get("worlds").isJsonObject()) {
+					for (Map.Entry<String, com.google.gson.JsonElement> e : root.getAsJsonObject("worlds").entrySet()) {
+						if (e.getValue().isJsonObject()) {
+							m.put(e.getKey(), e.getValue().getAsJsonObject());
+						}
+					}
+				} else if (root.has("worlds") && root.get("worlds").isJsonArray()) {
 					for (com.google.gson.JsonElement e : root.getAsJsonArray("worlds")) {
 						if (e.isJsonObject() && e.getAsJsonObject().has("key")) {
 							m.put(e.getAsJsonObject().get("key").getAsString(), e.getAsJsonObject());
@@ -1794,6 +1948,65 @@ public final class LunaStats {
 		}
 	}
 
+	/**
+	 * 49-582차(사용자: "전체에 여전히 안 빠지네 삭제한 거", 실제 파일: 전체 712,574,900ms = 너굴마을 662,455,000 + 지운 localhost 44,513,100
+	 * + 지운 맵 5,606,800): 예전에 지운 기록 빼기가 백업 형식을 잘못 읽어 아무것도 못 뺐다. 전체는 늘 서버/맵 기록과 같이 쌓이므로,
+	 * 한 번만 전체를 <b>지금 남아 있는 서버/맵 기록의 합</b>으로 다시 만든다. 다시 만들기 전 전체는 trash/전체다시계산전_날짜.json에 둔다.
+	 * 다시 만들었으면 true(이때 예전 삭제 백업은 모두 뺀 것으로 적는다).
+	 */
+	private static boolean rebuildGlobalOnce() {
+		try {
+			Path mark = trashDir().resolve(".rebuilt-582");
+			if (Files.exists(mark)) {
+				return false;
+			}
+			Files.createDirectories(trashDir());
+			List<Scope> ws = new ArrayList<>();
+			Path wdir = dir().resolve("worlds");
+			if (Files.isDirectory(wdir)) {
+				try (java.util.stream.Stream<Path> st = Files.list(wdir)) {
+					for (Path f : st.filter(f -> f.getFileName().toString().endsWith(".json")).toList()) {
+						String n = f.getFileName().toString();
+						ws.add(loadScope(f, n.substring(0, n.length() - 5), null));
+					}
+				}
+			}
+			if (!ws.isEmpty()) {
+				if (Files.exists(globalFile())) {
+					String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss").format(java.time.LocalDateTime.now());
+					Files.copy(globalFile(), trashDir().resolve("전체다시계산전_" + stamp + ".json"),
+						java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				}
+				Scope g = new Scope();
+				for (Scope w : ws) {
+					addInto(w, g);
+				}
+				g.key = "global";
+				g.label = "전체";
+				long before = GLOBAL.playMs;
+				copyInto(g, GLOBAL);
+				write(globalFile(), writeScope(GLOBAL));
+				kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 통계: 전체를 서버/맵 합으로 다시 계산(" + before + "ms → " + GLOBAL.playMs + "ms)");
+			}
+			java.util.Set<String> done = subtracted();
+			if (Files.isDirectory(trashDir())) {
+				try (java.util.stream.Stream<Path> st = Files.list(trashDir())) {
+					for (Path b : st.toList()) {
+						String n = b.getFileName().toString();
+						if (n.startsWith("삭제전_") && n.endsWith(".json") && !done.contains(n)) {
+							markSubtracted(n);
+						}
+					}
+				}
+			}
+			Files.writeString(mark, Long.toString(System.currentTimeMillis()), StandardCharsets.UTF_8);
+			return true;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:rebuildGlobal", t);
+			return false;
+		}
+	}
+
 	private static void ensureGlobal() {
 		if (globalLoaded) {
 			return;
@@ -1801,7 +2014,9 @@ public final class LunaStats {
 		globalLoaded = true;
 		Scope loaded = loadScope(globalFile(), "global", "전체");
 		copyInto(loaded, GLOBAL);
-		subtractOldDeletes();   // 49-568차
+		if (!rebuildGlobalOnce()) {
+			subtractOldDeletes();   // 49-568차
+		}
 		mergeServerDuplicates();
 		requestEndpointMerge();   // 49-403차
 	}
@@ -2437,6 +2652,11 @@ public final class LunaStats {
 			if (world != null && worldKey != null) {
 				write(worldFile(worldKey), writeScope(world));
 			}
+			if (sub != null && subKey != null) {
+				Path f = subFile(subKey);
+				Files.createDirectories(f.getParent());
+				write(f, writeScope(sub));
+			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("stats:save", t);
 		}
@@ -2453,6 +2673,80 @@ public final class LunaStats {
 	public static Scope global() {
 		ensureGlobal();
 		return GLOBAL;
+	}
+
+	/**
+	 * 49-582차: 이 서버 기록 안의 월드 기록들(시간 많은 순). 차원 이름이 같은 월드가 여럿이면(벨로시티) 이름 뒤에 처음 본 순서로 번호를 붙인다.
+	 */
+	public static List<Scope> subWorlds(String serverKey) {
+		List<Scope> out = new ArrayList<>();
+		if (serverKey == null || serverKey.isEmpty() || serverKey.startsWith("sub:")) {
+			return out;
+		}
+		try {
+			Path d = subDir(serverKey);
+			if (!Files.isDirectory(d)) {
+				return out;
+			}
+			try (java.util.stream.Stream<Path> files = Files.list(d)) {
+				for (Path p : files.toList()) {
+					String name = p.getFileName().toString();
+					if (!name.endsWith(".json")) {
+						continue;
+					}
+					String key = "sub:" + serverKey + "/" + name.substring(0, name.length() - 5);
+					Scope s = sub != null && key.equals(subKey) ? sub : loadScope(p, key, key);
+					s.parent = serverKey;
+					out.add(s);
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:subWorlds", t);
+		}
+		Map<String, List<Scope>> same = new LinkedHashMap<>();
+		for (Scope s : out) {
+			same.computeIfAbsent(s.label, k -> new ArrayList<>()).add(s);
+		}
+		Map<Scope, String> shown = new java.util.IdentityHashMap<>();
+		for (List<Scope> g : same.values()) {
+			if (g.size() < 2) {
+				continue;
+			}
+			g.sort(java.util.Comparator.comparingLong(x -> x.firstSeen == 0 ? Long.MAX_VALUE : x.firstSeen));
+			for (int i = 0; i < g.size(); i++) {
+				shown.put(g.get(i), g.get(i).label + " " + (i + 1));
+			}
+		}
+		out.sort((a, b) -> Long.compare(b.playMs, a.playMs));
+		for (Scope s : out) {
+			String l = shown.get(s);
+			if (l != null) {
+				s.shownLabel = l;
+			}
+		}
+		return out;
+	}
+
+	/** 49-582차: 월드 기록 이름 바꾸기(빈 값이면 그대로). */
+	public static void renameSub(Scope s, String label) {
+		if (s == null || s.key == null || !s.key.startsWith("sub:") || label == null || label.isBlank()) {
+			return;
+		}
+		s.label = label.trim();
+		s.shownLabel = null;
+		try {
+			if (sub != null && s.key.equals(subKey)) {
+				sub.label = s.label;
+				dirty = true;
+				saveNow();
+				return;
+			}
+			Path f = subFile(s.key);
+			Files.createDirectories(f.getParent());
+			write(f, writeScope(s));
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:renameSub", t);
+		}
 	}
 
 	/** 지금 접속 중인 서버/맵의 기록(없으면 null). */
@@ -2664,6 +2958,25 @@ public final class LunaStats {
 
 	/** key가 null이면 전부(전체 + 서버/맵), 아니면 그 서버/맵 파일만(전체 합계는 그대로). 결과 안내 글. */
 	public static String deleteRecords(Minecraft client, String key) {
+		// 49-582차: 월드 기록만 지우기 - 서버, 전체 기록은 그대로(월드 기록은 서버 기록을 나눠 본 것일 뿐)
+		if (key != null && key.startsWith("sub:")) {
+			try {
+				saveNow();
+				Files.deleteIfExists(subFile(key));
+				if (sub != null && key.equals(subKey)) {
+					Scope empty = new Scope();
+					empty.key = sub.key;
+					empty.label = sub.label;
+					copyInto(empty, sub);
+					dirty = true;
+					saveNow();
+				}
+				return "월드 기록을 지웠습니다(서버, 전체 기록은 그대로)";
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("stats:deleteSub", t);
+				return "지우지 못했습니다: " + t.getClass().getSimpleName();
+			}
+		}
 		try {
 			saveNow();
 			String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss").format(java.time.LocalDateTime.now());
@@ -2691,7 +3004,21 @@ public final class LunaStats {
 					empty.folder = world.folder;
 					copyInto(empty, world);
 				}
+				deleteTree(dir().resolve("subworlds"));   // 49-582차
+				if (sub != null) {
+					Scope empty = new Scope();
+					empty.key = sub.key;
+					empty.label = sub.label;
+					copyInto(empty, sub);
+				}
 			} else {
+				deleteTree(subDir(key));   // 49-582차: 그 서버의 월드 기록도
+				if (sub != null && key.equals(sub.parent)) {
+					Scope empty = new Scope();
+					empty.key = sub.key;
+					empty.label = sub.label;
+					copyInto(empty, sub);
+				}
 				// 49-568차: 지우는 서버/맵 기록만큼 전체 합계에서도 뺀다
 				Scope gone = world != null && key.equals(worldKey) ? world : loadScope(worldFile(key), key, key);
 				subtractFrom(gone, GLOBAL);
@@ -2713,6 +3040,21 @@ public final class LunaStats {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("stats:delete", t);
 			return "지우지 못했습니다: " + t.getClass().getSimpleName();
+		}
+	}
+
+	private static void deleteTree(Path d) {
+		try {
+			if (!Files.isDirectory(d)) {
+				return;
+			}
+			try (java.util.stream.Stream<Path> st = Files.walk(d)) {
+				for (Path p : st.sorted(java.util.Comparator.reverseOrder()).toList()) {
+					Files.deleteIfExists(p);
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:deleteTree", t);
 		}
 	}
 

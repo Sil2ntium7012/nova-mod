@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가. 49-480차: 소모품 모델(서버 팩 nexo 아이템 그림 보고 맞춤, 확실치 않은 것은 게임에서 보면 실제 모양으로 바뀜). 49-485차: 도토리 상점 가격(사용자가 준 목록), 편의 도구, 치장 135종(부위별 묶음). 49-491차: 특수요리 맛의 기원(海, 地). 49-572차: 위키 11-06 다시 확인 - 허수아비 보상(황금 가루 2개 고정, 주문의 흔적 8개만).",
+ "note": "너굴마을 위키(mcng.kr/wiki) 기준. model은 너굴마을 리소스팩(Nexo) 아이템 모델, 팩이 없으면 icon(바닐라 대체). 게임에서 같은 이름의 아이템을 보면 그 모양으로 바뀝니다. hidden은 목록에서 숨김(재료로만 보임). 49-431차: 강화 묶음(초월 스크롤, 큐브, 부적, 클로버, 복구 주문서)과 플레이팅(주괴, 그릇) 추가. 49-453차: 비행티켓(일반, 고급)과 출처(무역 순위, 낚시도감, 일일퀘스트, 허수아비, 누적 후원) 추가. 49-473차: 소모품(복권, 쿠폰, 티켓, 상자 …)과 출처(핫타임, 접속보상, 추천, 허수아비, 무역, 일일퀘스트, 블럭상점) 추가, 강화 재료와 채집물에 핫타임, 허수아비, 무역 출처 추가. 49-480차: 소모품 모델(서버 팩 nexo 아이템 그림 보고 맞춤, 확실치 않은 것은 게임에서 보면 실제 모양으로 바뀜). 49-485차: 도토리 상점 가격(사용자가 준 목록), 편의 도구, 치장 135종(부위별 묶음). 49-491차: 특수요리 맛의 기원(海, 地). 49-572차: 위키 11-06 다시 확인 - 허수아비 보상(황금 가루 2개 고정, 주문의 흔적 8개만). 49-588차: 10/31~11/07 패치노트(물고기 등급 확률, 광물 업그레이드와 가죽 나누기 제작, 섬/던전 피로회복제, 물갈퀴 신발) 반영.",
  "stations": {
   "farm": {
    "name": "농사",
@@ -253,6 +253,14 @@
     "minecraft:leather_helmet"
    ],
    "model": "nexo:cow_hat"
+  },
+  "vending": {
+   "name": "피로회복제 자판기",
+   "note": "우클릭하면 피로회복제 1종 랜덤",
+   "icon": [
+    "minecraft:dispenser"
+   ],
+   "model": "nexo:vending_machine"
   }
  },
  "categories": [
@@ -1164,7 +1172,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "S급 0.35%"
+     "note": "S급 0.78%"
     }
    ],
    "model": "nexo:killer_whale_01"
@@ -1179,7 +1187,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "S급 0.35%"
+     "note": "S급 0.78%"
     }
    ],
    "model": "nexo:shark_model_01"
@@ -1194,7 +1202,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "S급 0.35%"
+     "note": "S급 0.78%"
     }
    ],
    "model": "nexo:conch_01"
@@ -1209,7 +1217,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "A급 4%"
+     "note": "A급 8%"
     }
    ],
    "model": "nexo:a_fish_4"
@@ -1224,7 +1232,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "A급 4%"
+     "note": "A급 8%"
     }
    ],
    "model": "nexo:a_fish_5"
@@ -1239,7 +1247,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "A급 4%"
+     "note": "A급 8%"
     }
    ],
    "model": "nexo:a_fish_2"
@@ -1254,7 +1262,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "A급 4%"
+     "note": "A급 8%"
     }
    ],
    "model": "nexo:a_fish_3"
@@ -1269,7 +1277,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "A급 4%"
+     "note": "A급 8%"
     }
    ],
    "model": "nexo:a_fish_6"
@@ -1284,7 +1292,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_11"
@@ -1299,7 +1307,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_2"
@@ -1314,7 +1322,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_9"
@@ -1329,7 +1337,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_1"
@@ -1344,7 +1352,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_10"
@@ -1359,7 +1367,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_8"
@@ -1374,7 +1382,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_3"
@@ -1389,7 +1397,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_4"
@@ -1404,7 +1412,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_5"
@@ -1419,7 +1427,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "B급 58%"
+     "note": "B급 57.5%"
     }
    ],
    "model": "nexo:b_fish_6"
@@ -1434,7 +1442,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "C급 37.65%"
+     "note": "C급 33.72%"
     }
    ],
    "model": "nexo:c_fish_5"
@@ -1449,7 +1457,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "C급 37.65%"
+     "note": "C급 33.72%"
     }
    ],
    "model": "nexo:c_fish_4"
@@ -1464,7 +1472,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "C급 37.65%"
+     "note": "C급 33.72%"
     }
    ],
    "model": "nexo:c_fish_7"
@@ -1479,7 +1487,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "C급 37.65%"
+     "note": "C급 33.72%"
     }
    ],
    "model": "nexo:c_fish_1"
@@ -1494,7 +1502,7 @@
    "from": [
     {
      "at": "fish",
-     "note": "C급 37.65%"
+     "note": "C급 33.72%"
     }
    ],
    "model": "nexo:c_fish_6"
@@ -1653,7 +1661,7 @@
    "from": [
     {
      "at": "mine",
-     "note": "레어 | 보석의 이해 I (Lv.20)"
+     "note": "레어 | 보석의 이해 I (Lv.15)"
     }
    ],
    "model": "nexo:gem3"
@@ -1668,7 +1676,7 @@
    "from": [
     {
      "at": "mine",
-     "note": "에픽 | 보석의 이해 II (Lv.40)"
+     "note": "에픽 | 보석의 이해 II (Lv.35)"
     }
    ],
    "model": "nexo:gem1"
@@ -1683,7 +1691,7 @@
    "from": [
     {
      "at": "mine",
-     "note": "유니크 | 보석의 이해 III (Lv.60)"
+     "note": "유니크 | 보석의 이해 III (Lv.55)"
     }
    ],
    "model": "nexo:gem6"
@@ -1698,7 +1706,7 @@
    "from": [
     {
      "at": "mine",
-     "note": "희귀 | 보석의 이해 III (Lv.60)"
+     "note": "희귀 | 보석의 이해 III (Lv.55)"
     }
    ],
    "model": "nexo:gem2"
@@ -3883,7 +3891,111 @@
      "note": "단계마다 2~20개"
     }
    ],
-   "model": "nexo:vending_machine"
+   "model": "nexo:vending_machine",
+   "uses": [
+    "우클릭하면 피로회복제 1종 랜덤 (수확섬, 정육섬, 갯벌섬, 해양섬, 던전)"
+   ]
+  },
+  {
+   "key": "fatigue_harvest",
+   "name": "수확섬 피로회복제",
+   "cat": "consume",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "vending",
+     "note": "피로회복제 자판기에서 랜덤 1종"
+    },
+    {
+     "at": "treasure",
+     "note": "던전 보물상자에서 섬 피로회복제 4종 중 랜덤 1종 (11/05 패치)"
+    }
+   ],
+   "uses": [
+    "수확섬 피로도가 모두 회복돼요"
+   ]
+  },
+  {
+   "key": "fatigue_meat",
+   "name": "정육섬 피로회복제",
+   "cat": "consume",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "vending",
+     "note": "피로회복제 자판기에서 랜덤 1종"
+    },
+    {
+     "at": "treasure",
+     "note": "던전 보물상자에서 섬 피로회복제 4종 중 랜덤 1종 (11/05 패치)"
+    }
+   ],
+   "uses": [
+    "정육섬 피로도가 모두 회복돼요"
+   ]
+  },
+  {
+   "key": "fatigue_mud",
+   "name": "갯벌섬 피로회복제",
+   "cat": "consume",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "vending",
+     "note": "피로회복제 자판기에서 랜덤 1종"
+    },
+    {
+     "at": "treasure",
+     "note": "던전 보물상자에서 섬 피로회복제 4종 중 랜덤 1종 (11/05 패치)"
+    }
+   ],
+   "uses": [
+    "갯벌섬 피로도가 모두 회복돼요"
+   ]
+  },
+  {
+   "key": "fatigue_ocean",
+   "name": "해양섬 피로회복제",
+   "cat": "consume",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "vending",
+     "note": "피로회복제 자판기에서 랜덤 1종"
+    },
+    {
+     "at": "treasure",
+     "note": "던전 보물상자에서 섬 피로회복제 4종 중 랜덤 1종 (11/05 패치)"
+    }
+   ],
+   "uses": [
+    "해양섬 피로도가 모두 회복돼요"
+   ]
+  },
+  {
+   "key": "fatigue_dungeon",
+   "name": "던전 피로회복제",
+   "cat": "consume",
+   "icon": [
+    "minecraft:potion"
+   ],
+   "from": [
+    {
+     "at": "vending",
+     "note": "피로회복제 자판기에서 랜덤 1종"
+    }
+   ],
+   "uses": [
+    "토벌(던전) 피로도가 모두 회복돼요"
+   ]
   },
   {
    "key": "exp_coupon",
@@ -6386,6 +6498,20 @@
    "icon": [
     "minecraft:golden_apple"
    ]
+  },
+  {
+   "key": "web_shoes",
+   "name": "물갈퀴 신발",
+   "cat": "gear",
+   "icon": [
+    "minecraft:leather_boots"
+   ],
+   "from": [
+    {
+     "at": "shop",
+     "note": "채집 도구상점(해양)에 추가 (11/07 패치)"
+    }
+   ]
   }
  ],
  "recipes": [
@@ -8770,6 +8896,118 @@
     ]
    ],
    "note": "특수요리"
+  },
+  {
+   "at": "smith",
+   "out": "aquamarine",
+   "n": 1,
+   "in": [
+    [
+     "opal",
+     8
+    ],
+    [
+     "leather1",
+     30
+    ]
+   ],
+   "note": "광물 업그레이드 (장비제작)"
+  },
+  {
+   "at": "smith",
+   "out": "ruby",
+   "n": 1,
+   "in": [
+    [
+     "aquamarine",
+     8
+    ],
+    [
+     "leather2",
+     30
+    ],
+    [
+     "leather1",
+     50
+    ]
+   ],
+   "note": "광물 업그레이드 (장비제작)"
+  },
+  {
+   "at": "smith",
+   "out": "sapphire",
+   "n": 1,
+   "in": [
+    [
+     "ruby",
+     6
+    ],
+    [
+     "leather3",
+     10
+    ],
+    [
+     "leather2",
+     30
+    ]
+   ],
+   "note": "광물 업그레이드 (장비제작)"
+  },
+  {
+   "at": "smith",
+   "out": "peridot",
+   "n": 1,
+   "in": [
+    [
+     "sapphire",
+     4
+    ],
+    [
+     "leather3",
+     15
+    ],
+    [
+     "leather2",
+     40
+    ]
+   ],
+   "note": "광물 업그레이드 (장비제작)"
+  },
+  {
+   "at": "smith",
+   "out": "leather3",
+   "n": 3,
+   "in": [
+    [
+     "leather4",
+     1
+    ]
+   ],
+   "note": "가죽 나누기 (장비제작)"
+  },
+  {
+   "at": "smith",
+   "out": "leather2",
+   "n": 3,
+   "in": [
+    [
+     "leather3",
+     1
+    ]
+   ],
+   "note": "가죽 나누기 (장비제작)"
+  },
+  {
+   "at": "smith",
+   "out": "leather1",
+   "n": 3,
+   "in": [
+    [
+     "leather2",
+     1
+    ]
+   ],
+   "note": "가죽 나누기 (장비제작)"
   }
  ]
 }

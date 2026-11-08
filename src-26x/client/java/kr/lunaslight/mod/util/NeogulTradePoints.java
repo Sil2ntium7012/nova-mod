@@ -23,6 +23,12 @@ public final class NeogulTradePoints {
 	}
 
 	private static final String API = "https://mcng.kr/api/v1/public/cook/prices";
+	/**
+	 * 49-588차(11/07 패치: 일부 품목 시세 적용 - 유저상점은 시세 범위 안 가격으로만 등록): 위키 시세표가 쓰는 공개 API
+	 * {rules: [{key, name, min, max}]}. S급/A급 물고기 규칙은 그 등급 물고기 전부에 건다. 아이템 설명에 "유저상점 시세 a ~ b원".
+	 */
+	private static final String MARKET_API = "https://mcng.kr/api/v1/public/market/prices";
+	private static final Map<String, long[]> MARKET = new ConcurrentHashMap<>();   // 이름(띄어쓰기 없앰) → {min, max}
 	private static final Map<String, long[]> POINTS = new ConcurrentHashMap<>();   // 이름(띄어쓰기 없앰) → {포인트, tenths}
 	private static volatile String date = "";
 	private static volatile long fetchedDay = -1;
@@ -86,6 +92,11 @@ public final class NeogulTradePoints {
 				}
 				date = data.has("date") ? data.get("date").getAsString() : "";
 				fetchedDay = day;
+				try {
+					fetchMarket(hc);
+				} catch (Throwable t2) {
+					LunaCompat.warnOnce("trade:market", t2);
+				}
 				kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 너굴 무역 포인트 {}개 받음({})", n, date);
 			} catch (Throwable t) {
 				LunaCompat.warnOnce("trade:fetch", t);
@@ -95,6 +106,55 @@ public final class NeogulTradePoints {
 		}, "Nova-NeogulTrade");
 		th.setDaemon(true);
 		th.start();
+	}
+
+	private static void fetchMarket(java.net.http.HttpClient hc) throws Exception {
+		java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder(java.net.URI.create(MARKET_API))
+			.timeout(java.time.Duration.ofSeconds(10)).header("User-Agent", "NovaClient").GET().build();
+		String body = hc.send(req, java.net.http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8)).body();
+		JsonObject data = JsonParser.parseString(body).getAsJsonObject().getAsJsonObject("data");
+		Map<String, long[]> next = new java.util.HashMap<>();
+		for (JsonElement e : data.getAsJsonArray("rules")) {
+			JsonObject r = e.getAsJsonObject();
+			if (!r.has("min") || !r.has("max")) {
+				continue;
+			}
+			long[] v = {r.get("min").getAsLong(), r.get("max").getAsLong()};
+			String key = r.has("key") ? r.get("key").getAsString() : "";
+			String grade = "s_fish".equals(key) ? "S급" : "a_fish".equals(key) ? "A급" : null;
+			if (grade != null) {
+				for (NeogulData.Entry it : NeogulData.items()) {
+					if (!"fish".equals(it.cat())) {
+						continue;
+					}
+					for (NeogulData.Source src : it.from()) {
+						if (src.note() != null && src.note().startsWith(grade)) {
+							next.put(norm(it.name()), v);
+						}
+					}
+				}
+			} else if (r.has("name")) {
+				next.put(norm(r.get("name").getAsString()), v);
+			}
+		}
+		MARKET.clear();
+		MARKET.putAll(next);
+		kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 너굴 시세 {}개 받음", next.size());
+	}
+
+	/** 이 아이템의 유저상점 시세 {min, max}(시세표에 없으면 null). */
+	public static long[] market(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return null;
+		}
+		long[] m = MARKET.get(norm(stack.getHoverName().getString()));
+		if (m == null) {
+			NeogulData.Entry e = NeogulData.get(NeogulData.keyOf(stack));
+			if (e != null) {
+				m = MARKET.get(norm(e.name()));
+			}
+		}
+		return m;
 	}
 
 	/** 이 아이템의 무역 포인트 {포인트, tenths}(모르면 null). */
@@ -116,6 +176,10 @@ public final class NeogulTradePoints {
 	private static void addLine(ItemStack stack, List<Component> lines) {
 		try {
 			refreshIfStale();
+			long[] mk = market(stack);
+			if (mk != null) {
+				lines.add(Component.literal(String.format(java.util.Locale.ROOT, "유저상점 시세 %,d ~ %,d원", mk[0], mk[1])).withColor(0x8FD3FF));
+			}
 			long[] p = of(stack);
 			if (p == null) {
 				return;

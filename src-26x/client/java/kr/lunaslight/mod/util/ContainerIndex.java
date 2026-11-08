@@ -177,6 +177,11 @@ public final class ContainerIndex {
 		if (server == null || server.isEmpty()) {
 			server = "unknown";
 		}
+		// 49-585차(실제 파일: mcng.kr@…와 mcng.kr_25565@… 두 벌): 자동 접속과 직접 접속의 주소 표기가 달라 같은 서버 기록이 둘로 갈렸다 - 기본 포트는 뗀다
+		server = server.trim();
+		if (server.endsWith(":25565")) {
+			server = server.substring(0, server.length() - 6);
+		}
 		String dim = dimension(client);
 		String raw = server + "@" + dim;
 		return raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._@-]", "_");
@@ -214,10 +219,41 @@ public final class ContainerIndex {
 		return CACHE;
 	}
 
+	/** 49-583차: 서버가 그림 글자(개인 영역 U+E000~F8FF, 너굴마을이 쓰는 U+A000~A4CF)로 꾸민 메뉴 제목인지. */
+	public static boolean glyphTitle(String t) {
+		if (t == null) {
+			return false;
+		}
+		for (int i = 0; i < t.length(); i++) {
+			char c = t.charAt(i);
+			if ((c >= 0xE000 && c <= 0xF8FF) || (c >= 0xA000 && c <= 0xA4CF) || Character.isSurrogate(c)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static void load(String key) {
-		Path file = fileFor(key);
+		loadFile(fileFor(key), false);
+		// 49-585차: 예전에 ":25565"가 붙은 주소로 따로 쌓인 기록을 합친다(같은 자리는 더 최근에 본 쪽) - 합친 뒤 옛 파일은 지운다
+		int at = key.indexOf('@');
+		if (at > 0 && !key.startsWith("sp-")) {
+			Path old = fileFor(key.substring(0, at) + "_25565" + key.substring(at));
+			if (Files.exists(old) && loadFile(old, true)) {
+				dirty = true;
+				save();
+				try {
+					Files.deleteIfExists(old);
+				} catch (Throwable ignored) {
+				}
+			}
+		}
+	}
+
+	/** 파일 하나를 CACHE에 읽는다. merge면 이미 있는 자리는 더 최근 것만 바꾼다. 읽었으면 true. */
+	private static boolean loadFile(Path file, boolean merge) {
 		if (!Files.exists(file)) {
-			return;
+			return false;
 		}
 		try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
 			JsonObject root = new com.google.gson.JsonParser().parse(reader).getAsJsonObject();
@@ -229,6 +265,9 @@ public final class ContainerIndex {
 				e.y = o.get("y").getAsInt();
 				e.z = o.get("z").getAsInt();
 				e.title = o.has("title") ? o.get("title").getAsString() : "상자";
+				if (glyphTitle(e.title)) {
+					continue;   // 49-583차: 예전에 상자 자리에 잘못 적힌 서버 메뉴(그림 글자 제목, 예: "프로필")는 버린다
+				}
 				e.seen = o.has("seen") ? o.get("seen").getAsLong() : 0L;
 				e.ox = o.has("ox") ? o.get("ox").getAsInt() : 0;
 				e.oz = o.has("oz") ? o.get("oz").getAsInt() : 0;
@@ -251,10 +290,16 @@ public final class ContainerIndex {
 						e.shulkers.put(sh.getKey(), inner);
 					}
 				}
-				CACHE.put(posKey(e.x, e.y, e.z), e);
+				String pk = posKey(e.x, e.y, e.z);
+				Entry have = merge ? CACHE.get(pk) : null;
+				if (have == null || e.seen > have.seen) {
+					CACHE.put(pk, e);
+				}
 			}
+			return true;
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("containerIndex:load", t);
+			return false;
 		}
 	}
 
