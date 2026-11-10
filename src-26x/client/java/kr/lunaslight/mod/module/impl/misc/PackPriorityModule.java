@@ -49,6 +49,10 @@ public class PackPriorityModule extends Module {
 				"서버 팩보다 내 팩을 위에");
 		settingsPage(kr.lunaslight.mod.module.SettingsPage.GENERAL);   // 1-7은 [일반 설정] 항목이다
 		defaultEnabled(true);   // 49-479차: 처음부터 켜짐(서버 팩이 있으면 내 팩은 글꼴과 글만 - [글꼴만] 기본 켜짐)
+		// 49-619차(사용자: 너굴라이언트 - "내 리소스팩은 처음엔 비활성화"): 너굴라이언트로 켰고 저장된 값이 없으면 꺼진 채 시작(켜는 건 자유)
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			defaultEnabled(false);
+		}
 		world.onChange(this::apply);
 		kr.lunaslight.mod.util.FontSplitHook.enabled = () -> isEnabled() && isVersionSupported() && symbolsServer.get()
 				&& LunaVersion.isWithin("1.20", null);

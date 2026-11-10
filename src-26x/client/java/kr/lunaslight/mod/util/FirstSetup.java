@@ -118,6 +118,15 @@ public final class FirstSetup {
 				return;
 			}
 			checked = true;
+			// 49-619차(사용자: 너굴라이언트 - "튜토리얼 삭제"): 처음 설정 화면을 띄우지 않고 지금 값을 그대로 기록(런처 폴더에도 - 다음부터
+			// 런처가 바로 접속), 서버로 켰으면 바로 들어간다
+			if (LunaSocial.nugulient) {
+				JsonObject cur = current(client);
+				write(marker(), cur);
+				write(global(), cur);
+				joinPending(client);
+				return;
+			}
 			Class<?> cls;
 			try {
 				cls = Class.forName(SCREEN_CLASS);

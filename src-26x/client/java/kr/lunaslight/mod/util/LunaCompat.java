@@ -2781,6 +2781,8 @@ public final class LunaCompat {
 	// 바닐라 GameMenuScreen(버튼 있는 일반 일시정지)이 열리면 같은 틱에 LunaPauseScreen으로 교체.
 	// gui 패키지가 빠진 서브프로젝트(1.16~1.19.4)에서는 클래스를 못 찾아 조용히 비활성.
 	private static boolean pauseSwapBroken;
+	/** 49-624차: [마크 기본 메뉴]로 연 바닐라 일시정지 화면 - 이 화면은 노바 화면으로 안 바꾼다. */
+	public static volatile Object vanillaPauseOk;
 	private static Class<?> gameMenuScreenClass;
 	private static java.lang.reflect.Constructor<?> lunaPauseCtor;
 
@@ -2798,6 +2800,9 @@ public final class LunaCompat {
 			}
 			if (!gameMenuScreenClass.isInstance(screen) || gameMenuScreenClass != screen.getClass()) {
 				return; // 정확히 바닐라 일시정지만(다른 모드가 상속한 화면은 건드리지 않음)
+			}
+			if (screen == vanillaPauseOk) {
+				return;   // 49-624차: 사용자가 일부러 연 마크 기본 메뉴
 			}
 			// F3+ESC(버튼 없는 일시정지)는 그대로 둠
 			try {

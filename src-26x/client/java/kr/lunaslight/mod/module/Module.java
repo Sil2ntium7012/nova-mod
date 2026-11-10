@@ -89,7 +89,21 @@ public abstract class Module {
 		return conflictsWith;
 	}
 
+	/**
+	 * 49-622차(사용자: "너굴라이언트에서는 우리 클라 치장, 귓속말 알림, 핑 마커, TNT, 영상 보기 PIP 없애기 - 많은 분께 공개라 안전장치 중요"):
+	 * 너굴라이언트로 켰으면 아예 없는 기능(꺼짐 고정, 목록, 검색, 새 기능 창에서도 빠짐).
+	 */
+	private static final java.util.Set<String> NUGULIENT_REMOVED = java.util.Set.of("whisper_alert", "ping_mark", "tnt_timer", "video_pip");
+
+	/** 너굴라이언트에서 빠진 기능인가. */
+	public boolean removedHere() {
+		return kr.lunaslight.mod.util.LunaSocial.nugulient && NUGULIENT_REMOVED.contains(id);
+	}
+
 	public boolean isEnabled() {
+		if (removedHere()) {
+			return false;
+		}
 		if (serverLock) {
 			if (forceOnMyServer()) {
 				return true;    // 49-378차: 나침반은 내 서버에서 무조건 켠다
@@ -332,6 +346,11 @@ public abstract class Module {
 
 	/** 새 기능 창에서 답했을 때(켬/끔은 창이 이미 적용함). */
 	public void onNewFeatureAnswered(boolean on) {
+	}
+
+	/** 49-612차: 새 기능 창 미리보기 바탕 - "grass"(하늘 + 잔디, 기본), "stone"(광산 돌벽), "none"(바탕 없이 어둡게). */
+	public String newFeatureScene() {
+		return "grass";
 	}
 
 	/** 새 기능 창에 미리보기 그림을 그리는지. */

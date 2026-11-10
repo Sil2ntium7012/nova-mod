@@ -53,6 +53,10 @@ public final class NewFeatures {
 		if (joinAt == 0 || mc == null || mc.player == null || mc.level == null) {
 			return;
 		}
+		if (LunaSocial.nugulient) {
+			joinAt = 0;   // 49-620차(사용자 고름): 너굴라이언트는 "새 기능이 나왔어요" 창을 안 띄운다(기능은 기본값 그대로)
+			return;
+		}
 		if (LunaCompat.screenOf(mc) != null) {
 			joinAt = Math.max(joinAt, System.currentTimeMillis() - 1000);   // 49-570차: 창(연결 중, 리소스팩 받기 …)이 닫힌 뒤 2초는 기다린다
 			return;

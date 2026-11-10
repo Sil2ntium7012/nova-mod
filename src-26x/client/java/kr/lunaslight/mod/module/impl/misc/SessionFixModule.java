@@ -54,6 +54,12 @@ public class SessionFixModule extends Module {
 		return true;   // 49-122차: 켜고 끄는 기능이 아니라 항상 도는 고정 기능 - 격자에 안 띄운다.
 	}
 
+	/** 49-619차: 런처가 features.relogin = false를 넘기면(너굴라이언트) 끊김 화면 버튼(세션 새로고침 후 재접속, 재접속)을 아예 안 얹는다. */
+	@Override
+	public boolean isEnabled() {
+		return LunaSocial.featureRelogin && super.isEnabled();
+	}
+
 	private static boolean isDisconnectedScreen(Screen screen) {
 		if (screen == null) {
 			return false;

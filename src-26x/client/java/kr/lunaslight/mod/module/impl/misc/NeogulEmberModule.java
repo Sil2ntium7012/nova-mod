@@ -35,6 +35,22 @@ public class NeogulEmberModule extends Module {
 		newFeature("49-606");
 	}
 
+	/** 49-619차(사용자: 너굴라이언트 - "잉걸불 개수 확인 삭제"): 너굴라이언트로 켰으면 없는 기능. */
+	@Override
+	public boolean isEnabled() {
+		return !kr.lunaslight.mod.util.LunaSocial.nugulient && super.isEnabled();
+	}
+
+	@Override
+	public boolean hiddenInList() {
+		return kr.lunaslight.mod.util.LunaSocial.nugulient || super.hiddenInList();
+	}
+
+	@Override
+	public boolean newFeatureAsked() {
+		return kr.lunaslight.mod.util.LunaSocial.nugulient || super.newFeatureAsked();
+	}
+
 	/** 늘 켜져 있어서 새 기능 창은 알려 주기만 한다. */
 	@Override
 	public boolean newFeatureTogglesModule() {
@@ -102,12 +118,31 @@ public class NeogulEmberModule extends Module {
 		return true;
 	}
 
+	private static ItemStack ember(String key, net.minecraft.world.item.Item fallback) {
+		try {
+			ItemStack st = kr.lunaslight.mod.util.NeogulData.icon(kr.lunaslight.mod.util.NeogulData.get(key), 1);   // 서버 팩 모양
+			if (st != null && !st.isEmpty()) {
+				return st;
+			}
+		} catch (Throwable ignored) {
+		}
+		return new ItemStack(fallback);
+	}
+
+	/** 49-612차(사용자: "인게임처럼 보이게, 그림 이상해"): 왼쪽 위 서버 상자(돈, 도토리, 지역) 바로 아래에 붙는 모습 그대로. */
 	@Override
 	public void drawNewFeaturePreview(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		List<Object[]> server = new ArrayList<>();
+		server.add(new Object[]{new ItemStack(Items.GOLD_NUGGET), 14172222, ""});
+		server.add(new Object[]{new ItemStack(Items.COCOA_BEANS), 128, ""});
 		List<Object[]> rows = new ArrayList<>();
-		rows.add(new Object[]{new ItemStack(Items.SLIME_BALL), 128, "3번 창고"});
-		rows.add(new Object[]{new ItemStack(Items.BLAZE_POWDER), 12, "던전 창고"});
-		int bw = 120;
-		draw(ctx, x + (w - bw) / 2, y + Math.max(4, (h - 30) / 2), bw, rows, 14, 2);
+		rows.add(new Object[]{ember("ember_g", Items.SLIME_BALL), 128, "3번 창고"});
+		rows.add(new Object[]{ember("ember_r", Items.BLAZE_POWDER), 12, "던전 창고"});
+		int bw = 110;
+		draw(ctx, x + 5, y + 5, bw, server, 14, 2);
+		// 지역 상자: "섬"
+		LunaDraw.roundRectBordered(ctx, x + 5, y + 37, bw, 14, 2, BG, EDGE);
+		LunaDraw.text(ctx, client.font, "섬", x + 5 + bw - 5 - LunaDraw.width(client.font, "섬"), LunaDraw.textY(y + 37, 14), TEXT);
+		draw(ctx, x + 5, y + 55, bw, rows, 14, 2);
 	}
 }

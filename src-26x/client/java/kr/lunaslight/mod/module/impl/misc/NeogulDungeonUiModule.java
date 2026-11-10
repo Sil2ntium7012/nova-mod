@@ -34,7 +34,7 @@ public class NeogulDungeonUiModule extends Module {
 		// 49-550차(사용자: "왜 아직도 이러냐고" - 기본 꺼짐 + 던전에서 인벤토리를 열어야만 묻는 창이 떠서 한 번도 안 켜졌다):
 		// 기본 켬. 아직 안 물어본 사람은 켜 두고, 너굴마을에서 인벤토리를 처음 열 때 "이대로 / 원래대로"를 묻는다.
 		// 켜지는 건 여전히 던전에 들어가는 순간에만(싸우는 중에 안 바뀜).
-		defaultEnabled(true);
+		defaultEnabled(!kr.lunaslight.mod.util.LunaSocial.nugulient);   // 49-620차(사용자: "너굴라이언트는 던전 비활성화 및 여러 개 비활성화, 유저 문의가 너무 많이 올 것 같아"): 너굴라이언트로 켜면 처음엔 꺼짐
 		newFeature("49-552");   // 49-552차: 묻는 건 들어갈 때 뜨는 새 기능 창(NewFeatures)이 한다
 		asked.hidden();
 		NeogulDungeonHud.enabled = this::isEnabled;
@@ -43,7 +43,7 @@ public class NeogulDungeonUiModule extends Module {
 			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 				if (!migrated && mc != null && mc.player != null) {
 					migrated = true;
-					if (!asked.get() && !isEnabledStored()) {
+					if (!asked.get() && !isEnabledStored() && !kr.lunaslight.mod.util.LunaSocial.nugulient) {
 						setEnabled(true);   // 예전 판(기본 끔)에서 묻는 창을 못 본 사람
 						kr.lunaslight.mod.config.LunaClientConfig.save();
 					}

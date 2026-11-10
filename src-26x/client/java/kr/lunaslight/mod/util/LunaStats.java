@@ -80,6 +80,9 @@ public final class LunaStats {
 		public final Map<String, Long> words = new LinkedHashMap<>();
 		public final Map<String, Long> deathCauses = new LinkedHashMap<>();
 		public final Map<String, Long> killTypes = new LinkedHashMap<>();
+		/** 49-617차: 너굴 광물 창고에 들어온 광물(이름 → 개수)과 달별 합계(yyyy-MM → 개수). */
+		public final Map<String, Long> ores = new LinkedHashMap<>();
+		public final Map<String, Long> oreMonths = new LinkedHashMap<>();
 		public final Map<String, Double> distance = new LinkedHashMap<>();  // 모드 → m
 		public final Map<String, Long> travelMs = new LinkedHashMap<>();    // 모드 → ms
 		public final Map<String, ItemStat> items = new LinkedHashMap<>();
@@ -113,6 +116,9 @@ public final class LunaStats {
 		public String displayLabel() {
 			if (shownLabel != null) {
 				return shownLabel;
+			}
+			if (label != null && label.toLowerCase(Locale.ROOT).matches("(.*\\.)?mcng\\.kr")) {
+				return "너굴마을";   // 49-618차
 			}
 			return missing ? label + "(삭제됨)" : label;
 		}
@@ -244,16 +250,141 @@ public final class LunaStats {
 		}
 	}
 
+	/** 49-616차: 차원 id → 맵 이름(이름공간 떼고, 끝의 "_숫자" 채널 번호 뗌): minecraft:mine2_2 → mine2, superiorworld → superiorworld. */
+	private static String mapBase(String dim) {
+		String p = dim.indexOf(':') >= 0 ? dim.substring(dim.indexOf(':') + 1) : dim;
+		String b = sanitizeKey(p).replaceAll("_\\d+$", "");
+		if (b.startsWith("superiorworld")) {
+			return "superiorworld";   // 섬(채널마다 superiorworld, superiorworld_nether 같은 것도 섬으로)
+		}
+		return b.isEmpty() ? sanitizeKey(p) : b;
+	}
+
+	private static final java.util.Set<String> MIGRATED = new java.util.HashSet<>();
+
+	/**
+	 * 49-616차: 예전 월드 기록 파일("&lt;이름공간&gt;_&lt;차원&gt;-&lt;시드 지문&gt;.json", 채널마다 따로)을 맵 하나("m_&lt;맵&gt;.json")로 합친다.
+	 * 서버마다 한 번(게임 실행 중). 합친 뒤 옛 파일은 지운다. 이름을 바꿔 둔 것이 있으면 그 이름을 쓴다.
+	 */
+	private static synchronized void migrateSubs(String serverKey) {
+		if (serverKey == null || !MIGRATED.add(serverKey)) {
+			return;
+		}
+		try {
+			Path d = subDir(serverKey);
+			if (!Files.isDirectory(d)) {
+				return;
+			}
+			List<Path> old = new ArrayList<>();
+			try (java.util.stream.Stream<Path> files = Files.list(d)) {
+				for (Path f : files.toList()) {
+					String n = f.getFileName().toString();
+					if (n.endsWith(".json") && !n.startsWith("m_")) {
+						old.add(f);
+					}
+				}
+			}
+			if (old.isEmpty()) {
+				return;
+			}
+			if (sub != null && subKey != null && subKey.startsWith("sub:" + serverKey + "/") && !subKey.contains("/m_")) {
+				saveNow();
+				sub = null;   // 옛 이름으로 들고 있던 것 - 합친 뒤 다시 읽는다
+				subKey = null;
+			}
+			Map<String, Scope> merged = new LinkedHashMap<>();
+			for (Path f : old) {
+				String n = f.getFileName().toString();
+				n = n.substring(0, n.length() - 5);
+				int dash = n.lastIndexOf('-');
+				String dim = dash > 0 ? n.substring(0, dash) : n;
+				if (dim.startsWith("minecraft_")) {
+					dim = dim.substring("minecraft_".length());
+				}
+				String base = mapBase(dim);
+				Scope from = loadScope(f, "old", subLabel(dim, serverKey));
+				Scope to = merged.get(base);
+				if (to == null) {
+					String key = "sub:" + serverKey + "/m_" + base;
+					to = loadScope(subFile(key), key, subLabel(base, serverKey));
+					merged.put(base, to);
+				}
+				String def = subLabel(dim);
+				boolean renamed = from.label != null && !autoLabel(from.label, base) && !from.label.equals(def) && !from.label.equals(subLabel(base))
+						&& !from.label.equals(dim) && !from.label.equals(base) && !from.label.startsWith("superiorworld") && !from.label.equals("오버월드");
+				addInto(from, to);
+				if (renamed && autoLabel(to.label, base)) {
+					to.label = from.label;
+				}
+			}
+			for (Map.Entry<String, Scope> e : merged.entrySet()) {
+				Path f = subFile("sub:" + serverKey + "/m_" + e.getKey());
+				Files.createDirectories(f.getParent());
+				write(f, writeScope(e.getValue()));
+			}
+			for (Path f : old) {
+				Files.deleteIfExists(f);
+			}
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 통계: 월드 기록 {}개를 맵 {}개로 합침({})", old.size(), merged.size(), serverKey);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("stats:migrateSubs", t);
+		}
+	}
+
 	/** 처음 보는 월드의 이름: 기본 세 차원은 한글로, 플러그인 월드는 그 이름 그대로. */
 	private static String subLabel(String dim) {
+		return subLabel(dim, null);
+	}
+
+	/**
+	 * 49-618차(사용자: "dg1~20은 던전 1~20, cowlq_mud는 갯벌섬, orcoasis는 수확섬, cowlq_sea는 해양섬, 아마 정육섬도, mcng는 너굴마을,
+	 * mine_diamond는 다이아몬드 광맥, mine은 광산, 오버월드는 너굴마을 입장 서버"): 너굴마을 맵 이름을 한글로.
+	 */
+	private static String subLabel(String dim, String server) {
 		String p = dim.indexOf(':') >= 0 ? dim.substring(dim.indexOf(':') + 1) : dim;
+		boolean ng = server != null && server.toLowerCase(Locale.ROOT).contains("mcng");
+		if (ng) {
+			if (p.equals("overworld")) {
+				return "입장 서버";
+			}
+			java.util.regex.Matcher dg = java.util.regex.Pattern.compile("^dg(\\d+)$").matcher(p);
+			if (dg.find()) {
+				return "던전 " + Integer.parseInt(dg.group(1));
+			}
+			if (p.contains("mud")) {
+				return "갯벌섬";
+			}
+			if (p.contains("sea") || p.contains("ocean")) {
+				return "해양섬";
+			}
+			if (p.contains("meat")) {
+				return "정육섬";
+			}
+			if (p.contains("oasis") || p.contains("harvest")) {
+				return "수확섬";
+			}
+			if (p.equals("mine")) {
+				return "광산";
+			}
+		}
 		return switch (p) {
 			case "overworld" -> "오버월드";
 			case "the_nether" -> "네더";
 			case "the_end" -> "엔드";
-			default -> p;
+			case "superiorworld" -> "섬";
+			case "mine1" -> "일반 광산";
+			case "mine2" -> "고급 광산";
+			case "mine_diamond" -> "다이아몬드 광맥";
+			default -> p.startsWith("superiorworld") ? "섬" : p;
 		};
 	}
+
+	/** 49-618차: 저장된 이름이 자동으로 붙인 이름(바꾼 적 없음)이면 true - 새 한글 이름으로 바꿔도 된다. */
+	private static boolean autoLabel(String label, String base) {
+		return label == null || label.isEmpty() || label.equals(base) || label.equals(subLabel(base)) || label.startsWith("superiorworld")
+				|| label.equals("오버월드") || label.equals("sub:") || label.startsWith("sub:");
+	}
+
 
 	/**
 	 * 49-32차: 서버는 주소, 싱글은 세이브 폴더로 파일 이름을 만든다.
@@ -561,6 +692,25 @@ public final class LunaStats {
 		}
 	}
 
+	/**
+	 * 49-617차(사용자: "광물 창고에 들어오는 템들 로그 따서 통계에 따로, 얼마나 많은 광물 캤는지"): 너굴 광물 획득(NeogulMineModule)이
+	 * 창고에 넣은 만큼 부른다(창고가 꽉 차 인벤토리로 간 것은 음수로 되돌림). 전체, 서버, 맵 기록에 같이 쌓인다.
+	 */
+	public static void addOre(String name, long n) {
+		if (name == null || name.isEmpty() || n == 0) {
+			return;
+		}
+		ensureGlobal();
+		String mk = monthKey(System.currentTimeMillis());
+		each(s -> {
+			long v = Math.max(0, s.ores.getOrDefault(name, 0L) + n);
+			s.ores.put(name, v);
+			long mv = Math.max(0, s.oreMonths.getOrDefault(mk, 0L) + n);
+			s.oreMonths.put(mk, mv);
+		});
+		dirty = true;
+	}
+
 	/** 49-582차: 월드(차원, 벨로시티 뒤 서버)가 바뀌었으면 그 월드 기록으로 갈아 끼운다. */
 	private static void trackSubWorld(Minecraft client) {
 		if (world == null || worldKey == null) {
@@ -571,9 +721,18 @@ public final class LunaStats {
 			return;
 		}
 		long seed = Long.parseLong(id[1]);
-		String fp = fingerprint(id[0] + "|" + seed);
-		String full = "sub:" + worldKey + "/" + sanitizeKey(id[0].replace(':', '_')) + "-" + fp;
+		// 49-616차(사용자 사진: mine2_2 1 / mine2_2 2, superiorworld 2 / 3, mine1_1 / mine1_5, 오버월드 1~5 - "숫자만 다른 같은 맵은 뭉쳐서 계산"):
+		// 시드(벨로시티 뒤 다른 채널)는 더 이상 가르지 않고, 차원 이름 끝의 "_숫자"(채널 번호)도 떼서 같은 맵으로 모은다.
+		migrateSubs(worldKey);
+		String base = mapBase(id[0]);
+		String full = "sub:" + worldKey + "/m_" + base;
 		if (full.equals(subKey)) {
+			if (subSeed != Long.MIN_VALUE && subSeed != seed) {
+				VANILLA_BASE.clear();   // 같은 맵의 다른 채널로 옮겨 감 - 바닐라 통계 기준점만 새로
+				PENDING.clear();
+				invBaseline = null;
+				subSeed = seed;
+			}
 			return;
 		}
 		saveNow();
@@ -585,7 +744,10 @@ public final class LunaStats {
 		}
 		subSeed = seed;
 		subKey = full;
-		sub = loadScope(subFile(full), full, subLabel(id[0]));
+		sub = loadScope(subFile(full), full, subLabel(base, worldKey));
+		if (autoLabel(sub.label, base)) {
+			sub.label = subLabel(base, worldKey);   // 49-618차
+		}
 		sub.parent = worldKey;
 		sub.folder = "";
 		sub.sessions++;
@@ -1618,10 +1780,23 @@ public final class LunaStats {
 	/** 화면이 없을 때 가방(인벤 + 갑옷 + 왼손) 개수가 늘면 "얻음". 화면이 열려 있는 동안은 기준만 다시 잡는다(상자에서 꺼냄, 제작 등). */
 	private static Map<String, Object[]> invBaseline;
 	private static int invChanged = Integer.MIN_VALUE;
+	/**
+	 * 49-618차(사용자: "다른 월드로 이동할 때 아이템 연결 때문에 인벤에 들어오는 것처럼 보일 때가 있는데 그런 건 계산하면 안 돼"): 월드(레벨)나
+	 * 플레이어가 바뀌면 서버가 가방을 다시 보내 주는 동안(6초) 늘어난 것은 얻음으로 안 센다. 한 번에 여러 종류(6가지 이상)가 같이 늘어도 다시 받은 것으로 본다.
+	 */
+	private static Object gainLevel, gainPlayer;
+	private static long gainQuietUntil;
 
 	private static void trackGains(Minecraft client) {
 		try {
 			var inv = client.player.getInventory();
+			long nowMs = System.currentTimeMillis();
+			if (client.level != gainLevel || client.player != gainPlayer) {
+				gainLevel = client.level;
+				gainPlayer = client.player;
+				gainQuietUntil = nowMs + 6000;
+				invBaseline = null;
+			}
 			boolean screen = LunaCompat.screenOf(client) != null;
 			boolean creative = client.player.isCreative();
 			int changed = inv.getTimesChanged();
@@ -1655,7 +1830,18 @@ public final class LunaStats {
 			}
 			Map<String, Object[]> before = invBaseline;
 			invBaseline = now;
-			if (before == null || screen || creative) {
+			if (before == null || screen || creative || nowMs < gainQuietUntil) {
+				return;
+			}
+			int kindsUp = 0;
+			for (Map.Entry<String, Object[]> e : now.entrySet()) {
+				Object[] b = before.get(e.getKey());
+				if ((Integer) e.getValue()[1] > (b == null ? 0 : (Integer) b[1])) {
+					kindsUp++;
+				}
+			}
+			if (kindsUp >= 6) {
+				gainQuietUntil = nowMs + 3000;   // 가방을 통째로 다시 받음(월드 이동) - 얻음 아님
 				return;
 			}
 			for (Map.Entry<String, Object[]> e : now.entrySet()) {
@@ -2254,6 +2440,8 @@ public final class LunaStats {
 		from.words.forEach((k, v) -> to.words.merge(k, v, Long::sum));
 		from.deathCauses.forEach((k, v) -> to.deathCauses.merge(k, v, Long::sum));
 		from.killTypes.forEach((k, v) -> to.killTypes.merge(k, v, Long::sum));
+		from.ores.forEach((k, v) -> to.ores.merge(k, v, Long::sum));
+		from.oreMonths.forEach((k, v) -> to.oreMonths.merge(k, v, Long::sum));
 		from.distance.forEach((k, v) -> to.distance.merge(k, v, Double::sum));
 		from.travelMs.forEach((k, v) -> to.travelMs.merge(k, v, Long::sum));
 		from.interactions.forEach((k, v) -> to.interactions.merge(k, v, Long::sum));
@@ -2303,6 +2491,8 @@ public final class LunaStats {
 		subLong(from.words, to.words);
 		subLong(from.deathCauses, to.deathCauses);
 		subLong(from.killTypes, to.killTypes);
+		subLong(from.ores, to.ores);
+		subLong(from.oreMonths, to.oreMonths);
 		subLong(from.travelMs, to.travelMs);
 		subLong(from.interactions, to.interactions);
 		from.distance.forEach((k, v) -> {
@@ -2397,6 +2587,10 @@ public final class LunaStats {
 		to.deathCauses.putAll(from.deathCauses);
 		to.killTypes.clear();
 		to.killTypes.putAll(from.killTypes);
+		to.ores.clear();
+		to.ores.putAll(from.ores);
+		to.oreMonths.clear();
+		to.oreMonths.putAll(from.oreMonths);
 		to.distance.clear();
 		to.distance.putAll(from.distance);
 		to.travelMs.clear();
@@ -2486,6 +2680,8 @@ public final class LunaStats {
 			}
 		}
 		readLongMap(o, "killTypes", s.killTypes);
+		readLongMap(o, "ores", s.ores);
+		readLongMap(o, "oreMonths", s.oreMonths);
 		dropNonLivingKills(s);
 		readDoubleMap(o, "distance", s.distance);
 		readLongMap(o, "travelMs", s.travelMs);
@@ -2605,6 +2801,8 @@ public final class LunaStats {
 		}
 		o.add("months", months);
 		o.add("killTypes", longMap(s.killTypes));
+		o.add("ores", longMap(s.ores));
+		o.add("oreMonths", longMap(s.oreMonths));
 		JsonObject dist = new JsonObject();
 		for (Map.Entry<String, Double> e : s.distance.entrySet()) {
 			dist.addProperty(e.getKey(), e.getValue());
@@ -2683,6 +2881,7 @@ public final class LunaStats {
 		if (serverKey == null || serverKey.isEmpty() || serverKey.startsWith("sub:")) {
 			return out;
 		}
+		migrateSubs(serverKey);   // 49-616차
 		try {
 			Path d = subDir(serverKey);
 			if (!Files.isDirectory(d)) {
@@ -2696,6 +2895,12 @@ public final class LunaStats {
 					}
 					String key = "sub:" + serverKey + "/" + name.substring(0, name.length() - 5);
 					Scope s = sub != null && key.equals(subKey) ? sub : loadScope(p, key, key);
+					if (name.startsWith("m_")) {
+						String base = name.substring(2, name.length() - 5);
+						if (autoLabel(s.label, base)) {
+							s.label = subLabel(base, serverKey);   // 49-618차: 예전 이름(dg2, orcoasis …) → 한글
+						}
+					}
 					s.parent = serverKey;
 					out.add(s);
 				}

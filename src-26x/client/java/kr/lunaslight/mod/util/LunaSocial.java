@@ -214,6 +214,19 @@ public final class LunaSocial {
 				}
 			} catch (Throwable ignored) {
 			}
+			// 49-619차: 너굴라이언트(너굴마을 전용 런처)로 켰나, 런처가 끈 기능(features.relogin, reconnect)
+			nugulient = "Nugulient".equalsIgnoreCase(str(o, "launcher"));
+			if (o.has("features") && o.get("features").isJsonObject()) {
+				JsonObject ft = o.getAsJsonObject("features");
+				try {
+					featureRelogin = !ft.has("relogin") || ft.get("relogin").getAsBoolean();
+					featureReconnect = !ft.has("reconnect") || ft.get("reconnect").getAsBoolean();
+				} catch (Throwable ignored) {
+				}
+			}
+			if (nugulient) {
+				LunaTheme.setSkinOff(true);   // 인게임 UI(화면 스킨) 안 씀
+			}
 			launcherVersion = str(o, "launcherVersion");
 			// 49-213차: 처음 설정 - 고른 값을 남길 런처 폴더 파일, 설정을 마친 뒤 들어갈 서버(런처가 바로 접속하지 않고 넘겨 줌)
 			setupPrefsPath = str(o, "setupPrefsPath");
@@ -1256,6 +1269,10 @@ public final class LunaSocial {
 	 */
 	public static volatile String cosmeticColorName;
 	public static volatile String cosmeticThemeName;
+	/** 49-619차: 너굴라이언트로 켰나(launcher = "Nugulient"). 인게임 UI, 코스메틱, 처음 설정, 잉걸불 개수를 뺀다. */
+	public static volatile boolean nugulient;
+	/** 49-619차: 런처가 허락한 기능(없으면 켜짐). 너굴라이언트는 둘 다 false. */
+	public static volatile boolean featureRelogin = true, featureReconnect = true;
 
 	private static long lastPresenceNanos;
 	private static String lastPresenceServer = "\u0000";
@@ -1536,6 +1553,9 @@ public final class LunaSocial {
 	public static String switchAccount(Minecraft client, Account account) {
 		if (client == null || account == null) {
 			return "계정 정보가 없습니다";
+		}
+		if (nugulient) {
+			return "너굴라이언트에서는 계정을 바꿀 수 없어요";   // 49-624차: 안전장치(화면에서도 뺐지만 다른 길로 불려도)
 		}
 		if (client.level != null) {
 			return "서버나 월드에서 나온 뒤에 바꿀 수 있습니다";

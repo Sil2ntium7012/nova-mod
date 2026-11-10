@@ -102,6 +102,13 @@ public class LunaPauseScreen extends LunaScreenBase {
 		// 49-67차(4-20): 찍은 스크린샷을 게임 안에서 바로 넘겨 본다(알트탭 없이)
 		topEntries.add(new IconEntry(LunaIcons.IMAGE, "스크린샷",
 			() -> kr.lunaslight.mod.util.LunaCompat.setScreen(new LunaScreenshotScreen(this))));
+		// 49-624차(사용자: "마크 설정 창 보기 오른쪽 위에 추가 - 마크 기본 ESC 보이는 거"): 바닐라 일시정지 화면을 그대로 연다
+		if (vanillaMenu != null) {
+			topEntries.add(new IconEntry(LunaIcons.LAYOUT, "마크 기본 메뉴", () -> {
+				LunaCompat.vanillaPauseOk = vanillaMenu;
+				kr.lunaslight.mod.util.LunaCompat.setScreen(vanillaMenu);
+			}));
+		}
 		if (LunaCompat.isSinglePlayer(this.minecraft)) {
 			// 49-464차(사용자: "우리 랜 서버 버튼이 안 눌린다는데"): 26.3에는 ShareToLanScreen이 없다 - 바닐라 일시정지 화면도 "월드 설정"
 			// (WorldOptionsScreen(Screen, Level), 안에 LAN 열기/포트)으로 바뀌었다. 예전 화면이 없으면 그 화면을 연다.

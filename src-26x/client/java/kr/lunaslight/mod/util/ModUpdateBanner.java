@@ -58,10 +58,13 @@ public final class ModUpdateBanner {
 	}
 
 	public static boolean outdated() {
-		return outdated;
+		return outdated && !LunaSocial.nugulient;   // 49-622차: 너굴라이언트는 런처가 모드를 바꿔 끼움 - 알림 안 띄움
 	}
 
 	private static void poll() {
+		if (LunaSocial.nugulient) {
+			return;
+		}
 		long now = System.currentTimeMillis();
 		if (busy || now - startedAt < FIRST_MS || (lastCheck != 0 && now - lastCheck < EVERY_MS)) {
 			return;

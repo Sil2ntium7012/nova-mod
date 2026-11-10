@@ -64,6 +64,43 @@ public class NewFeatureScreen extends LunaScreenBase {
 	private int page;
 	private int[] prevBtn, nextBtn, rowBox;
 
+	private static final net.minecraft.resources.Identifier GRASS_SIDE = net.minecraft.resources.Identifier.withDefaultNamespace("textures/block/grass_block_side.png");
+	private static final net.minecraft.resources.Identifier DIRT = net.minecraft.resources.Identifier.withDefaultNamespace("textures/block/dirt.png");
+	private static final net.minecraft.resources.Identifier STONE = net.minecraft.resources.Identifier.withDefaultNamespace("textures/block/stone.png");
+
+	private static void tile(GuiGraphicsExtractor ctx, net.minecraft.resources.Identifier tex, int x, int y, int w, int h) {
+		for (int ty = y; ty < y + h; ty += 16) {
+			for (int tx = x; tx < x + w; tx += 16) {
+				ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex, tx, ty, 0f, 0f, 16, 16, 16, 16);
+			}
+		}
+	}
+
+	/**
+	 * 49-612차(사용자: "새 기능 추가됐다고 알려 줄 때 인게임처럼 보이게, 그림 이상해"): 파란 그라데이션 판 대신 게임 화면처럼 -
+	 * 하늘 + 잔디/흙 블록(grass), 광산 돌벽(stone). 바닐라 블록 그림(리소스팩 따라감)을 깔고 살짝 어둡게.
+	 */
+	private static void drawScene(GuiGraphicsExtractor ctx, String scene, int x, int y, int w, int h) {
+		try {
+			if ("stone".equals(scene)) {
+				tile(ctx, STONE, x, y, w, h);
+				ctx.fillGradient(x, y, x + w, y + h, 0x60000000, 0x90000000);
+				return;
+			}
+			if ("none".equals(scene)) {
+				ctx.fill(x, y, x + w, y + h, 0xFF1C2430);
+				return;
+			}
+			int ground = y + h - 26;
+			ctx.fillGradient(x, y, x + w, ground, 0xFF7BA4F0, 0xFFB5D0F7);
+			tile(ctx, GRASS_SIDE, x, ground, w, 16);
+			tile(ctx, DIRT, x, ground + 16, w, h - 26);
+			ctx.fill(x, y, x + w, y + h, 0x38000000);
+		} catch (Throwable t) {
+			ctx.fillGradient(x, y, x + w, y + h, 0xFF3A4A5E, 0xFF1C2430);
+		}
+	}
+
 	private void draw(GuiGraphicsExtractor ctx, int mx, int my) {
 		Minecraft mc = Minecraft.getInstance();
 		ctx.fill(0, 0, width, height, 0xA0000000);
@@ -88,8 +125,8 @@ public class NewFeatureScreen extends LunaScreenBase {
 		LunaDraw.toggle(ctx, x + w - 44, ry + 8, 28, 14, on[page] ? 1f : 0f, true);
 		if (prev) {
 			int px = x + 14, py = ry + 32, pw = w - 28;
-			ctx.fillGradient(px, py, px + pw, py + PREV_H, 0xFF3A4A5E, 0xFF1C2430);
 			ctx.enableScissor(px, py, px + pw, py + PREV_H);
+			drawScene(ctx, m.newFeatureScene(), px, py, pw, PREV_H);
 			try {
 				m.drawNewFeaturePreview(ctx, px, py, pw, PREV_H);
 			} catch (Throwable t) {

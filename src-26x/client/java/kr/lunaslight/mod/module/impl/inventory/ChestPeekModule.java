@@ -41,14 +41,14 @@ public class ChestPeekModule extends Module {
 	private static final int ROWS = 3;
 
 	// SAO 느낌: 흰 반투명 창, 회색 글자, 주황 포인트
-	private static final int C_BODY = 0xF0F2F2F2;
+	private static final int C_BODY = 0xFFF2F2F2;
 	private static final int C_HEAD = 0xFFFFFFFF;
 	private static final int C_EDGE = 0xFFB4B4B4;
 	private static final int C_SEP = 0xFFD2D2D2;
 	private static final int C_TITLE = 0xFF3A3A3A;
 	private static final int C_SUB = 0xFF8A8A8A;
 	private static final int C_ACCENT = 0xFFF2A534;
-	private static final int C_CELL = 0x40000000;
+	private static final int C_CELL = 0x1C000000;
 	private static final int C_LINE = 0xFFFFFFFF;
 
 	/** 이번 틱에 조준한 보관함(없으면 null). */
@@ -296,13 +296,15 @@ public class ChestPeekModule extends Module {
 		ctx.enableScissor(px - 2, cyMid - half, px + pw + 2, cyMid + half + 1);
 		try {
 			float pa = Math.min(1f, panelK * 1.6f);
-			LunaDraw.roundRect(ctx, px - 1, py - 1, pw + 2, ph + 2, 4, alpha(0x38000000, pa));
-			LunaDraw.roundRect(ctx, px, py, pw, ph, 3, alpha(C_BODY, pa));
-			LunaDraw.roundRectTop(ctx, px, py, pw, HEADER, 3, alpha(C_HEAD, pa));
-			ctx.fill(px + 2, py + HEADER, px + pw - 2, py + HEADER + 1, alpha(C_SEP, pa));
-			LunaDraw.roundRectOutline(ctx, px, py, pw, ph, 3, alpha(C_EDGE, pa));
-			// 창 쪽 연결점
-			ctx.fill(s > 0 ? px - 1 : px + pw - 1, (int) Math.round(ey) - 2, s > 0 ? px + 2 : px + pw + 1, (int) Math.round(ey) + 2, alpha(C_ACCENT, pa));
+			// 49-622차(사용자: "상자 정보창 테두리 마감 좀 더 깨끗하게"): 반투명 판 위에 반투명 그림자, 계단 외곽선이 겹쳐 모서리가 지저분했다 -
+			// 아래로만 떨어지는 그림자, 꽉 찬 테두리 판, 그 안 1px 안쪽에 불투명 속과 머리(같은 둥글기 한 단계 작게)로 겹침 없이.
+			LunaDraw.roundRect(ctx, px, py + 2, pw, ph, 3, alpha(0x2A000000, pa));
+			LunaDraw.roundRect(ctx, px, py, pw, ph, 3, alpha(C_EDGE, pa));
+			LunaDraw.roundRect(ctx, px + 1, py + 1, pw - 2, ph - 2, 2, alpha(C_BODY, pa));
+			LunaDraw.roundRectTop(ctx, px + 1, py + 1, pw - 2, HEADER - 1, 2, alpha(C_HEAD, pa));
+			ctx.fill(px + 1, py + HEADER, px + pw - 1, py + HEADER + 1, alpha(C_SEP, pa));
+			// 창 쪽 연결점(테두리 안쪽에 딱 붙게)
+			ctx.fill(s > 0 ? px : px + pw - 2, (int) Math.round(ey) - 2, s > 0 ? px + 2 : px + pw, (int) Math.round(ey) + 2, alpha(C_ACCENT, pa));
 			// 제목줄
 			ctx.fill(px + PAD, py + 4, px + PAD + 2, py + HEADER - 3, alpha(C_ACCENT, pa));
 			int ty = LunaDraw.textY(py, HEADER);
@@ -323,7 +325,7 @@ public class ChestPeekModule extends Module {
 				int count = overflow ? Math.min(max - 1, c.stacks.size()) : Math.min(max, c.stacks.size());
 				for (int i = 0; i < count; i++) {
 					int cx = gx + (i % COLS) * CELL + 1, cy = gy + (i / COLS) * CELL + 1;
-					ctx.fill(cx - 1, cy - 1, cx + 17, cy + 17, alpha(C_CELL, pa));
+					LunaDraw.roundRect(ctx, cx - 1, cy - 1, 18, 18, 2, alpha(C_CELL, pa));
 					if (pa > 0.6f) {
 						ctx.item(c.stacks.get(i), cx, cy);
 						drawCount(ctx, c.counts.get(i), cx, cy);
@@ -332,7 +334,7 @@ public class ChestPeekModule extends Module {
 				if (overflow) {
 					int rest = c.stacks.size() - count + c.more;
 					int cx = gx + (count % COLS) * CELL + 1, cy = gy + (count / COLS) * CELL + 1;
-					ctx.fill(cx - 1, cy - 1, cx + 17, cy + 17, alpha(C_CELL, pa));
+					LunaDraw.roundRect(ctx, cx - 1, cy - 1, 18, 18, 2, alpha(C_CELL, pa));
 					String tx = "+" + rest;
 					LunaDraw.text(ctx, font, tx, cx + 8 - LunaDraw.width(font, tx) / 2, cy + 4, alpha(C_TITLE, pa));
 				}

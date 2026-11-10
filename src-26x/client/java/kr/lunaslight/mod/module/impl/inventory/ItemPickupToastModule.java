@@ -9,6 +9,7 @@ import kr.lunaslight.mod.module.setting.IntSetting;
 import kr.lunaslight.mod.module.setting.PositionSetting;
 import kr.lunaslight.mod.util.LunaCompat;
 import kr.lunaslight.mod.util.LunaTheme;
+import kr.lunaslight.mod.gui.LunaDraw;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.Item;
@@ -57,6 +58,11 @@ public class ItemPickupToastModule extends Module {
 
 	private static class Toast {
 		ItemStack icon;
+		/** 49-608차: 보일 이름(없으면 아이콘 이름)과 강조(너굴 광산 보석). */
+		String name;
+		boolean hl;
+		/** 49-612차: 다른 기능이 넣은 것(너굴 광산). */
+		boolean ext;
 		int amount;
 		int total;
 		long lastMs;
@@ -96,10 +102,12 @@ public class ItemPickupToastModule extends Module {
 	private final Map<Key, long[]> pendingGain = new HashMap<>();
 	private static final long GAIN_DELAY_MS = 400L;
 	private Object lastPlayer = null;
+	private Object lastLevel = null;
 	private long graceUntilMs = 0;
 
 	public ItemPickupToastModule() {
 		super("item_pickup_toast", "아이템 획득", ModuleCategory.HUD, "주운 아이템을 핫바 옆에 표시");
+		instance = this;
 		showTotal.withColor(countColor); // 49-23차: 1줄 통합
 		// 49-179차(사용자: "아이템 획득 그리는 거 없애주고, 변경 불가능한 거는 배경 모양 설정이 따로 있으면 안되지"):
 		// 이 기능은 자기 모양(화살 막대 + 회색 판)이 정해져 있어 배경/배경 모양/배경 그리기 설정을 두지 않는다.
@@ -176,12 +184,14 @@ public class ItemPickupToastModule extends Module {
 			lastPlayer = null;
 			return;
 		}
-		if (client.player != lastPlayer) {
+		if (client.player != lastPlayer || client.level != lastLevel) {
+			// 49-618차: 월드 이동(레벨이 바뀜)도 - 서버가 가방을 다시 보내는 동안은 줍기로 안 띄운다
 			lastPlayer = client.player;
+			lastLevel = client.level;
 			lastCounts = null;
 			lastArmor = new HashMap<>();
 			pendingGain.clear();
-			graceUntilMs = now + 2000;
+			graceUntilMs = now + 5000;
 		}
 		Map<Key, Integer> counts = countInventory();
 		Map<Key, Integer> armor = countArmor();
@@ -261,9 +271,92 @@ public class ItemPickupToastModule extends Module {
 		}
 	}
 
+	private static ItemPickupToastModule instance;
+
+	public static boolean on() {
+		ItemPickupToastModule m = instance;
+		return m != null && m.isEnabled();
+	}
+
+	/**
+	 * 49-608차: 인벤토리를 거치지 않고 얻은 것(너굴 광산: 바로 광물 창고로)을 띄운다. total이 음수면 보유 개수를 안 쓴다.
+	 * 켜져 있지 않으면 false.
+	 */
+	public static boolean addExternal(ItemStack icon, String name, int gained, int total, boolean highlight) {
+		ItemPickupToastModule m = instance;
+		if (m == null || !m.isEnabled() || icon == null || icon.isEmpty() || gained <= 0) {
+			return false;
+		}
+		long now = System.currentTimeMillis();
+		// 49-612차(사용자 사진: 광물 창고가 꽉 차서 인벤토리로 들어왔는데 창고 쪽 줄도 같이 뜸): 방금 인벤토리로 같은 이름이 들어왔으면 그쪽이 맞다
+		for (Toast t : m.toasts) {
+			if (!t.ext && now - t.lastMs < 1500 && sameName(nameOf(t), name)) {
+				return false;
+			}
+		}
+		for (Toast t : m.toasts) {
+			if (name != null && name.equals(t.name)) {
+				t.amount += gained;
+				t.total = total;
+				t.lastMs = now;
+				t.hl |= highlight;
+				return true;
+			}
+		}
+		Toast t = new Toast();
+		t.icon = icon.copy();
+		t.icon.setCount(1);
+		t.name = name;
+		t.hl = highlight;
+		t.ext = true;
+		t.amount = gained;
+		t.total = total;
+		t.firstMs = now;
+		t.lastMs = now;
+		m.toasts.add(t);
+		while (m.toasts.size() > MAX_ROWS) {
+			m.toasts.remove(0);
+		}
+		return true;
+	}
+
+	/** 인벤토리로 들어온 것이 방금 띄운 다른 기능 줄과 같은 것이었을 때(이름, 그 줄 개수) - 그 기능이 센 것을 되돌리게. */
+	public static volatile java.util.function.BiConsumer<String, Integer> externalOverflow;
+
+	private static String plainName(String s) {
+		StringBuilder sb = new StringBuilder();
+		(s == null ? "" : s).codePoints().filter(cp -> !((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000 || (cp >= 0xA000 && cp <= 0xA4CF)))
+				.forEach(sb::appendCodePoint);
+		return sb.toString().replaceAll("\\[[^\\]]*\\]", "").replaceAll("\\s+", " ").trim();
+	}
+
+	private static boolean sameName(String a, String b) {
+		String x = plainName(a), y = plainName(b);
+		return !x.isEmpty() && x.equals(y);
+	}
+
+	private static String nameOf(Toast t) {
+		return t.name != null ? t.name : t.icon.getHoverName().getString();
+	}
+
 	private void addToast(Key key, int gained, int total, long now) {
+		// 49-612차: 같은 이름을 다른 기능(너굴 광산)이 방금 띄웠으면 그건 창고가 아니라 인벤토리로 들어온 것 - 그 줄을 지우고 알린다
+		for (var it = toasts.iterator(); it.hasNext(); ) {
+			Toast t = it.next();
+			if (t.ext && now - t.lastMs < 1500 && sameName(nameOf(t), key.name())) {
+				it.remove();
+				var cb = externalOverflow;
+				if (cb != null) {
+					try {
+						cb.accept(t.name, t.amount);
+					} catch (Throwable ignored) {
+					}
+				}
+				break;
+			}
+		}
 		for (Toast t : toasts) {
-			if (keyOf(t.icon).equals(key)) {
+			if (t.name == null && keyOf(t.icon).equals(key)) {
 				t.amount += gained;
 				t.total = total;
 				t.lastMs = now;
@@ -314,6 +407,35 @@ public class ItemPickupToastModule extends Module {
 		if (list.isEmpty()) {
 			return;
 		}
+		drawList(context, list, isPreview(), -1, -1);
+	}
+
+	/**
+	 * 49-612차(사용자: "새 기능 알려 줄 때 인게임처럼 보이게, 그림 이상해"): 다른 기능의 미리보기가 진짜 아이템 획득 줄 모양을 그대로 쓰게.
+	 * rows = {아이콘 ItemStack, 이름, 개수, 보유(음수면 안 씀), 강조}. 오른쪽 끝(right)과 위(y)에 붙여 그린다.
+	 */
+	public static void drawSample(GuiGraphicsExtractor ctx, int right, int y, List<Object[]> rows) {
+		ItemPickupToastModule m = instance;
+		if (m == null) {
+			return;
+		}
+		List<Toast> list = new ArrayList<>();
+		for (Object[] r : rows) {
+			Toast t = new Toast();
+			t.icon = ((ItemStack) r[0]).copy();
+			t.icon.setCount(1);
+			t.name = (String) r[1];
+			t.amount = (Integer) r[2];
+			t.total = (Integer) r[3];
+			t.hl = (Boolean) r[4];
+			t.firstMs = 0;
+			t.lastMs = Long.MAX_VALUE / 2;
+			list.add(t);
+		}
+		m.drawList(ctx, list, true, right, y);
+	}
+
+	private void drawList(GuiGraphicsExtractor context, List<Toast> list, boolean preview, int fixedRight, int fixedY) {
 		long now = System.currentTimeMillis();
 		long life = displaySeconds.get() * 1000L;
 		int sw = client.getWindow().getGuiScaledWidth();
@@ -334,8 +456,8 @@ public class ItemPickupToastModule extends Module {
 		List<Integer> widths = new ArrayList<>();
 		int maxW = 0;
 		for (Toast t : list) {
-			String label = "×" + t.amount + " " + t.icon.getHoverName().getString();
-			String total = showTotal.get() ? Integer.toString(t.total) : "";
+			String label = "×" + t.amount + " " + nameOf(t);
+			String total = showTotal.get() && t.total >= 0 ? String.format("%,d", t.total) : "";
 			labels.add(label);
 			totals.add(total);
 			int w = point + PAD_L + LunaCompat.getTextWidth(client.font, label) + PAD_L + point + plateWidth(total);
@@ -344,8 +466,8 @@ public class ItemPickupToastModule extends Module {
 		}
 		int totalH = list.size() * ROW_H - (ROW_H - BAR_H);
 		HudPosition pos = position.get();
-		int x = pos.resolveX(sw, maxW);
-		int y = pos.resolveY(sh, totalH);
+		int x = fixedRight >= 0 ? fixedRight - maxW : pos.resolveX(sw, maxW);
+		int y = fixedY >= 0 ? fixedY : pos.resolveY(sh, totalH);
 		// 49-498차(사용자 사진: HUD 크기 0.55에서 "미리보기가 원래 위치랑 안 맞잖아"): 예전엔 오른쪽 앵커면 오른쪽 끝을 화면 끝(sw)에
 		// 붙였는데, 크기 배율은 상자 왼쪽 위(resolveX)를 축으로 걸려서 배율이 1이 아니면 줄이 상자 왼쪽 밖으로 밀렸다. 이제 늘 resolveX
 		// 상자 안 - 가로 이동 0이면 resolveX가 이미 벽에 붙여 준다.
@@ -356,8 +478,8 @@ public class ItemPickupToastModule extends Module {
 		for (int i = 0; i < list.size(); i++) {
 			Toast t = list.get(i);
 			int rowW = widths.get(i);
-			float in = isPreview() ? 1f : easeOut(Math.min(1f, (now - t.firstMs) / 260f));
-			float out = isPreview() ? 1f : easeOut(Math.min(1f, Math.max(0f, (life - (now - t.lastMs)) / 300f)));
+			float in = preview ? 1f : easeOut(Math.min(1f, (now - t.firstMs) / 260f));
+			float out = preview ? 1f : easeOut(Math.min(1f, Math.max(0f, (life - (now - t.lastMs)) / 300f)));
 			// 벽에서 나오는 만큼(1−in) + 벽으로 들어가는 만큼(1−out) 오른쪽으로 밀어 둔다
 			int slide = Math.round((1f - in) * rowW) + Math.round((1f - out) * rowW);
 			if (slide >= rowW) {
@@ -375,17 +497,21 @@ public class ItemPickupToastModule extends Module {
 			// ① 왼쪽 막대(회색 판의 뾰족한 끝 뒤까지)
 			drawLeftBar(context, rx, ry, plateX + point - rx, BAR_H, point, withAlpha(0x8C000000, a));
 			// ② 회색 판: 왼쪽 끝 볼록 화살 + 하이라이트
+			if (t.hl) {
+				// 49-608차: 너굴 광산 보석 - 막대 테두리를 금색으로
+				LunaDraw.roundRectBordered(context, rx - 1, ry - 1, plateX + point - rx + 2, BAR_H + 2, 2, 0x00000000, withAlpha(0xFFFFD36A, a));
+			}
 			drawPlate(context, plateX, ry, plateW, BAR_H, point,
-				withAlpha(0xFF3A3A3A, a), withAlpha(0xFF111111, a), withAlpha(LunaTheme.mix(accent, 0xFFC9CDD2, 0.55f), a));
+				withAlpha(t.hl ? 0xFF5A4720 : 0xFF3A3A3A, a), withAlpha(0xFF111111, a), withAlpha(t.hl ? 0xFFFFD36A : LunaTheme.mix(accent, 0xFFC9CDD2, 0.55f), a));
 
 			// 글자: "×N 이름"
 			int ty = ry + BAR_H / 2 - textMid;
 			int tx = rx + point + PAD_L;
 			String amountText = "×" + t.amount;
-			LunaCompat.drawHudText(context, client.font, amountText, tx, ty, withAlpha(0xFFD6DADE, a));
+			LunaCompat.drawHudText(context, client.font, amountText, tx, ty, withAlpha(t.hl ? 0xFFFFE7A3 : 0xFFD6DADE, a));
 			int nameX = tx + LunaCompat.getTextWidth(client.font, amountText + " ");
-			LunaCompat.drawHudText(context, client.font, t.icon.getHoverName().getString(), nameX, ty,
-				withAlpha(textColor.getArgb(), a));
+			LunaCompat.drawHudText(context, client.font, nameOf(t), nameX, ty,
+				withAlpha(t.hl ? 0xFFFFD36A : textColor.getArgb(), a));
 
 			// 아이콘: 판 안쪽, 세로 가운데
 			int ix = plateX + point + 4;

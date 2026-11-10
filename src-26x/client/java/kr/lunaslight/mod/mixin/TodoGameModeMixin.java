@@ -45,6 +45,7 @@ public abstract class TodoGameModeMixin {
 		if (Boolean.TRUE.equals(cir.getReturnValue()) && lunaslight$breaking != null) {
 			TodoList.onBreak(lunaslight$breaking);
 			kr.lunaslight.mod.util.NeogulScareRate.onBreak(lunaslight$breakState);
+			kr.lunaslight.mod.util.NeogulMineFeed.onBreak();   // 49-608차: 광산 획득 알림 구별
 		}
 		lunaslight$breaking = null;
 		lunaslight$breakState = null;

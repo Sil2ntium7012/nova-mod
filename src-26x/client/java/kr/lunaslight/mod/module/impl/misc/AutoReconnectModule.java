@@ -57,6 +57,17 @@ public class AutoReconnectModule extends Module {
 		"밴", "차단", "정지", "화이트리스트", "허용 목록", "등록되지"
 	};
 
+	/** 49-619차: 런처가 features.reconnect = false를 넘기면(너굴라이언트) 꺼지고 기능 목록에서도 숨는다. */
+	@Override
+	public boolean isEnabled() {
+		return kr.lunaslight.mod.util.LunaSocial.featureReconnect && super.isEnabled();
+	}
+
+	@Override
+	public boolean hiddenInList() {
+		return !kr.lunaslight.mod.util.LunaSocial.featureReconnect || super.hiddenInList();
+	}
+
 	public AutoReconnectModule() {
 		super("auto_reconnect", "자동 재접속", ModuleCategory.FEATURE, "튕기면 자동으로 다시 접속(너굴마을 제외)");
 

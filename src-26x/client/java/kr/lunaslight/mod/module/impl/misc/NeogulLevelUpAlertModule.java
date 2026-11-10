@@ -38,10 +38,21 @@ public class NeogulLevelUpAlertModule extends Module {
 	private volatile long shownAt;
 	private int pendingDing;
 
+	/** 49-621차(사용자: 너굴라이언트 - "레벨업 알림 삭제"): 너굴라이언트로 켰으면 없는 기능(목록에서도 빠짐). */
+	@Override
+	public boolean isEnabled() {
+		return !kr.lunaslight.mod.util.LunaSocial.nugulient && super.isEnabled();
+	}
+
+	@Override
+	public boolean hiddenInList() {
+		return kr.lunaslight.mod.util.LunaSocial.nugulient || super.hiddenInList();
+	}
+
 	public NeogulLevelUpAlertModule() {
 		super("neogul_levelup_alert", "레벨업 알림", ModuleCategory.SERVER, "레벨업 조건을 채우면 소리 + 타이틀");
 		serverGroup("너굴마을");
-		defaultEnabled(true);
+		defaultEnabled(!kr.lunaslight.mod.util.LunaSocial.nugulient);   // 49-620차(사용자: "너굴라이언트는 던전 비활성화 및 여러 개 비활성화, 유저 문의가 너무 많이 올 것 같아"): 너굴라이언트로 켜면 처음엔 꺼짐
 		ChatState.addPlainListener(this::onChat);
 	}
 

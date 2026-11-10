@@ -1271,7 +1271,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			for (Module m : ModuleManager.get().all()) {
 				// 49-61차: 격자에도 설정 페이지에도 안 실리는 모듈은 검색에도 안 나온다
 				// ("설정할 수 없어야 하는 것"이 검색으로만 열리면 숨긴 게 아니다).
-				if (m.hiddenInList() && m.getPage() == null) {
+				if ((m.hiddenInList() || m.removedHere()) && m.getPage() == null) {
 					continue;
 				}
 				// 49-170차: 영타(dlsqps)도 한글(인벤)로 본다 - LunaHangul
@@ -2113,6 +2113,10 @@ public class LunaClientScreen extends LunaScreenBase {
 		if (pagesCache == null) {
 			List<SettingsPage> list = new ArrayList<>();
 			for (SettingsPage p : SettingsPage.values()) {
+				// 49-619차(사용자: 너굴라이언트 - "인게임 UI 기능 삭제, 코스메틱 설정 부분 삭제"): 너굴라이언트로 켰으면 두 페이지를 안 띄운다
+				if (kr.lunaslight.mod.util.LunaSocial.nugulient && (p == SettingsPage.INGAME_UI || p == SettingsPage.COSMETICS)) {
+					continue;
+				}
 				if (!ModuleManager.get().byPage(p).isEmpty()) {
 					list.add(p);
 				}

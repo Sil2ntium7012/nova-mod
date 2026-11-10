@@ -39,7 +39,7 @@ public class NeogulSkillKeysModule extends Module {
 	public NeogulSkillKeysModule() {
 		super("neogul_skill_keys", "너굴 스킬 키", ModuleCategory.SERVER, "던전 스킬 키 세팅 | 따로 모드 없이 동작");
 		serverGroup("너굴마을");
-		defaultEnabled(true);
+		defaultEnabled(!kr.lunaslight.mod.util.LunaSocial.nugulient);   // 49-620차(사용자: "너굴라이언트는 던전 비활성화 및 여러 개 비활성화, 유저 문의가 너무 많이 올 것 같아"): 너굴라이언트로 켜면 처음엔 꺼짐
 		enableHudStyle(0xC80E1014, false, 0xB40B0C0E, Module.HudShape.FOLLOW);
 		for (int i = 0; i < 4; i++) {
 			skillKey[i] = register(new kr.lunaslight.mod.module.setting.KeybindSetting("skill_key_" + (i + 1), (i + 1) + "번 스킬 키 (" + NAMES[i] + ")",

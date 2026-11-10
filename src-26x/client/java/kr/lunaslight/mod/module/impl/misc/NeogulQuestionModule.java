@@ -249,6 +249,7 @@ public class NeogulQuestionModule extends Module {
 			focusKey = key;
 			focusText = text;
 			lastQuestionAt = now;
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 질문 알림: {} - {}", name, text);   // 49-610차: 알림이 안 보일 때 확인용
 			if (alert.get()) {
 				alertName = name;
 				alertText = text;
@@ -268,17 +269,23 @@ public class NeogulQuestionModule extends Module {
 	public void onHudRender(GuiGraphicsExtractor ctx, DeltaTracker tick) {
 		boolean preview = isPreview();
 		long age = preview ? 1000 : System.currentTimeMillis() - alertAt;
-		if (!preview && (alertAt == 0 || age > 4500 || !active())) {
+		if (!preview && (alertAt == 0 || age > 6000 || !active())) {
 			return;
 		}
 		String name = preview ? "cowin0301" : alertName;
 		String text = preview ? "룰렛 쿠폰은 어디서 쓰나요?" : alertText;
-		float a = age < 180 ? age / 180f : age > 3900 ? Math.max(0f, (4500 - age) / 600f) : 1f;
+		float a = age < 180 ? age / 180f : age > 5400 ? Math.max(0f, (6000 - age) / 600f) : 1f;
 		if (preview) {
 			drawAlert(ctx, previewCenterX(), previewCenterY() - 14, name, text, 1f);
 			return;
 		}
-		drawAlert(ctx, client.getWindow().getGuiScaledWidth() / 2, 28 - Math.round(6 * (1 - Math.min(1f, age / 180f))), name, text, a);
+		// 49-610차(사용자: "질문 올라올 때 알림이 안 와, 화면에"): 서버 HUD, 보스바보다 위 층에, 위쪽 HUD 줄 아래(화면 높이 18%)로 내리고 6초
+		try {
+			ctx.nextStratum();
+		} catch (Throwable ignored) {
+		}
+		int sh = client.getWindow().getGuiScaledHeight();
+		drawAlert(ctx, client.getWindow().getGuiScaledWidth() / 2, Math.max(40, Math.round(sh * 0.18f)) - Math.round(6 * (1 - Math.min(1f, age / 180f))), name, text, a);
 	}
 
 	private void drawAlert(GuiGraphicsExtractor ctx, int cx, int y, String name, String text, float alpha) {

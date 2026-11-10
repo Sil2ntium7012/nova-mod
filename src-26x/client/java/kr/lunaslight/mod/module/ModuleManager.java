@@ -190,6 +190,9 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScareRateModule");   // 49-572차: 허수아비 확률
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulQuestionModule");   // 49-589차: 질문 알림, 답변 고르기(관리자)
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulEmberModule");   // 49-606차: 섬에서 창고 잉걸불
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMineModule");   // 49-608차: 광산 광물 획득
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMinePeekModule");   // 49-613차: 광물 창고 미리보기
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMineWhereModule");   // 49-617차: 광산 위치
 			// 49-518차: 던전 UI를 만들려고 서버 HUD 글자(액션바, 보스바, 타이틀)를 기록(config/lunaslight/neogul-hud-probe.txt)
 			try {
 				kr.lunaslight.mod.util.NeogulHudProbe.init();
@@ -420,7 +423,7 @@ public final class ModuleManager {
 			// 49-32차: 목록에서 숨긴 것(글꼴 등)은 격자에 안 넣는다 - 설정 화면 아래 버튼으로만.
 			// 49-56차: [일반]·[UI]·[그래픽] 설정 페이지로 간 것도 기능 격자에서 뺀다(두 군데 나오면 안 됨).
 			if ((category == null || module.getCategory() == category)
-				&& !module.hiddenInList() && module.getPage() == null) {
+				&& !module.hiddenInList() && !module.removedHere() && module.getPage() == null) {
 				result.add(module);
 			}
 		}

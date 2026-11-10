@@ -39,7 +39,7 @@ public class NeogulScarecrowModule extends Module {
 	public NeogulScarecrowModule() {
 		super("neogul_scarecrow", "허수아비 알림", ModuleCategory.SERVER, "허수아비가 나타나면 소리 + 타이틀");
 		serverGroup("너굴마을");
-		defaultEnabled(true);
+		defaultEnabled(!kr.lunaslight.mod.util.LunaSocial.nugulient);   // 49-620차(사용자: "너굴라이언트는 던전 비활성화 및 여러 개 비활성화, 유저 문의가 너무 많이 올 것 같아"): 너굴라이언트로 켜면 처음엔 꺼짐
 		ChatState.addPlainListener(this::onChat);
 	}
 

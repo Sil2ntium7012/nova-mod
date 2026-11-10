@@ -71,9 +71,125 @@ public class CraftingHelperModule extends Module {
 	private int panelX, panelY, panelW, panelH, cols, rows;
 	private int searchX, searchY, searchW;
 	/** 목록 한 칸: 바로 만들 수 있으면 chain == null, 중간 단계가 필요하면 chain != null. */
-	private record Item(LunaRecipes.Entry entry, LunaRecipes.Chain chain) {
+	private record Item(LunaRecipes.Entry entry, LunaRecipes.Chain chain, NgRecipe ng) {
 		ItemStack result() {
-			return entry.result();
+			return ng != null ? ng.icon() : entry.result();
+		}
+	}
+
+	/**
+	 * 49-609차(사용자 사진: 너굴마을 청동 / 은 주괴 / 금 주괴 설명 "제작대에 V자로 놓아 … 그릇을 제작할 수 있습니다", "재료 3개로 모두 접시 조합법
+	 * 오른쪽에 띄워 줘"): 서버 조합법이라 바닐라 조합법 목록에 없다. 너굴마을에서 재료(종이 아이템, 이름 그대로)가 3개 이상이면 목록 맨 앞에 넣고,
+	 * 누르면 V자(위 왼쪽, 위 오른쪽, 가운데)로 놓고 결과를 꺼낸다(Shift = 재료가 되는 만큼, 최대 64).
+	 */
+	private record NgRecipe(String outName, String inName, ItemStack icon, ItemStack inIcon, int have) {
+	}
+
+	private static final String[][] NG_RECIPES = {{"bronze_bowl", "청동 그릇", "청동"}, {"silver_bowl", "은 그릇", "은 주괴"}, {"gold_bowl", "금 그릇", "금 주괴"}};
+	private static final int[] V_SLOTS = {1, 3, 5};
+	private int ngWait;
+
+	private static String plainName(ItemStack st) {
+		StringBuilder sb = new StringBuilder();
+		st.getHoverName().getString().codePoints().filter(cp -> !((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000 || (cp >= 0xA000 && cp <= 0xA4CF)))
+				.forEach(sb::appendCodePoint);
+		return sb.toString().replaceAll("\\s+", " ").trim();
+	}
+
+	/** 너굴 재료인가(서버 재료는 종이에 이름만 바꾼 것 - 바닐라 금 주괴와 헷갈리지 않게). */
+	private static boolean ngMaterial(ItemStack st, String name) {
+		return st != null && !st.isEmpty() && st.getItem() == net.minecraft.world.item.Items.PAPER && plainName(st).equals(name);
+	}
+
+	private List<Item> neogulRecipes() {
+		List<Item> out = new ArrayList<>();
+		try {
+			if (!kr.lunaslight.mod.util.NeogulData.onNeogul(client)) {
+				return out;
+			}
+			var inv = client.player.getInventory();
+			for (String[] r : NG_RECIPES) {
+				int have = 0;
+				ItemStack inIcon = null;
+				for (int i = 0; i < 36; i++) {
+					ItemStack st = inv.getItem(i);
+					if (ngMaterial(st, r[2])) {
+						have += st.getCount();
+						if (inIcon == null) {
+							inIcon = st.copyWithCount(1);
+						}
+					}
+				}
+				if (have < 3) {
+					continue;
+				}
+				var e = kr.lunaslight.mod.util.NeogulData.get(r[0]);
+				ItemStack icon = e != null ? kr.lunaslight.mod.util.NeogulData.icon(e, 1) : new ItemStack(net.minecraft.world.item.Items.BOWL);
+				if (icon == null || icon.isEmpty()) {
+					icon = new ItemStack(net.minecraft.world.item.Items.BOWL);
+				}
+				out.add(new Item(null, null, new NgRecipe(r[1], r[2], icon, inIcon, have)));
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("craftingHelper:neogul", t);
+		}
+		return out;
+	}
+
+	private void click(int slot, int button, net.minecraft.world.inventory.ContainerInput type) {
+		client.gameMode.handleContainerInput(client.player.containerMenu.containerId, slot, button, type, client.player);
+	}
+
+	/** V자로 놓기: 칸마다 per개(Shift면 재료가 되는 만큼). 끝나면 결과를 기다렸다가 꺼낸다(onTick). */
+	private void craftNeogul(NgRecipe r, boolean shift) {
+		try {
+			var menu = client.player.containerMenu;
+			for (int i = 1; i <= 9; i++) {
+				if (!menu.getSlot(i).getItem().isEmpty()) {
+					cancelAutoCraft("격자를 비우고 눌러 주세요");
+					return;
+				}
+			}
+			List<Integer> src = new ArrayList<>();
+			int total = 0;
+			for (int i = 10; i < menu.slots.size(); i++) {
+				ItemStack st = menu.getSlot(i).getItem();
+				if (ngMaterial(st, r.inName())) {
+					src.add(i);
+					total += st.getCount();
+				}
+			}
+			int per = shift ? Math.min(64, total / 3) : 1;
+			if (per <= 0) {
+				cancelAutoCraft("재료가 모자랍니다");
+				return;
+			}
+			var PICK = net.minecraft.world.inventory.ContainerInput.PICKUP;
+			int si = 0, last = -1;
+			outer:
+			for (int t : V_SLOTS) {
+				while (menu.getSlot(t).getItem().getCount() < per) {
+					if (menu.getCarried().isEmpty()) {
+						if (si >= src.size()) {
+							break outer;
+						}
+						last = src.get(si++);
+						click(last, 0, PICK);   // 한 묶음 들기
+						if (menu.getCarried().isEmpty()) {
+							break outer;
+						}
+					}
+					click(t, 1, PICK);   // 하나 놓기
+				}
+			}
+			if (!menu.getCarried().isEmpty() && last >= 0) {
+				click(last, 0, PICK);   // 남은 것 되돌리기
+			}
+			ngWait = 60;
+			craftableAt = 0;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("craftingHelper:neogulCraft", t);
+			cancelAutoCraft("놓지 못해 멈췄습니다");
 		}
 	}
 	private List<Item> items = new ArrayList<>();
@@ -247,6 +363,17 @@ public class CraftingHelperModule extends Module {
 
 	@Override
 	public void onTick() {
+		if (client != null && ngWait > 0 && client.player != null) {
+			if (!panelActive(kr.lunaslight.mod.util.LunaCompat.screenOf(client))) {
+				ngWait = 0;
+			} else if (!outputStack().isEmpty()) {
+				quickMoveOutput();   // 놓은 만큼 한 번에 만들어 꺼낸다
+				ngWait = 0;
+				craftableAt = 0;
+			} else if (--ngWait == 0) {
+				cancelAutoCraft("서버가 결과를 주지 않았습니다");
+			}
+		}
 		if (client == null || !autoCrafting()) {
 			return;
 		}
@@ -496,6 +623,22 @@ public class CraftingHelperModule extends Module {
 			drawTooltip(ctx, hover, hoverX + CELL + 4, hoverY);
 		}
 
+		// 49-609차(사용자 사진: "설명이 뒤로 가는데 설명이 위로 가게"): 바닐라 칸 설명은 화면 그리기 끝에서 이미 그려져서 이 패널이 덮는다 -
+		// 패널 밖 칸에 마우스가 있으면 한 층 위에서 그 설명을 다시 그린다.
+		if (!LunaDraw.in(mouseX, mouseY, panelX, panelY, panelW, panelH) && screen instanceof kr.lunaslight.mod.mixin.ContainerScreenAccessorMixin acc
+				&& !holdingStack()) {
+			try {
+				net.minecraft.world.inventory.Slot hs = acc.lunaslight$hoveredSlot();
+				if (hs != null && hs.hasItem()) {
+					ctx.nextStratum();
+					ctx.setTooltipForNextFrame(client.font, hs.getItem(), mouseX, mouseY);
+					ctx.extractDeferredElements(mouseX, mouseY, 0f);
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("craftingHelper:tooltipTop", t);
+			}
+		}
+
 		// ---- 클릭(GLFW 폴링, 눌린 순간 한 번) ----
 		boolean down = client.getWindow() != null
 			&& kr.lunaslight.mod.util.LunaInput.mouseDown(net.minecraft.client.Minecraft.getInstance(), 0);
@@ -511,7 +654,11 @@ public class CraftingHelperModule extends Module {
 				} else if (searchFocused) {
 					searchFocused = false;
 				}
-				if (hover != null && !holdingStack()) {
+				if (hover != null && hover.ng() != null && !holdingStack()) {
+					if (!autoCrafting() && ngWait <= 0) {
+						craftNeogul(hover.ng(), keyDown(InputConstants.KEY_LSHIFT) || keyDown(InputConstants.KEY_RSHIFT));
+					}
+				} else if (hover != null && !holdingStack()) {
 					// 49-122차: 쉬프트는 직접·연쇄(2차) 제작 둘 다 결과 한 묶음(64)을 만들게 - 여기서 한 번만 읽어 둘 다 넘긴다.
 					boolean shift = keyDown(InputConstants.KEY_LSHIFT) || keyDown(InputConstants.KEY_RSHIFT);
 					if (hover.chain() != null) {
@@ -550,7 +697,10 @@ public class CraftingHelperModule extends Module {
 			} catch (Throwable t) {
 				name = "";
 			}
-			if (name.contains(q) || (it.entry().id() != null && it.entry().id().toLowerCase(java.util.Locale.ROOT).contains(q))) {
+			if (it.ng() != null) {
+				name = it.ng().outName() + " " + it.ng().inName();
+			}
+			if (name.contains(q) || (it.entry() != null && it.entry().id() != null && it.entry().id().toLowerCase(java.util.Locale.ROOT).contains(q))) {
 				out.add(it);
 			}
 		}
@@ -570,12 +720,13 @@ public class CraftingHelperModule extends Module {
 		craftableAt = now;
 		List<LunaRecipes.Entry> direct = LunaRecipes.craftableNow(client, grid);
 		List<Item> out = new ArrayList<>(direct.size() + 16);
+		out.addAll(neogulRecipes());
 		for (LunaRecipes.Entry e : direct) {
-			out.add(new Item(e, null));
+			out.add(new Item(e, null, null));
 		}
 		if (showChains.get()) {
 			for (LunaRecipes.Chain c : LunaRecipes.craftableViaSteps(client, grid, direct)) {
-				out.add(new Item(c.entry(), c));
+				out.add(new Item(c.entry(), c, null));
 			}
 		}
 		items = out;
@@ -632,6 +783,10 @@ public class CraftingHelperModule extends Module {
 	}
 
 	private void drawTooltip(GuiGraphicsExtractor ctx, Item it, int x, int y) {
+		if (it.ng() != null) {
+			drawNgTooltip(ctx, it.ng(), x, y);
+			return;
+		}
 		LunaRecipes.Entry e = it.entry();
 		String name = e.result().getHoverName().getString();
 		int nw = LunaDraw.width(client.font, name);
@@ -700,6 +855,28 @@ public class CraftingHelperModule extends Module {
 		} else {
 			LunaDraw.text(ctx, client.font, "재료 " + e.slots().size() + "칸", ix, iy, LunaDraw.TEXT_DIM);
 		}
+	}
+
+	private void drawNgTooltip(GuiGraphicsExtractor ctx, NgRecipe r, int x, int y) {
+		String name = r.outName();
+		String hint = "제작대에 V자로 (Shift: 최대)";
+		String c = "×3  (" + r.have() + "개 있음)";
+		int w = Math.max(Math.max(LunaDraw.width(client.font, name), LunaDraw.width(client.font, hint)), 9 + LunaDraw.width(client.font, c)) + 12;
+		int h = 40;
+		int sw = client.getWindow().getGuiScaledWidth(), sh = client.getWindow().getGuiScaledHeight();
+		x = Math.min(x, sw - 2 - w);
+		y = Math.min(y, sh - 2 - h);
+		LunaDraw.panel3d(ctx, x, y, w, h, 5);
+		LunaDraw.text(ctx, client.font, name, x + 6, y + 5, LunaDraw.TEXT);
+		if (r.inIcon() != null) {
+			LunaCompat.guiPush(ctx);
+			LunaCompat.guiTranslate(ctx, x + 6, y + 16);
+			LunaCompat.guiScale(ctx, 0.5f, 0.5f);
+			ctx.item(r.inIcon(), 0, 0);
+			LunaCompat.guiPop(ctx);
+		}
+		LunaDraw.text(ctx, client.font, c, x + 15, y + 17, LunaDraw.TEXT_SUB);
+		LunaDraw.text(ctx, client.font, hint, x + 6, y + 28, LunaDraw.TEXT_DIM);
 	}
 
 	/** 재료 묶음 키 - 같은 후보(대체 재료) 조합이면 같은 재료로 본다. */

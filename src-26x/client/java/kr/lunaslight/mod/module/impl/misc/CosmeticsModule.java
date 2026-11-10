@@ -66,7 +66,7 @@ public class CosmeticsModule extends Module {
 
 	private void applyUi() {
 		try {
-			kr.lunaslight.mod.util.LunaTheme.setSkinOff(!useUi.get());
+			kr.lunaslight.mod.util.LunaTheme.setSkinOff(!useUi.get() || kr.lunaslight.mod.util.LunaSocial.nugulient);   // 49-619차
 		} catch (Throwable ignored) {
 		}
 	}

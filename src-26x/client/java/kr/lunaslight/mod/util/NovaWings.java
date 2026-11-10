@@ -215,8 +215,8 @@ public final class NovaWings {
 		 */
 		public List<String> keysFor(String uuid, boolean withOthers) {
 			String uid = norm(uuid);
-			if (uid.isEmpty()) {
-				return List.of();
+			if (uid.isEmpty() || LunaSocial.nugulient) {
+				return List.of();   // 49-622차: 너굴라이언트는 노바 치장(날개, 가방, 모자, 발자취) 없음 - 남의 것 조회도 안 함
 			}
 			LunaSocial.load();
 			if (uid.equals(selfId())) {

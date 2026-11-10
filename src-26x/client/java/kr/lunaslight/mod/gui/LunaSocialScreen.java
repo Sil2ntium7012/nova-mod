@@ -1064,6 +1064,9 @@ public class LunaSocialScreen extends LunaScreenBase {
 		LunaIcons.draw(ctx, font, LunaIcons.CHART, ix, LunaDraw.iconY(sy3, BTN_H), onAccent());
 		LunaDraw.text(ctx, font, "내 기록 보기", ix + 16, btnTextY(sy3, BTN_H, "내 기록 보기"), onAccent());
 
+		if (LunaSocial.nugulient) {
+			return;   // 49-624차(사용자: "너굴라이언트에서 계정 전환 삭제")
+		}
 		int ty = profileListY() - 22;
 		LunaDraw.text(ctx, font, "계정 전환", px + PAD, LunaDraw.textY(ty, 18), LunaDraw.TEXT_SUB);
 
@@ -1225,7 +1228,7 @@ public class LunaSocialScreen extends LunaScreenBase {
 		int ly = profileListY();
 		int lw = PANEL_W - PAD * 2;
 		int lh = ph - (ly - py) - PAD;
-		if (LunaDraw.in(mouseX, mouseY, lx, ly, lw, lh)) {
+		if (!LunaSocial.nugulient && LunaDraw.in(mouseX, mouseY, lx, ly, lw, lh)) {
 			List<LunaSocial.Account> list = LunaSocial.accounts();
 			int y = ly - (int) scroll;
 			String current = LunaSocial.currentUuid(minecraft);

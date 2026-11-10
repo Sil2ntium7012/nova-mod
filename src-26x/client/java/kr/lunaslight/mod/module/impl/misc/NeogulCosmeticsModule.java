@@ -10,6 +10,17 @@ import kr.lunaslight.mod.util.LunaCompat;
  */
 public class NeogulCosmeticsModule extends Module {
 
+	/** 49-621차(사용자: 너굴라이언트 - "너굴 치장 미리보기 삭제"): 너굴라이언트로 켰으면 없는 기능(목록에서도 빠짐). */
+	@Override
+	public boolean isEnabled() {
+		return !kr.lunaslight.mod.util.LunaSocial.nugulient && super.isEnabled();
+	}
+
+	@Override
+	public boolean hiddenInList() {
+		return kr.lunaslight.mod.util.LunaSocial.nugulient || super.hiddenInList();
+	}
+
 	public NeogulCosmeticsModule() {
 		super("neogul_cosmetics", "너굴 치장", ModuleCategory.SERVER, "너굴마을 치장 목록 | 미리 입어보기");
 		serverGroup("너굴마을");

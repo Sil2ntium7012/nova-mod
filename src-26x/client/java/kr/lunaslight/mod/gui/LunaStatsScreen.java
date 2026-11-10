@@ -93,9 +93,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 
 	// 49-142차(사용자가 고른 새 장르: 전투, 채굴/농사/낚시, 플레이 습관, 채팅/소셜/서버): 처치·죽음은 [전투]로,
 	// 상호작용은 [생활]로 합치고 [습관] [소셜]을 새로. 각 탭 위에 대시보드 숫자 상자.
-	private static final String[] TABS = {"요약", "전투", "생활", "습관", "소셜", "아이템", "이동", "기간"};
+	private static final String[] TABS = {"요약", "전투", "생활", "습관", "소셜", "아이템", "이동", "기간", "광물"};
 	private static final int TAB_SUMMARY = 0, TAB_COMBAT = 1, TAB_LIFE = 2, TAB_HABIT = 3, TAB_SOCIAL = 4,
-			TAB_ITEMS = 5, TAB_TRAVEL = 6, TAB_PERIOD = 7;
+			TAB_ITEMS = 5, TAB_TRAVEL = 6, TAB_PERIOD = 7, TAB_ORES = 8;
 
 	private final Screen parent;
 	private int px, py, pw, ph;
@@ -665,6 +665,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 				case TAB_ITEMS -> total = renderItems(ctx, s, x, cy, w, mouseX, mouseY);
 				case TAB_TRAVEL -> total = dTravel(ctx, s, x, cy, w);
 				case TAB_PERIOD -> total = dPeriod(ctx, s, x, cy, w, mouseX, mouseY);
+				case TAB_ORES -> total = dOres(ctx, s, x, cy, w);
 				default -> total = dSummary(ctx, s, x, cy, w);
 			}
 			maxScroll = Math.max(0, total - (h - 8));
@@ -1799,6 +1800,50 @@ public class LunaStatsScreen extends LunaScreenBase {
 			(cx, cy, cw) -> donutCard(ctx, cx, cy, cw, "요일", wl, wv, LunaStats::formatHours, "전체", "아직 기록이 없습니다"))
 			+ GAP + 4;
 		y += renderPeriods(ctx, s, x + 4, y, w - 8, mouseX, mouseY);
+		return y - y0;
+	}
+
+	/**
+	 * 49-617차(사용자: "광물 창고에 들어오는 템들 이제부터 로그 따서 통계에 따로 기간 옆에 넣어서 얼마나 많은 광물 캤는지"): 광물 탭.
+	 * 너굴 광물 획득이 광물 창고에 넣은 것만 센다(이번 업데이트부터).
+	 */
+	private int dOres(GuiGraphicsExtractor ctx, LunaStats.Scope s, int x, int y, int w) {
+		int y0 = y;
+		long total = 0, gems = 0;
+		int kinds = 0;
+		for (Map.Entry<String, Long> e : s.ores.entrySet()) {
+			if (e.getValue() <= 0) {
+				continue;
+			}
+			total += e.getValue();
+			kinds++;
+			String n = e.getKey();
+			if (n.contains("오팔") || n.contains("아쿠아마린") || n.contains("루비") || n.contains("페리도트") || n.contains("사파이어")) {
+				gems += e.getValue();
+			}
+		}
+		java.time.YearMonth now = java.time.YearMonth.now();
+		long[] mv = new long[12];
+		String[] ml = new String[12];
+		int best = -1;
+		for (int i = 0; i < 12; i++) {
+			java.time.YearMonth ym = now.minusMonths(11 - i);
+			String key = ym.getYear() + "-" + (ym.getMonthValue() < 10 ? "0" : "") + ym.getMonthValue();
+			mv[i] = s.oreMonths.getOrDefault(key, 0L);
+			ml[i] = ym.getMonthValue() + "월";
+			if (mv[i] > 0 && (best < 0 || mv[i] > mv[best])) {
+				best = i;
+			}
+		}
+		y += kpis(ctx, x, y, w, new String[][]{
+			{"캔 광물", num(total)},
+			{"이번 달", num(mv[11])},
+			{"종류", kinds + "가지"},
+			{"보석", num(gems)}}) + GAP;
+		y += columnsCard(ctx, x, y, w, 70, "달별 광물", mv, ml, best < 0 ? null : "최고 " + ml[best] + " " + num(mv[best])) + GAP;
+		Top top = topOf(s.ores, 20, k -> k, LunaStatsScreen::n0);
+		y += barsCard(ctx, x, y, w, "광물별", top.labels(), top.values(), top.shown(),
+			"너굴마을 광산에서 광물 창고에 들어온 광물이 여기 쌓입니다 (광물 획득 기능)") + GAP;
 		return y - y0;
 	}
 

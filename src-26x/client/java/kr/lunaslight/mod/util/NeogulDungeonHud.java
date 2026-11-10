@@ -120,7 +120,7 @@ public final class NeogulDungeonHud {
 
 	// ==================== hud.json 글자표 ====================
 
-	private record Glyph(String file, String path, int col, int cols) {
+	private record Glyph(String file, String path, int col, int cols, int ascent) {
 	}
 
 	private static Map<Integer, Glyph> glyphs;
@@ -149,6 +149,7 @@ public final class NeogulDungeonHud {
 						String file = p.get("file").getAsString();
 						String base = file.substring(file.lastIndexOf('/') + 1).replace(".png", "");
 						JsonArray rows = p.getAsJsonArray("chars");
+						int asc = p.has("ascent") ? p.get("ascent").getAsInt() : 0;
 						String row0 = rows.get(0).getAsString();
 						int cols = row0.codePointCount(0, row0.length());
 						for (JsonElement r : rows) {
@@ -157,7 +158,7 @@ public final class NeogulDungeonHud {
 							for (int i = 0; i < s.length(); ) {
 								int cp = s.codePointAt(i);
 								if (cp != 0) {
-									m.putIfAbsent(cp, new Glyph(base, file, c, cols));
+									m.putIfAbsent(cp, new Glyph(base, file, c, cols, asc));
 								}
 								c++;
 								i += Character.charCount(cp);
@@ -314,6 +315,7 @@ public final class NeogulDungeonHud {
 				return;
 			}
 			RAW.keySet().removeIf(ev -> !events.containsValue(ev));
+			List<MineRow> mineAll = new ArrayList<>();
 			MINE.keySet().removeIf(ev -> !events.containsValue(ev));
 			for (Object o : events.values()) {
 				if (!(o instanceof BossEvent ev)) {
@@ -326,7 +328,23 @@ public final class NeogulDungeonHud {
 				}
 				Component raw = RAW.get(ev);
 				int cut = parse(raw);
+				// 49-608차: 광산 획득 알림(ng:font/hud/mine/*) 줄을 읽고, [광물 획득]이 켜져 있으면 화면에서 뺀다
+				List<MineRow> mr = mineRows(raw);
+				if (!mr.isEmpty()) {
+					mineAll.addAll(mr);
+				}
+				boolean hideM = !mr.isEmpty() && hideMine.getAsBoolean();
 				if (cut < 0) {
+					if (hideM) {
+						Component mine = MINE.get(ev);
+						if (mine == null) {
+							mine = cutAt(raw, -1, false, true);
+							MINE.put(ev, mine);
+						}
+						ev.setName(mine);
+					} else if (MINE.remove(ev) != null) {
+						ev.setName(raw);
+					}
 					continue;   // 너굴 HUD 줄이 아님
 				}
 				lastSeen = System.currentTimeMillis();
@@ -345,10 +363,10 @@ public final class NeogulDungeonHud {
 					active = false;
 				}
 				wasDungeon = dungeon;
-				if (active) {
+				if (active || hideM) {
 					Component mine = MINE.get(ev);
 					if (mine == null) {
-						mine = cutAt(raw, cut);
+						mine = cutAt(raw, cut, active, hideM);
 						MINE.put(ev, mine);
 					}
 					ev.setName(mine);
@@ -356,6 +374,7 @@ public final class NeogulDungeonHud {
 					ev.setName(raw);
 				}
 			}
+			NeogulMineFeed.onRows(mineAll);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("dungeonHud:boss", t);
 		}
@@ -736,13 +755,86 @@ public final class NeogulDungeonHud {
 		}
 	}
 
+	// ==================== 49-608차: 광산 획득 알림 ====================
+
+	/** [광물 획득]이 켜져 있으면 서버의 광산 획득 알림(화면 가운데 오른쪽)을 뺀다. */
+	public static volatile java.util.function.BooleanSupplier hideMine = () -> false;
+
+	/** 알림 한 줄: 위에서 몇째 줄(0~2), 아이템(그림 이름: stone, raw_iron, ng121 …), 개수, 흐려진 정도(0 새것, 1, 2). */
+	public record MineRow(int row, String item, int count, int frame) {
+		public String sig() {
+			return item + "x" + count;
+		}
+	}
+
+	private static String unframe(String b) {
+		return b.endsWith("_f1") || b.endsWith("_f2") ? b.substring(0, b.length() - 3) : b;
+	}
+
+	/** 줄에서 광산 알림 글자(ng:font/hud/mine/…)를 줄별로 모은다(위 → 아래). */
+	/** 49-612차: 보스바 말고 다른 곳(액션바, 타이틀)에 든 광산 알림도 같은 방법으로 뺀다. */
+	public static Component hideMineIn(Component c) {
+		return cutAt(c, -1, false, true);
+	}
+
+	public static List<MineRow> mineRows(Component c) {
+		Map<Integer, Glyph> map = glyphs();
+		List<MineRow> out = new ArrayList<>();
+		if (map.isEmpty() || c == null) {
+			return out;
+		}
+		String[] item = new String[3];
+		StringBuilder[] dig = {new StringBuilder(), new StringBuilder(), new StringBuilder()};
+		int[] frame = {-1, -1, -1};
+		c.visit((FormattedText.StyledContentConsumer<Object>) (style, s) -> {
+			Object f = style.getFont();
+			if (f == null || !f.toString().contains("ng:hud")) {
+				return Optional.empty();
+			}
+			for (int i = 0; i < s.length(); ) {
+				int cp = s.codePointAt(i);
+				i += Character.charCount(cp);
+				Glyph g = map.get(cp);
+				if (g == null || !g.path().contains("/mine/")) {
+					continue;
+				}
+				int r = g.ascent() >= 0 ? 0 : g.ascent() >= -18 ? 1 : 2;
+				String b = g.file();
+				int fr = b.endsWith("_f1") ? 1 : b.endsWith("_f2") ? 2 : 0;
+				b = unframe(b);
+				if (b.startsWith("icon_") || b.startsWith("name_")) {
+					if (item[r] == null) {
+						item[r] = b.substring(5);
+					}
+					frame[r] = Math.max(frame[r], fr);
+				} else if (b.length() == 2 && b.charAt(0) == 'd' && Character.isDigit(b.charAt(1))) {
+					dig[r].append(b.charAt(1));
+				}
+			}
+			return Optional.empty();
+		}, Style.EMPTY);
+		for (int r = 0; r < 3; r++) {
+			if (item[r] != null) {
+				int n = 1;
+				try {
+					if (dig[r].length() > 0 && dig[r].length() < 9) {
+						n = Integer.parseInt(dig[r].toString());
+					}
+				} catch (NumberFormatException ignored) {
+				}
+				out.add(new MineRow(r, item[r], n, Math.max(0, frame[r])));
+			}
+		}
+		return out;
+	}
+
 	/**
 	 * 49-574차(사용자가 전해 준 제보: "던전 들어가서 경험치 쿠폰 쓰면 시간이랑 떴었는데 안 나와요", "UI가 밀려"): 예전엔 보스바 줄을 지역 글자 뒤에서
 	 * 통째로 잘라서 그 뒤에 오는 경험치 쿠폰 시간(hud_buff_*), 처치 콤보(combo_*), 드워프 카드, 광산 획득 알림까지 같이 사라졌다.
 	 * 이제 지역 글자 뒤에서는 노바 던전 UI가 대신 그리는 것(체력, 배고픔, 방어, 레벨, 스킬 카드, 경험치 알림/바)만 빼고, 뺀 자리는 같은 폭의 빈칸
 	 * (lunaslight:neogul_space)으로 채운다 - 서버 셰이더는 글자가 줄에서 놓인 자리로 화면 위치를 정해서, 폭이 줄면 뒤 것이 밀린다.
 	 */
-	private static Component cutAt(Component c, int cut) {
+	private static Component cutAt(Component c, int cut, boolean dungeon, boolean mineHide) {
 		Map<Integer, Glyph> map = glyphs();
 		Minecraft mc = Minecraft.getInstance();
 		MutableComponent out = Component.empty();
@@ -756,9 +848,9 @@ public final class NeogulDungeonHud {
 				int cp = s.codePointAt(i);
 				int n = Character.charCount(cp);
 				boolean drop = false;
-				if (pos[0] >= cut && h) {
+				if (h) {
 					Glyph g = map.get(cp);
-					drop = g != null && replaced(g);
+					drop = g != null && ((dungeon && pos[0] >= cut && replaced(g)) || (mineHide && g.path().contains("/mine/")));
 				}
 				if (drop) {
 					if (keep.length() > 0) {
