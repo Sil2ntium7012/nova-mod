@@ -192,6 +192,11 @@ public class LunaPauseScreen extends LunaScreenBase {
 
 		// 브랜드: 로고 + 워드마크 이미지(49-21차: "로고는 폰트를 안 따라가도 돼, 멋져야지" - N★VA CLIENT 이미지)
 		int by = contentTop() + rise;
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			// 49-637차: 너굴마을 로고 하나(로고 줄 + 아래 틈 안에서)
+			int lh = LOGO + BRAND_GAP - 6;
+			LunaGfx.drawNeogulLogo(ctx, cx, by + lh / 2 - 2, lh, LunaDraw.applyAlpha(0xFFFFFFFF));
+		} else {
 		int wordW = LunaGfx.wordmarkWidth(WORDMARK_H);
 		int groupW = LOGO + 9 + wordW;
 		int lx = cx - groupW / 2;
@@ -206,6 +211,7 @@ public class LunaPauseScreen extends LunaScreenBase {
 			LunaDraw.text(ctx, font, "NOVA", lx + LOGO + 9, wy, 0xFFFFFFFF);
 			LunaDraw.text(ctx, font, "CLIENT",
 				lx + LOGO + 9 + LunaDraw.width(font, "NOVA "), wy, WORD_SUB);
+		}
 		}
 
 		// 큰 버튼 3개

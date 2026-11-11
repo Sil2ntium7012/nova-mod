@@ -33,7 +33,7 @@ public final class WindowIcon {
 		List<int[]> sizes = new ArrayList<>();
 		try {
 			for (int size : SIZES) {
-				// 49-627차: 너굴라이언트면 잔디 블록 + 너굴 얼굴 배지
+				// 49-627차: 너굴라이언트면 따로 그린 아이콘. 49-638차(사용자: "창 아이콘도 걍 전체를 너굴마을 아이콘으로"): 너굴마을 서버 아이콘(64는 서버 목록 아이콘 그대로, 나머지는 탭 로고를 정사각에)
 				byte[] data = LunaSocial.nugulient ? read("/assets/lunaslight/icon/neogul_" + size + ".rgba") : null;
 				if (data == null) {
 					data = read("/assets/lunaslight/icon/" + size + ".rgba");

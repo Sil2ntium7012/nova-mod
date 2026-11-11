@@ -108,9 +108,13 @@ public final class SplashHook {
 
 			// 49-125차(사용자: "로딩창 글 뒤에 있는 보라색 원 없애줘"): 로고 뒤 타원형 빛무리는 뺐다.
 
-			boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.logoId(),
-				gx, gy, logoSize, logoSize, 0, 0, 128, 128, 128, white);
-			if (logoDrawn) {
+			boolean neo = LunaSocial.nugulient;
+			boolean logoDrawn = neo
+				? LunaGfx.drawNeogulLogo(ctx, w / 2, gy + logoSize / 2, Math.round(logoSize * 1.7f), white) > 0   // 49-637차: 너굴마을 로고 하나
+				: LunaGfx.drawTex(ctx, LunaGfx.logoId(), gx, gy, logoSize, logoSize, 0, 0, 128, 128, 128, white);
+			if (neo) {
+				// 못 그리면(아주 이른 로딩) 아무것도 안 그림 - 노바 그림이 나오지 않게
+			} else if (logoDrawn) {
 				LunaGfx.drawWordmark(ctx, gx + logoSize + brandGap, gy + (logoSize - wordH) / 2, wordH, white);
 			} else {
 				// 텍스처 이전(극초반·구버전): 8칸 + 가운데 별을 손으로.

@@ -133,6 +133,11 @@ public class LunaTitleScreen extends LunaScreenBase {
 
 		int cx = width / 2;
 
+		// 49-637차: 너굴라이언트 = 너굴마을 로고 하나(메뉴 바로 위)
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			int lh = 60;
+			LunaGfx.drawNeogulLogo(ctx, cx, menuTop() - 8 - lh / 2 + Math.round((1f - open) * 8f), lh, LunaDraw.applyAlpha(0xFFFFFFFF));
+		} else {
 		// 브랜드(로고 + 워드마크, 큰 사이즈)
 		int logoSize = 34;
 		int wordH = 26;
@@ -152,6 +157,7 @@ public class LunaTitleScreen extends LunaScreenBase {
 			LunaDraw.text(ctx, font, "NOVA", lx + logoSize + 11, wy, 0xFFFFFFFF);
 			LunaDraw.text(ctx, font, "CLIENT",
 				lx + logoSize + 11 + LunaDraw.width(font, "NOVA "), wy, WORD_SUB);
+		}
 		}
 
 		// 버튼

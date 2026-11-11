@@ -6494,7 +6494,8 @@
    "cat": "food",
    "icon": [
     "minecraft:cooked_salmon"
-   ]
+   ],
+   "model": "nexo:soul_food1"
   },
   {
    "key": "origin_land",
@@ -6502,7 +6503,8 @@
    "cat": "food",
    "icon": [
     "minecraft:golden_apple"
-   ]
+   ],
+   "model": "nexo:soul_food2"
   },
   {
    "key": "web_shoes",

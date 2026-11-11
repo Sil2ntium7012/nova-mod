@@ -540,6 +540,12 @@ public class LunaStatsScreen extends LunaScreenBase {
 		int logo = 20;
 		int wordH = Math.max(8, Math.min(14, Math.round((railW - 10 - logo - 6) * 112f / 492f)));
 		int ly = TOP_Y + (TITLE_H - logo) / 2;
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			// 49-637차: 너굴마을 로고 하나
+			int lh = Math.min(TITLE_H + 4, Math.round((railW - 10) * LunaGfx.NEOGUL_LOGO_H / (float) LunaGfx.NEOGUL_LOGO_W));
+			int lw = Math.round(lh * LunaGfx.NEOGUL_LOGO_W / (float) LunaGfx.NEOGUL_LOGO_H);
+			LunaGfx.drawNeogulLogo(ctx, railX + lw / 2, TOP_Y + TITLE_H / 2, lh, LunaDraw.applyAlpha(0xFFFFFFFF));
+		} else {
 		if (!LunaGfx.drawTex(ctx, LunaGfx.logoId(), railX, ly, logo, logo, 0, 0, 128, 128, 128,
 				LunaDraw.applyAlpha(0xFFFFFFFF))) {
 			LunaIcons.drawInBox(ctx, font, LunaIcons.LOGO, railX, ly, logo, LunaClientScreen.themeAccent());
@@ -547,6 +553,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 		if (LunaGfx.drawWordmark(ctx, railX + logo + 6, TOP_Y + (TITLE_H - wordH) / 2, wordH,
 				LunaDraw.applyAlpha(LunaClientScreen.themeText())) < 0) {
 			gText(ctx, "NOVA", railX + logo + 6, TOP_Y, TITLE_H, LunaClientScreen.themeText());
+		}
 		}
 		int y = scopeTop();
 		int bottom = linksTop() - 8;

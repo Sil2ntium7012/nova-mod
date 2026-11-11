@@ -70,7 +70,7 @@ public class NeogulDailyModule extends Module {
 		// 49-518차(사용자: "너굴 달력 - 조작 불가능하게"): 직접 체크 바꾸기 버튼을 없애고 감지한 것만 남긴다. 달력은 일퀘, 추천, 핫타임, 접속 시간.
 		register(new ActionSetting("calendar", "너굴 달력", "날마다 일퀘 보상, 추천, 핫타임, 접속 시간을 달력으로 봅니다(보기 전용).", "달력 열기",
 				() -> LunaCompat.setScreen(new kr.lunaslight.mod.gui.NeogulCalendarScreen((net.minecraft.client.gui.screens.Screen) LunaCompat.screenOf(client)))));
-		ChatState.addPlainListener(this::onChat);
+		ChatState.addLoggedListener(this::onChat);   // 49-639차: 채팅창에 들어간 줄 그대로(예전 입구는 서버 알림을 놓칠 때가 있었다)
 		kr.lunaslight.mod.util.NeogulCalendar.init();
 	}
 
@@ -88,7 +88,25 @@ public class NeogulDailyModule extends Module {
 	}
 
 	private boolean flag(int i) {
-		return "1".equals(parts()[i]);
+		if ("1".equals(parts()[i])) {
+			return true;
+		}
+		// 49-639차(사용자 사진: 핫타임 받고 나갔다 오면 "놓침"): 설정 값(state)이 다시 들어올 때 옛 값으로 덮여 체크가 사라졌다.
+		// 달력 기록(neogul-calendar.json, 바로 저장됨)에 오늘 받았다고 있으면 받은 것 - 설정 값도 다시 채운다.
+		if (i == 1 || i == 2) {
+			try {
+				kr.lunaslight.mod.util.NeogulCalendar.Day d = kr.lunaslight.mod.util.NeogulCalendar.peek(LocalDate.now().toString());
+				if (d != null && (i == 1 ? d.rec : d.hot)) {
+					String[] p = parts();
+					p[i] = "1";
+					state.setValue(String.join("|", p));
+					return true;
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("neogulDaily:calendar", t);
+			}
+		}
+		return false;
 	}
 
 	private void set(int i, boolean on) {
@@ -98,8 +116,11 @@ public class NeogulDailyModule extends Module {
 			p[i] = nv;
 			state.setValue(String.join("|", p));
 		}
-		if (i == 1 || i == 2) {
-			kr.lunaslight.mod.util.NeogulCalendar.mark(i == 1 ? "rec" : "hot", on);
+		if ((i == 1 || i == 2) && on) {   // 49-639차: 받음만 적는다
+			kr.lunaslight.mod.util.NeogulCalendar.mark(i == 1 ? "rec" : "hot", true);
+		}
+		if (on) {
+			kr.lunaslight.mod.config.LunaClientConfig.save();   // 49-639차: 바로 저장(나갔다 오면 옛 값으로 돌아가지 않게)
 		}
 	}
 
@@ -111,6 +132,7 @@ public class NeogulDailyModule extends Module {
 		if (!isEnabled() || line == null || line.isEmpty() || !here()) {
 			return;
 		}
+		line = line.replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", "");   // 49-639차: 채팅 시각 접두([18:25]) 떼고
 		if (line.startsWith("<")) {
 			return;   // 바닐라 형식 플레이어 채팅
 		}
@@ -145,8 +167,13 @@ public class NeogulDailyModule extends Module {
 			return;
 		}
 		if (client.player.tickCount % 100 == 0) {
-			kr.lunaslight.mod.util.NeogulCalendar.mark("rec", flag(1));
-			kr.lunaslight.mod.util.NeogulCalendar.mark("hot", flag(2));
+			// 49-639차: 받은 것만 적는다(설정 값이 덮였을 때 달력의 "받음"까지 지우지 않게)
+			if (flag(1)) {
+				kr.lunaslight.mod.util.NeogulCalendar.mark("rec", true);
+			}
+			if (flag(2)) {
+				kr.lunaslight.mod.util.NeogulCalendar.mark("hot", true);
+			}
 		}
 		LocalDateTime now = LocalDateTime.now();
 		if (alarm.get() && now.getHour() >= HOT_HOUR && !flag(2) && !flag(3)) {

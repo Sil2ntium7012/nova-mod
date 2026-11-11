@@ -786,6 +786,14 @@ public class LunaClientScreen extends LunaScreenBase {
 	 * 워드마크는 흰 그림이라 글자색으로 물들여 라이트 테마에서도 보인다. 그림을 못 그리면 예전 큰 글씨.
 	 */
 	private void renderBrand(GuiGraphicsExtractor ctx) {
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			// 49-637차: 너굴마을 로고 하나(왼쪽 줄 폭과 제목 줄 높이 안에서 가장 크게)
+			int avail = dividerX - 10 - railX;
+			int lh = Math.min(TITLE_H + 8, Math.round(avail * LunaGfx.NEOGUL_LOGO_H / (float) LunaGfx.NEOGUL_LOGO_W));
+			int lw = Math.round(lh * LunaGfx.NEOGUL_LOGO_W / (float) LunaGfx.NEOGUL_LOGO_H);
+			LunaGfx.drawNeogulLogo(ctx, railX + lw / 2, titleY + TITLE_H / 2, lh, LunaDraw.applyAlpha(0xFFFFFFFF));
+			return;
+		}
 		// 49-190차(사용자: "기능에 우리 로고 더 크게"): 로고 20 → 28, 워드마크 최대 14 → 20(왼쪽 줄 폭 안에서)
 		int logo = 28;
 		int avail = dividerX - 10 - railX;

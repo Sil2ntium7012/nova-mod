@@ -51,7 +51,7 @@ public final class LunaGfx {
 	 */
 	public static int drawWordmark(GuiGraphicsExtractor ctx, int x, int y, int h, int argb) {
 		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
-			return neogulWordmark(ctx, x, y, h, argb);   // 49-627차
+			return 0;   // 49-637차: 너굴라이언트는 워드마크 없음(너굴마을 로고 하나 - drawNeogulLogo)
 		}
 		int w = Math.round(h * 492f / 112f);
 		return drawTex(ctx, id("textures/gui/wordmark.png"), x, y, w, h, 0, 0, 492, 112, 512, argb) ? w : -1;
@@ -59,36 +59,25 @@ public final class LunaGfx {
 
 	public static int wordmarkWidth(int h) {
 		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
-			net.minecraft.client.gui.Font f = net.minecraft.client.Minecraft.getInstance().font;
-			return Math.round(LunaDraw.width(f, kr.lunaslight.mod.util.LunaBrand.NEOGUL) * (h / 9f));
+			return 0;
 		}
 		return Math.round(h * 492f / 112f);
 	}
 
-	// 49-627차(사용자: "노바클 말고 너굴라이언트로, 주황색 계열에 너굴마을 픽셀에 어우러지게"): 너굴라이언트면 N★VA CLIENT 그림 대신
-	// 마크 글꼴 "너굴라이언트"를 키워서(픽셀 그대로) - "너굴"은 주황, "라이언트"는 원래 글자색.
-	private static int neogulWordmark(GuiGraphicsExtractor ctx, int x, int y, int h, int argb) {
-		net.minecraft.client.gui.Font f = net.minecraft.client.Minecraft.getInstance().font;
-		if (f == null) {
-			return -1;
-		}
-		float k = h / 9f;
-		String a = "너굴", b = "라이언트";
-		int rgb = 0xFF000000 | (argb & 0x00FFFFFF);
-		LunaCompat.guiPush(ctx);
-		LunaCompat.guiTranslate(ctx, x, y + Math.max(0, Math.round((h - 8 * k) / 2f)));
-		LunaCompat.guiScale(ctx, k, k);
-		LunaDraw.text(ctx, f, a, 1, 1, 0xFF2B1606);   // 그림자(진한 갈색)
-		LunaDraw.text(ctx, f, b, 1 + LunaDraw.width(f, a), 1, 0xFF2B1606);
-		LunaDraw.text(ctx, f, a, 0, 0, LunaDraw.ACCENT);
-		LunaDraw.text(ctx, f, b, LunaDraw.width(f, a), 0, rgb);
-		LunaCompat.guiPop(ctx);
-		return wordmarkWidth(h);
+	// 49-637차(사용자: 크게 키운 픽셀 글씨 "너굴라이언트" 사진 - "에바지, 너굴마을 로고를 박으라고 차라리", "저거 절대 쓰지 마, 아무 데도 넣지 마"):
+	// 글씨 워드마크는 지웠다. 너굴라이언트면 로고 + 워드마크 자리에 너굴마을 로고(너굴 + "너굴마을", 서버 팩 탭 로고 251x165) 하나.
+	public static final int NEOGUL_LOGO_W = 251, NEOGUL_LOGO_H = 165;
+
+	/** 너굴마을 로고를 가운데 (cx, cy)에 높이 h로. 그린 폭(못 그리면 -1). */
+	public static int drawNeogulLogo(GuiGraphicsExtractor ctx, int cx, int cy, int h, int argb) {
+		int w = Math.round(h * NEOGUL_LOGO_W / (float) NEOGUL_LOGO_H);
+		return drawTexRect(ctx, id("textures/gui/neogul_logo.png"), cx - w / 2, cy - h / 2, w, h, 0, 0,
+				NEOGUL_LOGO_W, NEOGUL_LOGO_H, NEOGUL_LOGO_W, NEOGUL_LOGO_H, argb) ? w : -1;
 	}
 
 	/** 49-627차: 로고 그림(너굴라이언트면 너굴 얼굴). */
 	public static Identifier logoId() {
-		return id(kr.lunaslight.mod.util.LunaSocial.nugulient ? "textures/gui/logo_neogul.png" : "textures/gui/logo.png");
+		return id("textures/gui/logo.png");   // 49-638차: 너굴 얼굴 그림(logo_neogul)은 지움 - 너굴라이언트는 drawNeogulLogo
 	}
 
 	/** 49-21차: 바닐라(minecraft 네임스페이스) 텍스처 식별자. */

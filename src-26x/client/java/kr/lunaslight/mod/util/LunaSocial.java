@@ -88,6 +88,17 @@ public final class LunaSocial {
 			return;
 		}
 		loaded = true;
+		// 49-641차(사용자: 너굴라이언트 유저 화면에 "노바 모드 새 버전이 나왔어요" 고정 알림): 런처가 실행 정보에 launcher를 안 적었거나 파일이 없어도
+		// 게임 폴더가 너굴라이언트 폴더(%APPDATA%\Nugulient\minecraft)면 너굴라이언트로 본다.
+		try {
+			String gd = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().toAbsolutePath().toString().toLowerCase(java.util.Locale.ROOT);
+			if (gd.contains("nugulient") || gd.contains("너굴라이언트")) {
+				nugulient = true;
+				LunaTheme.setSkinOff(true);
+				LunaTheme.refresh();
+			}
+		} catch (Throwable ignored) {
+		}
 		Path p = null;
 		try {
 			p = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve(".luna-launch.json");
@@ -215,7 +226,7 @@ public final class LunaSocial {
 			} catch (Throwable ignored) {
 			}
 			// 49-619차: 너굴라이언트(너굴마을 전용 런처)로 켰나, 런처가 끈 기능(features.relogin, reconnect)
-			nugulient = "Nugulient".equalsIgnoreCase(str(o, "launcher"));
+			nugulient = nugulient || "Nugulient".equalsIgnoreCase(str(o, "launcher"));   // 49-641차: 폴더로 이미 알았으면 그대로
 			if (o.has("features") && o.get("features").isJsonObject()) {
 				JsonObject ft = o.getAsJsonObject("features");
 				try {
