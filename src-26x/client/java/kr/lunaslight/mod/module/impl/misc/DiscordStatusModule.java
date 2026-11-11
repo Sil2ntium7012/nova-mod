@@ -58,6 +58,9 @@ public class DiscordStatusModule extends Module {
 	public DiscordStatusModule() {
 		super("discord_status", "디스코드 상태", ModuleCategory.FEATURE, "디스코드 프로필에 플레이 중 표시");
 		defaultEnabled(true);
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			showButton.setHidden(true);   // 49-627차: 노바 디스코드 참여 버튼은 너굴라이언트엔 없음
+		}
 	}
 
 	@Override
@@ -101,10 +104,11 @@ public class DiscordStatusModule extends Module {
 			lastWorld = world;
 			worldSince = System.currentTimeMillis() / 1000L;
 		}
-		String button = showButton.get() ? "디스코드 참여하기" : null;
+		// 49-627차: 너굴라이언트면 노바 디스코드 참여 버튼은 안 붙인다
+		String button = showButton.get() && !kr.lunaslight.mod.util.LunaSocial.nugulient ? "디스코드 참여하기" : null;
 		if (world == null || client.player == null) {
 			return DiscordIpc.activity("메인 화면", null, showElapsed.get() ? menuSince : 0,
-					kr.lunaslight.mod.util.LunaSocial.logoUrl(), "Nova Client", null, null, button, INVITE);
+					kr.lunaslight.mod.util.LunaSocial.logoUrl(), kr.lunaslight.mod.util.LunaBrand.name(), null, null, button, INVITE);
 		}
 		boolean single = LunaCompat.isSinglePlayer(client);
 		String details;
@@ -131,7 +135,7 @@ public class DiscordStatusModule extends Module {
 		// 49-297차(사용자: "디코에 일시정지는 왜 떠 있는 거야"): 창을 내리거나 디스코드를 보려고 다른 창을 누르면 마크가 일시정지 메뉴를
 		// 저절로 띄워서, 디스코드를 볼 때마다 "일시정지"가 붙어 있었다. 일시정지 표시를 뺀다.
 		return DiscordIpc.activity(details, state, showElapsed.get() ? worldSince : 0,
-				kr.lunaslight.mod.util.LunaSocial.logoUrl(), "Nova Client", null, null, button, INVITE);
+				kr.lunaslight.mod.util.LunaSocial.logoUrl(), kr.lunaslight.mod.util.LunaBrand.name(), null, null, button, INVITE);
 	}
 
 	/** 서버 목록에 적힌 이름(주소 표시를 켜면 주소). */

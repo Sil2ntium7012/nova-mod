@@ -3903,6 +3903,7 @@
    "icon": [
     "minecraft:potion"
    ],
+   "model": "nexo:potion_gather",
    "from": [
     {
      "at": "vending",
@@ -3924,6 +3925,7 @@
    "icon": [
     "minecraft:potion"
    ],
+   "model": "nexo:potion_meat",
    "from": [
     {
      "at": "vending",
@@ -3945,6 +3947,7 @@
    "icon": [
     "minecraft:potion"
    ],
+   "model": "nexo:potion_mud",
    "from": [
     {
      "at": "vending",
@@ -3966,6 +3969,7 @@
    "icon": [
     "minecraft:potion"
    ],
+   "model": "nexo:potion_sea",
    "from": [
     {
      "at": "vending",
@@ -3987,6 +3991,7 @@
    "icon": [
     "minecraft:potion"
    ],
+   "model": "nexo:potion_dungeon",
    "from": [
     {
      "at": "vending",

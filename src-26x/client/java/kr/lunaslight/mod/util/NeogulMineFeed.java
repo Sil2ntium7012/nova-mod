@@ -34,17 +34,96 @@ public final class NeogulMineFeed {
 	 * 줄만으로는 새로 얻은 걸 알 수 없다. 광산에서 블록을 캔 때를 쌓아 두고, 줄 변화로 설명되지 않은 캐기는 0.9초 뒤 가장 새 줄(같은 광물)로 센다.
 	 * 그렇게 센 것은 잠깐 기억해 두었다가(credit) 늦게 온 줄 변화가 같은 것을 또 세지 않게 한다.
 	 */
-	private static final java.util.ArrayDeque<Long> breaks = new java.util.ArrayDeque<>();
+	private static final java.util.ArrayDeque<Brk> breaks = new java.util.ArrayDeque<>();
 	private static final java.util.ArrayDeque<Object[]> credit = new java.util.ArrayDeque<>();
+
+	/**
+	 * 49-630차(사용자: "곡괭이 2칸씩 캐는데 들어오는 게 1개씩이고 추가 드롭도 무시해"): 한 번 캘 때 서버가 옆 칸도 같이 부수면(범위 곡괭이)
+	 * 그 칸은 서버에서 "공기가 됨"으로만 온다. 캔 자리 둘레(2칸 안)에서 1.2초 안에 공기가 된 칸을 그 캐기에 더해(blocks) 알림 줄 수와 맞춘다.
+	 */
+	private static final class Brk {
+		final long at;
+		final long x, y, z;
+		int blocks = 1;
+		final java.util.Set<Long> seen = new java.util.HashSet<>();
+
+		Brk(long at, long x, long y, long z) {
+			this.at = at;
+			this.x = x;
+			this.y = y;
+			this.z = z;
+		}
+	}
 
 	/** 블록을 캤다(TodoGameModeMixin). */
 	public static void onBreak() {
+		onBreak(null);
+	}
+
+	public static void onBreak(net.minecraft.core.BlockPos pos) {
 		breakAt = System.currentTimeMillis();
 		breakUsed = false;
 		if ("mine".equals(NeogulDungeonHud.location)) {
 			synchronized (breaks) {
-				breaks.addLast(breakAt);
+				Brk b = pos == null ? new Brk(breakAt, Long.MIN_VALUE, 0, 0) : new Brk(breakAt, pos.getX(), pos.getY(), pos.getZ());
+				if (pos != null) {
+					b.seen.add(pos.asLong());
+				}
+				breaks.addLast(b);
 				while (breaks.size() > 20) {
+					breaks.pollFirst();
+				}
+			}
+		}
+	}
+
+	/** 49-630차: 서버가 칸을 공기로 바꿨다(NeogulBlockGoneMixin, 메인 스레드). 방금 캔 자리 옆이면 그 캐기에 한 칸 더. */
+	public static void onBlockGone(net.minecraft.core.BlockPos pos) {
+		if (pos == null || !"mine".equals(NeogulDungeonHud.location)) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		synchronized (breaks) {
+			for (var it = breaks.descendingIterator(); it.hasNext(); ) {
+				Brk b = it.next();
+				if (now - b.at > 1200) {
+					break;
+				}
+				if (b.x == Long.MIN_VALUE) {
+					continue;
+				}
+				if (Math.abs(pos.getX() - b.x) <= 2 && Math.abs(pos.getY() - b.y) <= 2 && Math.abs(pos.getZ() - b.z) <= 2) {
+					if (b.seen.add(pos.asLong()) && b.blocks < 9) {
+						b.blocks++;
+					}
+					return;
+				}
+			}
+		}
+	}
+
+	/** 아직 줄 변화로 안 센 캔 칸 수(최근 1.5초). */
+	private static int pendingBlocks(long now) {
+		int n = 0;
+		synchronized (breaks) {
+			for (Brk b : breaks) {
+				if (now - b.at < 1500) {
+					n += b.blocks;
+				}
+			}
+		}
+		return n;
+	}
+
+	/** 줄 변화로 k칸을 셌다 - 오래된 캐기부터 그만큼 지운다. */
+	private static void consumeBlocks(int k) {
+		synchronized (breaks) {
+			while (k > 0 && !breaks.isEmpty()) {
+				Brk b = breaks.peekFirst();
+				int use = Math.min(k, b.blocks);
+				b.blocks -= use;
+				k -= use;
+				if (b.blocks <= 0) {
 					breaks.pollFirst();
 				}
 			}
@@ -67,24 +146,26 @@ public final class NeogulMineFeed {
 				credit.pollFirst();
 			}
 		}
-		List<Long> due = new ArrayList<>();
+		List<Brk> due = new ArrayList<>();
 		synchronized (breaks) {
-			while (!breaks.isEmpty() && now - breaks.peekFirst() > 900) {
+			while (!breaks.isEmpty() && now - breaks.peekFirst().at > 1300) {   // 49-630차: 옆 칸 소식을 기다리려고 0.9 → 1.3초
 				due.add(breaks.pollFirst());
 			}
 		}
-		for (Long t : due) {
+		for (Brk t : due) {
 			NeogulDungeonHud.MineRow r = newest();
-			if (r == null || r.frame() > 0 || now - t > 3000 || !"mine".equals(NeogulDungeonHud.location)) {
+			if (r == null || r.frame() > 0 || now - t.at > 3000 || !"mine".equals(NeogulDungeonHud.location)) {
 				continue;
 			}
-			synchronized (credit) {
-				credit.addLast(new Object[]{r.sig(), now});
-			}
-			probeLine("break-count " + r.sig());
-			BiConsumer<String, Integer> l = listener;
-			if (l != null) {
-				l.accept(r.item(), Math.max(1, r.count()));
+			for (int i = 0; i < t.blocks; i++) {   // 49-630차: 같이 부서진 칸만큼
+				synchronized (credit) {
+					credit.addLast(new Object[]{r.sig(), now});
+				}
+				probeLine("break-count " + r.sig() + (t.blocks > 1 ? " (" + (i + 1) + "/" + t.blocks + ")" : ""));
+				BiConsumer<String, Integer> l = listener;
+				if (l != null) {
+					l.accept(r.item(), Math.max(1, r.count()));
+				}
 			}
 		}
 		if (hide && mc != null && mc.gui != null) {
@@ -224,16 +305,22 @@ public final class NeogulMineFeed {
 			if (k == 0 && !c.isEmpty() && !breakUsed && now - breakAt < 1500 && fits(c, o, 1)) {
 				k = 1;   // 모두 같은 줄이라 구별이 안 됨 - 방금 캤으니 한 줄 새것
 			}
+			// 49-630차: 줄이 모두 같은 것(돌 1개 셋)이라 몇 줄이 새로 붙었는지 모를 때는 방금 같이 부서진 칸 수만큼(가장 작은 k보다 크면)
+			if (k > 0 && allSame(c, o)) {
+				int pb = pendingBlocks(now);
+				for (int t = Math.min(c.size(), pb); t > k; t--) {
+					if (fits(c, o, t)) {
+						k = t;
+						break;
+					}
+				}
+			}
 			if (k > 0) {
 				breakUsed = true;
 			}
 			probe(cur, k, topNew);
 			prev = cur;
-			synchronized (breaks) {
-				for (int i = 0; i < k && !breaks.isEmpty(); i++) {
-					breaks.pollFirst();   // 이 캐기들은 줄 변화로 셌다
-				}
-			}
+			consumeBlocks(k);   // 이 칸들은 줄 변화로 셌다(49-630차: 캐기 하나에 여러 칸)
 			BiConsumer<String, Integer> l = listener;
 			if (l != null) {
 				for (int i = k - 1; i >= 0; i--) {   // 오래된 것부터
@@ -256,6 +343,21 @@ public final class NeogulMineFeed {
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("mineFeed", t);
 		}
+	}
+
+	/** 지금 줄과 지난 줄이 모두 같은 것(아이템, 개수)인가. */
+	private static boolean allSame(List<NeogulDungeonHud.MineRow> c, List<NeogulDungeonHud.MineRow> o) {
+		String sig = null;
+		for (var l : List.of(c, o)) {
+			for (var r : l) {
+				if (sig == null) {
+					sig = r.sig();
+				} else if (!sig.equals(r.sig())) {
+					return false;
+				}
+			}
+		}
+		return sig != null;
 	}
 
 	/** 다른 서버로 가거나 다시 들어오면 처음부터. */

@@ -140,7 +140,7 @@ public class LunaTitleScreen extends LunaScreenBase {
 		int groupW = logoSize + 11 + wordW;
 		int lx = cx - groupW / 2;
 		int ly = menuTop() - logoSize - 22 + Math.round((1f - open) * 8f);
-		boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.id("textures/gui/logo.png"),
+		boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.logoId(),
 			lx, ly, logoSize, logoSize, 0, 0, 128, 128, 128, LunaDraw.applyAlpha(0xFFFFFFFF));
 		if (!logoDrawn) {
 			LunaIcons.drawLarge(ctx, font, LunaIcons.LOGO, lx + 8, LunaDraw.iconLgY(ly, logoSize), LunaDraw.ACCENT);

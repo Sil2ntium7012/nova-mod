@@ -791,7 +791,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		int avail = dividerX - 10 - railX;
 		int wordH = Math.max(8, Math.min(20, Math.round((avail - logo - 6) * 112f / 492f)));
 		int ly = titleY + (TITLE_H - logo) / 2;
-		boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.id("textures/gui/logo.png"),
+		boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.logoId(),
 			railX, ly, logo, logo, 0, 0, 128, 128, 128, LunaDraw.applyAlpha(0xFFFFFFFF));
 		if (!logoDrawn) {
 			LunaIcons.drawInBox(ctx, font, LunaIcons.LOGO, railX, ly, logo, ACC);

@@ -66,6 +66,39 @@ public final class ChatState {
 		}
 	}
 
+	// 49-633차(사용자: "알림이 안 오잖아 제대로"): 실제로 채팅창에 들어간 줄(게임 기록에 [CHAT]으로 남는 그 줄)을 받는 구독자.
+	// 기록을 보니 [질문] 줄이 채팅창에는 들어갔는데 위 구독(addServerSystemMessage 입구)으로는 안 잡힌 일이 많았다(너굴라이언트는 전부).
+	// ChatComponent.logChatMessage 입구에서 부르므로 채팅창에 보인 줄은 빠짐없이, 한 번씩 온다.
+	private static final java.util.List<java.util.function.Consumer<String>> LOGGED_LISTENERS =
+			new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	public static void addLoggedListener(java.util.function.Consumer<String> listener) {
+		if (listener != null) {
+			LOGGED_LISTENERS.add(listener);
+		}
+	}
+
+	/** ChatHudMixin(logChatMessage HEAD): 채팅창에 들어간 줄. */
+	public static void observeLogged(net.minecraft.network.chat.Component message) {
+		if (message == null || LOGGED_LISTENERS.isEmpty()) {
+			return;
+		}
+		String plain;
+		try {
+			plain = stripFormatting(message.getString());
+		} catch (Throwable t) {
+			kr.lunaslight.mod.util.LunaCompat.warnOnce("chatLogged:text", t);
+			return;
+		}
+		for (java.util.function.Consumer<String> l : LOGGED_LISTENERS) {
+			try {
+				l.accept(plain);
+			} catch (Throwable t) {
+				kr.lunaslight.mod.util.LunaCompat.warnOnce("chatLoggedListener", t);
+			}
+		}
+	}
+
 	/** §코드 제거. */
 	public static String stripFormatting(String s) {
 		if (s == null) {
@@ -115,7 +148,8 @@ public final class ChatState {
 						kr.lunaslight.mod.util.LunaCompat.warnOnce("chatListener", t);
 					}
 				}
-			} catch (Throwable ignored) {
+			} catch (Throwable t) {
+				kr.lunaslight.mod.util.LunaCompat.warnOnce("chatObserve", t);   // 49-633차: 조용히 삼키지 않고 한 번은 기록
 			}
 		}
 		if (!watchWhispers || message == null) {

@@ -85,7 +85,10 @@ public final class LunaTheme {
 		AQUA("아쿠아", new Palette(0x062430, 0x0A3446, 0x0F4459, 0x145670, 0x2D7F96, 0xEAF9FB, 0xA9D8DE, 0x74A8B1, 0xFF2FB8EC)),
 		SKY("스카이", new Palette(0x100C2E, 0x1A1440, 0x241C54, 0x302668, 0x675CB0, 0xF1EDFF, 0xC3B9EC, 0x8D81BD, 0xFFA78BFA)),
 		MINECRAFT("마인크래프트", new Palette(0x1A1D22, 0x23272E, 0x2E333B, 0x3C424C, 0x454C57, 0xF2F4F6, 0xC6CDD6, 0x8E97A3, 0xFF5EB83A)),
-		METAL("메탈", new Palette(0x191D22, 0x222932, 0x2B333D, 0x39424D, 0x3B434C, 0xF0F4F8, 0xBCC7D2, 0x838F9B, 0xFFB4C4D4));
+		METAL("메탈", new Palette(0x191D22, 0x222932, 0x2B333D, 0x39424D, 0x3B434C, 0xF0F4F8, 0xBCC7D2, 0x838F9B, 0xFFB4C4D4)),
+		// 49-627차(사용자: "너굴라이언트에서는 주황색 계열에 너굴마을 픽셀이나 리팩에 어우러지게"): 너굴라이언트 런처 style.css 색 그대로
+		// (짙은 나무 갈색 판, 갈색 테두리, 크림 글자, 주황 포인트 #f2a65a). 너굴라이언트로 켜면 늘 이것.
+		NEOGUL("너굴", new Palette(0x15110D, 0x1E1914, 0x2A231C, 0x352C24, 0x4A3F34, 0xF6EFE5, 0xCDBFAD, 0x93846F, 0xFFF2A65A));
 
 		private final String label;
 		public final Palette palette;
@@ -112,6 +115,7 @@ public final class LunaTheme {
 				case "sky", "theme-sky" -> SKY;
 				case "minecraft", "theme-minecraft" -> MINECRAFT;
 				case "metal", "theme-metal" -> METAL;
+				case "neogul", "nugulient", "theme-neogul" -> NEOGUL;
 				case "", "none", "default", "dark", "neutral" -> NEUTRAL;
 				default -> null;
 			};
@@ -159,6 +163,9 @@ public final class LunaTheme {
 	}
 
 	private static Base effectiveBase() {
+		if (LunaSocial.nugulient) {
+			return Base.NEOGUL;   // 49-627차: 너굴라이언트는 늘 너굴 색
+		}
 		if (base == Base.AUTO) {
 			return launcherBase != null ? launcherBase : Base.NEUTRAL;
 		}
@@ -295,7 +302,8 @@ public final class LunaTheme {
 		Palette sp = skinPalette(skin());
 		Palette pal = sp != null ? sp : b.palette;
 		int accent = switch (preset) {
-			case AUTO -> sp != null ? sp.accent() : launcherAccent != 0 ? launcherAccent
+			case AUTO -> LunaSocial.nugulient ? Base.NEOGUL.palette.accent()   // 49-627차: 너굴라이언트 = 주황
+				: sp != null ? sp.accent() : launcherAccent != 0 ? launcherAccent
 				: (launcherBase != null && launcherBase != Base.NEUTRAL ? pal.accent() : DEFAULT_ACCENT);
 			case CUSTOM -> customColor;
 			default -> preset.color;

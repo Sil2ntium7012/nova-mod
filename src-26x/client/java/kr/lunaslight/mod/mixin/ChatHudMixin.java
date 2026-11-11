@@ -66,6 +66,15 @@ public abstract class ChatHudMixin {
 	}
 
 	// 49-425차: 26.x는 기록 목록 자르기가 addMessage가 아니라 addMessageToQueue에 있다 - 예전엔 화면 줄만 풀려서 창 크기를 바꾸면 100줄로 돌아갔다
+	/** 49-633차: 채팅창에 실제로 들어간 줄(너굴 질문 도우미 - ChatState.observeLogged). */
+	@Inject(method = "logChatMessage", at = @At("HEAD"), require = 0)
+	private void lunaslight$logged(net.minecraft.client.multiplayer.chat.GuiMessage message, CallbackInfo ci) {
+		try {
+			ChatState.observeLogged(message.content());
+		} catch (Throwable ignored) {
+		}
+	}
+
 	@ModifyConstant(method = {"addMessage", "addMessageToQueue", "addMessageToDisplayQueue"}, constant = @Constant(intValue = 100), require = 0)
 	private int lunaslight$maxMessages(int original) {
 		return ChatState.unlimitedHistory ? ChatState.UNLIMITED_LINES : original;

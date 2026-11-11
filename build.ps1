@@ -193,6 +193,28 @@ if (-not $configFailed) {
     ($out | ConvertTo-Json) | Set-Content -LiteralPath $stampFile -Encoding UTF8
 }
 
+# 3-2. 49-625차(사용자: "너굴라이언트 쪽 적용이 하나도 안 됐잖아", "새로 생기는 건 너굴라이언트에서도 업뎃"): 너굴라이언트도
+# 같은 26.1.2 jar를 쓴다. 너굴라이언트 런처는 %APPDATA%\Nugulient\novamod 를 먼저 보고(없으면 설치판 안의 옛 jar),
+# 다음 설치판은 바탕화면 Nugulient\novamod 에서 만든다 - 빌드가 끝나면 둘 다에 넣는다.
+if ($ok) {
+    $ngJar = Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot "versions\26.1.2\build\libs") -Filter "builtin-mod-26.1.2-*.jar" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "*-sources.jar" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($ngJar) {
+        $ngDirs = @((Join-Path $env:APPDATA "Nugulient\novamod"), (Join-Path (Split-Path $PSScriptRoot -Parent) "Nugulient\novamod"))
+        foreach ($d in $ngDirs) {
+            try {
+                if (-not (Test-Path -LiteralPath (Split-Path $d -Parent))) { continue }
+                New-Item -ItemType Directory -Force -Path $d | Out-Null
+                Get-ChildItem -LiteralPath $d -Filter "builtin-mod-26.1.2-*.jar" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+                Copy-Item -LiteralPath $ngJar.FullName -Destination $d -Force
+                Write-Host ("너굴라이언트 모드 복사: " + $d) -ForegroundColor Cyan
+            } catch {
+                Write-Host ("너굴라이언트 모드 복사 실패: " + $d + " - " + $_) -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
 # 4. 결과 요약
 $mins = [math]::Round($sw.Elapsed.TotalMinutes, 1)
 if ($ok) {

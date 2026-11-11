@@ -50,12 +50,45 @@ public final class LunaGfx {
 	 * 0,0~492×112 영역). 높이 h로 그리고 폭을 돌려줌. 텍스처를 못 그리면 -1(호출부가 글자로 폴백).
 	 */
 	public static int drawWordmark(GuiGraphicsExtractor ctx, int x, int y, int h, int argb) {
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			return neogulWordmark(ctx, x, y, h, argb);   // 49-627차
+		}
 		int w = Math.round(h * 492f / 112f);
 		return drawTex(ctx, id("textures/gui/wordmark.png"), x, y, w, h, 0, 0, 492, 112, 512, argb) ? w : -1;
 	}
 
 	public static int wordmarkWidth(int h) {
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			net.minecraft.client.gui.Font f = net.minecraft.client.Minecraft.getInstance().font;
+			return Math.round(LunaDraw.width(f, kr.lunaslight.mod.util.LunaBrand.NEOGUL) * (h / 9f));
+		}
 		return Math.round(h * 492f / 112f);
+	}
+
+	// 49-627차(사용자: "노바클 말고 너굴라이언트로, 주황색 계열에 너굴마을 픽셀에 어우러지게"): 너굴라이언트면 N★VA CLIENT 그림 대신
+	// 마크 글꼴 "너굴라이언트"를 키워서(픽셀 그대로) - "너굴"은 주황, "라이언트"는 원래 글자색.
+	private static int neogulWordmark(GuiGraphicsExtractor ctx, int x, int y, int h, int argb) {
+		net.minecraft.client.gui.Font f = net.minecraft.client.Minecraft.getInstance().font;
+		if (f == null) {
+			return -1;
+		}
+		float k = h / 9f;
+		String a = "너굴", b = "라이언트";
+		int rgb = 0xFF000000 | (argb & 0x00FFFFFF);
+		LunaCompat.guiPush(ctx);
+		LunaCompat.guiTranslate(ctx, x, y + Math.max(0, Math.round((h - 8 * k) / 2f)));
+		LunaCompat.guiScale(ctx, k, k);
+		LunaDraw.text(ctx, f, a, 1, 1, 0xFF2B1606);   // 그림자(진한 갈색)
+		LunaDraw.text(ctx, f, b, 1 + LunaDraw.width(f, a), 1, 0xFF2B1606);
+		LunaDraw.text(ctx, f, a, 0, 0, LunaDraw.ACCENT);
+		LunaDraw.text(ctx, f, b, LunaDraw.width(f, a), 0, rgb);
+		LunaCompat.guiPop(ctx);
+		return wordmarkWidth(h);
+	}
+
+	/** 49-627차: 로고 그림(너굴라이언트면 너굴 얼굴). */
+	public static Identifier logoId() {
+		return id(kr.lunaslight.mod.util.LunaSocial.nugulient ? "textures/gui/logo_neogul.png" : "textures/gui/logo.png");
 	}
 
 	/** 49-21차: 바닐라(minecraft 네임스페이스) 텍스처 식별자. */
@@ -218,7 +251,7 @@ public final class LunaGfx {
 	 * 49-36차: Text.literal/MutableText 직접 사용 → LunaCompat.styledText(리플렉션) - 1.15.2~1.18.2에서도 컴파일.
 	 */
 	public static Component text(String s) {
-		String str = s == null ? "" : s;
+		String str = s == null ? "" : kr.lunaslight.mod.util.LunaBrand.t(s);   // 49-627차: 너굴라이언트면 이름 바꿈
 		// 49-156차: uiText를 거쳐 [리소스팩 글꼴 우선]일 때 기호는 바닐라 글꼴로(LunaCompat.packSplitText)
 		Object styled = LunaCompat.uiText(str);
 		Component t = styled instanceof Component st ? st : null;

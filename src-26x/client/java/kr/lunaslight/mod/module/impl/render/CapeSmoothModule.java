@@ -52,7 +52,11 @@ public class CapeSmoothModule extends Module {
 	}
 
 	public CapeSmoothModule() {
-		super("cape_smooth", "망토", ModuleCategory.VIEW, "노바 망토와 부드러운 흔들림");
+		super("cape_smooth", "망토", ModuleCategory.VIEW, kr.lunaslight.mod.util.LunaSocial.nugulient ? "망토 부드러운 흔들림" : "노바 망토와 부드러운 흔들림");
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {   // 49-627차: 너굴라이언트엔 노바 망토가 없음
+			novaCapes.setHidden(true);
+			othersCapes.setHidden(true);
+		}
 		defaultEnabled(true);
 		instance = this;
 	}

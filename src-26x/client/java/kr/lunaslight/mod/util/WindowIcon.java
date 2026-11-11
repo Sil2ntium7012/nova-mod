@@ -33,7 +33,11 @@ public final class WindowIcon {
 		List<int[]> sizes = new ArrayList<>();
 		try {
 			for (int size : SIZES) {
-				byte[] data = read("/assets/lunaslight/icon/" + size + ".rgba");
+				// 49-627차: 너굴라이언트면 잔디 블록 + 너굴 얼굴 배지
+				byte[] data = LunaSocial.nugulient ? read("/assets/lunaslight/icon/neogul_" + size + ".rgba") : null;
+				if (data == null) {
+					data = read("/assets/lunaslight/icon/" + size + ".rgba");
+				}
 				if (data == null || data.length != size * size * 4) {
 					continue;
 				}

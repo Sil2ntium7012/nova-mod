@@ -226,6 +226,7 @@ public final class LunaSocial {
 			}
 			if (nugulient) {
 				LunaTheme.setSkinOff(true);   // 인게임 UI(화면 스킨) 안 씀
+				LunaTheme.refresh();          // 49-627차: 너굴 색(주황)으로
 			}
 			launcherVersion = str(o, "launcherVersion");
 			// 49-213차: 처음 설정 - 고른 값을 남길 런처 폴더 파일, 설정을 마친 뒤 들어갈 서버(런처가 바로 접속하지 않고 넘겨 줌)

@@ -64,6 +64,9 @@ public final class LunaDraw {
 		if (requested <= 0) {
 			return 0;
 		}
+		if (pixel()) {
+			return Math.min(requested, 2);   // 49-627차: 너굴라이언트 = 계단 모서리(최대 2칸)
+		}
 		if (softNow()) {
 			return Math.min(requested + SOFT_EXTRA, SOFT_MAX_RADIUS);
 		}
@@ -114,6 +117,36 @@ public final class LunaDraw {
 		return softClassResult;
 	}
 
+	// ==================== 49-627차: 너굴라이언트 픽셀 모양 ====================
+	// 사용자: "너굴라이언트에서는 주황색 계열에 너굴마을 픽셀이나 리팩에 어우러지게". 둥근 텍스처 모서리 대신 마크 GUI처럼
+	// 계단 모서리(r칸: 맨 윗줄 r칸, 다음 줄 r-1칸 … 비움)로 채운다. 스위치 알약과 동그란 노브도 같은 계단 사각형.
+
+	/**
+	 * 너굴라이언트로 켰으면 픽셀 모양. 49-628차(사용자: "그 예전 느낌을 없애면 안 된다"): 모양(부드러운 둥근 모서리)은 예전 그대로
+	 * 두고 색과 이름만 바꾸기로 해서 지금은 꺼 둠(계단 모서리 코드는 남겨 둠).
+	 */
+	public static boolean pixel() {
+		return false;
+	}
+
+	/** 계단 모서리 채움(색은 알파 적용된 값). top/bottom = 그쪽 모서리를 깎을지. */
+	private static void pixelFill(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int color, boolean top, boolean bottom) {
+		r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+		int y0 = top ? y + r : y, y1 = bottom ? y + h - r : y + h;
+		if (y1 > y0) {
+			ctx.fill(x, y0, x + w, y1, color);
+		}
+		for (int dy = 0; dy < r; dy++) {
+			int in = r - dy;
+			if (top) {
+				ctx.fill(x + in, y + dy, x + w - in, y + dy + 1, color);
+			}
+			if (bottom) {
+				ctx.fill(x + in, y + h - dy - 1, x + w - in, y + h - dy, color);
+			}
+		}
+	}
+
 	/**
 	 * 49-161차: 알약(양 끝이 반원). 모서리 제한(MAX/SOFT) 없이 짧은 변의 절반을 반지름으로 쓴다 - 켜기/끄기 스위치 트랙.
 	 */
@@ -123,6 +156,10 @@ public final class LunaDraw {
 			return;
 		}
 		color = applyAlpha(color);
+		if (pixel()) {
+			pixelFill(ctx, x, y, w, h, 2, color, true, true);   // 49-627차
+			return;
+		}
 		int r = Math.min(w, h) / 2;
 		if (r > 0 && LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, color)
 			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, color)
@@ -166,6 +203,10 @@ public final class LunaDraw {
 			ctx.fill(x, y, x + w, y + h, color);
 			return;
 		}
+		if (pixel()) {
+			pixelFill(ctx, x, y, w, h, r, color, true, true);   // 49-627차
+			return;
+		}
 		// 부드러운 텍스처 모서리(4개) + 몸통 fill
 		if (LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, color)
 			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, color)
@@ -201,6 +242,10 @@ public final class LunaDraw {
 			ctx.fill(x, y, x + w, y + h, color);
 			return;
 		}
+		if (pixel()) {
+			pixelFill(ctx, x, y, w, h, r, color, true, false);   // 49-627차
+			return;
+		}
 		if (LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, color)
 			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, color)) {
 			ctx.fill(x + r, y, x + w - r, y + r, color);
@@ -229,6 +274,10 @@ public final class LunaDraw {
 		int r = Math.min(radius(radius), Math.min(w, h) / 2);
 		if (r <= 0) {
 			ctx.fill(x, y, x + w, y + h, color);
+			return;
+		}
+		if (pixel()) {
+			pixelFill(ctx, x, y, w, h, r, color, true, true);   // 49-627차
 			return;
 		}
 		ctx.fill(x, y + r, x + w, y + h - r, color);
@@ -268,6 +317,15 @@ public final class LunaDraw {
 		}
 		int midTop = lerpColor(top, bottom, r / (float) h);
 		int midBottom = lerpColor(top, bottom, (h - r) / (float) h);
+		if (pixel()) {   // 49-627차: 계단 모서리 그라데이션
+			ctx.fillGradient(x, y + r, x + w, y + h - r, midTop, midBottom);
+			for (int dy = 0; dy < r; dy++) {
+				int in = r - dy;
+				ctx.fill(x + in, y + dy, x + w - in, y + dy + 1, lerpColor(top, bottom, dy / (float) h));
+				ctx.fill(x + in, y + h - dy - 1, x + w - in, y + h - dy, lerpColor(top, bottom, (h - dy - 1) / (float) h));
+			}
+			return;
+		}
 		if (LunaGfx.drawRound(ctx, x, y, r, r, 0, 0, 64, 64, top)
 			&& LunaGfx.drawRound(ctx, x + w - r, y, r, r, 64, 0, 64, 64, top)
 			&& LunaGfx.drawRound(ctx, x, y + h - r, r, r, 0, 64, 64, 64, bottom)
@@ -349,6 +407,16 @@ public final class LunaDraw {
 		ctx.fill(x + r, y + h - 1, x + w - r, y + h, color);
 		ctx.fill(x, y + r, x + 1, y + h - r, color);
 		ctx.fill(x + w - 1, y + r, x + w, y + h - r, color);
+		if (pixel()) {   // 49-627차: 계단 모서리 테두리(대각선 점)
+			for (int dy = 1; dy < r; dy++) {
+				int in = r - dy;
+				ctx.fill(x + in, y + dy, x + in + 1, y + dy + 1, color);
+				ctx.fill(x + w - in - 1, y + dy, x + w - in, y + dy + 1, color);
+				ctx.fill(x + in, y + h - dy - 1, x + in + 1, y + h - dy, color);
+				ctx.fill(x + w - in - 1, y + h - dy - 1, x + w - in, y + h - dy, color);
+			}
+			return;
+		}
 		int prevInset = r;
 		for (int dy = 0; dy < r; dy++) {
 			double cy = r - dy - 0.5;
@@ -491,6 +559,10 @@ public final class LunaDraw {
 	/** 원(지름 d). */
 	public static void circle(GuiGraphicsExtractor ctx, int x, int y, int d, int color) {
 		LunaGfx.layerBreak(ctx);   // 49-292차
+		if (pixel()) {
+			pixelFill(ctx, x, y, d, d, Math.min(2, d / 3), applyAlpha(color), true, true);   // 49-627차: 네모 노브
+			return;
+		}
 		if (!LunaGfx.drawRound(ctx, x, y, d, d, 0, 0, 128, 128, applyAlpha(color))) {
 			roundRect(ctx, x, y, d, d, d / 2, color);
 		}
@@ -516,6 +588,13 @@ public final class LunaDraw {
 			pill(ctx, x, y, w, h, lerpColor(0xFFE6D8BE, enabledLook ? 0xFF62ACE6 : 0xFFB9C9D6, t));
 			int ks = h - 4;
 			circle(ctx, Math.round(x + 2 + (w - ks - 4) * t), y + 2, ks, 0xFFFFFFFF);
+			return;
+		}
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			// 49-627차: 너굴라이언트 런처 스위치 그대로(49-628차: 모양은 예전 알약 + 동그란 노브, 색만) - 켜짐 = 주황 트랙 + 짙은 갈색 노브, 꺼짐 = 갈색 트랙 + 크림 노브
+			pill(ctx, x, y, w, h, lerpColor(0xFF43382E, enabledLook ? ACCENT : 0xFF6A5A48, t));
+			int ks = h - 4;
+			circle(ctx, Math.round(x + 2 + (w - ks - 4) * t), y + 2, ks, lerpColor(0xFFF6EFE5, enabledLook ? 0xFF2B1606 : 0xFFCDBFAD, t));
 			return;
 		}
 		int track = lerpColor(TRACK, on, t);
@@ -1187,10 +1266,12 @@ public final class LunaDraw {
 	}
 
 	public static int width(Font tr, String s) {
+		s = kr.lunaslight.mod.util.LunaBrand.t(s);   // 49-627차: 너굴라이언트면 이름 바꿈
 		return LunaCompat.textWidth(tr, LunaGfx.text(s));
 	}
 
 	public static void text(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int color) {
+		s = kr.lunaslight.mod.util.LunaBrand.t(s);   // 49-627차
 		if (hudDepth > 0 && kr.lunaslight.mod.util.LunaCompat.hudCream) {
 			s = kr.lunaslight.mod.util.LunaCompat.creamText(s);   // 49-257차: 크림 HUD 상자 위
 			color = kr.lunaslight.mod.util.LunaCompat.creamColor(color);

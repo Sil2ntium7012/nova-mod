@@ -95,10 +95,30 @@ public class NeogulMineModule extends Module {
 	private final java.util.Set<String> full = new java.util.HashSet<>();
 	private final Map<String, JsonElement> iconRaw = new LinkedHashMap<>();
 	private final Map<String, ItemStack> icons = new HashMap<>();
+	/** 49-635차: 창고 화면에서 읽은 이름(칸 이름) - 그림 읽기와 따로 저장(그림을 못 읽어도 창고 이름인 건 남게). */
+	private final java.util.Set<String> store = new java.util.LinkedHashSet<>();
 	private boolean opened, loaded, dirty;
 	private long dirtyAt;
 	private Object lastConn;
 	private int readTick;
+	// 49-629차(사용자: "아이템 모두 꺼내기나 따로 꺼내기 했을 때 광창 미리보기가 안 바뀜"): 창고에서 꺼낼 때.
+	// 꺼내기 창(한 광물만 보이는 창)도 읽고, 창고를 본 뒤 상자 창이 이어지는 동안(+닫고 1.5초) 인벤토리에 그 광물이 늘면 창고에서 뺀다.
+	private long withdrawUntil;
+	private Map<String, Integer> invLast;
+	/** 창 설명에서 마지막으로 읽은 값, 그 값 이후 꺼낸 개수(서버가 설명을 안 고쳐 줘도 4틱마다 옛 값으로 되돌아가지 않게). */
+	private final Map<String, Integer> loreVal = new HashMap<>();
+	private final Map<String, Integer> pend = new HashMap<>();
+
+	/** 설명에 적힌 값 v → 실제로 쓸 개수(같은 값이 계속 보이면 그 뒤로 꺼낸 만큼 뺀다, 값이 바뀌면 서버 값 그대로). */
+	private int applyLore(String name, int v) {
+		Integer lv = loreVal.put(name, v);
+		Integer pd = pend.get(name);
+		if (lv != null && lv == v && pd != null) {
+			return Math.max(0, v - pd);
+		}
+		pend.remove(name);
+		return v;
+	}
 
 	private record Gem(String name, int color, int[] n, long[] at) {
 	}
@@ -163,6 +183,16 @@ public class NeogulMineModule extends Module {
 					iconRaw.put(e.getKey(), e.getValue());
 				}
 			}
+			if (o.has("store") && o.get("store").isJsonArray()) {   // 49-635차
+				for (var e : o.getAsJsonArray("store")) {
+					store.add(e.getAsString());
+				}
+			} else {
+				store.addAll(iconRaw.keySet());
+			}
+			if (dedupe()) {   // 49-631차
+				markDirty();
+			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulMine:load", t);
 		}
@@ -196,6 +226,11 @@ public class NeogulMineModule extends Module {
 				}
 			}
 			o.add("icons", ic);
+			com.google.gson.JsonArray sa = new com.google.gson.JsonArray();
+			for (String n : store) {
+				sa.add(n);
+			}
+			o.add("store", sa);   // 49-635차
 			Path f = file();
 			Files.createDirectories(f.getParent());
 			Files.writeString(f, GSON.toJson(o), StandardCharsets.UTF_8);
@@ -318,9 +353,28 @@ public class NeogulMineModule extends Module {
 			}
 		}
 		if (found.size() < 3) {
-			return;   // 광물 창고가 아님
+			// 49-629차: 꺼내기 창(따로 꺼내기 개수 고르는 창 등) - 이미 아는 광물만 보이면 그 개수만 고친다
+			if (!opened || found.isEmpty() || !counts.keySet().containsAll(found.keySet())) {
+				return;   // 광물 창고가 아님
+			}
+			boolean ch = false;
+			for (var e : found.entrySet()) {
+				Integer mx = maxes.get(e.getKey());
+				if (mx == null || e.getValue() < mx) {
+					full.remove(e.getKey());
+				}
+				int v = applyLore(e.getKey(), e.getValue());
+				Integer old = counts.put(e.getKey(), v);
+				ch |= old == null || old != v;
+			}
+			if (ch) {
+				markDirty();
+			}
+			return;
 		}
-		boolean changed = !opened;
+		startWithdrawWatch();
+		boolean changed = !opened || !store.containsAll(found.keySet());
+		store.addAll(found.keySet());   // 49-635차
 		opened = true;
 		for (var e : found.entrySet()) {
 			Integer mx = maxes.get(e.getKey());
@@ -329,8 +383,9 @@ public class NeogulMineModule extends Module {
 			} else {
 				full.add(e.getKey());
 			}
-			Integer old = counts.put(e.getKey(), e.getValue());
-			if (old == null || !old.equals(e.getValue())) {
+			int v = applyLore(e.getKey(), e.getValue());   // 49-629차
+			Integer old = counts.put(e.getKey(), v);
+			if (old == null || old != v) {
 				changed = true;
 			}
 			if (!icons.containsKey(e.getKey())) {
@@ -339,7 +394,105 @@ public class NeogulMineModule extends Module {
 				changed = true;
 			}
 		}
+		changed |= dedupe();   // 49-631차
 		if (changed) {
+			markDirty();
+		}
+	}
+
+	/** 49-631차: 창고 화면에서 읽은 이름인가(그림을 창고 칸에서 가져온 것). */
+	private boolean isStore(String n) {
+		return store.contains(n) || icons.containsKey(n) || iconRaw.containsKey(n);
+	}
+
+	/** 49-631차: 창고 이름과 같은 광물인데 창고에 없는 이름으로 따로 쌓인 줄을 지운다(창고 값이 맞는 값). */
+	private boolean dedupe() {
+		boolean ch = false;
+		for (var it = counts.keySet().iterator(); it.hasNext(); ) {
+			String k = it.next();
+			if (isStore(k)) {
+				continue;
+			}
+			if (!store.isEmpty()) {
+				// 49-635차(사진: 사암 6, 오팔 조각 두 줄): 창고 칸에 없는 이름은 창고에 든 게 아니다(인벤토리로 감) - 지운다
+				it.remove();
+				recent.remove(k);
+				ch = true;
+				continue;
+			}
+			String sk = statName(k);
+			for (String n : new ArrayList<>(counts.keySet())) {
+				if (!n.equals(k) && isStore(n) && statName(n).equals(sk)) {
+					it.remove();
+					recent.remove(k);
+					ch = true;
+					break;
+				}
+			}
+		}
+		return ch;
+	}
+
+	// ==================== 49-629차: 꺼냄 ====================
+
+	/** 창고 화면을 읽었다 - 꺼내기 감시를 켜고(꺼져 있었으면 지금 인벤토리를 기준으로). */
+	private void startWithdrawWatch() {
+		if (invLast == null || System.currentTimeMillis() > withdrawUntil) {
+			invLast = invOres();
+		}
+		withdrawUntil = System.currentTimeMillis() + 1500;
+	}
+
+	/** 인벤토리(0~35칸)에 든 창고 광물 이름별 개수. */
+	private Map<String, Integer> invOres() {
+		Map<String, Integer> out = new HashMap<>();
+		try {
+			var inv = client.player.getInventory();
+			for (int i = 0; i < 36; i++) {
+				ItemStack st = inv.getItem(i);
+				if (st == null || st.isEmpty()) {
+					continue;
+				}
+				String n = clean(st.getHoverName().getString());
+				if (counts.containsKey(n)) {
+					out.merge(n, st.getCount(), Integer::sum);
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulMine:inv", t);
+		}
+		return out;
+	}
+
+	/** 매 틱: 감시 중이면 인벤토리에 는 광물만큼 창고 개수를 줄인다(창고 화면을 다시 읽으면 그 값으로 덮어씀). */
+	private void withdrawTick() {
+		if (invLast == null || client.player == null) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now > withdrawUntil) {
+			invLast = null;
+			pend.clear();      // 다음에 창고를 열면 서버 값 그대로
+			loreVal.clear();
+			return;
+		}
+		if (LunaCompat.screenOf(client) instanceof AbstractContainerScreen<?> hs && !(hs instanceof InventoryScreen)) {
+			withdrawUntil = now + 1500;   // 창고에서 이어진 상자 창(꺼내기 창)이 떠 있는 동안 계속
+		}
+		Map<String, Integer> cur = invOres();
+		boolean ch = false;
+		for (var e : cur.entrySet()) {
+			int d = e.getValue() - invLast.getOrDefault(e.getKey(), 0);
+			Integer have = counts.get(e.getKey());
+			if (d > 0 && have != null && have > 0) {
+				counts.put(e.getKey(), Math.max(0, have - d));
+				pend.merge(e.getKey(), d, Integer::sum);
+				full.remove(e.getKey());
+				ch = true;
+			}
+		}
+		invLast = cur;
+		if (ch) {
 			markDirty();
 		}
 	}
@@ -351,11 +504,18 @@ public class NeogulMineModule extends Module {
 		if (!opened) {
 			return base;
 		}
-		if (counts.containsKey(base)) {
-			return base;
+		// 49-631차(사진: "요리용 석탄"이 두 줄 - 174와 [재료] 요리용 석탄 180): 창고에 없는 이름(전에 KO 표 이름으로 만든 것)이 먼저 잡혀
+		// 따로 쌓였다. 이제 창고에서 읽은 이름부터 찾고, 없을 때만 표 이름.
+		for (String n : counts.keySet()) {
+			if (isStore(n) && statName(n).equals(base)) {
+				return n;
+			}
 		}
 		String word = NG_WORD.get(id);
 		for (String n : counts.keySet()) {
+			if (!isStore(n)) {
+				continue;
+			}
 			if (word != null) {
 				if (n.contains(word)) {
 					return n;
@@ -403,6 +563,13 @@ public class NeogulMineModule extends Module {
 			}
 			ensureLoaded();
 			String name = nameFor(id);
+			if (opened && !store.isEmpty() && !isStore(name)) {
+				// 49-635차: 창고에 칸이 없는 것(사암 등) - 인벤토리로 들어가니 아이템 획득이 따로 띄운다(보석이면 몇 개 나왔다는 알림만)
+				if (GEMS.contains(id)) {
+					gemNote(id, name, n);
+				}
+				return;
+			}
 			if (full.contains(name)) {
 				return;   // 창고가 꽉 차 인벤토리로 들어감 - 아이템 획득이 인벤토리로 따로 띄운다
 			}
@@ -439,21 +606,26 @@ public class NeogulMineModule extends Module {
 			}
 			markDirty();
 			if (gem) {
-				long now = System.currentTimeMillis();
-				for (Gem g : gems) {
-					if (g.name.equals(name) && now - g.at[0] < 2500) {
-						g.n[0] += n;
-						g.at[0] = now;
-						return;
-					}
-				}
-				gems.add(new Gem(name, GEM_COLOR.getOrDefault(id, 0xFFFFD36A), new int[]{n}, new long[]{now}));
-				while (gems.size() > 3) {
-					gems.remove(0);
-				}
+				gemNote(id, name, n);
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulMine:gain", t);
+		}
+	}
+
+	/** 보석이 나왔다 - 서브타이틀 자리 "N개 나왔다"(2.5초 안 같은 보석은 합침). */
+	private void gemNote(String id, String name, int n) {
+		long now = System.currentTimeMillis();
+		for (Gem g : gems) {
+			if (g.name.equals(name) && now - g.at[0] < 2500) {
+				g.n[0] += n;
+				g.at[0] = now;
+				return;
+			}
+		}
+		gems.add(new Gem(name, GEM_COLOR.getOrDefault(id, 0xFFFFD36A), new int[]{n}, new long[]{now}));
+		while (gems.size() > 3) {
+			gems.remove(0);
 		}
 	}
 
@@ -475,6 +647,7 @@ public class NeogulMineModule extends Module {
 		if (++readTick % 4 == 0 && LunaCompat.screenOf(client) instanceof AbstractContainerScreen<?> hs && !(hs instanceof InventoryScreen)) {
 			readStorage(hs);
 		}
+		withdrawTick();   // 49-629차
 	}
 
 	/**
@@ -493,6 +666,7 @@ public class NeogulMineModule extends Module {
 		if (++m.readTick % 4 == 0 && LunaCompat.screenOf(m.client) instanceof AbstractContainerScreen<?> hs && !(hs instanceof InventoryScreen)) {
 			m.readStorage(hs);
 		}
+		m.withdrawTick();   // 49-629차
 	}
 
 	@Override

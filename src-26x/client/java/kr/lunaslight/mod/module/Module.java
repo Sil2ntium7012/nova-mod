@@ -93,7 +93,9 @@ public abstract class Module {
 	 * 49-622차(사용자: "너굴라이언트에서는 우리 클라 치장, 귓속말 알림, 핑 마커, TNT, 영상 보기 PIP 없애기 - 많은 분께 공개라 안전장치 중요"):
 	 * 너굴라이언트로 켰으면 아예 없는 기능(꺼짐 고정, 목록, 검색, 새 기능 창에서도 빠짐).
 	 */
-	private static final java.util.Set<String> NUGULIENT_REMOVED = java.util.Set.of("whisper_alert", "ping_mark", "tnt_timer", "video_pip");
+	private static final java.util.Set<String> NUGULIENT_REMOVED = java.util.Set.of("whisper_alert", "ping_mark", "tnt_timer", "video_pip",
+			// 49-627차: 노바 치장(날개, 발자취, 가방, 모자)과 Nova Client 패치노트 알림도 너굴라이언트엔 없음
+			"wings", "trails", "bags", "hats", "patch_note_alert");
 
 	/** 너굴라이언트에서 빠진 기능인가. */
 	public boolean removedHere() {

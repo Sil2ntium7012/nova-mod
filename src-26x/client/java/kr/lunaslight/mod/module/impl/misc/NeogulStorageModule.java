@@ -110,6 +110,12 @@ public class NeogulStorageModule extends Module {
 	private String current;
 	/** 지금 화면의 창고 버튼 → 메뉴 칸 번호(목록 화면일 때). */
 	private final Map<String, Integer> buttons = new LinkedHashMap<>();
+	/**
+	 * 49-636차(사용자 사진: 권한 없는 4번 창고 판에 요리용 석탄 64개 54칸 - "이건 뭔 버그"): 서버 버튼 설명이 "등급업을 통해 권한을 획득할 수 있습니다"인
+	 * 잠긴 창고. 누르면 서버가 "해당 창고 권한이 없습니다"만 보내고 창을 안 여는데, 그 창고로 기다리다(4초) 그 사이 뜬 다른 창을 그 창고로 적었다.
+	 * 잠긴 창고는 누르지도, 기다리지도, 적지도 않는다(저장, 판에는 "잠김").
+	 */
+	private final java.util.Set<String> locked = new java.util.LinkedHashSet<>();
 	private final Map<String, ItemStack> buttonIcons = new LinkedHashMap<>();
 	private boolean menuScreen;
 	private int snapTicks;
@@ -144,6 +150,20 @@ public class NeogulStorageModule extends Module {
 		serverGroup("너굴마을");
 		defaultEnabled(true);
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
+		// 49-636차: 서버가 "해당 창고 권한이 없습니다" - 기다리던 창고를 버리고 다시 누르지 않는다
+		kr.lunaslight.mod.util.ChatState.addLoggedListener(line -> {
+			if (line != null && line.contains("창고 권한이 없")) {
+				String k = pending != null ? pending : retryKey;
+				if (k != null && locked.add(k)) {
+					boxes.remove(k);
+					dirty = true;
+				}
+				pending = null;
+				retryKey = null;
+				chainKey = null;
+				cmdKey = null;
+			}
+		});
 		try {
 			net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
 				if (screen instanceof AbstractContainerScreen<?>) {
@@ -196,6 +216,28 @@ public class NeogulStorageModule extends Module {
 		return null;
 	}
 
+	/** 49-636차: 서버 버튼 설명에 권한/등급업 안내가 있으면 잠긴 창고. */
+	private static boolean isLockedButton(ItemStack st) {
+		try {
+			for (String l : LunaCompat.itemLore(st)) {
+				if (l.contains("권한") || l.contains("등급업") || l.contains("잠김") || l.contains("미개방")) {
+					return true;
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		return false;
+	}
+
+	/** 49-636차: 잠긴 창고를 누르려 할 때 - 서버에 안 보내고 알림만. */
+	private boolean blockLocked(String k) {
+		if (k == null || !locked.contains(k)) {
+			return false;
+		}
+		LunaCompat.sendActionBar(client, "§c" + nameOf(k) + "§f는 아직 권한이 없어요 §7(등급업으로 열 수 있어요)");
+		return true;
+	}
+
 	/** 마우스 아래 칸이 창고 버튼이면 다음에 열리는 창이 그 창고다. */
 	private void noteButtonClick(Screen s) {
 		if (!active() || !(s instanceof kr.lunaslight.mod.mixin.ContainerScreenAccessorMixin acc)) {
@@ -207,7 +249,7 @@ public class NeogulStorageModule extends Module {
 				return;
 			}
 			String k = keyOf(sl.getItem());
-			if (k != null && menuScreen) {   // 49-558차: 창고 목록에서 누른 것만(다른 창의 비슷한 이름 아이템은 무시)
+			if (k != null && menuScreen && !locked.contains(k) && !isLockedButton(sl.getItem())) {   // 49-558차: 창고 목록에서 누른 것만. 49-636차: 잠긴 창고는 기다리지 않음
 				pending = k;
 				pendingAt = System.currentTimeMillis();
 			}
@@ -273,6 +315,14 @@ public class NeogulStorageModule extends Module {
 				buttons.put(k, i);
 				buttonIcons.put(k, st.copy());
 				savedIcons.put(k, st.copy());
+				boolean lk = isLockedButton(st);
+				if (lk ? locked.add(k) : locked.remove(k)) {
+					dirty = true;
+				}
+				if (lk && boxes.containsKey(k) && !itemsOf(boxes.get(k)).isEmpty()) {
+					boxes.remove(k);   // 잘못 적힌 것(다른 창)을 지운다
+					dirty = true;
+				}
 			}
 		}
 		// 버튼이 2개 이상이면 목록 화면 - 창고로 적지 않는다(잠긴 창고를 누르면 서버가 목록을 다시 연다)
@@ -320,6 +370,10 @@ public class NeogulStorageModule extends Module {
 			}
 			// 목록이 뜨고 칸이 다 들어온 뒤(2틱) 기다리던 창고 버튼을 누른다
 			// 49-537차(사용자: "다른 창고 누르면 사운드 바바박 나면서 안 가지고 메인 창고 화면으로"): 1틱은 너무 일러 서버가 무시했다 - 3틱 뒤에 누른다(그동안 가림 판)
+			if (chainKey != null && locked.contains(chainKey)) {
+				blockLocked(chainKey);   // 49-636차
+				chainKey = null;
+			}
 			if (chainKey != null && screenTicks >= 3 && client.gameMode != null) {
 				Integer slot = buttons.get(chainKey);
 				kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 창고: 목록에서 {} 누름(칸 {}, 버튼 {})", chainKey, slot, buttons.keySet());
@@ -361,6 +415,9 @@ public class NeogulStorageModule extends Module {
 			pending = null;
 		}
 		// 보고 있는 창고: 칸을 그대로 적어 둔다(상자 몫이 9의 배수일 때)
+		if (current != null && locked.contains(current)) {
+			current = null;   // 49-636차: 잠긴 창고로 적지 않음
+		}
 		if (current != null && !menuScreen && screenTicks >= 3 && cmdKey == null && n >= 9 && n <= 54 && n % 9 == 0) {   // 49-549차: 칸이 다 들어온 뒤에만(목록을 빈 창고로 적지 않게)
 			Box b = boxes.computeIfAbsent(current, x -> new Box());
 			List<ItemStack> now = new ArrayList<>(n);
@@ -411,6 +468,11 @@ public class NeogulStorageModule extends Module {
 			if (o.has("names")) {
 				for (var e : o.getAsJsonObject("names").entrySet()) {
 					names.put(e.getKey(), e.getValue().getAsString());
+				}
+			}
+			if (o.has("locked") && o.get("locked").isJsonArray()) {   // 49-636차
+				for (JsonElement e : o.getAsJsonArray("locked")) {
+					locked.add(e.getAsString());
 				}
 			}
 			if (o.has("boxes")) {
@@ -469,6 +531,11 @@ public class NeogulStorageModule extends Module {
 				nm.addProperty(e.getKey(), e.getValue());
 			}
 			o.add("names", nm);
+			JsonArray lk = new JsonArray();
+			for (String k : locked) {
+				lk.add(k);
+			}
+			o.add("locked", lk);   // 49-636차
 			JsonObject bx = new JsonObject();
 			for (var e : boxes.entrySet()) {
 				Box b = e.getValue();
@@ -826,7 +893,9 @@ public class NeogulStorageModule extends Module {
 				ctx.item(icon, 0, 0);
 				LunaCompat.guiPop(ctx);
 			}
-			if (items.isEmpty()) {
+			if (locked.contains(p.key())) {
+				LunaDraw.textCentered(ctx, client.font, "잠김 (등급업으로 열 수 있어요)", 88, 18 + rows * 9 - 4, 0xFF8B2E2E);   // 49-636차
+			} else if (items.isEmpty()) {
 				LunaDraw.textCentered(ctx, client.font, "열어 보면 보여요", 88, 18 + rows * 9 - 4, 0xFF404040);
 			} else {
 				for (int i = 0; i < items.size() && i < rows * 9; i++) {
@@ -844,7 +913,7 @@ public class NeogulStorageModule extends Module {
 		} finally {
 			LunaCompat.guiPop(ctx);
 		}
-		if (hov && !items.isEmpty()) {
+		if (hov && !items.isEmpty() && !locked.contains(p.key())) {
 			int c = Math.round(18 * k);
 			int gx = p.x() + Math.round(8 * k), gy = p.y() + Math.round(18 * k);
 			int col = (mouseX - gx) / Math.max(1, c), row = (mouseY - gy) / Math.max(1, c);
@@ -1035,6 +1104,9 @@ public class NeogulStorageModule extends Module {
 	}
 
 	private void open(AbstractContainerScreen<?> hs, String key) {
+		if (blockLocked(key)) {
+			return;   // 49-636차
+		}
 		beginSwitch();
 		Integer slot = buttons.get(key);
 		if (slot != null && client.gameMode != null) {

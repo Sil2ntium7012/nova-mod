@@ -42,6 +42,10 @@ public class SimpleHealthHudModule extends Module {
 	public SimpleHealthHudModule() {
 		super("simple_health_hud", "체력", ModuleCategory.HUD, "한 줄 하트 | 20마다 색 층");
 		defaultEnabled(true);
+		// 49-626차(사용자: 너굴라이언트 - "체력도 비활"): 너굴라이언트로 켰고 저장된 값이 없으면 꺼진 채 시작(켜는 건 자유)
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			defaultEnabled(false);
+		}
 		kr.lunaslight.mod.util.HealthBarHook.set(this::replaceHealthBar);
 		// 갑옷 줄도 같은 판단을 써서 하트 바로 위에 붙인다(바닐라는 줄 수만큼 갑옷을 띄움).
 		kr.lunaslight.mod.util.HealthBarHook.setCompressing(this::compressingNow);

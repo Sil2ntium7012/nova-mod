@@ -540,7 +540,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 		int logo = 20;
 		int wordH = Math.max(8, Math.min(14, Math.round((railW - 10 - logo - 6) * 112f / 492f)));
 		int ly = TOP_Y + (TITLE_H - logo) / 2;
-		if (!LunaGfx.drawTex(ctx, LunaGfx.id("textures/gui/logo.png"), railX, ly, logo, logo, 0, 0, 128, 128, 128,
+		if (!LunaGfx.drawTex(ctx, LunaGfx.logoId(), railX, ly, logo, logo, 0, 0, 128, 128, 128,
 				LunaDraw.applyAlpha(0xFFFFFFFF))) {
 			LunaIcons.drawInBox(ctx, font, LunaIcons.LOGO, railX, ly, logo, LunaClientScreen.themeAccent());
 		}

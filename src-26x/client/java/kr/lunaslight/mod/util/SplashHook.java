@@ -75,8 +75,8 @@ public final class SplashHook {
 			long tms = System.currentTimeMillis();
 
 			// 1) 배경 - 위는 테마색, 아래로 갈수록 강조색이 아주 옅게 섞인 세로 그라데이션(띠로 흉내).
-			int bgTop = LunaTheme.BACKGROUND_SOLID;
-			int bgBottom = mix(LunaTheme.BACKGROUND_SOLID, accentRgb, 0.13f);
+			int bgTop = LunaSocial.nugulient ? 0xFF15110D : LunaTheme.BACKGROUND_SOLID;   // 49-627차: 너굴라이언트 = 짙은 나무색
+			int bgBottom = mix(bgTop, accentRgb, 0.13f);
 			int bands = 40;
 			for (int i = 0; i < bands; i++) {
 				int y0 = h * i / bands;
@@ -108,7 +108,7 @@ public final class SplashHook {
 
 			// 49-125차(사용자: "로딩창 글 뒤에 있는 보라색 원 없애줘"): 로고 뒤 타원형 빛무리는 뺐다.
 
-			boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.id("textures/gui/logo.png"),
+			boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.logoId(),
 				gx, gy, logoSize, logoSize, 0, 0, 128, 128, 128, white);
 			if (logoDrawn) {
 				LunaGfx.drawWordmark(ctx, gx + logoSize + brandGap, gy + (logoSize - wordH) / 2, wordH, white);

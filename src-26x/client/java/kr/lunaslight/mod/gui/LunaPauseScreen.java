@@ -195,7 +195,7 @@ public class LunaPauseScreen extends LunaScreenBase {
 		int wordW = LunaGfx.wordmarkWidth(WORDMARK_H);
 		int groupW = LOGO + 9 + wordW;
 		int lx = cx - groupW / 2;
-		boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.id("textures/gui/logo.png"),
+		boolean logoDrawn = LunaGfx.drawTex(ctx, LunaGfx.logoId(),
 			lx, by, LOGO, LOGO, 0, 0, 128, 128, 128, LunaDraw.applyAlpha(0xFFFFFFFF));
 		if (!logoDrawn) {
 			LunaIcons.drawLarge(ctx, font, LunaIcons.LOGO, lx + 3, LunaDraw.iconLgY(by, LOGO), LunaDraw.ACCENT);

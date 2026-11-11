@@ -93,6 +93,10 @@ public class ArmorBarColorModule extends Module {
 	public ArmorBarColorModule() {
 		super("armor_bar_color", "갑옷 줄 색", ModuleCategory.HUD, "입은 갑옷별 색 | 인챈트 반짝임");
 		defaultEnabled(true);
+		// 49-626차(사용자: 너굴라이언트 - "갑옷줄 색 기본 비활"): 너굴라이언트로 켰고 저장된 값이 없으면 꺼진 채 시작(켜는 건 자유)
+		if (kr.lunaslight.mod.util.LunaSocial.nugulient) {
+			defaultEnabled(false);
+		}
 		glint.withColor(glintColor);
 		ArmorBarHook.set(new ArmorBarHook.Handler() {
 			@Override

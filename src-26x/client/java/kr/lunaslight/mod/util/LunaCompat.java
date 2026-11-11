@@ -2339,7 +2339,7 @@ public final class LunaCompat {
 			if (chat == null) {
 				return;
 			}
-			Component msg = textLiteral(text);
+			Component msg = textLiteral(LunaBrand.t(text));   // 49-627차
 			for (Method m : chat.getClass().getMethods()) {
 				if (m.getParameterCount() == 1 && nameMatches(chat.getClass(), "addMessage", m.getName())
 						&& m.getParameterTypes()[0].isInstance(msg)) {
@@ -2679,7 +2679,7 @@ public final class LunaCompat {
 			if (player == null) {
 				return;
 			}
-			Object text = literalTextSafe(message);
+			Object text = literalTextSafe(LunaBrand.t(message));   // 49-627차
 			if (text == null) {
 				return;
 			}
