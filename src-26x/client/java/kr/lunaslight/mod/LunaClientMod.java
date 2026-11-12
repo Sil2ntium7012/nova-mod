@@ -174,6 +174,7 @@ public class LunaClientMod implements ClientModInitializer {
 		// 49-23차: 런처가 실어 보낸 소셜 정보(계정 토큰 포함)를 지금 메모리로 읽고, 파일(.luna-launch.json)은
 		// 바로 지운다 - 토큰이 게임 폴더에 남지 않게(사용자 요청). 위 검증은 이미 끝났고 런처가 다음 실행 때 다시 씀.
 		kr.lunaslight.mod.util.LunaSocial.load();
+		kr.lunaslight.mod.util.NovaSettingsImport.run();   // 49-645차: 너굴라이언트 첫 실행이면 Nova Client 모드 설정을 그대로 가져옴
 
 		ModuleManager.get().init();
 		LunaClientConfig.load();

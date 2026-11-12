@@ -266,6 +266,7 @@ public final class TodoList {
 
 	/** TodoGameModeMixin: 생물을 때렸다(5초 안에 죽으면 잡은 것). */
 	public static void onAttack(Entity e) {
+		lastAttackTick = tick;   // 49-646차: 맞힌 게 생물이 아니어도(모델 히트박스 등) 둘레에서 맞은 몹을 찾는다
 		if (!(e instanceof LivingEntity) || e instanceof Player) {
 			return;
 		}
@@ -278,6 +279,23 @@ public final class TodoList {
 		if (HITS.size() > 64) {
 			HITS.remove(0);
 		}
+		lastAttackTick = tick;
+	}
+
+	/**
+	 * 49-646차(사용자 사진: 할 일 "던전" 1/1200 - "던전 피로도도 제대로 책정이 안 됨"): 너굴마을 던전 몹은 죽을 때 쓰러지는 모습 없이 바로 사라져서
+	 * (서버가 지움) "죽음"으로 안 잡히고 "사라짐"으로 버려졌다. 1차 기본공격의 스플래시처럼 직접 안 때린 몹도 안 셌다.
+	 * 이제 내가 공격한 뒤 3초 동안 둘레 8칸에서 맞은(hurtTime) 몹도 넣고, 맞은 몹이 5초 안에 내 근처(24칸)에서 사라지면 잡은 것으로 센다.
+	 */
+	private static long lastAttackTick = -1000;
+
+	private static boolean known(Entity e) {
+		for (Hit h : HITS) {
+			if (h.e() == e) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** ChatState: 서버 채팅 한 줄. */
@@ -371,10 +389,28 @@ public final class TodoList {
 		onNeogul = NeogulData.onNeogul(mc);
 		Player p = mc.player;
 		// 몹 잡기
+		if (tick - lastAttackTick <= 60) {
+			try {
+				for (Entity e : mc.level.getEntities(p, p.getBoundingBox().inflate(8.0))) {
+					if (e instanceof LivingEntity le && !(e instanceof Player) && le.hurtTime > 0 && !known(e)) {
+						HITS.add(new Hit(e, tick));   // 스플래시 등으로 같이 맞은 몹
+					}
+				}
+				while (HITS.size() > 64) {
+					HITS.remove(0);
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("todo:splash", t);
+			}
+		}
 		for (Iterator<Hit> it = HITS.iterator(); it.hasNext(); ) {
 			Hit h = it.next();
 			Entity e = h.e();
 			boolean dead = e instanceof LivingEntity le && (le.isDeadOrDying() || le.getHealth() <= 0f);
+			// 49-646차: 너굴마을은 죽은 몹을 바로 지운다 - 맞은 뒤 5초 안에 내 근처에서 사라지면 잡은 것
+			if (!dead && onNeogul && e.isRemoved() && tick - h.at() <= 100 && e.distanceToSqr(p) < 24 * 24) {
+				dead = true;
+			}
 			if (dead) {
 				it.remove();
 				String name = e.getName().getString();

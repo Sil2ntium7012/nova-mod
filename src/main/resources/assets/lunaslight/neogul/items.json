@@ -261,6 +261,13 @@
     "minecraft:dispenser"
    ],
    "model": "nexo:vending_machine"
+  },
+  "afk": {
+   "name": "잠수 상점",
+   "note": "잠수 포인트로 구매(상점 2층 오른쪽 NPC)",
+   "icon": [
+    "minecraft:clock"
+   ]
   }
  },
  "categories": [
@@ -3889,6 +3896,14 @@
     {
      "at": "donate",
      "note": "단계마다 2~20개"
+    },
+    {
+     "at": "vote",
+     "note": "추천코인 상점 (11/11 패치)"
+    },
+    {
+     "at": "hottime",
+     "note": "핫타임코인 상점 (11/11 패치)"
     }
    ],
    "model": "nexo:vending_machine",
@@ -4033,6 +4048,18 @@
     {
      "at": "donate",
      "note": "+20%, +50%, +100%"
+    },
+    {
+     "at": "vote",
+     "note": "추천코인 상점 +10% 10분 (11/11 패치)"
+    },
+    {
+     "at": "hottime",
+     "note": "핫타임코인 상점 +10% 10분 (11/11 패치)"
+    },
+    {
+     "at": "afk",
+     "note": "잠수 상점 +10% 10분, +20% 10분 (11/11 패치)"
     }
    ],
    "model": "nexo:exp_coupon_1"
@@ -6518,6 +6545,9 @@
      "at": "shop",
      "note": "채집 도구상점(해양)에 추가 (11/07 패치)"
     }
+   ],
+   "uses": [
+    "/보내기 로 다른 유저에게 보낼 수 있어요 (11/10 패치)"
    ]
   }
  ],
