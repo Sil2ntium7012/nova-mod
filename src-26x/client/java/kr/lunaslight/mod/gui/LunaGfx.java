@@ -255,6 +255,7 @@ public final class LunaGfx {
 	 * 있고, 마크 폰트 모드/실패 시 null(호출부가 겹쳐 그리기로 굵게).
 	 */
 	public static Object titleText(String s) {
+		s = kr.lunaslight.mod.util.LunaBrand.t(s);   // 49-642차(사진: 너굴라이언트 일시정지 화면 "Nova 설정" - 굵은 글씨 길은 이름을 안 바꿨다)
 		if (LunaCompat.fontMode() == LunaCompat.FONT_MC) {
 			Object jua = LunaCompat.fontStyle("jua");   // 49-372차: 주아는 원래 굵은 글꼴이라 제목도 그대로
 			return jua == null ? null : LunaCompat.styledText(s == null ? "" : s, jua);
