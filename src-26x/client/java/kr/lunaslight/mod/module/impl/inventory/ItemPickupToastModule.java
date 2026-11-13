@@ -495,12 +495,10 @@ public class ItemPickupToastModule extends Module {
 			int plateX = rx + rowW - plateW;
 
 			// ① 왼쪽 막대(회색 판의 뾰족한 끝 뒤까지)
-			drawLeftBar(context, rx, ry, plateX + point - rx, BAR_H, point, withAlpha(0x8C000000, a));
+			// 49-648차(사용자: "보석 아이템 획득에 노란색 뜨는 거 좋은데 모양이 이상해, 다른 거랑 모양은 같아야지"): 둥근 금색 테두리를 따로 두르지 않고
+			// 같은 모양의 막대를 금빛으로 물들인다(판도 금빛)
+			drawLeftBar(context, rx, ry, plateX + point - rx, BAR_H, point, withAlpha(t.hl ? 0xB85A4214 : 0x8C000000, a));
 			// ② 회색 판: 왼쪽 끝 볼록 화살 + 하이라이트
-			if (t.hl) {
-				// 49-608차: 너굴 광산 보석 - 막대 테두리를 금색으로
-				LunaDraw.roundRectBordered(context, rx - 1, ry - 1, plateX + point - rx + 2, BAR_H + 2, 2, 0x00000000, withAlpha(0xFFFFD36A, a));
-			}
 			drawPlate(context, plateX, ry, plateW, BAR_H, point,
 				withAlpha(t.hl ? 0xFF5A4720 : 0xFF3A3A3A, a), withAlpha(0xFF111111, a), withAlpha(t.hl ? 0xFFFFD36A : LunaTheme.mix(accent, 0xFFC9CDD2, 0.55f), a));
 

@@ -117,6 +117,8 @@ public final class NeogulDungeonHud {
 	// 보스바: 서버가 보낸 원래 이름 / 우리가 넣은 자른 이름
 	private static final Map<BossEvent, Component> RAW = new IdentityHashMap<>();
 	private static final Map<BossEvent, Component> MINE = new IdentityHashMap<>();
+	/** 49-649차: 보스바마다 마지막으로 본 서버 이름(같은 글이라도 서버가 새로 보냈는지 알려고). */
+	private static final Map<BossEvent, Component> SEEN = new IdentityHashMap<>();
 
 	// ==================== hud.json 글자표 ====================
 
@@ -316,15 +318,19 @@ public final class NeogulDungeonHud {
 			}
 			RAW.keySet().removeIf(ev -> !events.containsValue(ev));
 			List<MineRow> mineAll = new ArrayList<>();
+			boolean mineFresh = false;
 			MINE.keySet().removeIf(ev -> !events.containsValue(ev));
+			SEEN.keySet().removeIf(ev -> !events.containsValue(ev));
 			for (Object o : events.values()) {
 				if (!(o instanceof BossEvent ev)) {
 					continue;
 				}
 				Component name = ev.getName();
+				boolean nameNew = name != MINE.get(ev) && name != SEEN.get(ev);   // 49-649차: 서버가 이 보스바 글을 새로 보냄
 				if (name != MINE.get(ev)) {
 					RAW.put(ev, name);   // 서버가 새 이름을 보냄
 					MINE.remove(ev);
+					SEEN.put(ev, name);
 				}
 				Component raw = RAW.get(ev);
 				int cut = parse(raw);
@@ -332,6 +338,7 @@ public final class NeogulDungeonHud {
 				List<MineRow> mr = mineRows(raw);
 				if (!mr.isEmpty()) {
 					mineAll.addAll(mr);
+					mineFresh |= nameNew;
 				}
 				boolean hideM = !mr.isEmpty() && hideMine.getAsBoolean();
 				if (cut < 0) {
@@ -374,7 +381,7 @@ public final class NeogulDungeonHud {
 					ev.setName(raw);
 				}
 			}
-			NeogulMineFeed.onRows(mineAll);
+			NeogulMineFeed.onRows(mineAll, mineFresh);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("dungeonHud:boss", t);
 		}
@@ -586,6 +593,7 @@ public final class NeogulDungeonHud {
 		StringBuilder gn = null;
 		boolean inPct = false;
 		gainTrack = 0;
+		gainMineKind = false;
 		for (int i = 0; i < s.length(); ) {
 			int cp = s.codePointAt(i);
 			int n = Character.charCount(cp);
@@ -638,6 +646,7 @@ public final class NeogulDungeonHud {
 				lv = Math.max(0, lv) * 10 + g.col;
 			} else if (f.startsWith("hud_gain_") && (f.endsWith("_combat") || f.endsWith("_farm") || f.endsWith("_mine") || f.endsWith("_fish") || f.endsWith("_life"))) {
 				gainTrack = f.endsWith("_combat") ? 1 : -1;   // 49-574차: 알림 앞 분야 그림(토벌이면 hud_gain_combat)
+				gainMineKind = f.endsWith("_mine");   // 49-648차: 채광 경험치 알림
 			} else if (f.equals("hud_gain_plus")) {
 				gn = new StringBuilder("+");
 			} else if (f.equals("hud_gain_digits") && gn != null && !inPct) {
@@ -711,6 +720,12 @@ public final class NeogulDungeonHud {
 			if (fresh && gainTrack >= 0) {
 				onTobeolGain(g, pc, gainTrack == 1);
 			}
+			if (fresh && gainMineKind && mineGain != null) {
+				try {
+					mineGain.accept(Double.parseDouble(g.replace("+", "").trim()));   // 49-648차: 보석 알림에 경험치
+				} catch (Throwable ignored) {
+				}
+			}
 		}
 		if (freshPacket) {
 			hadGain = hasGain;
@@ -720,6 +735,9 @@ public final class NeogulDungeonHud {
 
 	private static Object lastGainRaw;
 	private static boolean hadGain;
+	/** 49-648차: 이번 알림이 채광(hud_gain_mine) 경험치인지, 받는 곳(NeogulMineModule). */
+	private static boolean gainMineKind;
+	public static volatile java.util.function.DoubleConsumer mineGain;
 	private static long lvSavedAt;
 	private static double gainFrac;
 

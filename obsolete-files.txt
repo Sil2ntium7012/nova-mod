@@ -87,3 +87,4 @@ src-26x/client/java/kr/lunaslight/mod/module/impl/misc/NowPlayingBarModule.java 
 src-26x/client/java/kr/lunaslight/mod/module/impl/misc/TabStyleModule.java   # 49-599차: 탭 목록 꾸미기 삭제(사용자: "그거 일단 없애 줘")
 src-26x/client/resources/assets/lunaslight/textures/gui/logo_neogul.png   # 49-638차: 너굴 얼굴 로고 삭제(사용자: "아무 데도 넣지 마") - 너굴마을 로고로
 src-26x/client/resources/assets/lunaslight/textures/gui/logo_neogul.png.mcmeta   # 49-638차: 같은 이유
+src-26x/client/java/kr/lunaslight/mod/mixin/NeogulBlockGoneMixin.java   # 49-649차: 광산 알림 짐작(옆 칸 공기) 뺌 - 서버 알림 줄만 봄

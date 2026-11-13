@@ -120,8 +120,10 @@ public class NeogulMineModule extends Module {
 		return v;
 	}
 
-	private record Gem(String name, int color, int[] n, long[] at) {
+	/** exp[0] = 그 보석으로 받은 채광 경험치(49-649차: 사용자 "오팔 조각 개당으로 경험치니까 알아서 계산" - 개당 값 x 개수). */
+	private record Gem(String name, int color, int[] n, long[] at, double[] exp) {
 	}
+
 
 	private final List<Gem> gems = new ArrayList<>();
 
@@ -132,6 +134,7 @@ public class NeogulMineModule extends Module {
 		newFeature("49-608");
 		instance = this;
 		NeogulMineFeed.listener = this::onGain;
+		NeogulDungeonHud.mineGain = null;   // 49-649차: 보석 경험치는 개당 값으로 계산(서버 경험치 알림과 엮지 않음)
 		NeogulDungeonHud.hideMine = () -> working();
 		ItemPickupToastModule.externalOverflow = (name, n) -> {
 			// 창고가 꽉 차 인벤토리로 들어온 것 - 창고 개수에 더했던 걸 되돌리고, 창고를 다시 볼 때까지 그 광물은 창고 줄을 안 띄운다
@@ -481,13 +484,28 @@ public class NeogulMineModule extends Module {
 		}
 		Map<String, Integer> cur = invOres();
 		boolean ch = false;
-		for (var e : cur.entrySet()) {
-			int d = e.getValue() - invLast.getOrDefault(e.getKey(), 0);
-			Integer have = counts.get(e.getKey());
-			if (d > 0 && have != null && have > 0) {
-				counts.put(e.getKey(), Math.max(0, have - d));
-				pend.merge(e.getKey(), d, Integer::sum);
-				full.remove(e.getKey());
+		// 49-649차(사용자: "광창은 뺐을 때, 넣었을 때, 캤을 때 모두 체크"): 늘면 창고에서 뺀 것, 줄면 창고에 넣은 것(창고 창이 이어지는 동안만)
+		java.util.Set<String> keys = new java.util.HashSet<>(cur.keySet());
+		keys.addAll(invLast.keySet());
+		for (String k : keys) {
+			int d = cur.getOrDefault(k, 0) - invLast.getOrDefault(k, 0);
+			Integer have = counts.get(k);
+			if (d == 0 || have == null) {
+				continue;
+			}
+			int nv = Math.max(0, have - d);   // d > 0 뺌, d < 0 넣음
+			Integer mx = maxes.get(k);
+			if (mx != null) {
+				nv = Math.min(nv, mx);
+			}
+			if (nv != have) {
+				counts.put(k, nv);
+				pend.merge(k, have - nv, Integer::sum);   // 설명 값에서 뺄 양(넣었으면 음수)
+				if (mx == null || nv < mx) {
+					full.remove(k);
+				} else {
+					full.add(k);
+				}
 				ch = true;
 			}
 		}
@@ -613,17 +631,22 @@ public class NeogulMineModule extends Module {
 		}
 	}
 
+	/** 49-649차: 보석 한 개당 채광 경험치(11/08 패치 - NeogulLevels 표와 같음). */
+	private static final Map<String, Integer> GEM_EXP = Map.of("ng118", 5, "ng119", 500, "ng120", 550, "ng121", 700, "ng122", 1500, "ng123", 1500);
+
 	/** 보석이 나왔다 - 서브타이틀 자리 "N개 나왔다"(2.5초 안 같은 보석은 합침). */
 	private void gemNote(String id, String name, int n) {
 		long now = System.currentTimeMillis();
+		double exp0 = (double) GEM_EXP.getOrDefault(id, 0) * n;
 		for (Gem g : gems) {
 			if (g.name.equals(name) && now - g.at[0] < 2500) {
 				g.n[0] += n;
 				g.at[0] = now;
+				g.exp[0] += exp0;
 				return;
 			}
 		}
-		gems.add(new Gem(name, GEM_COLOR.getOrDefault(id, 0xFFFFD36A), new int[]{n}, new long[]{now}));
+		gems.add(new Gem(name, GEM_COLOR.getOrDefault(id, 0xFFFFD36A), new int[]{n}, new long[]{now}, new double[]{exp0}));
 		while (gems.size() > 3) {
 			gems.remove(0);
 		}
@@ -705,7 +728,7 @@ public class NeogulMineModule extends Module {
 			Gem g = gems.get(i);
 			long age = now - g.at[0];
 			float a = age < 150 ? age / 150f : age > 2400 ? Math.max(0f, (2800 - age) / 400f) : 1f;
-			drawGem(ctx, sw / 2, y, g.name, g.n[0], g.color, a);
+			drawGem(ctx, sw / 2, y, g.name, g.n[0], g.color, a, g.exp[0]);
 			y += 16;
 		}
 	}
@@ -721,8 +744,12 @@ public class NeogulMineModule extends Module {
 
 	/** 서브타이틀 자리(화면 가운데 아래)에 "루비 수정 2개 나왔어요!"(1.5배). */
 	private void drawGem(GuiGraphicsExtractor ctx, int cx, int y, String name, int n, int color, float alpha) {
+		drawGem(ctx, cx, y, name, n, color, alpha, 0);
+	}
+
+	private void drawGem(GuiGraphicsExtractor ctx, int cx, int y, String name, int n, int color, float alpha, double exp) {
 		var font = client.font;
-		String tail = " " + n + "개 나왔어요!";
+		String tail = " " + n + "개 나왔어요!" + (exp > 0 ? "  채광 경험치 +" + String.format("%,d", Math.round(exp)) : "");
 		int w = LunaDraw.width(font, name) + LunaDraw.width(font, tail);
 		float base = LunaDraw.alpha();
 		LunaDraw.setAlpha(base * alpha);
@@ -764,6 +791,6 @@ public class NeogulMineModule extends Module {
 		rows.add(new Object[]{new ItemStack(Items.STONE), "돌", 1, 1284, false});
 		rows.add(new Object[]{iconFor("ng121", "루비 수정"), "루비 수정", 2, 14, true});
 		ItemPickupToastModule.drawSample(ctx, x + w, y + h - 40, rows);
-		drawGem(ctx, x + w / 2, y + 22, "루비 수정", 2, 0xFFFF6B86, 1f);
+		drawGem(ctx, x + w / 2, y + 22, "루비 수정", 2, 0xFFFF6B86, 1f, 1400);
 	}
 }

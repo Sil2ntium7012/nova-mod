@@ -15,7 +15,7 @@ public class TodoModule extends Module {
 	public TodoModule() {
 		super("todo_list", "할 일 목록", ModuleCategory.TODO, "할 일 추가 | 행동하면 저절로 체크");
 		alwaysOn();
-		ChatState.addPlainListener(TodoList::onChat);
+		ChatState.addLoggedListener(TodoList::onChat);   // 49-647차: 채팅창에 들어간 줄 그대로(예전 입구는 서버 알림을 놓쳤다 - 핫타임 할 일이 안 참)
 	}
 
 	@Override

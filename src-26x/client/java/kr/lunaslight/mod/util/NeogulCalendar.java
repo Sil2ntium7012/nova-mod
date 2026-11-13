@@ -76,7 +76,7 @@ public final class NeogulCalendar {
 					net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.beforeMouseClick(screen).register((s, e) -> noteClick(s));
 				}
 			});
-			ChatState.addPlainListener(NeogulCalendar::onChat);
+			ChatState.addLoggedListener(NeogulCalendar::onChat);   // 49-647차: 채팅창에 들어간 줄 그대로
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulCalendar:init", t);
 		}
@@ -404,10 +404,28 @@ public final class NeogulCalendar {
 	}
 
 	private static void onChat(String line) {
-		if (claimAt == 0 || line == null) {
+		if (line == null) {
 			return;
 		}
 		String l = line.replace(" ", "");
+		// 49-647차(사용자 사진: "퀘스트 완료보상을 획득하였습니다!" + 보상 목록 - "이걸로 달력도 해 줘야 해"): 일퀘 올클리어 보상을 받은 날
+		if (l.contains("퀘스트완료보상을획득")) {
+			synchronized (NeogulCalendar.class) {
+				Day d = day(LocalDate.now().toString());
+				if (d.quest != Quest.CLAIMED) {
+					d.quest = Quest.CLAIMED;
+					if (d.total > 0) {
+						d.done = d.total;
+					}
+					save();
+				}
+			}
+			claimAt = 0;
+			return;
+		}
+		if (claimAt == 0) {
+			return;
+		}
 		if (l.contains("아직") || l.contains("완료하지") || l.contains("완료해야") || l.contains("받을수없") || l.contains("이미받")) {
 			if (l.contains("이미받")) {
 				synchronized (NeogulCalendar.class) {

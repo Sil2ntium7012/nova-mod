@@ -49,6 +49,10 @@ public final class TodoList {
 	public static final String GAIN = "gain";
 	public static final String PLAY = "play";
 	public static final String CHAT = "chat";
+	/** 49-647차(사용자: "애초에 밑에 액션바에 뜨는데"): 너굴마을 액션바 "토벌 피로도 (N/1200)"의 N을 그대로. */
+	public static final String FATIGUE = "fatigue";
+	/** 일일퀘스트 올클리어 보상 줄("퀘스트 완료보상을 획득하였습니다!", 띄어쓰기 뺀 것). */
+	public static final String QUEST_DONE = "퀘스트완료보상을획득";
 
 	/** 할 일 하나(저장 형식 그대로). */
 	public static final class Task {
@@ -76,14 +80,15 @@ public final class TodoList {
 		new Preset("기본", "플레이 시간", PLAY, "1시간 하기", "", 60, false, false),
 		new Preset("기본", "채팅 글", CHAT, "", "", 1, false, false),
 		new Preset("너굴", "서버 추천", CHAT, "서버 추천하기", "추천 보상|추천해 주셔서|추천 감사", 1, true, true),
-		new Preset("너굴", "핫타임", CHAT, "핫타임 받기", "핫타임 보상|핫타임 지급", 1, true, true),
+		new Preset("너굴", "핫타임", CHAT, "핫타임 받기", "핫타임 보상|핫타임 지급|핫타임상자", 1, true, true),
 		new Preset("너굴", "접속보상", PLAY, "접속보상 1시간", "", 60, true, true),
+		new Preset("너굴", "토벌 피로도", FATIGUE, "토벌 피로도 다 쓰기", "", 1200, true, true),
 		new Preset("너굴", "던전 사냥", KILL, "던전 몹 100마리", "", 100, true, true),
 		new Preset("너굴", "작물 캐기", GAIN, "감자 300개 캐기", "감자", 300, true, true),
 		new Preset("너굴", "낚시", FISH, "낚시 30번", "", 30, true, true),
 		new Preset("너굴", "채광", BREAK, "광산 50번 캐기", "", 50, true, true),
 		new Preset("너굴", "허수아비", KILL, "허수아비 잡기", "허수아비", 1, false, true),
-		new Preset("너굴", "일일퀘스트", MANUAL, "일일퀘스트 올클리어", "", 1, true, true));
+		new Preset("너굴", "일일퀘스트", CHAT, "일일퀘스트 올클리어", QUEST_DONE, 1, true, true));   // 49-647차: 완료 보상 줄로 자동 체크
 
 	/** 행동 이름(화면, HUD). */
 	public static String typeName(String type) {
@@ -94,6 +99,7 @@ public final class TodoList {
 			case GAIN -> "아이템 얻기";
 			case PLAY -> "플레이 시간";
 			case CHAT -> "채팅 글";
+			case FATIGUE -> "토벌 피로도";
 			default -> "직접 체크";
 		};
 	}
@@ -104,6 +110,7 @@ public final class TodoList {
 			case BREAK, GAIN -> "개";
 			case KILL -> "마리";
 			case PLAY -> "분";
+			case FATIGUE -> "";
 			default -> "번";
 		};
 	}
@@ -138,6 +145,7 @@ public final class TodoList {
 						for (Task t : l) {
 							if (t != null) {
 								tasks.add(t);
+								dirty |= migrate(t);
 							}
 						}
 					}
@@ -147,6 +155,70 @@ public final class TodoList {
 			}
 		}
 		return tasks;
+	}
+
+	/**
+	 * 49-647차(사용자: "핫타임 일퀘도 할 일 안 되는 문제", "토벌 피로도는 액션바에 뜨는데"): 예전에 만든 너굴 할 일을 새 방식으로.
+	 * 일일퀘스트(직접 체크) → 완료 보상 줄로 자동, 몹 잡기 목표 1200 → 토벌 피로도(액션바), 핫타임 → 핫타임상자 줄도.
+	 */
+	private static boolean migrate(Task t) {
+		String txt = t.text == null ? "" : t.text;
+		if (MANUAL.equals(t.type) && txt.contains("일일퀘스트")) {
+			t.type = CHAT;
+			t.target = QUEST_DONE;
+			return true;
+		}
+		if (KILL.equals(t.type) && t.goal == 1200) {
+			t.type = FATIGUE;
+			t.target = "";
+			return true;
+		}
+		if (CHAT.equals(t.type) && "핫타임 보상|핫타임 지급".equals(t.target)) {
+			t.target = "핫타임 보상|핫타임 지급|핫타임상자";
+			return true;
+		}
+		return false;
+	}
+
+	/** 49-647차: 토벌 피로도 N을 그대로 넣는다(액션바). */
+	private static final java.util.regex.Pattern FATIGUE_BAR = java.util.regex.Pattern.compile("토벌\\s*피로도\\s*\\(?\\s*([\\d,]+)\\s*/\\s*([\\d,]+)");
+	private static Object lastBar;
+
+	private static void setFatigue(int n) {
+		synchronized (TodoList.class) {
+			for (Task t : all()) {
+				if (!FATIGUE.equals(t.type) || (t.neogul && !onNeogul) || t.done && n >= t.goal) {
+					continue;
+				}
+				int v = Math.max(0, Math.min(t.goal, n));
+				if (v == t.progress) {
+					continue;
+				}
+				t.progress = v;
+				dirty = true;
+				if (v >= t.goal && !t.done) {
+					t.done = true;
+					finished(t);
+				}
+			}
+		}
+	}
+
+	private static void readFatigueBar(Minecraft mc) {
+		try {
+			Object v = LunaCompat.getFieldValue(mc.gui, "overlayMessageString");
+			if (v == null || v == lastBar) {
+				return;
+			}
+			lastBar = v;
+			String s = v instanceof net.minecraft.network.chat.Component c ? c.getString() : String.valueOf(v);
+			java.util.regex.Matcher m = FATIGUE_BAR.matcher(s);
+			if (m.find()) {
+				setFatigue(Integer.parseInt(m.group(1).replace(",", "")));
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("todo:fatigue", t);
+		}
 	}
 
 	public static synchronized void add(Task t) {
@@ -266,7 +338,6 @@ public final class TodoList {
 
 	/** TodoGameModeMixin: 생물을 때렸다(5초 안에 죽으면 잡은 것). */
 	public static void onAttack(Entity e) {
-		lastAttackTick = tick;   // 49-646차: 맞힌 게 생물이 아니어도(모델 히트박스 등) 둘레에서 맞은 몹을 찾는다
 		if (!(e instanceof LivingEntity) || e instanceof Player) {
 			return;
 		}
@@ -279,29 +350,19 @@ public final class TodoList {
 		if (HITS.size() > 64) {
 			HITS.remove(0);
 		}
-		lastAttackTick = tick;
-	}
-
-	/**
-	 * 49-646차(사용자 사진: 할 일 "던전" 1/1200 - "던전 피로도도 제대로 책정이 안 됨"): 너굴마을 던전 몹은 죽을 때 쓰러지는 모습 없이 바로 사라져서
-	 * (서버가 지움) "죽음"으로 안 잡히고 "사라짐"으로 버려졌다. 1차 기본공격의 스플래시처럼 직접 안 때린 몹도 안 셌다.
-	 * 이제 내가 공격한 뒤 3초 동안 둘레 8칸에서 맞은(hurtTime) 몹도 넣고, 맞은 몹이 5초 안에 내 근처(24칸)에서 사라지면 잡은 것으로 센다.
-	 */
-	private static long lastAttackTick = -1000;
-
-	private static boolean known(Entity e) {
-		for (Hit h : HITS) {
-			if (h.e() == e) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/** ChatState: 서버 채팅 한 줄. */
 	public static void onChat(String line) {
-		if (line == null || line.isEmpty() || line.startsWith("<")) {
+		if (line == null) {
 			return;
+		}
+		line = line.replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", "");   // 49-647차: 채팅 시각 접두([18:25])
+		if (line.isEmpty() || line.startsWith("<")) {
+			return;
+		}
+		if (onNeogul && line.replace(" ", "").contains("토벌피로도를모두소진")) {
+			setFatigue(Integer.MAX_VALUE);   // 49-647차: 다 씀
 		}
 		count(CHAT, line, 1);
 		if (onNeogul) {
@@ -389,28 +450,10 @@ public final class TodoList {
 		onNeogul = NeogulData.onNeogul(mc);
 		Player p = mc.player;
 		// 몹 잡기
-		if (tick - lastAttackTick <= 60) {
-			try {
-				for (Entity e : mc.level.getEntities(p, p.getBoundingBox().inflate(8.0))) {
-					if (e instanceof LivingEntity le && !(e instanceof Player) && le.hurtTime > 0 && !known(e)) {
-						HITS.add(new Hit(e, tick));   // 스플래시 등으로 같이 맞은 몹
-					}
-				}
-				while (HITS.size() > 64) {
-					HITS.remove(0);
-				}
-			} catch (Throwable t) {
-				LunaCompat.warnOnce("todo:splash", t);
-			}
-		}
 		for (Iterator<Hit> it = HITS.iterator(); it.hasNext(); ) {
 			Hit h = it.next();
 			Entity e = h.e();
 			boolean dead = e instanceof LivingEntity le && (le.isDeadOrDying() || le.getHealth() <= 0f);
-			// 49-646차: 너굴마을은 죽은 몹을 바로 지운다 - 맞은 뒤 5초 안에 내 근처에서 사라지면 잡은 것
-			if (!dead && onNeogul && e.isRemoved() && tick - h.at() <= 100 && e.distanceToSqr(p) < 24 * 24) {
-				dead = true;
-			}
 			if (dead) {
 				it.remove();
 				String name = e.getName().getString();
@@ -429,6 +472,7 @@ public final class TodoList {
 		}
 		if (onNeogul) {
 			checkTitle(mc);
+			readFatigueBar(mc);   // 49-647차
 		}
 		// 낚시: 찌가 걷힌 순간
 		boolean f = p.fishing != null;
