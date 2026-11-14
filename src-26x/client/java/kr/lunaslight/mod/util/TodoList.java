@@ -302,6 +302,41 @@ public final class TodoList {
 		}
 	}
 
+	/**
+	 * 49-654차(사용자 사진: 추천 HUD는 "완료"인데 할 일 "서버 추천하기"는 안 참 - "추천 이미 된 거 있으면 할 일도 적용되게"):
+	 * 너굴 달력(추천, 핫타임, 일퀘 보상 기록)에 오늘 된 게 있으면 같은 너굴 할 일도 채운다(채팅을 놓쳤거나 할 일을 나중에 만든 경우).
+	 */
+	private static void syncCalendar(String date) {
+		try {
+			NeogulCalendar.Day day = NeogulCalendar.peek(date);
+			if (day == null) {
+				return;
+			}
+			boolean any = false;
+			synchronized (TodoList.class) {
+				for (Task t : all()) {
+					if (t.done || !CHAT.equals(t.type) || t.target == null) {
+						continue;
+					}
+					String tg = t.target.replace(" ", "");
+					boolean hit = (day.rec && tg.contains("추천"))
+							|| (day.hot && tg.contains("핫타임"))
+							|| (day.quest == NeogulCalendar.Quest.CLAIMED && tg.contains(QUEST_DONE));
+					if (hit) {
+						t.progress = t.goal;
+						t.done = true;
+						any = true;
+					}
+				}
+			}
+			if (any) {
+				dirty = true;
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("todo:calendar", t);
+		}
+	}
+
 	private static boolean matches(String target, String name) {
 		if (target == null || target.isBlank()) {
 			return true;
@@ -448,6 +483,9 @@ public final class TodoList {
 			return;
 		}
 		onNeogul = NeogulData.onNeogul(mc);
+		if (tick % 40 == 0) {
+			syncCalendar(d);
+		}
 		Player p = mc.player;
 		// 몹 잡기
 		for (Iterator<Hit> it = HITS.iterator(); it.hasNext(); ) {
