@@ -157,6 +157,10 @@ public final class ModuleManager {
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDailyModule");
 		}
+		// 49-653차: 루나리스 봇 자동 일퀘(일퀘 보상, 피로도) - 너굴마을 버전에서만
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.LunarisLinkModule");
+		}
 		// 49-148차: 너굴마을 허수아비 알림(채팅 감지 → 소리 + 타이틀)
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScarecrowModule");
