@@ -184,6 +184,7 @@ public class NeogulMineModule extends Module {
 			if (o.has("icons")) {
 				for (var e : o.getAsJsonObject("icons").entrySet()) {
 					iconRaw.put(e.getKey(), e.getValue());
+					iconJson.put(e.getKey(), e.getValue());
 				}
 			}
 			if (o.has("store") && o.get("store").isJsonArray()) {   // 49-635차
@@ -216,17 +217,18 @@ public class NeogulMineModule extends Module {
 			}
 			o.add("counts", c);
 			var ops = ops();
-			JsonObject ic = new JsonObject();
-			for (var e : iconRaw.entrySet()) {
-				ic.add(e.getKey(), e.getValue());
-			}
+			iconJson.putAll(iconRaw);
 			if (ops != null) {
 				for (var e : icons.entrySet()) {
 					try {
-						ItemStack.CODEC.encodeStart(ops, e.getValue()).result().ifPresent(j -> ic.add(e.getKey(), j));
+						ItemStack.CODEC.encodeStart(ops, e.getValue()).result().ifPresent(j -> iconJson.put(e.getKey(), j));
 					} catch (Throwable ignored) {
 					}
 				}
+			}
+			JsonObject ic = new JsonObject();
+			for (var e : iconJson.entrySet()) {
+				ic.add(e.getKey(), e.getValue());   // 49-651차: 못 적은 그림도 지난 저장본으로
 			}
 			o.add("icons", ic);
 			com.google.gson.JsonArray sa = new com.google.gson.JsonArray();
@@ -249,6 +251,14 @@ public class NeogulMineModule extends Module {
 		dirty = true;
 	}
 
+	/**
+	 * 49-651차(사용자: "가끔 광창 안 열면 다 돌로 보이고 그래"): 저장해 둔 칸 그림을 한 번 못 풀면(접속 직후 등록부가 덜 왔을 때) 저장본을 지워 버려
+	 * 창고를 다시 열 때까지 돌 그림이었다. 이제 못 풀면 저장본은 두고 2초 뒤 다시 풀고, 그동안은 이름으로 짐작한 그림을 쓴다.
+	 * 저장할 때 월드가 없어 그림을 못 적으면 지난 저장본(iconJson)을 그대로 적는다.
+	 */
+	private final Map<String, JsonElement> iconJson = new HashMap<>();
+	private long iconRetryAt;
+
 	private ItemStack icon(String name) {
 		ItemStack st = icons.get(name);
 		if (st != null) {
@@ -256,18 +266,57 @@ public class NeogulMineModule extends Module {
 		}
 		JsonElement raw = iconRaw.get(name);
 		var ops = ops();
-		if (raw != null && ops != null) {
+		long now = System.currentTimeMillis();
+		if (raw != null && ops != null && now >= iconRetryAt) {
 			try {
 				st = ItemStack.CODEC.parse(ops, raw).result().orElse(null);
 			} catch (Throwable ignored) {
 				st = null;
 			}
-			iconRaw.remove(name);
-			if (st != null) {
+			if (st != null && !st.isEmpty()) {
+				iconRaw.remove(name);
 				icons.put(name, st);
+				return st;
+			}
+			iconRetryAt = now + 2000;   // 못 풀었다 - 저장본은 두고 나중에 다시
+		}
+		return guessIcon(name);
+	}
+
+	/** 이름으로 짐작한 그림(창고 이름 "[재료] 오팔 조각" → ng119 그림, "철 주괴" → 철 주괴). 모르면 null. */
+	private ItemStack guessIcon(String name) {
+		if (name == null) {
+			return null;
+		}
+		String sn = statName(name);
+		String id = null;
+		for (var e : NG_WORD.entrySet()) {
+			if (sn.contains(e.getValue())) {
+				id = e.getKey();
 			}
 		}
-		return st;
+		if (id == null) {
+			for (var e : KO.entrySet()) {
+				if (e.getValue().equals(sn)) {
+					id = e.getKey();
+				}
+			}
+		}
+		if (id != null) {
+			String key = NG_KEY.get(id);
+			if (key != null) {
+				ItemStack ns = NeogulData.icon(NeogulData.get(key), 1);
+				if (ns != null && !ns.isEmpty()) {
+					return ns;
+				}
+			}
+			Item it = NG_ICON.get(id);
+			if (it == null) {
+				it = LunaCompat.itemById("minecraft:" + id);
+			}
+			return it == null ? null : new ItemStack(it);
+		}
+		return null;
 	}
 
 	// ==================== 49-613차: 광물 창고 미리보기(NeogulMinePeekModule)가 읽는 것 ====================

@@ -97,12 +97,15 @@ public final class FirstSetup {
 			return;
 		}
 		try {
-			if (Files.exists(marker())) {
+			// 49-652차(사용자: "처음 다운하는 분들은 메인 화면 고르게, 추천은 UI 있는 걸로"): 너굴라이언트는 처음 온 사람
+			// (기록 없음, 또는 이번에 Nova Client 설정을 가져옴)에게 메인 화면 고르기 한 단계만 묻는다. 이미 쓰던 사람은 안 묻는다.
+			boolean askMenu = LunaSocial.nugulient && (!Files.exists(marker()) || NovaSettingsImport.imported);
+			if (Files.exists(marker()) && !askMenu) {
 				checked = true;
 				return;
 			}
 			JsonObject prefs = read(global());
-			if (prefs != null) {
+			if (prefs != null && (!askMenu || prefs.has("vanillaMenu"))) {
 				// 다른 프로필에서 이미 골랐다 - 묻지 않고 그대로 입힌다
 				checked = true;
 				apply(client, prefs);
@@ -120,7 +123,7 @@ public final class FirstSetup {
 			checked = true;
 			// 49-619차(사용자: 너굴라이언트 - "튜토리얼 삭제"): 처음 설정 화면을 띄우지 않고 지금 값을 그대로 기록(런처 폴더에도 - 다음부터
 			// 런처가 바로 접속), 서버로 켰으면 바로 들어간다
-			if (LunaSocial.nugulient) {
+			if (LunaSocial.nugulient && !askMenu) {
 				JsonObject cur = current(client);
 				write(marker(), cur);
 				write(global(), cur);
@@ -163,6 +166,7 @@ public final class FirstSetup {
 		}
 		o.addProperty("mouse", s == null ? 0.5 : s);
 		o.addProperty("window", windowMode(client));
+		o.addProperty("vanillaMenu", kr.lunaslight.mod.module.impl.misc.VanillaMenuModule.on());   // 49-652차
 		return o;
 	}
 
@@ -245,6 +249,9 @@ public final class FirstSetup {
 			}
 			if (p.has("window")) {
 				setWindowMode(client, p.get("window").getAsInt());
+			}
+			if (p.has("vanillaMenu")) {
+				kr.lunaslight.mod.module.impl.misc.VanillaMenuModule.set(p.get("vanillaMenu").getAsBoolean());   // 49-652차
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("firstSetup:apply", t);

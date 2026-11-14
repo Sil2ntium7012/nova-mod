@@ -19,6 +19,8 @@ public final class NovaSettingsImport {
 	}
 
 	private static final String MARK = ".nova-import-done";
+	/** 49-652차: 이번 실행에서 Nova Client 설정을 가져왔나(그럼 처음 온 사람 - 메인 화면 고르기를 묻는다). */
+	public static volatile boolean imported;
 
 	public static void run() {
 		if (!LunaSocial.nugulient) {
@@ -84,6 +86,7 @@ public final class NovaSettingsImport {
 				}
 			}
 			mark(dst, "Nova Client에서 " + n[0] + "개 가져옴: " + from);
+			imported = n[0] > 0;
 			LunaClientMod.LOGGER.info("[Nova] Nova Client 모드 설정을 가져옴({}개, {})", n[0], from);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("novaImport", t);

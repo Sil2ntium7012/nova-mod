@@ -1806,11 +1806,156 @@ public final class LunaCompat {
 		} catch (Throwable t) {
 			warnOnce("titleSwapHook", t);
 		}
+		registerScreenAfterInit(LunaCompat::addMenuButton);   // 49-652차
 	}
+
+	// ==================== 49-652차: 마크 기본 메뉴(메인, ESC) + 기능 창 버튼 ====================
+	// 사용자: "ESC 눌렀을 때랑 메인화면을 마크 기본처럼 쓰되 기능창만 마크 느낌으로 하나 추가된 거 고를 수 있게(모든 버전)".
+	// [UI] 설정 [마크 기본 메뉴](VanillaMenuModule)를 켜면 바닐라 타이틀/일시정지를 노바 화면으로 안 바꾸고 바닐라 버튼 하나
+	// (노바 설정 창 열기)만 얹는다. 타이틀은 세 번째 큰 버튼(Realms) 줄을 반으로 나눠 왼쪽에(다른 모드가 이미 나눴으면 맨 아래
+	// 버튼 밑), 일시정지는 맨 아래 버튼 밑. 노바 화면이 빠진 버전(gui 없는 서브프로젝트)에서도 같은 버튼을 얹는다.
+	public static volatile BooleanSupplier vanillaMenus = () -> false;
+	private static final java.util.Map<String, Boolean> CLASS_EXISTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+	public static boolean vanillaMenus() {
+		try {
+			return vanillaMenus.getAsBoolean();
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	private static boolean classExists(String name) {
+		return CLASS_EXISTS.computeIfAbsent(name, n -> {
+			try {
+				Class.forName(n);
+				return true;
+			} catch (Throwable t) {
+				return false;
+			}
+		});
+	}
+
+	private static String widgetLabel(Object w) {
+		try {
+			Object m = callNoArg(w, "getMessage");
+			Object s = m == null ? null : callNoArg(m, "getString");
+			return s == null ? null : s.toString();
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/** 위젯 x/width 바꾸기(setX/setWidth, 없으면 필드). */
+	private static boolean setWidgetInt(Object w, String setter, String field, int v) {
+		try {
+			Method m = findMethod(w.getClass(), setter, int.class);
+			if (m != null) {
+				m.setAccessible(true);
+				m.invoke(w, v);
+				return true;
+			}
+		} catch (Throwable ignored) {
+		}
+		for (Class<?> c = w.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+			try {
+				java.lang.reflect.Field f = getFieldCompat(c, field);
+				f.setAccessible(true);
+				f.setInt(w, v);
+				return true;
+			} catch (Throwable ignored) {
+			}
+		}
+		return false;
+	}
+
+	private static void addMenuButton(Object screen) {
+		if (screen == null || !classExists("kr.lunaslight.mod.gui.LunaClientScreen")) {
+			return;
+		}
+		boolean title;
+		boolean pause;
+		try {
+			if (titleScreenClass == null) {
+				titleScreenClass = classForName("net.minecraft.client.gui.screens.TitleScreen");
+			}
+			if (gameMenuScreenClass == null) {
+				gameMenuScreenClass = classForName("net.minecraft.client.gui.screens.PauseScreen");
+			}
+			title = screen.getClass() == titleScreenClass;
+			pause = screen.getClass() == gameMenuScreenClass;
+		} catch (Throwable t) {
+			return;
+		}
+		if (!title && !pause) {
+			return;
+		}
+		boolean want = vanillaMenus() || (pause && screen == vanillaPauseOk)
+				|| !classExists(title ? "kr.lunaslight.mod.gui.LunaTitleScreen" : "kr.lunaslight.mod.gui.LunaPauseScreen");
+		if (!want) {
+			return;
+		}
+		java.util.List<Object> buttons = screenButtons(screen);
+		if (buttons == null || buttons.isEmpty()) {
+			return;   // F3+ESC(버튼 없는 일시정지)
+		}
+		String label = kr.lunaslight.mod.util.LunaBrand.name();
+		Object lowest = null;
+		int lowY = Integer.MIN_VALUE;
+		java.util.List<Object> big = new java.util.ArrayList<>();
+		for (Object b : buttons) {
+			if (label.equals(widgetLabel(b))) {
+				return;   // 이미 얹음(init 알림이 두 번 온 경우)
+			}
+			int h = widgetInt(b, "getHeight", "height");
+			if (h < 20) {
+				continue;   // 저작권 글자 같은 작은 위젯은 빼고
+			}
+			int y = widgetInt(b, "getY", "y");
+			if (lowest == null || y > lowY) {
+				lowest = b;
+				lowY = y;
+			}
+			if (widgetInt(b, "getWidth", "width") >= 190) {
+				big.add(b);
+			}
+		}
+		if (lowest == null) {
+			return;
+		}
+		final Object parent = screen;
+		Runnable open = () -> openScreenReflectively("kr.lunaslight.mod.gui.LunaClientScreen", parent);
+		if (title && big.size() >= 3) {
+			big.sort(java.util.Comparator.comparingInt(b -> widgetInt(b, "getY", "y")));
+			Object realms = big.get(2);
+			int x = widgetInt(realms, "getX", "x");
+			int y = widgetInt(realms, "getY", "y");
+			int w = widgetInt(realms, "getWidth", "width");
+			int h = widgetInt(realms, "getHeight", "height");
+			int half = (w - 4) / 2;
+			// 왼쪽 = 노바 버튼, 오른쪽 = Realms(Realms 알림 아이콘이 버튼 오른쪽 끝에 그려져서)
+			if (setWidgetInt(realms, "setWidth", "width", w - half - 4) && setWidgetInt(realms, "setX", "x", x + half + 4)) {
+				addVanillaButton(screen, x, y, half, h, label, open);
+				return;
+			}
+			setWidgetInt(realms, "setWidth", "width", w);
+			setWidgetInt(realms, "setX", "x", x);
+		}
+		Object ref = pause || big.isEmpty() ? lowest : big.get(0);
+		int x = widgetInt(ref, "getX", "x");
+		int w = widgetInt(ref, "getWidth", "width");
+		int h = widgetInt(lowest, "getHeight", "height");
+		if (w < 98) {
+			w = 200;
+			x = widgetInt(lowest, "getX", "x");
+		}
+		addVanillaButton(screen, x, lowY + h + 4, w, h, label, open);
+	}
+
 
 	public static void maybeSwapTitleScreen(Minecraft client) {
 		// 49-151차: 월드가 남아 있어도(나가는 도중) 바닐라 타이틀이 떠 있으면 바꾼다 - 월드 조건 때문에 놓치던 경우 방지.
-		if (titleSwapBroken || client == null) {
+		if (titleSwapBroken || client == null || vanillaMenus()) {
 			return;
 		}
 		Object screen = kr.lunaslight.mod.util.LunaCompat.screenOf(client);
@@ -2787,7 +2932,7 @@ public final class LunaCompat {
 	private static java.lang.reflect.Constructor<?> lunaPauseCtor;
 
 	public static void maybeSwapPauseMenu(Minecraft client) {
-		if (pauseSwapBroken || client == null || client.level == null) {
+		if (pauseSwapBroken || client == null || vanillaMenus() || client.level == null) {
 			return;
 		}
 		Object screen = kr.lunaslight.mod.util.LunaCompat.screenOf(client);

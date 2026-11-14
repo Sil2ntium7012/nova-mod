@@ -49,8 +49,8 @@ public final class SplashHook {
 	public static void render(Object overlay, GuiGraphicsExtractor ctx) {
 		StallWatch.beat();   // 49-154차: 로딩창(리소스팩 적용)이 도는 동안에도 멈춤 감시 신호
 		diag(overlay);   // 49-447차: 로딩창이 오래 안 끝나면 무엇이 안 끝났는지 로그에
-		if (ctx == null) {
-			return;
+		if (ctx == null || LunaCompat.vanillaMenus()) {
+			return;   // 49-652차: 마크 기본 메뉴면 로딩창도 마크 기본(노바/너굴라이언트 로고 안 띄움)
 		}
 		try {
 			Minecraft client = Minecraft.getInstance();
@@ -110,7 +110,7 @@ public final class SplashHook {
 
 			boolean neo = LunaSocial.nugulient;
 			boolean logoDrawn = neo
-				? LunaGfx.drawNeogulLogo(ctx, w / 2, gy + logoSize / 2, Math.round(logoSize * 1.7f), white) > 0   // 49-637차: 너굴마을 로고 하나
+				? LunaGfx.drawNeogulLogo(ctx, w / 2, gy + logoSize / 2 - Math.round(logoSize * 0.2f), Math.round(logoSize * 1.7f), white) > 0   // 49-637차: 너굴마을 로고 하나
 				: LunaGfx.drawTex(ctx, LunaGfx.logoId(), gx, gy, logoSize, logoSize, 0, 0, 128, 128, 128, white);
 			if (neo) {
 				// 못 그리면(아주 이른 로딩) 아무것도 안 그림 - 노바 그림이 나오지 않게

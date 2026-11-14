@@ -186,6 +186,7 @@ public final class ModuleManager {
 		// ---- 기타/시스템 ----
 		register(new InterfaceStyleModule()); // 49-13차: 글꼴 선택(마크 기본/마크+한글 픽셀/모던)
 		register(new HudBackgroundModule());  // 49-63차(2-1): HUD 배경 모양(둥근/네모난/없음)
+		register(new kr.lunaslight.mod.module.impl.misc.VanillaMenuModule());   // 49-652차: 마크 기본 메인/ESC 화면 + 설정 버튼
 		register(new HudHideModule());        // 49-63차(4-1): 키 하나로 Luna HUD만 숨기기
 		register(new kr.lunaslight.mod.module.impl.misc.ShortcutsModule());   // 49-89차(8-6·8-8·8-17): 내 키+명령어 키 합침, [키] 탭, 마크 보조 키
 		register(new RecorderModule());       // 49-72차(4-11): 짧은 순간을 움직이는 그림으로

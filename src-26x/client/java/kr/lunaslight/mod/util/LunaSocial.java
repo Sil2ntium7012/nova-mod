@@ -1567,7 +1567,12 @@ public final class LunaSocial {
 			return "계정 정보가 없습니다";
 		}
 		if (nugulient) {
-			return "너굴라이언트에서는 계정을 바꿀 수 없어요";   // 49-624차: 안전장치(화면에서도 뺐지만 다른 길로 불려도)
+			// 49-624차: 안전장치(화면에서도 뺐지만 다른 길로 불려도). 49-652차: 같은 계정 세션 새로 받기(세션 복구)는 된다.
+			String cur = currentUuid(client);
+			String want = account.uuid() == null ? "" : account.uuid().replace("-", "");
+			if (cur == null || !cur.replace("-", "").equalsIgnoreCase(want)) {
+				return "너굴라이언트에서는 계정을 바꿀 수 없어요";
+			}
 		}
 		if (client.level != null) {
 			return "서버나 월드에서 나온 뒤에 바꿀 수 있습니다";

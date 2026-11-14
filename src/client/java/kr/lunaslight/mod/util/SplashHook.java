@@ -49,8 +49,8 @@ public final class SplashHook {
 	public static void render(Object overlay, DrawContext ctx) {
 		StallWatch.beat();   // 49-154차: 로딩창(리소스팩 적용)이 도는 동안에도 멈춤 감시 신호
 		diag(overlay);   // 49-447차: 로딩창이 오래 안 끝나면 무엇이 안 끝났는지 로그에
-		if (ctx == null) {
-			return;
+		if (ctx == null || LunaCompat.vanillaMenus()) {
+			return;   // 49-652차: 마크 기본 메뉴면 로딩창도 마크 기본(노바 로고 안 띄움)
 		}
 		try {
 			MinecraftClient client = MinecraftClient.getInstance();

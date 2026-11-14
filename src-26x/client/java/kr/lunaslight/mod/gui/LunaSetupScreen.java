@@ -124,7 +124,13 @@ public class LunaSetupScreen extends LunaScreenBase {
 	private static final int PAD = 16;
 	private static final int PILL_H = 18;
 
-	private static final String[] PAGE_TITLES = {"화면", "목록과 HUD", "조작과 창"};
+	/**
+	 * 49-652차(사용자: "처음 다운하는 분들은 고르게 가능하게, 대신 추천은 UI 있는 걸로"): 첫 단계 = 메인 화면(노바 화면 / 마크 기본).
+	 * 너굴라이언트는 처음 설정을 뺐으므로(49-619차) 이 한 단계만 묻는다.
+	 */
+	private final String[] PAGE_TITLES = kr.lunaslight.mod.util.LunaSocial.nugulient
+			? new String[]{"메인 화면"} : new String[]{"메인 화면", "화면", "목록과 HUD", "조작과 창"};
+	private boolean menuVanilla = kr.lunaslight.mod.module.impl.misc.VanillaMenuModule.on();
 	private static final String[] FONTS = {"마크 폰트", "갈무리 폰트", "모던"};
 	private static final String[] GUI = {"자동", "1", "2", "3", "4"};
 	private static final String[] HUD = {"둥근", "네모난", "없음"};
@@ -185,16 +191,21 @@ public class LunaSetupScreen extends LunaScreenBase {
 
 		// 머리: 제목 + 진행도
 		LunaDraw.text(ctx, font, "처음 설정", px + PAD, py + 14, LunaDraw.TEXT);
-		int pct = Math.round(100f * (page + 1) / PAGE_TITLES.length);
-		String step = (page + 1) + " / " + PAGE_TITLES.length + " 단계  " + pct + "%";
-		LunaDraw.text(ctx, font, step, px + PANEL_W - PAD - LunaDraw.width(font, step), py + 14, LunaDraw.TEXT_SUB);
-		progress(ctx, px + PAD, py + 30, PANEL_W - PAD * 2);
+		if (PAGE_TITLES.length > 1) {
+			int pct = Math.round(100f * (page + 1) / PAGE_TITLES.length);
+			String step = (page + 1) + " / " + PAGE_TITLES.length + " 단계  " + pct + "%";
+			LunaDraw.text(ctx, font, step, px + PANEL_W - PAD - LunaDraw.width(font, step), py + 14, LunaDraw.TEXT_SUB);
+			progress(ctx, px + PAD, py + 30, PANEL_W - PAD * 2);
+		} else {
+			LunaDraw.text(ctx, font, "메인 화면과 ESC 화면을 어떤 모양으로 쓸지 골라 주세요.", px + PAD, py + 36, LunaDraw.TEXT_SUB);
+		}
 		LunaDraw.text(ctx, font, "누르면 바로 적용됩니다. 나중에 설정에서 다시 바꿀 수 있습니다.", px + PAD, py + 60, LunaDraw.TEXT_DIM);
 
 		int y = py + 80;
 		gaugeShown = false;
 		switch (page) {
-			case 0 -> {
+			case 0 -> menuCards(ctx, y, mouseX, mouseY);
+			case 1 -> {
 				y = row(ctx, "글꼴", FONTS, fontIdx, y, mouseX, mouseY, i -> {
 					fontIdx = i;
 					FirstSetup.setFont(i);
@@ -206,7 +217,7 @@ public class LunaSetupScreen extends LunaScreenBase {
 					pendingGui = i;
 				});
 			}
-			case 1 -> {
+			case 2 -> {
 				// 49-328차(사용자: "처음 설정할 때 모드 큰 박스 작은 박스 없애 줘"): [기능 보기] 줄을 뺀다(지금 값 그대로 저장).
 				int after = row(ctx, "HUD 배경", HUD, hud, y, mouseX, mouseY, i -> {
 					hud = i;
@@ -348,15 +359,93 @@ public class LunaSetupScreen extends LunaScreenBase {
 		LunaDraw.text(ctx, font, s, bx + 6, LunaDraw.textY(by, bh), 0xFFFFFFFF);
 	}
 
+	// ==================== 49-652차: 메인 화면 고르기 ====================
+
+	/** 카드 두 장: 노바 화면(추천) / 마크 기본. 누르면 바로 바뀐다. */
+	private void menuCards(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
+		int gap = 8;
+		int cw = (PANEL_W - PAD * 2 - gap) / 2;
+		int ch = 104;
+		for (int i = 0; i < 2; i++) {
+			boolean vanilla = i == 1;
+			int cx = px + PAD + i * (cw + gap);
+			boolean sel = menuVanilla == vanilla;
+			boolean hov = LunaDraw.in(mouseX, mouseY, cx, y, cw, ch);
+			LunaDraw.roundRectBordered(ctx, cx, y, cw, ch, 6, hov ? 0x24FFFFFF : 0x14FFFFFF, sel ? LunaDraw.ACCENT : 0x26FFFFFF);
+			if (sel) {
+				LunaDraw.roundRectOutline(ctx, cx + 1, y + 1, cw - 2, ch - 2, 5, LunaDraw.ACCENT);
+			}
+			int pvx = cx + 8;
+			int pvy = y + 8;
+			int pvw = cw - 16;
+			int pvh = 52;
+			if (vanilla) {
+				vanillaPreview(ctx, pvx, pvy, pvw, pvh);
+			} else {
+				novaPreview(ctx, pvx, pvy, pvw, pvh);
+			}
+			String title = vanilla ? "마크 기본 화면" : "Nova 화면";
+			String desc = vanilla ? "마크 화면 + 설정 버튼 하나" : "꾸며진 메인, ESC 화면";
+			LunaDraw.text(ctx, font, title, cx + 8, pvy + pvh + 8, sel ? LunaDraw.TEXT : LunaDraw.TEXT_SUB);
+			LunaDraw.text(ctx, font, desc, cx + 8, pvy + pvh + 22, LunaDraw.TEXT_DIM);
+			if (!vanilla) {
+				String rec = "추천";
+				int rw = LunaDraw.width(font, rec) + 10;
+				LunaDraw.roundRect(ctx, cx + cw - rw - 6, y + 4, rw, 12, 6, LunaDraw.ACCENT);
+				LunaDraw.text(ctx, font, rec, cx + cw - rw - 1, LunaDraw.textY(y + 4, 12), kr.lunaslight.mod.util.LunaTheme.ON_ACCENT);
+			}
+			hits.add(new Hit(cx, y, cw, ch, () -> {
+				menuVanilla = vanilla;
+				kr.lunaslight.mod.module.impl.misc.VanillaMenuModule.set(vanilla);
+			}));
+		}
+	}
+
+	/** 노바 화면 미리보기(어두운 판 + 로고 자리 + 둥근 버튼). */
+	private void novaPreview(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		LunaDraw.roundRect(ctx, x, y, w, h, 4, 0x8C000000);
+		int bw = Math.min(70, w - 20);
+		int bx = x + (w - bw) / 2;
+		LunaDraw.roundRect(ctx, bx + bw / 2 - 14, y + 6, 28, 6, 3, LunaDraw.ACCENT);
+		for (int k = 0; k < 3; k++) {
+			LunaDraw.roundRect(ctx, bx, y + 18 + k * 10, bw, 7, 3, k == 0 ? LunaDraw.ACCENT : 0x40FFFFFF);
+		}
+	}
+
+	/** 마크 기본 화면 미리보기(하늘 + 회색 입체 버튼). */
+	private void vanillaPreview(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+		ctx.fillGradient(x, y, x + w, y + h, LunaDraw.applyAlpha(0xFF7A9CC6), LunaDraw.applyAlpha(0xFF4E6E46));
+		int bw = Math.min(70, w - 20);
+		int bx = x + (w - bw) / 2;
+		ctx.fill(bx + bw / 2 - 16, y + 5, bx + bw / 2 + 16, y + 12, LunaDraw.applyAlpha(0xFF8A8A8A));
+		for (int k = 0; k < 3; k++) {
+			int by = y + 18 + k * 10;
+			ctx.fill(bx, by, bx + bw, by + 8, LunaDraw.applyAlpha(0xFF000000));
+			ctx.fill(bx + 1, by + 1, bx + bw - 1, by + 7, LunaDraw.applyAlpha(0xFF6F6F6F));
+			ctx.fill(bx + 1, by + 1, bx + bw - 1, by + 2, LunaDraw.applyAlpha(0xFFA8A8A8));
+			ctx.fill(bx + 1, by + 6, bx + bw - 1, by + 7, LunaDraw.applyAlpha(0xFF3A3A3A));
+		}
+	}
+
 	private void finish() {
 		JsonObject prefs = new JsonObject();
+		prefs.addProperty("vanillaMenu", menuVanilla);
 		prefs.addProperty("font", fontIdx);
 		prefs.addProperty("guiScale", gui);
 		prefs.addProperty("tileView", tile);
 		prefs.addProperty("hudShape", hud);
 		prefs.addProperty("mouse", mouseValue);
 		prefs.addProperty("window", window);
-		LunaCompat.setScreen(parent);
+		Screen back = parent;
+		// 49-652차: 마크 기본을 골랐는데 뒤가 노바 메인 화면이면 마크 메인 화면으로(반대는 바꿔치기가 알아서 함)
+		if (menuVanilla && back != null && back.getClass().getName().endsWith(".LunaTitleScreen")) {
+			try {
+				back = (Screen) LunaCompat.classForName("net.minecraft.client.gui.screens.TitleScreen").getConstructor().newInstance();
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("setup:vanillaTitle", t);
+			}
+		}
+		LunaCompat.setScreen(back);
 		FirstSetup.finish(Minecraft.getInstance(), prefs);
 	}
 
