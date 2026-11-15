@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  *   <li>유저 상점에서 산 것: "판매자님의 [재료] 요리용 석탄 64개(을)를 110,000원에 구매했습니다."</li>
  *   <li>거래에서 낸 돈: "상대님과의 거래가 완료되었습니다." 바로 뒤 "└ 10,300,000원 (-)", 같이 온 "└ [특수재료] 잿빛 잉걸불 1개 (+)"는 받은 것.</li>
  * </ul>
- * 디스코드 채널 웹후크 주소(채널 편집 → 연동 → 웹후크 → 새 웹후크 → URL 복사)를 붙여 넣으면 그 채널에 올린다. 연달아 사면 3초 모아 한 번에,
+ * 루나리스 봇 /지출연동(섬장만)이 만든 채널 "지출기록"의 웹후크 주소를 붙여 넣으면 그 채널에 올린다. 관리자 계정에서만 보인다. 연달아 사면 3초 모아 한 번에,
  * 오늘(한국 시간) 쓴 돈 합계를 같이 적는다. 보내지 못한 건 1분 뒤 다시.
  */
 public class NeogulSpendLogModule extends Module {
@@ -58,7 +58,7 @@ public class NeogulSpendLogModule extends Module {
 	private String note = "";
 
 	/** 보낼 줄(모아서 한 번에). */
-	private final List<String> queue = new ArrayList<>();
+	private final List<JsonObject> queue = new ArrayList<>();
 	private long flushAt;
 	private long retryAt;
 	private volatile boolean sending;
@@ -67,8 +67,13 @@ public class NeogulSpendLogModule extends Module {
 	private String tradeWith;
 	private long tradeAt;
 	private long tradePaid;
-	private final List<String> tradeGot = new ArrayList<>();
-	private final List<String> tradeGave = new ArrayList<>();
+	private final JsonArray tradeGot = new JsonArray();
+	private final JsonArray tradeGave = new JsonArray();
+	/** 49-660차(사용자: "단시간 안에 여러 개 사면 중첩시키고 보내기"): 5초 안에 이어서 산 것은 한 장에(같은 물건, 판매자는 합침). */
+	private JsonArray buyRows;
+	private long buyAt;
+	private long buyFirst;
+	private static final long BUY_GAP_MS = 5000;
 
 	public NeogulSpendLogModule() {
 		super("neogul_spend_log", "지출 기록 (디스코드)", ModuleCategory.SERVER, "유저 상점에서 산 것, 거래로 낸 돈을 디스코드 채널에 올림");
@@ -76,10 +81,10 @@ public class NeogulSpendLogModule extends Module {
 		hook.hidden();
 		state.hidden();
 		register(new InfoSetting("status", "상태", this::statusText));
-		register(new ActionSetting("paste", "디스코드 웹후크", "올릴 채널의 웹후크 주소를 복사한 뒤 누르세요(채널 편집 → 연동 → 웹후크 → URL 복사).",
+		register(new ActionSetting("paste", "디스코드 웹후크", "디스코드에서 /지출연동 으로 받은 주소를 복사한 뒤 누르세요.",
 				"붙여 넣기", this::pasteHook));
 		register(new ActionSetting("test", "시험 보내기", "채널에 시험 글을 하나 올립니다.", "보내기", () -> {
-			queue.add("✅ 지출 기록 연결됨");
+			queue.add(hello());
 			flushAt = 0;
 		}));
 		register(new ActionSetting("unlink", "연결 해제", "이 컴퓨터에서 웹후크 주소를 지웁니다.", "해제", () -> {
@@ -88,6 +93,17 @@ public class NeogulSpendLogModule extends Module {
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		}));
 		ChatState.addLoggedListener(this::onChat);
+	}
+
+	/** 49-657차(사용자: "나랑 연동되게만 만들어 두면 돼"): 관리자 계정(섬장)에서만 보이고 돈다. */
+	@Override
+	public boolean isEnabled() {
+		return NeogulData.isAdmin(client) && super.isEnabled();
+	}
+
+	@Override
+	public boolean hiddenInList() {
+		return !NeogulData.isAdmin(client) || super.hiddenInList();
 	}
 
 	// ==================== 상태 ====================
@@ -148,7 +164,7 @@ public class NeogulSpendLogModule extends Module {
 				setEnabled(true);
 			}
 			note = "연결했어요";
-			queue.add("✅ 지출 기록 연결됨");
+			queue.add(hello());
 			flushAt = 0;
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		} catch (Throwable t) {
@@ -184,6 +200,60 @@ public class NeogulSpendLogModule extends Module {
 
 	// ==================== 감지 ====================
 
+	/**
+	 * 49-660차(사용자: "좀 더 자세하고 깔끔하게, 너굴마을 리소스팩 이용해서 아이템에 적용"): 아이템 모양 id. 너굴 자료(이름 → nexo 모델)
+	 * 먼저, 없으면 인벤토리에서 같은 이름 아이템의 모델(item_model 컴포넌트), 그것도 없으면 바닐라 id. 봇이 서버 팩/게임 jar에서 그림을 찾는다.
+	 */
+	private String modelOf(String name) {
+		try {
+			NeogulData.Entry e = NeogulData.byName(name);
+			if (e != null) {
+				if (e.model() != null && !e.model().isEmpty()) {
+					return e.model();
+				}
+				if (e.icons() != null && !e.icons().isEmpty()) {
+					return e.icons().get(0);
+				}
+			}
+			String want = NeogulData.normalize(name);
+			var inv = client.player == null ? null : client.player.getInventory();
+			if (inv != null) {
+				for (int i = 0; i < inv.getContainerSize(); i++) {
+					net.minecraft.world.item.ItemStack st = inv.getItem(i);
+					if (st.isEmpty() || !want.equals(NeogulData.normalize(st.getHoverName().getString()))) {
+						continue;
+					}
+					Object m = st.get(net.minecraft.core.component.DataComponents.ITEM_MODEL);
+					if (m != null) {
+						return m.toString();
+					}
+					return LunaCompat.registryIdOf("ITEM", st.getItem());
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("spendLog:model", t);
+		}
+		return null;
+	}
+
+	private static String catOf(String raw) {
+		Matcher m = Pattern.compile("\\[([^\\]]+)\\]").matcher(raw);
+		return m.find() ? m.group(1) : "";
+	}
+
+	private JsonObject thing(String raw, long n) {
+		JsonObject o = new JsonObject();
+		String name = raw.replaceAll("\\[[^\\]]*\\]", "").trim();
+		o.addProperty("name", name);
+		o.addProperty("cat", catOf(raw));
+		o.addProperty("n", n);
+		String model = modelOf(name);
+		if (model != null) {
+			o.addProperty("model", model);
+		}
+		return o;
+	}
+
 	private void onChat(String raw) {
 		if (!isEnabled() || raw == null || raw.isEmpty() || !NeogulData.onNeogul(client)) {
 			return;
@@ -201,19 +271,22 @@ public class NeogulSpendLogModule extends Module {
 				if ("-".equals(mm.group(2))) {
 					tradePaid += num(mm.group(1));
 				} else {
-					tradeGot.add(mm.group(1) + "원");
+					JsonObject o = new JsonObject();
+					o.addProperty("name", "돈");
+					o.addProperty("won", num(mm.group(1)));
+					tradeGot.add(o);
 				}
 				return;
 			}
 			Matcher mi = TRADE_ITEM.matcher(line);
 			if (mi.find()) {
-				String it = mi.group(1).replaceAll("\\[[^\\]]*\\]", "").trim() + " " + mi.group(2) + "개";
-				("+".equals(mi.group(3)) ? tradeGot : tradeGave).add(it);
+				("+".equals(mi.group(3)) ? tradeGot : tradeGave).add(thing(mi.group(1), num(mi.group(2))));
 				return;
 			}
 		}
 		Matcher t = TRADE.matcher(line);
 		if (t.find()) {
+			endBuys();
 			endTrade();
 			tradeWith = t.group(1);
 			tradeAt = now;
@@ -222,39 +295,92 @@ public class NeogulSpendLogModule extends Module {
 		Matcher b = BUY.matcher(line);
 		if (b.find()) {
 			long price = num(b.group(4));
-			String item = b.group(2).replaceAll("\\[[^\\]]*\\]", "").trim();
-			add(price, "🛒 `" + hhmm() + "` **" + item + " " + b.group(3) + "개** · " + b.group(1) + "님 상점 · **-" + won(price) + "**");
+			long n = num(b.group(3));
+			JsonObject row = thing(b.group(2), n);
+			row.addProperty("who", b.group(1));
+			row.addProperty("won", price);
+			row.addProperty("times", 1);
+			if (buyRows == null) {
+				buyRows = new JsonArray();
+				buyFirst = now;
+			}
+			// 같은 물건을 같은 판매자에게서 또 샀으면 한 줄로 합침
+			boolean merged = false;
+			for (var e : buyRows) {
+				JsonObject r = e.getAsJsonObject();
+				if (r.get("name").getAsString().equals(row.get("name").getAsString()) && r.get("who").getAsString().equals(b.group(1))) {
+					r.addProperty("n", r.get("n").getAsLong() + n);
+					r.addProperty("won", r.get("won").getAsLong() + price);
+					r.addProperty("times", r.get("times").getAsInt() + 1);
+					merged = true;
+					break;
+				}
+			}
+			if (!merged) {
+				buyRows.add(row);
+			}
+			buyAt = now;
+			spent(price);
 		}
 	}
 
-	/** 모은 거래 줄을 한 건으로. */
+	private void spent(long won) {
+		total += won;
+		count++;
+		save();
+		kr.lunaslight.mod.config.LunaClientConfig.save();
+	}
+
+	/** 모아 둔 구매를 카드 한 장으로. */
+	private void endBuys() {
+		if (buyRows == null || buyRows.isEmpty()) {
+			buyRows = null;
+			return;
+		}
+		JsonObject card = new JsonObject();
+		card.addProperty("k", "buy");
+		card.addProperty("t", hhmm());
+		long sum = 0;
+		for (var e : buyRows) {
+			sum += e.getAsJsonObject().get("won").getAsLong();
+		}
+		card.addProperty("won", sum);
+		card.add("rows", buyRows);
+		queue.add(card);
+		buyRows = null;
+	}
+
+	/** 모은 거래 줄을 카드 한 장으로(거래 하나 = 한 장). */
 	private void endTrade() {
 		if (tradeWith == null) {
 			return;
 		}
 		if (tradePaid > 0) {
-			StringBuilder sb = new StringBuilder("🤝 `" + hhmm() + "` " + tradeWith + "님과 거래 · **-" + won(tradePaid) + "**");
-			if (!tradeGot.isEmpty()) {
-				sb.append("\n　받은 것: ").append(String.join(", ", tradeGot));
-			}
-			if (!tradeGave.isEmpty()) {
-				sb.append("\n　준 것: ").append(String.join(", ", tradeGave));
-			}
-			add(tradePaid, sb.toString());
+			JsonObject o = new JsonObject();
+			o.addProperty("k", "trade");
+			o.addProperty("t", hhmm());
+			o.addProperty("who", tradeWith);
+			o.addProperty("won", tradePaid);
+			o.add("got", tradeGot.deepCopy());
+			o.add("gave", tradeGave.deepCopy());
+			spent(tradePaid);
+			queue.add(o);
 		}
 		tradeWith = null;
 		tradePaid = 0;
-		tradeGot.clear();
-		tradeGave.clear();
+		while (!tradeGot.isEmpty()) {
+			tradeGot.remove(0);
+		}
+		while (!tradeGave.isEmpty()) {
+			tradeGave.remove(0);
+		}
 	}
 
-	private void add(long spent, String text) {
-		total += spent;
-		count++;
-		save();
-		kr.lunaslight.mod.config.LunaClientConfig.save();
-		queue.add(text);
-		flushAt = System.currentTimeMillis() + 3000;   // 연달아 사면 모아서 한 번에
+	private static JsonObject hello() {
+		JsonObject o = new JsonObject();
+		o.addProperty("k", "hello");
+		o.addProperty("t", hhmm());
+		return o;
 	}
 
 	// ==================== 보내기 ====================
@@ -265,45 +391,50 @@ public class NeogulSpendLogModule extends Module {
 		if (tradeWith != null && now - tradeAt >= 3000) {
 			endTrade();
 		}
+		if (buyRows != null && (now - buyAt >= BUY_GAP_MS || now - buyFirst >= 60_000)) {
+			endBuys();
+		}
 		if (queue.isEmpty() || sending || !linked() || now < flushAt || now < retryAt) {
 			return;
 		}
 		load();
-		List<String> batch = new ArrayList<>(queue.subList(0, Math.min(20, queue.size())));
-		StringBuilder desc = new StringBuilder();
-		for (String s : batch) {
-			if (desc.length() + s.length() > 3800) {
-				break;
+		// 49-660차(사용자: "한 거래마다 한 사진에"): 카드 한 장 = 웹후크 글 하나. 봇이 사진으로 바꿈.
+		JsonObject card = queue.get(0);
+		JsonObject pay = new JsonObject();
+		pay.addProperty("spend", 2);
+		pay.addProperty("mc", LunaCompat.sessionName(client));
+		pay.addProperty("d", day);
+		pay.addProperty("total", total);
+		pay.addProperty("cnt", count);
+		pay.add("card", card);
+		String content = pay.toString();
+		if (content.length() > 1990) {
+			// 너무 길면(아주 여러 가지를 한꺼번에 산 경우) 줄을 줄여서
+			JsonArray rows = card.has("rows") ? card.getAsJsonArray("rows") : null;
+			while (rows != null && rows.size() > 1 && pay.toString().length() > 1990) {
+				rows.remove(rows.size() - 1);
+				card.addProperty("more", (card.has("more") ? card.get("more").getAsInt() : 0) + 1);
 			}
-			desc.append(s).append('\n');
+			content = pay.toString();
 		}
-		JsonObject embed = new JsonObject();
-		embed.addProperty("description", desc.toString().trim());
-		embed.addProperty("color", 0xF2A65A);
-		JsonObject footer = new JsonObject();
-		footer.addProperty("text", "오늘 쓴 돈 " + won(total) + " · " + count + "건 · " + LunaCompat.sessionName(client));
-		embed.add("footer", footer);
-		JsonArray embeds = new JsonArray();
-		embeds.add(embed);
 		JsonObject body = new JsonObject();
 		body.addProperty("username", "지출 기록");
-		body.add("embeds", embeds);
+		body.addProperty("content", content);
 		JsonObject am = new JsonObject();
 		am.add("parse", new JsonArray());
 		body.add("allowed_mentions", am);
-		final int n = batch.size();
 		sending = true;
 		HttpRequest req = HttpRequest.newBuilder(URI.create(hook.get()))
 				.timeout(Duration.ofSeconds(10))
 				.header("Content-Type", "application/json")
-				.header("User-Agent", "NovaMod-SpendLog/1")
+				.header("User-Agent", "NovaMod-SpendLog/2")
 				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
 				.build();
 		HTTP.sendAsync(req, HttpResponse.BodyHandlers.discarding()).whenComplete((r, err) -> client.execute(() -> {
 			sending = false;
 			int st = r == null ? 0 : r.statusCode();
 			if (err == null && st >= 200 && st < 300) {
-				for (int i = 0; i < n && !queue.isEmpty(); i++) {
+				if (!queue.isEmpty() && queue.get(0) == card) {
 					queue.remove(0);
 				}
 				note = "보냄";

@@ -245,6 +245,9 @@ public class LunarisLinkModule extends Module {
 			changed();
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		}
+		if (mineChat(line)) {
+			return;
+		}
 		// 회복제: "해양섬 피로도가 회복되었습니다. (0/125)" → 그 섬은 다시 채우면 또 1회
 		Matcher r = RECOVER.matcher(line);
 		if (r.find()) {
@@ -289,6 +292,11 @@ public class LunarisLinkModule extends Module {
 			scanLogs();
 		}
 		readBar();
+		mineTick();
+		if (!events.isEmpty() && linked() && !sending && System.currentTimeMillis() >= nextSend) {
+			sendEvent();
+			return;
+		}
 		if (dirty && linked() && !sending && System.currentTimeMillis() >= nextSend) {
 			send();
 		}
@@ -488,6 +496,126 @@ public class LunarisLinkModule extends Module {
 			}
 		}
 		return false;
+	}
+
+	// ==================== 49-663차: 잠광(섬 광물창고) 알림 ====================
+	// 사용자: "섬 광물 창고의 사암 보관한도가 가득 차서 캘 수 없습니다 - 이 메시지가 뜨면 잠광 꽉 찼다고 디코에 알림, 정리하면 누가 정리했습니다,
+	// 연동 안 한 사람이 정리하면 누군가 정리한 걸로", "저 메시지가 갑자기 멈췄는데 우리 중 금액이 없으면 누군가 판 거라고 생각하면 될 듯".
+	//   꽉 참: 그 줄 → {"ev":"mine_full"} (10분에 한 번)
+	//   정리(판매 줄은 판 사람에게만 뜸): "섬 광물창고의 광물 7종 277,401개를 판매해 섬 은행에 7,986,084원을 입금했습니다." → {"ev":"mine_clear", 종류, 개수, 금액}
+	//   멈춤: 꽉 참 줄이 오던 같은 월드에서 90초 넘게 안 오면(계속 캐는 중인데 이제 캐짐 = 누가 비움) → {"ev":"mine_resume"}
+	//   봇이 정리 줄이 없으면 "누군가 정리"로 올린다.
+	private static final Pattern MINE_FULL = Pattern.compile("섬\\s*광물\\s*창고의\\s*(.*?)\\s*보관\\s*한도가\\s*가득");
+	private static final Pattern MINE_SOLD = Pattern.compile("섬\\s*광물\\s*창고의\\s*광물\\s*([\\d,]+)\\s*종\\s*([\\d,]+)\\s*개를\\s*판매해\\s*섬\\s*은행에\\s*([\\d,]+)\\s*원");
+	private long mineFullAt;
+	private long mineFullSentAt;
+	private Object mineFullLevel;
+	private final java.util.List<JsonObject> events = new java.util.ArrayList<>();
+
+	private static String plain(String s) {
+		StringBuilder sb = new StringBuilder(s.length());
+		s.codePoints().filter(cp -> !((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000 || (cp >= 0xA000 && cp <= 0xA4CF)))
+				.forEach(sb::appendCodePoint);
+		return sb.toString().replaceAll("\\[[^\\]]*\\]", "").replaceAll("\\s+", " ").trim();
+	}
+
+	private static long lnum(String s) {
+		try {
+			return Long.parseLong(s.replace(",", ""));
+		} catch (Throwable t) {
+			return 0;
+		}
+	}
+
+	/** 잠광 줄이면 true. */
+	private boolean mineChat(String line) {
+		Matcher f = MINE_FULL.matcher(line);
+		if (f.find()) {
+			long now = System.currentTimeMillis();
+			mineFullAt = now;
+			mineFullLevel = client.level;
+			if (now - mineFullSentAt > 10 * 60_000) {
+				mineFullSentAt = now;
+				JsonObject e = new JsonObject();
+				e.addProperty("ev", "mine_full");
+				String item = plain(f.group(1));
+				e.addProperty("item", item);
+				try {
+					NeogulData.Entry ne = NeogulData.byName(item);
+					if (ne != null && ne.model() != null && !ne.model().isEmpty()) {
+						e.addProperty("model", ne.model());
+					} else if (ne != null && ne.icons() != null && !ne.icons().isEmpty()) {
+						e.addProperty("model", ne.icons().get(0));
+					}
+				} catch (Throwable ignored) {
+				}
+				events.add(e);
+			}
+			return true;
+		}
+		Matcher s2 = MINE_SOLD.matcher(line);
+		if (s2.find()) {
+			JsonObject e = new JsonObject();
+			e.addProperty("ev", "mine_clear");
+			e.addProperty("kinds", lnum(s2.group(1)));
+			e.addProperty("cnt", lnum(s2.group(2)));
+			e.addProperty("won", lnum(s2.group(3)));
+			events.add(e);
+			mineFullAt = 0;
+			mineFullSentAt = 0;
+			return true;
+		}
+		return false;
+	}
+
+	private void mineTick() {
+		if (mineFullAt > 0 && System.currentTimeMillis() - mineFullAt > 90_000) {
+			if (client.level != null && client.level == mineFullLevel && NeogulData.onNeogul(client)) {
+				JsonObject e = new JsonObject();
+				e.addProperty("ev", "mine_resume");
+				events.add(e);
+			}
+			mineFullAt = 0;
+			mineFullSentAt = 0;
+		}
+	}
+
+	/** 잠광 신호 하나 보내기(일퀘 신호와 같은 웹후크, 같은 서명). */
+	private void sendEvent() {
+		Matcher c = CODE.matcher(code.get());
+		if (!c.matches() || events.isEmpty()) {
+			return;
+		}
+		JsonObject p = events.get(0).deepCopy();
+		p.addProperty("lnr", 1);
+		p.addProperty("uid", c.group(3));
+		p.addProperty("g", Integer.parseInt(c.group(4)));
+		p.addProperty("s", c.group(5));
+		p.addProperty("mc", LunaCompat.sessionName(client));
+		p.addProperty("d", day);
+		JsonObject body = new JsonObject();
+		body.addProperty("content", p.toString());
+		body.addProperty("username", "Nova 자동 일퀘");
+		final JsonObject first = events.get(0);
+		sending = true;
+		HttpRequest req = HttpRequest.newBuilder(URI.create("https://discord.com/api/webhooks/" + c.group(1) + "/" + c.group(2)))
+				.timeout(Duration.ofSeconds(10))
+				.header("Content-Type", "application/json")
+				.header("User-Agent", "NovaMod-Lunaris/2")
+				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+				.build();
+		HTTP.sendAsync(req, HttpResponse.BodyHandlers.discarding()).whenComplete((r, err) -> client.execute(() -> {
+			sending = false;
+			int st = r == null ? 0 : r.statusCode();
+			if (err == null && st >= 200 && st < 300) {
+				events.remove(first);
+				nextSend = System.currentTimeMillis() + 1500;
+			} else if (st == 401 || st == 404) {
+				events.clear();
+			} else {
+				nextSend = System.currentTimeMillis() + 60_000;
+			}
+		}));
 	}
 
 	// ==================== 보내기 ====================
