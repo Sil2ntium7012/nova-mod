@@ -82,10 +82,12 @@ public class CraftingHelperModule extends Module {
 	 * 오른쪽에 띄워 줘"): 서버 조합법이라 바닐라 조합법 목록에 없다. 너굴마을에서 재료(종이 아이템, 이름 그대로)가 3개 이상이면 목록 맨 앞에 넣고,
 	 * 누르면 V자(위 왼쪽, 위 오른쪽, 가운데)로 놓고 결과를 꺼낸다(Shift = 재료가 되는 만큼, 최대 64).
 	 */
-	private record NgRecipe(String outName, String inName, ItemStack icon, ItemStack inIcon, int have) {
+	private record NgRecipe(String outName, String inName, String inId, ItemStack icon, ItemStack inIcon, int have) {
 	}
 
-	private static final String[][] NG_RECIPES = {{"bronze_bowl", "청동 그릇", "청동"}, {"silver_bowl", "은 그릇", "은 주괴"}, {"gold_bowl", "금 그릇", "금 주괴"}};
+	/** 그릇 key, 그릇 이름, 재료 이름, 재료 nexo id(49-656차). */
+	private static final String[][] NG_RECIPES = {{"bronze_bowl", "청동 그릇", "청동", "bronze_ingot"}, {"silver_bowl", "은 그릇", "은 주괴", "silver_ingot"},
+			{"gold_bowl", "금 그릇", "금 주괴", "gold_ingot"}};
 	private static final int[] V_SLOTS = {1, 3, 5};
 	private int ngWait;
 
@@ -96,9 +98,38 @@ public class CraftingHelperModule extends Module {
 		return sb.toString().replaceAll("\\s+", " ").trim();
 	}
 
-	/** 너굴 재료인가(서버 재료는 종이에 이름만 바꾼 것 - 바닐라 금 주괴와 헷갈리지 않게). */
-	private static boolean ngMaterial(ItemStack st, String name) {
-		return st != null && !st.isEmpty() && st.getItem() == net.minecraft.world.item.Items.PAPER && plainName(st).equals(name);
+	/**
+	 * 너굴 재료인가(바닐라 금 주괴와 헷갈리지 않게).
+	 * 49-656차(사용자 사진: 작업대에 청동을 V자로 놓았는데 오른쪽 "만들 수 있는 것 0개" - "조합법 어디 감"): 예전엔 "종이 + 이름이 정확히 같음"만
+	 * 봤는데, 서버 재료가 종이가 아니거나 이름 앞에 [재료] 같은 말머리가 붙으면 못 찾았다. 서버 아이템 id(custom_data의 nexo:id,
+	 * 아이템 모델 nexo:…)로 먼저 보고, 없으면 말머리를 뗀 이름으로 본다(그릇 자체 "청동 그릇"은 이름이 달라 안 걸림).
+	 */
+	private static boolean ngMaterial(ItemStack st, String name, String nexoId) {
+		if (st == null || st.isEmpty()) {
+			return false;
+		}
+		try {
+			Object model = st.get(net.minecraft.core.component.DataComponents.ITEM_MODEL);
+			if (model != null && model.toString().equals("nexo:" + nexoId)) {
+				return true;
+			}
+			Object cd = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+			if (cd != null) {
+				String c = cd.toString();
+				if (c.contains("nexo") && (c.contains("\"" + nexoId + "\"") || c.contains("'" + nexoId + "'") || c.contains(":" + nexoId))) {
+					return true;
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		if (st.getItem() == net.minecraft.world.item.Items.GOLD_INGOT || st.getItem() == net.minecraft.world.item.Items.IRON_INGOT
+				|| st.getItem() == net.minecraft.world.item.Items.COPPER_INGOT) {
+			if (!LunaCompat.hasCustomData(st) && st.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME) == null) {
+				return false;   // 바닐라 주괴
+			}
+		}
+		String n = plainName(st).replaceAll("\\[[^\\]]*\\]", "").replaceAll("\\s+", " ").trim();
+		return n.equals(name);
 	}
 
 	private List<Item> neogulRecipes() {
@@ -113,7 +144,7 @@ public class CraftingHelperModule extends Module {
 				ItemStack inIcon = null;
 				for (int i = 0; i < 36; i++) {
 					ItemStack st = inv.getItem(i);
-					if (ngMaterial(st, r[2])) {
+					if (ngMaterial(st, r[2], r[3])) {
 						have += st.getCount();
 						if (inIcon == null) {
 							inIcon = st.copyWithCount(1);
@@ -128,7 +159,7 @@ public class CraftingHelperModule extends Module {
 				if (icon == null || icon.isEmpty()) {
 					icon = new ItemStack(net.minecraft.world.item.Items.BOWL);
 				}
-				out.add(new Item(null, null, new NgRecipe(r[1], r[2], icon, inIcon, have)));
+				out.add(new Item(null, null, new NgRecipe(r[1], r[2], r[3], icon, inIcon, have)));
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("craftingHelper:neogul", t);
@@ -154,7 +185,7 @@ public class CraftingHelperModule extends Module {
 			int total = 0;
 			for (int i = 10; i < menu.slots.size(); i++) {
 				ItemStack st = menu.getSlot(i).getItem();
-				if (ngMaterial(st, r.inName())) {
+				if (ngMaterial(st, r.inName(), r.inId())) {
 					src.add(i);
 					total += st.getCount();
 				}

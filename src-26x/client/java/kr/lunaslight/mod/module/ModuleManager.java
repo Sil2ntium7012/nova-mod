@@ -161,6 +161,10 @@ public final class ModuleManager {
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.LunarisLinkModule");
 		}
+		// 49-657차: 너굴마을 지출 기록(유저 상점 구매, 거래로 낸 돈 → 디스코드 웹후크)
+		if (neogulVersion) {
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulSpendLogModule");
+		}
 		// 49-148차: 너굴마을 허수아비 알림(채팅 감지 → 소리 + 타이틀)
 		if (neogulVersion) {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScarecrowModule");
