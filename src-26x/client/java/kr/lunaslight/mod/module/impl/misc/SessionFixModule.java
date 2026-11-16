@@ -47,6 +47,8 @@ public class SessionFixModule extends Module {
 		alwaysOn();
 		LunaCompat.registerScreenAfterRender(this::onScreenFrame);
 		LunaCompat.registerScreenAfterInit(this::onScreenInit);   // 49-344차
+		LunaCompat.registerScreenAfterInit(this::onLimitInit);   // 49-672차: 로그인 429
+		LunaCompat.registerScreenAfterRender(this::onLimitFrame);
 	}
 
 	@Override
@@ -268,5 +270,89 @@ public class SessionFixModule extends Module {
 
 	private static Path resultPath() {
 		return gameDir().resolve(".luna-relogin-result.json");
+	}
+
+	// ==================== 49-672차: 로그인 429(요청이 너무 많음) ====================
+	// 사용자(사진: "다른 서버로 이송되는 중 연결에 실패했습니다 / 로그인에 실패했습니다: Status: 429", "너굴라이언트 맨날 이럼"):
+	// 너굴마을은 서버를 옮길 때(로비 → 섬 등) 마인크래프트 로그인을 처음부터 다시 한다. 짧은 시간에 여러 번 옮기면 모장 로그인 서버가
+	// 잠깐 막는다(429). 노바/너굴라이언트 탓이 아니라 기다리면 풀린다. 너굴마을은 자동 재접속을 막아 두었으므로(49-183차)
+	// 버튼은 직접 누르게 두고, 바로 누르면 또 막히니 몇 초 기다린 뒤에 켜진다(연달아 막히면 10 → 20 → 40초).
+	private Object limitButton;
+	private Object limitScreen;
+	private long limitReadyAt;
+	private int limitStreak;
+	private long limitLastAt;
+
+	private static boolean isRateLimited(Screen s) {
+		String t = AutoReconnectModule.screenText(s);
+		return t.contains("429") || t.toLowerCase(java.util.Locale.ROOT).contains("too many requests");
+	}
+
+	private void onLimitInit(Object screen) {
+		limitButton = null;
+		limitScreen = null;
+		if (!(screen instanceof Screen s) || !isDisconnectedScreen(s) || !isRateLimited(s)) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now - limitLastAt > 3000) {   // 같은 화면 init이 두 번 와도 한 번만 센다
+			limitStreak = now - limitLastAt < 5 * 60_000 ? Math.min(limitStreak + 1, 3) : 0;
+			limitLastAt = now;
+			limitReadyAt = now + (10_000L << limitStreak);
+		}
+		// 세션 복구의 [재접속] 버튼이 이미 있으면(노바 클라이언트) 버튼은 그걸 쓰고 안내만 쓴다.
+		if (isEnabled()) {
+			return;
+		}
+		java.util.List<Object> buttons = LunaCompat.screenButtons(screen);
+		if (buttons == null || buttons.isEmpty()) {
+			return;
+		}
+		Object last = null;
+		int lastY = Integer.MIN_VALUE;
+		for (Object b : buttons) {
+			String msg = buttonText(b);
+			if (msg != null && msg.startsWith("다시 접속")) {
+				return;   // 이미 얹음
+			}
+			int y = LunaCompat.widgetInt(b, "getY", "y");
+			if (y > lastY) {
+				lastY = y;
+				last = b;
+			}
+		}
+		if (last == null) {
+			return;
+		}
+		int x = LunaCompat.widgetInt(last, "getX", "x");
+		int w = Math.max(200, LunaCompat.widgetInt(last, "getWidth", "width"));
+		int h = Math.max(20, LunaCompat.widgetInt(last, "getHeight", "height"));
+		limitButton = LunaCompat.addVanillaButton(screen, x, lastY + h + 4, w, h, "다시 접속", () -> {
+			String a = AutoReconnectModule.lastServerAddress();
+			if (System.currentTimeMillis() >= limitReadyAt && a != null && !a.isBlank()) {
+				AutoReconnectModule.reconnectTo(a);
+			}
+		});
+		limitScreen = limitButton == null ? null : screen;
+	}
+
+	private void onLimitFrame(Object screen, GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
+		if (!(screen instanceof Screen s) || !isDisconnectedScreen(s) || limitLastAt == 0 || !isRateLimited(s)) {
+			return;
+		}
+		long left = Math.max(0, (limitReadyAt - System.currentTimeMillis() + 999) / 1000);
+		if (limitButton != null && limitScreen == screen) {
+			LunaCompat.setButton(limitButton, left > 0 ? "다시 접속 (" + left + "초 뒤)" : "다시 접속", left == 0);
+		}
+		String[] lines = {
+				"마인크래프트 로그인 서버가 잠깐 막았습니다 (요청이 너무 많음).",
+				left > 0 ? "서버를 빠르게 옮기면 생깁니다. " + left + "초 뒤에 다시 접속하십시오." : "이제 다시 접속하실 수 있습니다."
+		};
+		int y = 12;
+		for (String line : lines) {
+			int lw = LunaCompat.getTextWidth(client.font, line);
+			LunaDraw.text(ctx, client.font, line, (s.width - lw) / 2, y, LunaDraw.TEXT_DIM);
+			y += 11;
+		}
 	}
 }

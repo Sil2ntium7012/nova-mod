@@ -211,7 +211,7 @@ public class AutoReconnectModule extends Module {
 	}
 
 	/** 화면 인스턴스의 Text 필드(사유·제목)를 전부 이어 붙인다. */
-	private static String screenText(Screen screen) {
+	static String screenText(Screen screen) {
 		StringBuilder sb = new StringBuilder();
 		try {
 			for (java.lang.reflect.Field f : screen.getClass().getDeclaredFields()) {
