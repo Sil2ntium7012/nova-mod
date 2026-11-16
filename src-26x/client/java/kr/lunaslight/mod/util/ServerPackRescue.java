@@ -130,7 +130,7 @@ public final class ServerPackRescue {
 			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 서버 리소스팩이 " + waitSeconds + "초 동안 안 와서 지난번 팩을 다시 받습니다: " + s);
 			mc.getDownloadedPackSource().pushPack(id, url, hash);
 			mc.getDownloadedPackSource().allowServerPacks();
-			LunaCompat.sendActionBar(mc, "§e[Nova] §f서버 리소스팩이 안 와서 다시 받는 중이에요");
+			LunaCompat.sendActionBar(mc, "§e[Nova] §f서버 리소스팩이 안 와서 다시 받는 중입니다");
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("packRescue:push", t);
 		}

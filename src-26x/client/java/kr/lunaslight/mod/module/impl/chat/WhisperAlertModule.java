@@ -127,7 +127,7 @@ public class WhisperAlertModule extends Module {
 	private static final String TITLE = "귓속말";
 
 	private static String body(String name) {
-		return name + " 님이 귓속말을 보냈어요";
+		return name + " 님이 귓속말을 보냈습니다";
 	}
 
 	private int cardWidth(String name) {

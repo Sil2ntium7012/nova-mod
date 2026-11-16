@@ -932,14 +932,14 @@ public final class LunaSocial {
 	public static CompletableFuture<String> addFriend(String nickname) {
 		load();
 		if (!signedIn()) {
-			return CompletableFuture.completedFuture("런처에서 노바 계정으로 먼저 로그인하세요");
+			return CompletableFuture.completedFuture("런처에서 노바 계정으로 먼저 로그인하십시오");
 		}
 		String nick = nickname == null ? "" : nickname.trim();
 		if (nick.isEmpty()) {
-			return CompletableFuture.completedFuture("닉네임을 입력하세요");
+			return CompletableFuture.completedFuture("닉네임을 입력하십시오");
 		}
 		if (siteName != null && nick.equalsIgnoreCase(siteName)) {
-			return CompletableFuture.completedFuture("자기 자신은 추가할 수 없어요");
+			return CompletableFuture.completedFuture("자기 자신은 추가할 수 없습니다");
 		}
 		if (viaSite()) {
 			JsonObject body = new JsonObject();
@@ -954,18 +954,18 @@ public final class LunaSocial {
 		}
 		return resolveNickname(nick).thenCompose(found -> {
 			if (found == null) {
-				return CompletableFuture.completedFuture("그런 닉네임의 노바 계정이 없어요");
+				return CompletableFuture.completedFuture("그런 닉네임의 노바 계정이 없습니다");
 			}
 			if (sameId(found[0], siteId)) {
-				return CompletableFuture.completedFuture("자기 자신은 추가할 수 없어요");
+				return CompletableFuture.completedFuture("자기 자신은 추가할 수 없습니다");
 			}
 			return relationWith(found[0]).thenCompose(rel -> {
 				if (rel != null) {
 					if ("accepted".equals(rel[2])) {
-						return CompletableFuture.completedFuture("이미 친구예요");
+						return CompletableFuture.completedFuture("이미 친구입니다");
 					}
 					if ("blocked".equals(rel[2])) {
-						return CompletableFuture.completedFuture("차단된 상대예요");
+						return CompletableFuture.completedFuture("차단된 상대입니다");
 					}
 					if (sameId(rel[1], found[0])) {
 						// 상대가 먼저 보내 둔 요청 - 수락으로 바꾼다
@@ -974,7 +974,7 @@ public final class LunaSocial {
 						return restSend("PATCH", "/friends?id=eq." + enc(rel[0]), patch.toString())
 							.thenApply(x -> found[1] + " 님과 친구가 됐습니다");
 					}
-					return CompletableFuture.completedFuture("이미 요청을 보냈어요");
+					return CompletableFuture.completedFuture("이미 요청을 보냈습니다");
 				}
 				JsonObject row = new JsonObject();
 				row.addProperty("requester_uuid", siteId);

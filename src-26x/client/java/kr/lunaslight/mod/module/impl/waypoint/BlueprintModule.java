@@ -189,7 +189,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	public boolean onAttack() {
 		BlockPos p = LunaCompat.targetedBlock(client);
 		if (p == null) {
-			LunaCompat.sendActionBar(client, "§7블록을 바라보고 눌러 주세요");
+			LunaCompat.sendActionBar(client, "§7블록을 바라보고 눌러 주십시오");
 			return true;
 		}
 		pos1 = p;
@@ -202,7 +202,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 	public boolean onUse() {
 		BlockPos p = LunaCompat.targetedBlock(client);
 		if (p == null) {
-			LunaCompat.sendActionBar(client, "§7블록을 바라보고 눌러 주세요");
+			LunaCompat.sendActionBar(client, "§7블록을 바라보고 눌러 주십시오");
 			return true;
 		}
 		pos2 = p;
@@ -343,7 +343,7 @@ public class BlueprintModule extends Module implements MeasureHook.Handler {
 			return "월드에 들어가 있어야 합니다";
 		}
 		if (pos1 == null || pos2 == null) {
-			return "도구로 지점 1(좌클릭)과 지점 2(우클릭)를 먼저 찍어 주세요";
+			return "도구로 지점 1(좌클릭)과 지점 2(우클릭)를 먼저 찍어 주십시오";
 		}
 		long vol = (long) spanX() * spanY() * spanZ();
 		if (vol > Blueprint.MAX_VOLUME) {

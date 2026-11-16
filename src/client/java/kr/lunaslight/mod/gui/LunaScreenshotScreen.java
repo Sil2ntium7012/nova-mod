@@ -670,7 +670,7 @@ public class LunaScreenshotScreen extends LunaScreenBase {
 		if (!thumbs) {
 			LunaDraw.textCentered(ctx, textRenderer, "§8이 버전에서는 게임 안에서 사진을 띄울 수 없습니다",
 				lx + lw / 2, ly + imgH / 2 - 10, LunaDraw.TEXT_DIM);
-			LunaDraw.textCentered(ctx, textRenderer, "§8[폴더 열기]로 보세요",
+			LunaDraw.textCentered(ctx, textRenderer, "§8[폴더 열기]로 보십시오",
 				lx + lw / 2, ly + imgH / 2 + 2, LunaDraw.TEXT_DIM);
 		} else if (bigState == ST_LIVE) {
 			drawFitted(ctx, bigTex, bigW, bigH, lx + 1, ly + 1, lw - 2, imgH - 2);
@@ -684,7 +684,7 @@ public class LunaScreenshotScreen extends LunaScreenBase {
 			LunaDraw.textCentered(ctx, textRenderer, why,
 				lx + lw / 2, ly + imgH / 2 - (shot.gif ? 10 : 4), LunaDraw.TEXT_DIM);
 			if (shot.gif) {
-				LunaDraw.textCentered(ctx, textRenderer, "§8[폴더 열기]로 보세요",
+				LunaDraw.textCentered(ctx, textRenderer, "§8[폴더 열기]로 보십시오",
 					lx + lw / 2, ly + imgH / 2 + 2, LunaDraw.TEXT_DIM);
 			}
 		}
@@ -1080,7 +1080,7 @@ public class LunaScreenshotScreen extends LunaScreenBase {
 
 	private void askDelete() {
 		Shot shot = shots.get(open);
-		confirm.show(LunaIcons.TRASH, shot.gif ? "이 클립을 삭제할까요?" : "이 스크린샷을 삭제할까요?",
+		confirm.show(LunaIcons.TRASH, shot.gif ? "이 클립을 삭제하시겠습니까?" : "이 스크린샷을 삭제하시겠습니까?",
 			shot.name, "삭제", this::deleteCurrent);
 	}
 

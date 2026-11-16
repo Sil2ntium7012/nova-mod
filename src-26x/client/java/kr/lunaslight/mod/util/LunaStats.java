@@ -3241,7 +3241,7 @@ public final class LunaStats {
 			dirty = true;
 			saveNow();
 			markSubtracted("삭제전_" + stamp + ".json");
-			return "지웠습니다. [삭제 되돌리기]로 되돌릴 수 있어요";
+			return "지웠습니다. [삭제 되돌리기]로 되돌릴 수 있습니다";
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("stats:delete", t);
 			return "지우지 못했습니다: " + t.getClass().getSimpleName();

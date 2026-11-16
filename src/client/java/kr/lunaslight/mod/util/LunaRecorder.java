@@ -146,7 +146,7 @@ public final class LunaRecorder {
 			return "런처가 ffmpeg를 아직 받는 중입니다 - 잠시 뒤 다시";
 		}
 		if (pending == STOPPING && saving()) {
-			return "저장하는 중입니다 - 잠시만요";
+			return "저장하는 중입니다 - 잠시만 기다려 주십시오";
 		}
 		try {
 			JsonObject o = new JsonObject();

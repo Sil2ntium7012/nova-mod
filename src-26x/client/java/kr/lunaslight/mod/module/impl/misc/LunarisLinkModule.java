@@ -91,10 +91,10 @@ public class LunarisLinkModule extends Module {
 		code.hidden();
 		state.hidden();
 		register(new InfoSetting("status", "상태", this::statusText));
-		register(new ActionSetting("paste", "연동 코드", "디스코드에서 /연동 으로 받은 코드를 복사한 뒤 누르세요.", "붙여 넣기", this::pasteCode));
+		register(new ActionSetting("paste", "연동 코드", "디스코드에서 /연동 으로 받은 코드를 복사한 뒤 누르십시오.", "붙여 넣기", this::pasteCode));
 		register(new ActionSetting("unlink", "연동 해제", "이 컴퓨터에서 코드를 지웁니다.", "해제", () -> {
 			code.setValue("");
-			note = "연동을 해제했어요";
+			note = "연동을 해제했습니다";
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		}));
 		register(new ActionSetting("resend", "지금 보내기", "오늘 기록을 봇에 다시 보냅니다.", "보내기", this::resendAll));
@@ -208,19 +208,19 @@ public class LunarisLinkModule extends Module {
 			String clip = kr.lunaslight.mod.util.LunaInput.clipboard(net.minecraft.client.Minecraft.getInstance());
 			Matcher m = CODE.matcher(clip == null ? "" : clip);
 			if (!m.find()) {
-				note = "클립보드에 코드가 없어요";
+				note = "클립보드에 코드가 없습니다";
 				return;
 			}
 			code.setValue(m.group());
 			if (!isEnabledStored()) {
 				setEnabled(true);
 			}
-			note = "연동했어요";
+			note = "연동했습니다";
 			resendAll();
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("lunaris:paste", t);
-			note = "붙여 넣지 못했어요";
+			note = "붙여 넣지 못했습니다";
 		}
 	}
 
@@ -680,7 +680,7 @@ public class LunarisLinkModule extends Module {
 				note = "보냄";
 				nextSend = System.currentTimeMillis() + 5_000;
 			} else if (st == 401 || st == 404) {
-				note = "코드가 더 이상 안 맞아요(/연동 다시)";
+				note = "코드가 더 이상 안 맞습니다(/연동 다시)";
 				dirty = false;
 			} else {
 				note = "보내기 실패, 1분 뒤 다시";

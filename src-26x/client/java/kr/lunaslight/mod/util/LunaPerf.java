@@ -230,7 +230,7 @@ public final class LunaPerf {
 			out.add(new Issue(lvl, "FPS", af + " fps (평균)"
 					+ (FPS_HISTORY.size() < WARN_MIN_SAMPLES ? " · 측정 중" : ""),
 				lvl == 0 ? "쾌적함"
-					: "렌더 거리·구름·입자를 낮춰보세요. 스카이팩터리류 모드팩이면 소듐(Sodium) 계열 최적화 모드가 큰 차이를 만듭니다"));
+					: "렌더 거리·구름·입자를 낮춰보십시오. 스카이팩터리류 모드팩이면 소듐(Sodium) 계열 최적화 모드가 큰 차이를 만듭니다"));
 		}
 
 		if (maxMemMb > 0) {
@@ -242,9 +242,9 @@ public final class LunaPerf {
 					+ "). 런처 설정에서 4~6GB 할당을 권장";
 				lvl = Math.max(lvl, 1);
 			} else if (lvl == 2) {
-				advice = "메모리가 거의 꽉 찼습니다 - 할당을 늘리거나(런처 설정) 리소스팩/모드를 줄여보세요";
+				advice = "메모리가 거의 꽉 찼습니다 - 할당을 늘리거나(런처 설정) 리소스팩/모드를 줄여보십시오";
 			} else if (lvl == 1) {
-				advice = "메모리 사용이 높은 편 - 렉 스파이크가 잦다면 할당을 1~2GB 늘려보세요";
+				advice = "메모리 사용이 높은 편 - 렉 스파이크가 잦다면 할당을 1~2GB 늘려보십시오";
 			} else {
 				advice = "여유 있음";
 			}
@@ -254,7 +254,7 @@ public final class LunaPerf {
 		int spikes = spikeCountLastMinute();
 		int slvl = spikes >= 6 ? 2 : (spikes >= 2 ? 1 : 0);
 		out.add(new Issue(slvl, "프레임 스파이크", "최근 1분 " + spikes + "회",
-			slvl == 0 ? "안정적" : "순간 멈칫거림 - 청크 로딩/GC가 원인일 가능성. 메모리 할당을 늘리거나 렌더 거리를 줄여보세요"));
+			slvl == 0 ? "안정적" : "순간 멈칫거림 - 청크 로딩/GC가 원인일 가능성. 메모리 할당을 늘리거나 렌더 거리를 줄여보십시오"));
 
 		if (ping >= 0) {
 			int plvl = ping >= 150 ? 2 : (ping >= 80 ? 1 : 0);

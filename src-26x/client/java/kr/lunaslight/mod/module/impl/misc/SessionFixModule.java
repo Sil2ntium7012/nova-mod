@@ -185,7 +185,7 @@ public class SessionFixModule extends Module {
 			Files.writeString(requestPath(), o.toString(), StandardCharsets.UTF_8);
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("sessionFix:request", t);
-			fail("요청을 보내지 못했어요");
+			fail("요청을 보내지 못했습니다");
 		}
 	}
 
@@ -196,7 +196,7 @@ public class SessionFixModule extends Module {
 		}
 		lastPoll = now;
 		if (now > deadline) {
-			fail("런처 응답이 없어요 (런처가 켜져 있는지 확인)");
+			fail("런처 응답이 없습니다 (런처가 켜져 있는지 확인)");
 			return;
 		}
 		Path p = resultPath();
@@ -223,11 +223,11 @@ public class SessionFixModule extends Module {
 			String token = o.get("accessToken").getAsString();
 			// 49-259차: 런처의 Ed25519 서명(sig2) - 서명 글자에 계정(uuid, 이름, 토큰 지문)이 들어 있어 다른 계정으로 바꿔치기 못 한다
 			if (!LunaClientMod.verifySig2("relogin", ts, uuid + "|" + name + "|" + LunaClientMod.sha256Hex(token == null ? "" : token), sig)) {
-				fail("서명 확인 실패 - 무시했어요");
+				fail("서명 확인 실패 - 무시했습니다");
 				return;
 			}
 			if (uuid == null || name == null || token == null || token.isEmpty()) {
-				fail("런처가 토큰을 주지 못했어요");
+				fail("런처가 토큰을 주지 못했습니다");
 				return;
 			}
 			String why = LunaSocial.switchAccount(client, new LunaSocial.Account(uuid, name, token));
@@ -239,7 +239,7 @@ public class SessionFixModule extends Module {
 			String addr = AutoReconnectModule.lastServerAddress();
 			if (addr == null || addr.isEmpty()) {
 				phase = 0;
-				note = "세션을 새로 받았어요 - 서버를 다시 눌러 주세요";
+				note = "세션을 새로 받았습니다 - 서버를 다시 눌러 주십시오";
 				return;
 			}
 			phase = RECONNECT;
@@ -249,13 +249,13 @@ public class SessionFixModule extends Module {
 			phase = 0;
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("sessionFix:result", t);
-			fail("세션을 새로 받지 못했어요");
+			fail("세션을 새로 받지 못했습니다");
 		}
 	}
 
 	private void fail(String why) {
 		phase = 0;
-		note = why == null ? "실패했어요" : why;
+		note = why == null ? "실패했습니다" : why;
 	}
 
 	private static Path gameDir() {

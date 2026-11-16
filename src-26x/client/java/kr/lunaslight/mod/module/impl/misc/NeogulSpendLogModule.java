@@ -81,7 +81,7 @@ public class NeogulSpendLogModule extends Module {
 		hook.hidden();
 		state.hidden();
 		register(new InfoSetting("status", "상태", this::statusText));
-		register(new ActionSetting("paste", "디스코드 웹후크", "디스코드에서 /지출연동 으로 받은 주소를 복사한 뒤 누르세요.",
+		register(new ActionSetting("paste", "디스코드 웹후크", "디스코드에서 /지출연동 으로 받은 주소를 복사한 뒤 누르십시오.",
 				"붙여 넣기", this::pasteHook));
 		register(new ActionSetting("test", "시험 보내기", "채널에 시험 글을 하나 올립니다.", "보내기", () -> {
 			queue.add(hello());
@@ -89,7 +89,7 @@ public class NeogulSpendLogModule extends Module {
 		}));
 		register(new ActionSetting("unlink", "연결 해제", "이 컴퓨터에서 웹후크 주소를 지웁니다.", "해제", () -> {
 			hook.setValue("");
-			note = "연결을 해제했어요";
+			note = "연결을 해제했습니다";
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		}));
 		ChatState.addLoggedListener(this::onChat);
@@ -156,20 +156,20 @@ public class NeogulSpendLogModule extends Module {
 			String clip = kr.lunaslight.mod.util.LunaInput.clipboard(net.minecraft.client.Minecraft.getInstance());
 			Matcher m = HOOK.matcher(clip == null ? "" : clip.trim());
 			if (!m.find()) {
-				note = "클립보드에 웹후크 주소가 없어요";
+				note = "클립보드에 웹후크 주소가 없습니다";
 				return;
 			}
 			hook.setValue(m.group());
 			if (!isEnabledStored()) {
 				setEnabled(true);
 			}
-			note = "연결했어요";
+			note = "연결했습니다";
 			queue.add(hello());
 			flushAt = 0;
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("spendLog:paste", t);
-			note = "붙여 넣지 못했어요";
+			note = "붙여 넣지 못했습니다";
 		}
 	}
 
@@ -440,7 +440,7 @@ public class NeogulSpendLogModule extends Module {
 				note = "보냄";
 				retryAt = System.currentTimeMillis() + 1500;
 			} else if (st == 401 || st == 404) {
-				note = "웹후크 주소가 안 맞아요(다시 붙여 넣기)";
+				note = "웹후크 주소가 안 맞습니다(다시 붙여 넣기)";
 				queue.clear();
 			} else {
 				note = "보내기 실패, 1분 뒤 다시";

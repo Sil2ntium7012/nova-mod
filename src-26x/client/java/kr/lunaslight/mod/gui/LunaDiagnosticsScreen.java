@@ -349,7 +349,7 @@ public class LunaDiagnosticsScreen extends LunaScreenBase {
 			LunaDraw.setAlpha(base * p);
 			LunaDraw.roundRect(ctx, lx, y, contentW, 30, 6, LunaDraw.withAlpha(GOOD, 0x1E));
 			LunaDraw.circle(ctx, lx + 12, y + 12, 6, GOOD);
-			LunaDraw.text(ctx, font, measuring ? "몇 초 뒤 다시 열어 주세요. 지표를 모으고 있습니다" : "모든 지표가 정상입니다",
+			LunaDraw.text(ctx, font, measuring ? "몇 초 뒤 다시 열어 주십시오. 지표를 모으고 있습니다" : "모든 지표가 정상입니다",
 				lx + 26, LunaDraw.textY(y, 30), LunaDraw.TEXT);
 			LunaDraw.setAlpha(base);
 			y += 36;

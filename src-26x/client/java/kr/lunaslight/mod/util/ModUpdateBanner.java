@@ -181,7 +181,7 @@ public final class ModUpdateBanner {
 			ctx.nextStratum();
 		} catch (Throwable ignored) {
 		}
-		String msg = "노바 모드 새 버전이 나왔어요 | 게임을 끄고 런처로 다시 켜면 업데이트돼요";
+		String msg = "노바 모드 새 버전이 나왔습니다 | 게임을 끄고 런처로 다시 켜면 업데이트됩니다";
 		int sw = mc.getWindow().getGuiScaledWidth();
 		int tw = LunaDraw.width(mc.font, msg);
 		int w = tw + 24, h = 14;

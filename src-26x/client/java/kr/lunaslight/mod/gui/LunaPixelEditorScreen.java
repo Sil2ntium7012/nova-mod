@@ -602,12 +602,12 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 						settle();
 						pushUndo();
 						art = boxW > 0 && boxH > 0 ? pa.resizedBox(boxW, boxH) : pa;
-						toast("슬롯 " + (slot + 1) + " 그림을 불러왔어요 (저장을 눌러야 적용)");
+						toast("슬롯 " + (slot + 1) + " 그림을 불러왔습니다 (저장을 눌러야 적용)");
 					}
 				};
 				if (art != null && !art.isEmpty()) {
-					confirm.showInfo(LunaIcons.INFO, "슬롯 " + (slot + 1) + " 불러오기", "지금 그리던 그림을 슬롯 그림으로 바꿀까요?",
-						"Ctrl+Z로 되돌릴 수 있어요", "불러오기", "취소", load);
+					confirm.showInfo(LunaIcons.INFO, "슬롯 " + (slot + 1) + " 불러오기", "지금 그리던 그림을 슬롯 그림으로 바꾸시겠습니까?",
+						"Ctrl+Z로 되돌릴 수 있습니다", "불러오기", "취소", load);
 				} else {
 					load.run();
 				}
@@ -618,10 +618,10 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 				Runnable save = () -> {
 					module.setHudSlotRaw(slot, art.isEmpty() ? "" : art.encode());
 					kr.lunaslight.mod.config.LunaClientConfig.save();
-					toast("슬롯 " + (slot + 1) + "에 저장했어요");
+					toast("슬롯 " + (slot + 1) + "에 저장했습니다");
 				};
 				if (filled) {
-					confirm.show(LunaIcons.INFO, "슬롯 " + (slot + 1) + " 덮어쓰기", "이미 그림이 있어요. 덮어쓰시겠습니까?", "덮어쓰기", save);
+					confirm.show(LunaIcons.INFO, "슬롯 " + (slot + 1) + " 덮어쓰기", "이미 그림이 있습니다. 덮어쓰시겠습니까?", "덮어쓰기", save);
 				} else {
 					save.run();
 				}
@@ -645,7 +645,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		switch (i) {
 			case 0 -> {
 				if (art == null || art.isEmpty()) {
-					toast("내보낼 그림이 없어요");
+					toast("내보낼 그림이 없습니다");
 					return;
 				}
 				toast("저장할 곳을 고르는 창을 여는 중…");
@@ -662,18 +662,18 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 					String one = kr.lunaslight.mod.util.BackgroundFiles.pickOne(o, module.getId());
 					PixelArt pa = one == null || one.isEmpty() ? null : PixelArt.decode(one);
 					if (pa == null) {
-						toast("파일에 쓸 수 있는 그림이 없어요");
+						toast("파일에 쓸 수 있는 그림이 없습니다");
 						return;
 					}
 					Runnable apply = () -> {
 						settle();
 						pushUndo();
 						art = boxW > 0 && boxH > 0 ? pa.resizedBox(boxW, boxH) : pa;
-						toast("가져왔어요 (저장을 눌러야 적용)");
+						toast("가져왔습니다 (저장을 눌러야 적용)");
 					};
 					if (art != null && !art.isEmpty()) {
-						confirm.showInfo(LunaIcons.INFO, "그림 가져오기", "지금 그리던 그림을 가져온 그림으로 바꿀까요?",
-							"Ctrl+Z로 되돌릴 수 있어요", "가져오기", "취소", apply);
+						confirm.showInfo(LunaIcons.INFO, "그림 가져오기", "지금 그리던 그림을 가져온 그림으로 바꾸시겠습니까?",
+							"Ctrl+Z로 되돌릴 수 있습니다", "가져오기", "취소", apply);
 					} else {
 						apply.run();
 					}
@@ -683,7 +683,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 				com.google.gson.JsonObject all = kr.lunaslight.mod.util.BackgroundFiles.all();
 				int n = kr.lunaslight.mod.util.BackgroundFiles.moduleCount(all);
 				if (n == 0) {
-					toast("직접 그린 배경이 아직 없어요");
+					toast("직접 그린 배경이 아직 없습니다");
 					return;
 				}
 				toast("저장할 곳을 고르는 창을 여는 중…");
@@ -698,7 +698,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 					}
 					int n = kr.lunaslight.mod.util.BackgroundFiles.moduleCount(o);
 					if (n == 0) {
-						toast("전체 배경 파일이 아니에요 (하나짜리는 [가져오기]로)");
+						toast("전체 배경 파일이 아닙니다 (하나짜리는 [가져오기]로)");
 						return;
 					}
 					confirm.show(LunaIcons.INFO, "전체 가져오기", n + "개 기능의 배경 그림과 슬롯을 덮어쓰시겠습니까?", "덮어쓰기", () -> {
@@ -708,7 +708,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 						if (pa != null) {
 							art = boxW > 0 && boxH > 0 ? pa.resizedBox(boxW, boxH) : pa;
 						}
-						toast(done + "개 기능에 적용했어요");
+						toast(done + "개 기능에 적용했습니다");
 					});
 				});
 			}
@@ -1102,7 +1102,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		if (!undo.isEmpty() && art != null) {
 			redo.push(art.copy());
 			art = undo.pop();
-			toast("되돌렸어요");
+			toast("되돌렸습니다");
 		}
 	}
 
@@ -1111,7 +1111,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		if (!redo.isEmpty() && art != null) {
 			undo.push(art.copy());
 			art = redo.pop();
-			toast("앞으로 갔어요");
+			toast("앞으로 갔습니다");
 		}
 	}
 
@@ -1151,7 +1151,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		}
 		clipboard = floating != null ? floating.copy() : art.region(selX, selY, selW, selH);
 		clipboard.pad = 0;
-		toast("복사했어요 (다른 기능의 배경 그리기에서도 붙여 넣을 수 있어요)");
+		toast("복사했습니다 (다른 기능의 배경 그리기에서도 붙여 넣을 수 있습니다)");
 	}
 
 	private void deleteSel() {
@@ -1172,7 +1172,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 			return;
 		}
 		if (clipboard == null) {
-			toast("복사한 그림이 없어요");
+			toast("복사한 그림이 없습니다");
 			return;
 		}
 		commitFloating();
@@ -1187,7 +1187,7 @@ public class LunaPixelEditorScreen extends LunaScreenBase {
 		selW = floating.w;
 		selH = floating.h;
 		setTool(TOOL_SELECT);
-		toast("붙여 넣었어요 - 끌어서 옮기고, 다른 데를 누르면 내려놔요");
+		toast("붙여 넣었습니다 - 끌어서 옮기고, 다른 데를 누르면 내려놓습니다");
 	}
 
 	private void setTool(int t) {

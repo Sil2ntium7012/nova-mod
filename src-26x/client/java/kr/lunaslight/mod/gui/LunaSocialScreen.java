@@ -231,7 +231,7 @@ public class LunaSocialScreen extends LunaScreenBase {
 			}
 			minecraft.execute(() -> {
 				if (!Boolean.TRUE.equals(ok)) {
-					notice("보내지 못했습니다 - 친구끼리만 보낼 수 있어요");
+					notice("보내지 못했습니다 - 친구끼리만 보낼 수 있습니다");
 				}
 				if (chatWith == target) {
 					loadChat();
@@ -622,9 +622,9 @@ public class LunaSocialScreen extends LunaScreenBase {
 							notice("바로 접속하지 못해 주소를 복사했습니다");
 						}
 					}
-					case "삭제" -> confirm.show(LunaIcons.TRASH, f.name() + " 님을 친구에서 지울까요?",
+					case "삭제" -> confirm.show(LunaIcons.TRASH, f.name() + " 님을 친구에서 지우시겠습니까?",
 						"다시 추가하려면 상대가 요청을 받아야 합니다", "삭제", () -> run(f, "del"));
-					case "차단" -> confirm.show(LunaIcons.BAN, f.name() + " 님을 차단할까요?",
+					case "차단" -> confirm.show(LunaIcons.BAN, f.name() + " 님을 차단하시겠습니까?",
 						"친구에서 지워지고 요청/귓속말을 받지 않습니다", "차단", () -> run(f, "block"));
 					default -> {
 					}

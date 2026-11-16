@@ -1139,7 +1139,7 @@ public class LunaHudEditorScreen extends LunaScreenBase {
 		ctx.fill(0, 0, width, height, 0x8C000000);
 		int x = askX(), y = askY(), w = askW(), h = askH();
 		LunaDraw.panel3d(ctx, x, y, w, h, 6);   // 49-227차: 사진 시안 판
-		LunaDraw.textBold(ctx, font, "바뀐 위치를 저장할까요?", x + 14, y + 12, LunaDraw.TEXT);
+		LunaDraw.textBold(ctx, font, "바뀐 위치를 저장하시겠습니까?", x + 14, y + 12, LunaDraw.TEXT);
 		LunaDraw.text(ctx, font, "저장하지 않으면 이번에 옮긴 것은 사라집니다.", x + 14, y + 27, LunaDraw.TEXT_SUB);
 		int bw = (w - 14 * 2 - 8) / 2;
 		int by = y + h - 14 - 20;

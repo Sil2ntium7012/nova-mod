@@ -2745,8 +2745,8 @@ public class LunaStatsScreen extends LunaScreenBase {
 		boolean all = scopeIndex <= 0 || scopeIndex > rail.size();
 		LunaStats.Scope sc = scope();
 		String what = all ? "모든 통계(전체와 서버/맵 전부)" : "'" + sc.displayLabel() + "' " + (isSub(sc) ? "월드 기록" : "기록");
-		confirm.showInfo(LunaIcons.INFO, "통계 기록 삭제", what + "을(를) 지울까요?",
-			"지우기 전에 백업해 두어 [삭제 되돌리기]로 되돌릴 수 있어요" + (all ? "" : " (전체 합계는 그대로)"),
+		confirm.showInfo(LunaIcons.INFO, "통계 기록 삭제", what + "을(를) 지우시겠습니까?",
+			"지우기 전에 백업해 두어 [삭제 되돌리기]로 되돌릴 수 있습니다" + (all ? "" : " (전체 합계는 그대로)"),
 			"삭제", "취소", () -> {
 				String msg = LunaStats.deleteRecords(minecraft, all ? null : sc.key);
 				worlds = LunaStats.worlds();
@@ -2763,7 +2763,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 			notice("되돌릴 삭제 기록이 없습니다");
 			return;
 		}
-		confirm.showInfo(LunaIcons.INFO, "삭제 되돌리기", "마지막으로 지우기 전 상태로 되돌릴까요?", last + " (지금 기록은 덮어쓰기 전에 다시 백업)",
+		confirm.showInfo(LunaIcons.INFO, "삭제 되돌리기", "마지막으로 지우기 전 상태로 되돌리시겠습니까?", last + " (지금 기록은 덮어쓰기 전에 다시 백업)",
 			"되돌리기", "취소", () -> {
 				String msg = LunaStats.restoreLastDeleted(minecraft);
 				worlds = LunaStats.worlds();

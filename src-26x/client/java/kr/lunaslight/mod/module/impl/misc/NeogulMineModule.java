@@ -763,12 +763,12 @@ public class NeogulMineModule extends Module {
 		ensureLoaded();
 		if (!ItemPickupToastModule.on()) {
 			if ("mine".equals(NeogulDungeonHud.location)) {
-				drawHint(ctx, sw, "광물 획득은 아이템 획득을 켜야 보여요");
+				drawHint(ctx, sw, "광물 획득은 아이템 획득을 켜야 보입니다");
 			}
 			return;
 		}
 		if (!opened) {
-			drawHint(ctx, sw, "광물 창고(/광물창고)를 한 번 열어 주세요");
+			drawHint(ctx, sw, "광물 창고(/광물창고)를 한 번 열어 주십시오");
 		}
 		long now = System.currentTimeMillis();
 		gems.removeIf(g -> now - g.at[0] > 2800);
@@ -798,7 +798,7 @@ public class NeogulMineModule extends Module {
 
 	private void drawGem(GuiGraphicsExtractor ctx, int cx, int y, String name, int n, int color, float alpha, double exp) {
 		var font = client.font;
-		String tail = " " + n + "개 나왔어요!" + (exp > 0 ? "  채광 경험치 +" + String.format("%,d", Math.round(exp)) : "");
+		String tail = " " + n + "개 나왔습니다!" + (exp > 0 ? "  채광 경험치 +" + String.format("%,d", Math.round(exp)) : "");
 		int w = LunaDraw.width(font, name) + LunaDraw.width(font, tail);
 		float base = LunaDraw.alpha();
 		LunaDraw.setAlpha(base * alpha);

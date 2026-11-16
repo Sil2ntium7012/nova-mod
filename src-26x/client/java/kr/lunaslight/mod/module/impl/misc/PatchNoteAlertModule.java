@@ -132,7 +132,7 @@ public class PatchNoteAlertModule extends Module {
 		}
 		baseTag = tag;
 		List<String> items = items(str(o, "body"));
-		String line = items.isEmpty() ? "런처에서 자세한 내용을 볼 수 있어요"
+		String line = items.isEmpty() ? "런처에서 자세한 내용을 볼 수 있습니다"
 				: clip(items.get(0), 46) + (items.size() > 1 ? "  외 " + (items.size() - 1) + "개" : "");
 		pendingLine = line;
 		pendingTitle = "Nova Client " + tag + " 패치노트";

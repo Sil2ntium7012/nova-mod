@@ -207,7 +207,7 @@ public class TodoScreen extends LunaScreenBase {
 			| (LunaClientScreen.themeLight() ? 0xF5000000 : 0xEE000000)));
 
 		big(ctx, "할 일", left, TOP_Y, txt);
-		String note = "행동을 하면 저절로 체크돼요 | 네모를 눌러 직접 체크";
+		String note = "행동을 하면 저절로 체크됩니다 | 네모를 눌러 직접 체크";
 		LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, note, contentW - 120), left + 60, LunaDraw.textY(TOP_Y + 6, 14), dim);
 		boolean ch = LunaDraw.in(mouseX, mouseY, left + contentW - 16, TOP_Y + 4, 16, 16);
 		LunaIcons.drawInBox(ctx, font, LunaIcons.CLOSE, left + contentW - 16, TOP_Y + 4, 16, ch ? acc : sub);
@@ -220,7 +220,7 @@ public class TodoScreen extends LunaScreenBase {
 		int y = LIST_Y - Math.round(scroll);
 		if (list.isEmpty()) {
 			card(ctx, left, y, contentW, 34);
-			LunaDraw.textCentered(ctx, font, "아직 할 일이 없어요 - 아래에서 골라 추가해 보세요", left + contentW / 2, LunaDraw.textY(y, 34), sub);
+			LunaDraw.textCentered(ctx, font, "아직 할 일이 없습니다 - 아래에서 골라 추가해 보십시오", left + contentW / 2, LunaDraw.textY(y, 34), sub);
 			y += 38;
 		}
 		for (TodoList.Task t : list) {

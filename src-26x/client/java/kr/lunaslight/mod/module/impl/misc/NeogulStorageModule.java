@@ -234,7 +234,7 @@ public class NeogulStorageModule extends Module {
 		if (k == null || !locked.contains(k)) {
 			return false;
 		}
-		LunaCompat.sendActionBar(client, "§c" + nameOf(k) + "§f는 아직 권한이 없어요 §7(등급업으로 열 수 있어요)");
+		LunaCompat.sendActionBar(client, "§c" + nameOf(k) + "§f는 아직 권한이 없습니다 §7(등급업으로 열 수 있습니다)");
 		return true;
 	}
 
@@ -894,9 +894,9 @@ public class NeogulStorageModule extends Module {
 				LunaCompat.guiPop(ctx);
 			}
 			if (locked.contains(p.key())) {
-				LunaDraw.textCentered(ctx, client.font, "잠김 (등급업으로 열 수 있어요)", 88, 18 + rows * 9 - 4, 0xFF8B2E2E);   // 49-636차
+				LunaDraw.textCentered(ctx, client.font, "잠김 (등급업으로 열 수 있습니다)", 88, 18 + rows * 9 - 4, 0xFF8B2E2E);   // 49-636차
 			} else if (items.isEmpty()) {
-				LunaDraw.textCentered(ctx, client.font, "열어 보면 보여요", 88, 18 + rows * 9 - 4, 0xFF404040);
+				LunaDraw.textCentered(ctx, client.font, "열어 보면 보입니다", 88, 18 + rows * 9 - 4, 0xFF404040);
 			} else {
 				for (int i = 0; i < items.size() && i < rows * 9; i++) {
 					ItemStack st = items.get(i);

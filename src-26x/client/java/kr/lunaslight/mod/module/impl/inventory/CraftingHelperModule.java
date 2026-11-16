@@ -177,7 +177,7 @@ public class CraftingHelperModule extends Module {
 			var menu = client.player.containerMenu;
 			for (int i = 1; i <= 9; i++) {
 				if (!menu.getSlot(i).getItem().isEmpty()) {
-					cancelAutoCraft("격자를 비우고 눌러 주세요");
+					cancelAutoCraft("격자를 비우고 눌러 주십시오");
 					return;
 				}
 			}

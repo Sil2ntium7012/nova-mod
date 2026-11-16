@@ -108,7 +108,7 @@ public class NeogulCalendarScreen extends LunaScreenBase {
 		// 제목 + 달 넘기기 + 닫기
 		String head = month.getYear() + "년 " + month.getMonthValue() + "월";
 		LunaDraw.text(ctx, font, "너굴 달력", left, 14, txt);
-		LunaDraw.text(ctx, font, "보기만 할 수 있어요 (감지한 기록)", left, 26, dim);
+		LunaDraw.text(ctx, font, "보기만 할 수 있습니다 (감지한 기록)", left, 26, dim);
 		int hw = LunaDraw.width(font, head);
 		int cx = left + gw / 2;
 		LunaDraw.text(ctx, font, head, cx - hw / 2, 18, txt);

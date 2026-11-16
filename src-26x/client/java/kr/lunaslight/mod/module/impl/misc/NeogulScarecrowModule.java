@@ -94,7 +94,7 @@ public class NeogulScarecrowModule extends Module {
 		int alpha = Math.round(255 * a) << 24;
 		long left = preview ? 30 : Math.max(0, (deadline - now + 999) / 1000);
 		String big = "허수아비 등장!";
-		String small = left > 0 ? left + "초 안에 처치하세요" : "시간 종료";
+		String small = left > 0 ? left + "초 안에 처치하십시오" : "시간 종료";
 		int sw = client.getWindow().getGuiScaledWidth();
 		int sh = client.getWindow().getGuiScaledHeight();
 		int cy = sh / 2 - 40;

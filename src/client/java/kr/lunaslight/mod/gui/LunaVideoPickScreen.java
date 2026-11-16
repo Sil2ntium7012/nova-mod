@@ -237,7 +237,7 @@ public class LunaVideoPickScreen extends LunaScreenBase {
 		}
 		if (list.isEmpty()) {
 			LunaDraw.textCentered(ctx, textRenderer, LunaPip.launcherPresent
-				? "영상 창이 없습니다 - 브라우저에서 영상을 열어 두세요" : "Nova Client 런처로 게임을 켜면 창 목록이 나옵니다",
+				? "영상 창이 없습니다 - 브라우저에서 영상을 열어 두십시오" : "Nova Client 런처로 게임을 켜면 창 목록이 나옵니다",
 				px + PANEL_W / 2, lt + ROW_H + 16, LunaDraw.TEXT_DIM);
 		}
 		ctx.disableScissor();
@@ -301,7 +301,7 @@ public class LunaVideoPickScreen extends LunaScreenBase {
 	private void renderArea(DrawContext ctx, int mouseX, int mouseY) {
 		LunaDraw.panel3d(ctx, apx, apy, apw, aph, 10);   // 49-227차: 사진 시안 판
 		LunaDraw.text(ctx, textRenderer, "영역 지정", apx + PAD, LunaDraw.textY(apy + 10, 22), LunaDraw.TEXT);
-		LunaDraw.text(ctx, textRenderer, "영상이 나오는 곳을 끌어서 고르세요", apx + PAD + LunaDraw.width(textRenderer, "영역 지정") + 8,
+		LunaDraw.text(ctx, textRenderer, "영상이 나오는 곳을 끌어서 고르십시오", apx + PAD + LunaDraw.width(textRenderer, "영역 지정") + 8,
 			LunaDraw.textY(apy + 10, 22), LunaDraw.TEXT_DIM);
 		LunaDraw.fadeLine(ctx, apx + PAD, apy + HEAD_H - 4, apw - PAD * 2, LunaDraw.ACCENT);
 
@@ -314,7 +314,7 @@ public class LunaVideoPickScreen extends LunaScreenBase {
 			iw = ih = 0;
 			// 49-222차: 런처가 창을 못 찾았으면 그 이유를 보여 준다(무한 "받아 오는 중" 대신)
 			String err = LunaPip.error;
-			String wait = !LunaPip.running && err != null && !err.isEmpty() ? err + " - 목록에서 창을 다시 고르세요" : "창을 받아 오는 중…";
+			String wait = !LunaPip.running && err != null && !err.isEmpty() ? err + " - 목록에서 창을 다시 고르십시오" : "창을 받아 오는 중…";
 			LunaDraw.textCentered(ctx, textRenderer, LunaDraw.ellipsize(textRenderer, wait, bw - 16), bx + bw / 2, by + bh / 2 - 4, LunaDraw.TEXT_DIM);
 		} else {
 			float k = Math.min(bw / (float) tw, bh / (float) th);

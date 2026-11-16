@@ -125,7 +125,7 @@ public class ChatSearchScreen extends LunaScreenBase {
 		}
 		if (matches.isEmpty()) {
 			ctx.fill(2, y, 2 + cw, y + lh, 0x80000000);
-			LunaCompat.drawHudText(ctx, textRenderer, query.isEmpty() ? "§7검색어를 입력하세요" : "§7일치하는 채팅 없음", 4, y + 1, 0xFFFFFFFF);
+			LunaCompat.drawHudText(ctx, textRenderer, query.isEmpty() ? "§7검색어를 입력하십시오" : "§7일치하는 채팅 없음", 4, y + 1, 0xFFFFFFFF);
 		}
 		// 개수/스크롤 안내(오른쪽 위 작게)
 		String info = matches.size() + "줄" + (scroll > 0 ? " | ↑" + scroll : "") + "  §7줄 클릭 = 복사 | ESC 닫기";

@@ -197,7 +197,7 @@ public class LunaSetupScreen extends LunaScreenBase {
 			LunaDraw.text(ctx, font, step, px + PANEL_W - PAD - LunaDraw.width(font, step), py + 14, LunaDraw.TEXT_SUB);
 			progress(ctx, px + PAD, py + 30, PANEL_W - PAD * 2);
 		} else {
-			LunaDraw.text(ctx, font, "메인 화면과 ESC 화면을 어떤 모양으로 쓸지 골라 주세요.", px + PAD, py + 36, LunaDraw.TEXT_SUB);
+			LunaDraw.text(ctx, font, "메인 화면과 ESC 화면을 어떤 모양으로 쓸지 골라 주십시오.", px + PAD, py + 36, LunaDraw.TEXT_SUB);
 		}
 		LunaDraw.text(ctx, font, "누르면 바로 적용됩니다. 나중에 설정에서 다시 바꿀 수 있습니다.", px + PAD, py + 60, LunaDraw.TEXT_DIM);
 

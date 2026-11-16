@@ -119,7 +119,7 @@ public class NeogulLevelUpAlertModule extends Module {
 		int sh = client.getWindow().getGuiScaledHeight();
 		int cy = sh / 2 - 40;
 		drawScaled(ctx, names + " 레벨업 가능!", sw / 2, cy, 3f, alpha | color);
-		drawScaled(ctx, "/레벨 에서 레벨을 올릴 수 있어요", sw / 2, cy + 32, 1.5f, alpha | 0xFFFFFF);
+		drawScaled(ctx, "/레벨 에서 레벨을 올릴 수 있습니다", sw / 2, cy + 32, 1.5f, alpha | 0xFFFFFF);
 	}
 
 	private static int colorOf(String field) {

@@ -260,7 +260,7 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 		}
 		ItemStack target = hoveredStack();
 		if (target == null || target.isEmpty()) {
-			LunaCompat.sendActionBar(client, "§7찾을 아이템 칸에 마우스를 올린 채 눌러 주세요");
+			LunaCompat.sendActionBar(client, "§7찾을 아이템 칸에 마우스를 올린 채 눌러 주십시오");
 			return;
 		}
 		// 지금 열린 상자도 최신 내용으로 먼저 기록

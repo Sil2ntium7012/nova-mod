@@ -129,7 +129,7 @@ public final class NeogulModInstaller {
 		}
 		if (!added.isEmpty()) {
 			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 너굴마을 모드 넣음: " + String.join(", ", added));
-			pendingNotice = "§e[Nova] §f너굴마을 보이스챗, 스킬 키 모드를 넣었어요. §7게임을 다시 켜면 적용돼요. (" + String.join(", ", added) + ")";
+			pendingNotice = "§e[Nova] §f너굴마을 보이스챗, 스킬 키 모드를 넣었습니다. §7게임을 다시 켜면 적용됩니다. (" + String.join(", ", added) + ")";
 		}
 	}
 

@@ -161,8 +161,8 @@ public class NeogulDungeonUiModule extends Module {
 		int x = (sw - w) / 2, y = Math.max(6, (sh - h) / 2);
 		LunaDraw.roundRect(ctx, x, y, w, h, 6, 0xF2141821);
 		LunaDraw.roundRectOutline(ctx, x, y, w, h, 6, 0xFFE8B84A);
-		LunaDraw.textCentered(ctx, mc.font, "던전 UI가 새 모양으로 바뀌었어요", x + w / 2, y + 8, 0xFFFFE6A8);
-		LunaDraw.textCentered(ctx, mc.font, "던전에서 핫바, 하트, 스킬 카드, 경험치 바가 이렇게 나와요", x + w / 2, y + 20, 0xFFB8BEC8);
+		LunaDraw.textCentered(ctx, mc.font, "던전 UI가 새 모양으로 바뀌었습니다", x + w / 2, y + 8, 0xFFFFE6A8);
+		LunaDraw.textCentered(ctx, mc.font, "던전에서 핫바, 하트, 스킬 카드, 경험치 바가 이렇게 나옵니다", x + w / 2, y + 20, 0xFFB8BEC8);
 		// 미리보기: 실제 그리기를 작게
 		int px = x + 8, py = y + 34, pw = w - 16, ph = 92;
 		ctx.fillGradient(px, py, px + pw, py + ph, 0xFF3A4A5E, 0xFF1C2430);
@@ -183,8 +183,8 @@ public class NeogulDungeonUiModule extends Module {
 			LunaCompat.guiPop(ctx);
 			ctx.disableScissor();
 		}
-		LunaDraw.textCentered(ctx, mc.font, "던전에 들어가는 순간 바뀌어요 (싸우는 중에는 안 바뀜)", x + w / 2, py + ph + 4, 0xFF8A90A0);
-		LunaDraw.textCentered(ctx, mc.font, "던전에서 인벤토리 오른쪽 아래 버튼으로 끄고 켜요", x + w / 2, py + ph + 15, 0xFF8A90A0);
+		LunaDraw.textCentered(ctx, mc.font, "던전에 들어가는 순간 바뀝니다 (싸우는 중에는 안 바뀜)", x + w / 2, py + ph + 4, 0xFF8A90A0);
+		LunaDraw.textCentered(ctx, mc.font, "던전에서 인벤토리 오른쪽 아래 버튼으로 끄고 켭니다", x + w / 2, py + ph + 15, 0xFF8A90A0);
 		int bw = 80, bh = 16, by = y + h - bh - 6;
 		yesBtn = new int[]{x + w / 2 - bw - 4, by, bw, bh};
 		noBtn = new int[]{x + w / 2 + 4, by, bw, bh};

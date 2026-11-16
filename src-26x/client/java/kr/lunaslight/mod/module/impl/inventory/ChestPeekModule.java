@@ -74,7 +74,7 @@ public class ChestPeekModule extends Module {
 	}
 
 	public ChestPeekModule() {
-		super("chest_peek", "상자 정보창", ModuleCategory.INVENTORY, "상자를 보면 옆에 안에 든 것을 보여 줘요");
+		super("chest_peek", "상자 정보창", ModuleCategory.INVENTORY, "상자를 보면 옆에 안에 든 것을 보여 줍니다");
 		newFeature("49-562");
 	}
 
@@ -238,7 +238,7 @@ public class ChestPeekModule extends Module {
 		int agoW = ago.isEmpty() ? 0 : LunaDraw.width(font, ago);
 		int cols = Math.max(1, Math.min(COLS, n));
 		int rows = Math.min(ROWS, (n + COLS - 1) / COLS);
-		String msg = !c.known ? "아직 안 열어 본 상자예요" : (n == 0 ? "비어 있어요" : null);
+		String msg = !c.known ? "아직 안 열어 본 상자입니다" : (n == 0 ? "비어 있습니다" : null);
 		int bodyW = msg != null ? LunaDraw.width(font, msg) : cols * CELL;
 		int pw = Math.max(Math.max(bodyW + PAD * 2, titleW + agoW + fullW + PAD * 2 + 12), 76);
 		int bodyH = msg != null ? 14 : rows * CELL + 2;

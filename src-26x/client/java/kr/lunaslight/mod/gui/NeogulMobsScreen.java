@@ -215,7 +215,7 @@ public class NeogulMobsScreen extends LunaScreenBase {
 		LunaIcons.drawInBox(ctx, font, LunaIcons.SEARCH, left + 6, SEARCH_Y + 2, 16, dim);
 		String q = query + (lunaPreedit == null ? "" : lunaPreedit);
 		int ty = LunaDraw.textY(SEARCH_Y, SEARCH_H);
-		LunaDraw.text(ctx, font, q.isEmpty() ? "몬스터나 전리품 이름으로 찾기 (초성, 영타도 돼요)" : q, left + 26, ty, q.isEmpty() ? dim : txt);
+		LunaDraw.text(ctx, font, q.isEmpty() ? "몬스터나 전리품 이름으로 찾기 (초성, 영타도 됩니다)" : q, left + 26, ty, q.isEmpty() ? dim : txt);
 		if ((System.currentTimeMillis() / 500) % 2 == 0) {
 			int cx = left + 26 + LunaDraw.width(font, q) + 1;
 			ctx.fill(cx, SEARCH_Y + 5, cx + 1, SEARCH_Y + SEARCH_H - 5, LunaDraw.applyAlpha(txt));
@@ -321,7 +321,7 @@ public class NeogulMobsScreen extends LunaScreenBase {
 		}
 		if (!any) {
 			card(ctx, left, y, contentW, 34);
-			LunaDraw.textCentered(ctx, font, "찾는 몬스터가 없어요", left + contentW / 2, LunaDraw.textY(y, 34), sub);
+			LunaDraw.textCentered(ctx, font, "찾는 몬스터가 없습니다", left + contentW / 2, LunaDraw.textY(y, 34), sub);
 			y += 40;
 		}
 		ctx.disableScissor();
@@ -373,7 +373,7 @@ public class NeogulMobsScreen extends LunaScreenBase {
 		int lw = LunaDraw.width(font, lv) + 8;
 		LunaDraw.roundRect(ctx, lx, y + 4, lw, 12, 6, LunaDraw.withAlpha(dc, 0x30));
 		LunaDraw.text(ctx, font, lv, lx + 4, y + 6, dc);
-		String sub2 = m.passive() ? "공격하지 않아요" : "공격해요";
+		String sub2 = m.passive() ? "공격하지 않습니다" : "공격합니다";
 		LunaDraw.text(ctx, font, sub2, x + 34, y + 17, m.passive() ? 0xFF7CC08A : 0xFFE0866A);
 		// 49-602차(사용자: "던전 몹이 떨구는 돈도"): 이 몬스터가 있는 던전의 처치 보상(위키: 평균 N원 ±25%) - 오른쪽에 금색으로
 		String money = moneyOf(m);

@@ -276,7 +276,7 @@ public class BlueprintScreen extends LunaScreenBase {
 	private void renderLoaded(DrawContext ctx, BlueprintModule m, int px, int top, int mx, int my) {
 		int x = px + PAD;
 		if (m.bp == null) {
-			LunaDraw.text(ctx, textRenderer, "불러온 설계도가 없습니다 | [목록]에서 불러오세요", x, LunaDraw.textY(top, ROW), LunaDraw.TEXT_DIM);
+			LunaDraw.text(ctx, textRenderer, "불러온 설계도가 없습니다 | [목록]에서 불러오십시오", x, LunaDraw.textY(top, ROW), LunaDraw.TEXT_DIM);
 			return;
 		}
 		Blueprint bp = m.bp;

@@ -183,7 +183,7 @@ public class NeogulCommandsScreen extends LunaScreenBase {
 
 		// 제목 + 닫기
 		big(ctx, "명령어", left, TOP_Y, txt);
-		String note = "너굴마을 위키 기준 | 누르면 채팅창에 넣어 드려요 (바로 보내지 않음)";
+		String note = "너굴마을 위키 기준 | 누르면 채팅창에 넣어 드립니다 (바로 보내지 않음)";
 		LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, note, contentW - 120), left + 80, LunaDraw.textY(TOP_Y + 6, 14), dim);
 		boolean ch = LunaDraw.in(mouseX, mouseY, left + contentW - 16, TOP_Y + 4, 16, 16);
 		LunaIcons.drawInBox(ctx, font, LunaIcons.CLOSE, left + contentW - 16, TOP_Y + 4, 16, ch ? acc : sub);
@@ -195,7 +195,7 @@ public class NeogulCommandsScreen extends LunaScreenBase {
 		String q = query + (lunaPreedit == null ? "" : lunaPreedit);
 		int ty = LunaDraw.textY(SEARCH_Y, SEARCH_H);
 		if (q.isEmpty()) {
-			LunaDraw.text(ctx, font, "명령어나 설명으로 찾기 (초성, 영타도 돼요)", left + 26, ty, dim);
+			LunaDraw.text(ctx, font, "명령어나 설명으로 찾기 (초성, 영타도 됩니다)", left + 26, ty, dim);
 		} else {
 			LunaDraw.text(ctx, font, q, left + 26, ty, txt);
 		}
@@ -248,7 +248,7 @@ public class NeogulCommandsScreen extends LunaScreenBase {
 		List<NeogulCommands.Command> list = visible();
 		if (list.isEmpty()) {
 			card(ctx, left, y, contentW, 34);
-			LunaDraw.textCentered(ctx, font, "찾는 명령어가 없어요", left + contentW / 2, LunaDraw.textY(y, 34), sub);
+			LunaDraw.textCentered(ctx, font, "찾는 명령어가 없습니다", left + contentW / 2, LunaDraw.textY(y, 34), sub);
 			y += 34;
 		}
 		int cols = contentW >= 440 ? 2 : 1;
@@ -290,7 +290,7 @@ public class NeogulCommandsScreen extends LunaScreenBase {
 			}
 			hits.add(new Hit(cx, y, cw, h, c));
 			if (hov) {
-				tip = c.hasArgs() ? "누르면 채팅창에 \"" + c.prefill().trim() + "\"까지 넣어요" : "누르면 채팅창에 넣어요";
+				tip = c.hasArgs() ? "누르면 채팅창에 \"" + c.prefill().trim() + "\"까지 넣습니다" : "누르면 채팅창에 넣습니다";
 			}
 			rowH = Math.max(rowH, h);
 			col++;
@@ -403,7 +403,7 @@ public class NeogulCommandsScreen extends LunaScreenBase {
 				if (LunaDraw.in(mouseX, mouseY, h.x(), h.y(), h.w(), h.h())) {
 					String text = h.cmd().hasArgs() ? h.cmd().prefill() : h.cmd().usage();
 					if (!LunaCompat.openChatWith(Minecraft.getInstance(), text)) {
-						toast = "채팅창을 열지 못했어요";
+						toast = "채팅창을 열지 못했습니다";
 						toastAt = System.currentTimeMillis();
 					}
 					return true;

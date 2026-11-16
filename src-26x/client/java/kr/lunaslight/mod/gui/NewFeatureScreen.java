@@ -113,8 +113,8 @@ public class NewFeatureScreen extends LunaScreenBase {
 		int h = 40 + rh + 50;
 		int x = (width - w) / 2, y = (height - h) / 2;
 		LunaDraw.panel3d(ctx, x, y, w, h, 6);
-		LunaDraw.textCentered(ctx, mc.font, "새 기능이 나왔어요", x + w / 2, y + 10, LunaDraw.TEXT);
-		LunaDraw.textCentered(ctx, mc.font, n > 1 ? "켤 기능을 골라 주세요 (" + (page + 1) + " / " + n + ")" : "켤까요?", x + w / 2, y + 22, LunaDraw.TEXT_SUB);
+		LunaDraw.textCentered(ctx, mc.font, "새 기능이 나왔습니다", x + w / 2, y + 10, LunaDraw.TEXT);
+		LunaDraw.textCentered(ctx, mc.font, n > 1 ? "켤 기능을 골라 주십시오 (" + (page + 1) + " / " + n + ")" : "켜시겠습니까?", x + w / 2, y + 22, LunaDraw.TEXT_SUB);
 		int ry = y + 38;
 		rowBox = new int[]{x + 8, ry, w - 16, 30};
 		boolean hov = mx >= x + 8 && mx < x + w - 8 && my >= ry && my < ry + 30;
@@ -143,7 +143,7 @@ public class NewFeatureScreen extends LunaScreenBase {
 						i == page ? LunaDraw.ACCENT | 0xFF000000 : 0x60FFFFFF);
 			}
 		}
-		LunaDraw.textCentered(ctx, mc.font, "설정(Right Shift)에서 언제든 바꿀 수 있어요", x + w / 2, y + h - 36, LunaDraw.TEXT_DIM);
+		LunaDraw.textCentered(ctx, mc.font, "설정(Right Shift)에서 언제든 바꿀 수 있습니다", x + w / 2, y + h - 36, LunaDraw.TEXT_DIM);
 		int bw = 90, bh = 18, by = y + h - bh - 8;
 		boolean last = page >= n - 1;
 		if (n > 1) {

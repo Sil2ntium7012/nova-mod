@@ -155,13 +155,13 @@ public final class BackgroundFiles {
 						out = out.resolveSibling(out.getFileName() + ".json");
 					}
 					Files.writeString(out, GSON.toJson(data), StandardCharsets.UTF_8);
-					msg = "내보냈어요: " + out.getFileName();
+					msg = "내보냈습니다: " + out.getFileName();
 					if (!tinyfdOk) {
 						openFolder();
 					}
 				}
 			} catch (Throwable e) {
-				msg = "내보내지 못했어요: " + e.getMessage();
+				msg = "내보내지 못했습니다: " + e.getMessage();
 			}
 			String m = msg;
 			Minecraft.getInstance().execute(() -> done.accept(m));
@@ -180,7 +180,7 @@ public final class BackgroundFiles {
 				String chosen = tinyfd("tinyfd_openFileDialog", "Nova 배경 가져오기", folder().toString() + java.io.File.separator);
 				Path in = chosen != null ? Path.of(chosen) : (tinyfdOk ? null : newest());
 				if (in == null) {
-					msg = tinyfdOk ? null : "backgrounds 폴더에 가져올 파일(.json)을 넣어 주세요";
+					msg = tinyfdOk ? null : "backgrounds 폴더에 가져올 파일(.json)을 넣어 주십시오";
 					if (!tinyfdOk) {
 						openFolder();
 					}
@@ -189,11 +189,11 @@ public final class BackgroundFiles {
 					if (e.isJsonObject() && e.getAsJsonObject().has("nova_backgrounds")) {
 						o = e.getAsJsonObject();
 					} else {
-						msg = "Nova 배경 파일이 아니에요";
+						msg = "Nova 배경 파일이 아닙니다";
 					}
 				}
 			} catch (Throwable e) {
-				msg = "읽지 못했어요: " + e.getMessage();
+				msg = "읽지 못했습니다: " + e.getMessage();
 			}
 			JsonObject r = o;
 			String m = msg;

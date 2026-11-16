@@ -125,7 +125,7 @@ public class LunaClientScreen extends LunaScreenBase {
 	private boolean confirmReset;
 	// 49-172차(사용자: "초기화 재차 확인이 없음"): 기능/페이지 초기화도 같은 확인 창을 거친다 - 창이 실행할 동작과 문구
 	private Runnable resetAction;
-	private String resetTitle = "전체 설정을 초기화할까요?";
+	private String resetTitle = "전체 설정을 초기화하시겠습니까?";
 	private String resetSub = "모든 기능의 설정/켜짐 상태가 기본값으로";
 	// 49-124차(사용자: "키바인드 삭제할 때 팝업 띄워주고 확인차"): 키 삭제 확인 창.
 	private final LunaConfirm keyConfirm = new LunaConfirm();
@@ -1838,8 +1838,8 @@ public class LunaClientScreen extends LunaScreenBase {
 		if (hb.isCream()) {
 			return;
 		}
-		creamConfirm.showInfo(LunaIcons.PALETTE, "크림 HUD도 쓸 수 있어요", "화면에 띄우는 정보도 크림 상자로 바뀝니다",
-			"UI 설정 > HUD 배경에서 언제든 바꿀 수 있어요", "바꾸기", "나중에", () -> {
+		creamConfirm.showInfo(LunaIcons.PALETTE, "크림 HUD도 쓸 수 있습니다", "화면에 띄우는 정보도 크림 상자로 바뀝니다",
+			"UI 설정 > HUD 배경에서 언제든 바꿀 수 있습니다", "바꾸기", "나중에", () -> {
 				hb.useCream();
 				LunaClientConfig.save();
 			});
@@ -1915,7 +1915,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			LunaDraw.textCentered(ctx, textRenderer, LunaDraw.ellipsize(textRenderer, kbBlockedMsg, KB_W - 20),
 				bx + KB_W / 2, by + KB_H - 22, 0xFFFF8B82);
 		} else {
-			LunaDraw.textCentered(ctx, textRenderer, "설정할 키를 누르세요  §8|  §7삭제: ESC", bx + KB_W / 2, by + KB_H - 22, LunaDraw.TEXT_DIM);
+			LunaDraw.textCentered(ctx, textRenderer, "설정할 키를 누르십시오  §8|  §7삭제: ESC", bx + KB_W / 2, by + KB_H - 22, LunaDraw.TEXT_DIM);
 		}
 	}
 
@@ -1927,7 +1927,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		String keyName = LunaCompat.keyDisplayName(pendingKey);
 		LunaDraw.textCentered(ctx, textRenderer, LunaDraw.ellipsize(textRenderer,
 			keyName + " = 마크 '" + pendingConflict + "'", KB_W - 20), bx + KB_W / 2, by + 34, LunaDraw.TEXT);
-		LunaDraw.textCentered(ctx, textRenderer, "그래도 이 키로 지정할까요?", bx + KB_W / 2, by + 48, LunaDraw.TEXT_DIM);
+		LunaDraw.textCentered(ctx, textRenderer, "그래도 이 키로 지정하시겠습니까?", bx + KB_W / 2, by + 48, LunaDraw.TEXT_DIM);
 		modalButton(ctx, "kbforce", "그래도 지정", bx + KB_W / 2 - 74, by + KB_H - 26, 70, 18, mouseX, mouseY, true, false);
 		modalButton(ctx, "kbother", "다른 키", bx + KB_W / 2 + 4, by + KB_H - 26, 70, 18, mouseX, mouseY, false, false);
 	}
@@ -1962,7 +1962,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			onDelete.run();
 			return;
 		}
-		keyConfirm.show(LunaIcons.KEYBOARD, "이 키를 삭제할까요?", "현재 키: " + key.getKeyName(), "삭제", onDelete);
+		keyConfirm.show(LunaIcons.KEYBOARD, "이 키를 삭제하시겠습니까?", "현재 키: " + key.getKeyName(), "삭제", onDelete);
 	}
 
 	/** 전체 초기화 확인 팝업(사용자: "한 번 더 누르는 거 말고 O/X 창으로"). */
@@ -2210,7 +2210,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		}
 		if (openModule == null && pageView()) {
 			// 49-56차: 설정 페이지는 "이 페이지 전부 기본값으로" 하나만.
-			list.add(new Action(LunaIcons.RESET, "초기화", false, () -> askReset("이 페이지 설정을 초기화할까요?",
+			list.add(new Action(LunaIcons.RESET, "초기화", false, () -> askReset("이 페이지 설정을 초기화하시겠습니까?",
 				"이 페이지의 모든 설정이 기본값으로", () -> {
 					for (Module m : ModuleManager.get().byPage(settingsPage)) {
 						for (Setting<?> s : visibleSettings(m)) {
@@ -2230,7 +2230,7 @@ public class LunaClientScreen extends LunaScreenBase {
 					() -> kr.lunaslight.mod.util.LunaCompat.setScreen(new LunaWaypointScreen(this))));
 			}
 			Module target = openModule;
-			list.add(new Action(LunaIcons.RESET, "초기화", false, () -> askReset(target.getDisplayName() + " 설정을 초기화할까요?",
+			list.add(new Action(LunaIcons.RESET, "초기화", false, () -> askReset(target.getDisplayName() + " 설정을 초기화하시겠습니까?",
 				"이 기능의 모든 설정이 기본값으로", () -> {
 					for (Setting<?> s : visibleSettings(target)) {
 						s.resetToDefault();
@@ -2273,7 +2273,7 @@ public class LunaClientScreen extends LunaScreenBase {
 		// 49-32차에 여기 있던 [글꼴]은 49-61차에 뺐다 - 49-56차부터 [UI] 설정 페이지에 있어서
 		// 같은 것이 두 군데에 있었다.
 		// 49-48차의 [작물 계산기] 항목은 49-210차에 작물 계산기 기능 설정의 [가격 등록]/[수확 기록] 버튼으로 옮겼다.
-		list.add(new Action(LunaIcons.RESET, "전체 초기화", false, () -> askReset("전체 설정을 초기화할까요?",
+		list.add(new Action(LunaIcons.RESET, "전체 초기화", false, () -> askReset("전체 설정을 초기화하시겠습니까?",
 			"모든 기능의 설정/켜짐 상태가 기본값으로", this::resetAllModules)));
 		return list;
 	}
@@ -3422,7 +3422,7 @@ public class LunaClientScreen extends LunaScreenBase {
 			i++;
 		}
 		if (i == 0) {
-			LunaDraw.text(ctx, textRenderer, "[추가하기]로 작물/광물을 골라 가격을 정하세요", ox + 2,
+			LunaDraw.text(ctx, textRenderer, "[추가하기]로 작물/광물을 골라 가격을 정하십시오", ox + 2,
 				LunaDraw.textY(y + ROW_H + PCHIP_H, PENTRY_H - 2), LunaDraw.TEXT_DIM);
 		}
 	}
@@ -4467,7 +4467,7 @@ public class LunaClientScreen extends LunaScreenBase {
 					final int idx = i;
 					editingString = null;
 					listeningKeybind = null;
-					keyConfirm.show(LunaIcons.KEYBOARD, "이 키바인드를 삭제할까요?",
+					keyConfirm.show(LunaIcons.KEYBOARD, "이 키바인드를 삭제하시겠습니까?",
 						(idx + 1) + "번 키바인드", "삭제", () -> kl.delete(idx));
 					return;
 				}

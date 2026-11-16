@@ -62,7 +62,7 @@ public class NowPlayingModule extends Module {
 	// 49-597차(사용자: "노래 시간 게이지를 왜 듣고 있는 노래랑 떨어뜨려"): 따로 있던 기능(now_playing_bar)을 이 기능의 설정으로 옮겼다.
 	// 업데이트 뒤 새 기능 창에서 미리보기와 함께 켤지 묻는다(기능 자체는 안 건드리고 이 설정만 - newFeatureTogglesModule false).
 	private final BooleanSetting timeBar = register(new BooleanSetting(
-			"time_bar", "시간", "노래 아래에 곡이 얼마나 지났는지 막대로 보여 줍니다(런처가 재생 시간을 보내 줄 때만 보여요).", false));
+			"time_bar", "시간", "노래 아래에 곡이 얼마나 지났는지 막대로 보여 줍니다(런처가 재생 시간을 보내 줄 때만 보입니다).", false));
 
 	public NowPlayingModule() {
 		super("now_playing", "듣고 있는 노래", ModuleCategory.HUD,

@@ -22,8 +22,8 @@ public class NeogulKeyArrowsModule extends Module {
 	@Override
 	public String[] toggleConfirm(boolean turningOn) {
 		return turningOn
-			? new String[]{"낚시 키 화살표를 켤까요?", "낚시 미니게임 W A S D 키캡이 ↑ ← ↓ →로 보여요", "리소스를 다시 불러와서 몇 초 멈출 수 있어요"}
-			: new String[]{"낚시 키 화살표를 끌까요?", "낚시 미니게임 키캡이 원래 W A S D로 돌아가요", "리소스를 다시 불러와서 몇 초 멈출 수 있어요"};
+			? new String[]{"낚시 키 화살표를 켜시겠습니까?", "낚시 미니게임 W A S D 키캡이 ↑ ← ↓ →로 보입니다", "리소스를 다시 불러와서 몇 초 멈출 수 있습니다"}
+			: new String[]{"낚시 키 화살표를 끄시겠습니까?", "낚시 미니게임 키캡이 원래 W A S D로 돌아갑니다", "리소스를 다시 불러와서 몇 초 멈출 수 있습니다"};
 	}
 
 	@Override

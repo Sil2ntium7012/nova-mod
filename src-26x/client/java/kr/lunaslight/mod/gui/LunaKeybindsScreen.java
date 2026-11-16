@@ -487,7 +487,7 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 		String foot;
 		int footColor;
 		if (listening >= 0) {
-			foot = "설정할 키를 누르세요 (Esc 취소 | Backspace 해제)";
+			foot = "설정할 키를 누르십시오 (Esc 취소 | Backspace 해제)";
 			footColor = LunaDraw.ACCENT;
 		} else if (conflictCount > 0) {
 			foot = "빨강 = 같은 키에 둘 이상 | 주황 = 마크 키와 겹침 | 파랑 = 마크 키";
@@ -558,12 +558,12 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 			String cur = b.setting().isBound() ? b.setting().getKeyName() : "";
 			int chipW = cur.isEmpty() ? 0 : LunaDraw.width(font, cur) + 10;
 			int rty = LunaDraw.textY(ry, ROW_H - 1);
-			int nameW = sideW() - 20 - (isListening ? LunaDraw.width(font, "키를 누르세요") + 6 : chipW + (cur.isEmpty() ? 0 : 4));
+			int nameW = sideW() - 20 - (isListening ? LunaDraw.width(font, "키를 누르십시오") + 6 : chipW + (cur.isEmpty() ? 0 : 4));
 			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, b.label(), nameW), sx + 10, rty,
 				isListening ? LunaDraw.ACCENT : (hov || onHoverKey ? LunaDraw.TEXT : LunaDraw.TEXT_SUB));
 			if (isListening) {
 				int held = kr.lunaslight.mod.util.LunaCompat.heldModifiersNow();   // 49-451차: 보조키를 누르고 있으면 조합 미리보기
-				String w8 = held != 0 ? kr.lunaslight.mod.util.LunaCompat.modsPrefix(held) + "…" : "키를 누르세요";
+				String w8 = held != 0 ? kr.lunaslight.mod.util.LunaCompat.modsPrefix(held) + "…" : "키를 누르십시오";
 				LunaDraw.text(ctx, font, w8, sx + sideW() - 10 - LunaDraw.width(font, w8), rty, LunaDraw.ACCENT);
 			} else if (!cur.isEmpty()) {
 				int cx = sx + sideW() - 10 - chipW;
@@ -692,7 +692,7 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 				if (onChip || button == 1) {
 					if (b.setting().isBound()) {
 						final int idx = i;
-						keyConfirm.show(LunaIcons.KEYBOARD, "이 키를 삭제할까요?",
+						keyConfirm.show(LunaIcons.KEYBOARD, "이 키를 삭제하시겠습니까?",
 							b.setting().getDisplayName() + " (" + b.setting().getKeyName() + ")", "삭제", () -> assign(idx, -1));
 					}
 				} else {
@@ -736,7 +736,7 @@ public class LunaKeybindsScreen extends LunaScreenBase {
 				final int idx = listening;
 				Bindable bd = bindables.get(idx);
 				if (bd.setting().isBound()) {
-					keyConfirm.show(LunaIcons.KEYBOARD, "이 키를 삭제할까요?",
+					keyConfirm.show(LunaIcons.KEYBOARD, "이 키를 삭제하시겠습니까?",
 						bd.setting().getDisplayName() + " (" + bd.setting().getKeyName() + ")", "삭제", () -> assign(idx, -1));
 				} else {
 					listening = -1;

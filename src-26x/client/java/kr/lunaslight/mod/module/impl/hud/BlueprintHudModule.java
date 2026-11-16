@@ -248,7 +248,7 @@ public class BlueprintHudModule extends Module {
 				}
 				if (inBp) {
 					v.heldIcon = held;
-					v.heldText = need > 0 ? need + "개 더 놓기" : "§a다 놓았어요";
+					v.heldText = need > 0 ? need + "개 더 놓기" : "§a다 놓았습니다";
 				}
 			}
 		}

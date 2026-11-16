@@ -248,7 +248,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 
 		// 제목 + 닫기
 		big(ctx, "치장", left, TOP_Y, txt);
-		String note = "너굴마을 위키 기준 | 누르면 입어 보고, 한 번 더 누르면 벗어요";
+		String note = "너굴마을 위키 기준 | 누르면 입어 보고, 한 번 더 누르면 벗습니다";
 		LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, note, contentW - 90), left + 62, LunaDraw.textY(TOP_Y + 6, 14), dim);
 		boolean ch = LunaDraw.in(mouseX, mouseY, left + contentW - 16, TOP_Y + 4, 16, 16);
 		LunaIcons.drawInBox(ctx, font, LunaIcons.CLOSE, left + contentW - 16, TOP_Y + 4, 16, ch ? acc : sub);
@@ -261,7 +261,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 		String q = query + (lunaPreedit == null ? "" : lunaPreedit);
 		int ty = LunaDraw.textY(SEARCH_Y, SEARCH_H);
 		if (q.isEmpty()) {
-			LunaDraw.text(ctx, font, "치장 이름으로 찾기 (초성, 영타도 돼요)", left + 26, ty, dim);
+			LunaDraw.text(ctx, font, "치장 이름으로 찾기 (초성, 영타도 됩니다)", left + 26, ty, dim);
 		} else {
 			LunaDraw.text(ctx, font, q, left + 26, ty, txt);
 		}
@@ -345,7 +345,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 		int y0 = contentTop + 2 - Math.round(scroll);
 		if (list.isEmpty()) {
 			card(ctx, gridX, y0, gridW, 34);
-			LunaDraw.textCentered(ctx, font, showLocked ? "찾는 치장이 없어요" : "찾는 치장이 없어요 | 획득 불가도 보기를 켜 보세요",
+			LunaDraw.textCentered(ctx, font, showLocked ? "찾는 치장이 없습니다" : "찾는 치장이 없습니다 | 획득 불가도 보기를 켜 보십시오",
 				gridX + gridW / 2, LunaDraw.textY(y0, 34), sub);
 		}
 		boolean packOn = false;
@@ -388,7 +388,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 			hits.add(new Hit(cx, cy, cw, CELL_H, c));
 			if (hov) {
 				tip = c.name() + " | " + c.grade() + " | " + c.slotName() + (c.obtainable() ? "" : " | 지금은 획득 불가")
-					+ (worn ? " | 누르면 벗어요" : " | 누르면 입어 봐요");
+					+ (worn ? " | 누르면 벗습니다" : " | 누르면 입어 봅니다");
 			}
 		}
 		ctx.disableScissor();
@@ -403,7 +403,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 			LunaDraw.roundRect(ctx, gridX + gridW + 3, thumbY, 2, thumbH, 1, LunaClientScreen.ink(0x40));
 		}
 		if (!list.isEmpty() && !packOn && stackOf(list.get(0)) == null) {
-			String w = "너굴마을 리소스팩이 켜져 있어야 모양이 보여요";
+			String w = "너굴마을 리소스팩이 켜져 있어야 모양이 보입니다";
 			int tw = LunaDraw.width(font, w) + 16;
 			card(ctx, gridX + (gridW - tw) / 2, bottom - 22, tw, 18);
 			LunaDraw.textCentered(ctx, font, w, gridX + gridW / 2, LunaDraw.textY(bottom - 22, 18), sub);
@@ -474,7 +474,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 				LunaCompat.guiPop(ctx);
 			}
 		} else {
-			LunaDraw.textCentered(ctx, font, "게임에 들어가면 보여요", dx + dw / 2, LunaDraw.textY(dy, dh), dim);
+			LunaDraw.textCentered(ctx, font, "게임에 들어가면 보입니다", dx + dw / 2, LunaDraw.textY(dy, dh), dim);
 		}
 		if (LunaDraw.in(mouseX, mouseY, dx, dy, dw, dh)) {
 			tip = "끌어서 돌려 보기";
@@ -513,7 +513,7 @@ public class NeogulCosmeticsScreen extends LunaScreenBase {
 		// 입은 목록
 		int ly = dy + dh + 8;
 		if (WORN.isEmpty()) {
-			LunaDraw.text(ctx, font, "왼쪽에서 치장을 눌러 보세요", px + 10, ly, dim);
+			LunaDraw.text(ctx, font, "왼쪽에서 치장을 눌러 보십시오", px + 10, ly, dim);
 			clearBox = new int[4];
 			return;
 		}

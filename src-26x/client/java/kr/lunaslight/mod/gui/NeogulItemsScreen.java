@@ -295,7 +295,7 @@ public class NeogulItemsScreen extends LunaScreenBase {
 		page = Math.max(0, Math.min(pages - 1, page));
 		int top = py + HEAD;
 		if (rows.isEmpty()) {
-			String msg = usesMode ? "이 아이템이 쓰이는 곳은 아직 없어요" : "얻는 법을 아직 몰라요";
+			String msg = usesMode ? "이 아이템이 쓰이는 곳은 아직 없습니다" : "얻는 법을 아직 모릅니다";
 			ctx.text(font, LunaCompat.textLiteral(msg), px + (PW - font.width(msg)) / 2, top + CARD / 2 - 4, TEXT_SUB, false);
 			return;
 		}

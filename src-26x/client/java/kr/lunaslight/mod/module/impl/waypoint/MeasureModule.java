@@ -131,7 +131,7 @@ public class MeasureModule extends Module implements MeasureHook.Handler {
 				b = null;
 				LunaCompat.sendActionBar(client, "§7선택을 지웠습니다");
 			} else {
-				LunaCompat.sendActionBar(client, "§7블록을 바라보고 눌러 주세요");
+				LunaCompat.sendActionBar(client, "§7블록을 바라보고 눌러 주십시오");
 			}
 			return true;
 		}

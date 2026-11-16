@@ -321,7 +321,7 @@ public class NeogulLevelScreen extends LunaScreenBase {
 		int dim = LunaClientScreen.themeDim();
 		int acc = trackColor();
 		card(ctx, left, y, contentW, 26);
-		gText(ctx, "레벨 조건 없이 누적 플레이타임과 해금 비용만 채우면 배울 수 있어요 (/스킬, 학당 루리)", left + 10, y, 26, sub);
+		gText(ctx, "레벨 조건 없이 누적 플레이타임과 해금 비용만 채우면 배울 수 있습니다 (/스킬, 학당 루리)", left + 10, y, 26, sub);
 		y += 34;
 		int cCmd = left + 6, cDesc = left + 90, cTime = left + contentW - 150, cCost = left + contentW - 80;
 		LunaDraw.text(ctx, font, "명령어", cCmd, y, dim);
@@ -392,7 +392,7 @@ public class NeogulLevelScreen extends LunaScreenBase {
 		String tn = NeogulLevels.TRACKS[track];
 		if (endLv <= startLv) {
 			card(ctx, left, y, contentW, 30);
-			gText(ctx, "입력 오류: 끝 레벨은 시작 레벨보다 커야 해요", left + 10, y, 30, sub);
+			gText(ctx, "입력 오류: 끝 레벨은 시작 레벨보다 커야 합니다", left + 10, y, 30, sub);
 			return y + 30;
 		}
 		long exp = 0;

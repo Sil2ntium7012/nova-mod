@@ -441,7 +441,7 @@ public class LunaHarvestScreen extends LunaScreenBase {
 		Map<String, Double> table = prices();
 		// 49-330차(사용자: "추가하는 방식이 깔끔하지가 않아"): 설정 페이지로 보내지 않고 여기서 바로. 머리줄 = 안내 + [+ 추가] 버튼.
 		// [+ 추가]를 누르면 아래가 후보 목록(아이콘 + 이름, 아직 표에 없는 것)으로 바뀌고, 하나 고르면 가격 0으로 들어가며 바로 가격 입력.
-		String hint = picking ? "추가할 아이템을 고르세요" : table.isEmpty() ? "아직 등록한 것이 없습니다" : "가격을 누르면 고칠 수 있습니다";
+		String hint = picking ? "추가할 아이템을 고르십시오" : table.isEmpty() ? "아직 등록한 것이 없습니다" : "가격을 누르면 고칠 수 있습니다";
 		LunaDraw.text(ctx, textRenderer, hint, lx + 2, LunaDraw.textY(ly, ADD_H), LunaDraw.TEXT_DIM);
 		String addLabel = picking ? "닫기" : "+ 추가";
 		int aw = LunaDraw.width(textRenderer, addLabel) + 18;

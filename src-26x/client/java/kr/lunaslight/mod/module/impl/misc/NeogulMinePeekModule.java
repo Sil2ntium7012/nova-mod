@@ -244,7 +244,7 @@ public class NeogulMinePeekModule extends Module {
 	private void drawHint(GuiGraphicsExtractor ctx) {
 		int sw = client.getWindow().getGuiScaledWidth(), sh = client.getWindow().getGuiScaledHeight();
 		String l1 = "광물 창고";
-		String l2 = "/광물창고 를 한 번 열어 주세요";
+		String l2 = "/광물창고 를 한 번 열어 주십시오";
 		int w = Math.max(LunaDraw.width(client.font, l1), LunaDraw.width(client.font, l2)) + 10, h = 26;
 		int x = position.get().resolveX(sw, w);
 		int y = position.get().resolveY(sh, h);
