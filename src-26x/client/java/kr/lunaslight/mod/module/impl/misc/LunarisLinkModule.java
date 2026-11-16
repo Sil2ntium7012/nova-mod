@@ -65,8 +65,12 @@ public class LunarisLinkModule extends Module {
 	private boolean sentQuest;
 	private int sentFills = -1;
 	private int sentCur = -1;
+	private int sentPotions;
+	private long sentMoney = -1, sentAcorn = -1;
 	private final Map<String, Boolean> full = new HashMap<>();
 	private int unnamed;
+	private int potions;   // 49-667차: 오늘 쓴 피로회복제(회복 메시지 수)
+	private boolean barArmed;   // 49-667차: 이름 없는 액션바 - 덜 찬 섬을 보고 있음(가득 차면 1회)
 	private boolean loaded;
 
 	private Object lastBar;
@@ -78,6 +82,7 @@ public class LunarisLinkModule extends Module {
 	private volatile boolean sending;
 	private String note = "";
 	private int calTick;
+	private int walletTick;
 	private String logScanDay = "";
 	private volatile boolean scanning;
 	private static final Pattern LOG_TIME = Pattern.compile("^\\[(\\d{2}):(\\d{2}):(\\d{2})\\]");
@@ -128,6 +133,11 @@ public class LunarisLinkModule extends Module {
 					sentFills = num(o, "sf", -1);
 					sentCur = num(o, "sc", -1);
 					unnamed = num(o, "un", 0);
+					potions = num(o, "r", 0);
+					// 49-667차: 예전 판은 섬을 오가거나 피로도가 조금 내려갔다 오르면 또 세서 8회까지 부풀었다 - 오늘 값은 섬 4개로 줄인다
+					if (num(o, "v", 1) < 2 && fills > ISLANDS) {
+						fills = ISLANDS;
+					}
 					if (o.has("full")) {
 						for (var e : o.getAsJsonObject("full").entrySet()) {
 							full.put(e.getKey(), e.getValue().getAsBoolean());
@@ -143,6 +153,8 @@ public class LunarisLinkModule extends Module {
 			quest = false;
 			fills = 0;
 			unnamed = 0;
+			potions = 0;
+			sentPotions = 0;
 			sentQuest = false;
 			sentFills = -1;
 			sentCur = -1;
@@ -161,6 +173,8 @@ public class LunarisLinkModule extends Module {
 		o.addProperty("sf", sentFills);
 		o.addProperty("sc", sentCur);
 		o.addProperty("un", unnamed);
+		o.addProperty("r", potions);
+		o.addProperty("v", 2);
 		JsonObject f = new JsonObject();
 		full.forEach(f::addProperty);
 		o.add("full", f);
@@ -183,6 +197,9 @@ public class LunarisLinkModule extends Module {
 		sb.append(linked() ? "연동됨" : "코드 없음");
 		sb.append("  |  일퀘 ").append(quest ? "완료" : "아직");
 		sb.append("  |  피로도 ").append(fills).append("회");
+		if (potions > 0) {
+			sb.append("  |  피로회복제 ").append(potions).append("개");
+		}
 		if (max > 0) {
 			sb.append(" (지금 ").append(cur).append("/").append(max).append(")");
 		}
@@ -198,6 +215,7 @@ public class LunarisLinkModule extends Module {
 		sentQuest = false;
 		sentFills = -1;
 		sentCur = -1;
+		sentPotions = -1;
 		lastProgress = 0;
 		nextSend = 0;
 		changed();
@@ -245,7 +263,7 @@ public class LunarisLinkModule extends Module {
 			changed();
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		}
-		if (mineChat(line)) {
+		if (mineChat(line) || bankChat(line)) {
 			return;
 		}
 		// 회복제: "해양섬 피로도가 회복되었습니다. (0/125)" → 그 섬은 다시 채우면 또 1회
@@ -257,6 +275,8 @@ public class LunarisLinkModule extends Module {
 					full.put(key, false);
 				}
 				barPrev = 0;
+				barArmed = true;
+				potions++;
 				changed();
 			}
 			return;
@@ -292,6 +312,13 @@ public class LunarisLinkModule extends Module {
 			scanLogs();
 		}
 		readBar();
+		if (++walletTick % 20 == 0) {
+			kr.lunaslight.mod.util.NeogulWallet.read(client);   // 49-670차: 소지금, 도토리(보스바)
+			if (kr.lunaslight.mod.util.NeogulWallet.money >= 0 && (kr.lunaslight.mod.util.NeogulWallet.money != sentMoney
+					|| kr.lunaslight.mod.util.NeogulWallet.acorn != sentAcorn)) {
+				dirty = true;   // 보내기는 3분에 한 번으로 묶인다
+			}
+		}
 		mineTick();
 		if (!events.isEmpty() && linked() && !sending && System.currentTimeMillis() >= nextSend) {
 			sendEvent();
@@ -302,12 +329,26 @@ public class LunarisLinkModule extends Module {
 		}
 	}
 
+	/** 섬 4개 + 오늘 쓴 피로회복제 수보다 많이 셀 수는 없다(안전장치). */
+	private static final int ISLANDS = 4;
+
+	private int cap() {
+		int named = 0;
+		for (String k : full.keySet()) {
+			if (!skipKey(k)) {
+				named++;
+			}
+		}
+		return Math.max(ISLANDS, named) + potions;
+	}
+
 	private void readBar() {
 		try {
 			Object level = client.level;
 			if (level != lastLevel) {
 				lastLevel = level;
 				barPrev = -1;   // 섬(월드)이 바뀌면 이름 없는 액션바는 처음부터
+				barArmed = false;
 			}
 			if (level == null || !isEnabled() || !NeogulData.onNeogul(client)) {
 				return;
@@ -348,18 +389,28 @@ public class LunarisLinkModule extends Module {
 			now = true;
 		}
 		boolean isFull = n >= mx;
+		int low = Math.max(1, mx / 10);
+		// 49-667차(사용자 사진: 밍하 8회, "제대로 안 돼"): 예전엔 덜 찬 값을 한 번만 봐도 다시 셌다.
+		// 섬을 오가며 다른 섬 값이 보이거나 피로도가 조금 내려갔다 오르면 또 1회가 돼서 부풀었다.
+		// 이제는 "새로 채울 수 있게 됨" = 피로회복제 메시지, 거의 빈 값(최대치의 10% 이하), 처음 보는 덜 찬 섬일 때만.
 		if (key.isEmpty()) {
-			// 이름 없는 액션바: 이 월드에서 덜 찬 값을 본 뒤 가득 차면 1회
-			if (isFull && barPrev >= 0 && barPrev < mx) {
+			if (!isFull) {
+				// 다른 섬으로 넘어감(값이 크게 바뀜), 처음 봄, 거의 빔 → 이 섬은 채우면 1회
+				if (barPrev < 0 || n <= low || Math.abs(n - barPrev) > low) {
+					barArmed = true;
+				}
+			} else if (barArmed && barPrev >= 0 && mx - barPrev <= mx / 5 && fills < cap()) {
+				// 같은 섬을 캐서 조금씩 올라 가득 참
 				fills++;
 				unnamed++;
+				barArmed = false;
 				now = true;
 			}
 			barPrev = n;
 		} else {
 			Boolean counted = full.get(key);
 			if (isFull) {
-				if (counted == null || !counted) {
+				if ((counted == null || !counted) && fills < cap()) {
 					full.put(key, true);
 					if (unnamed > 0 && !bar) {
 						unnamed--;   // 아까 이름 모르게 센 1회가 이 섬이었다 - 두 번 안 셈
@@ -368,12 +419,15 @@ public class LunarisLinkModule extends Module {
 					}
 					now = true;
 				}
-			} else if (counted == null || counted) {
+			} else if (counted == null || (counted && n <= low)) {
 				full.put(key, false);
 				now = true;
 			}
 			if (bar) {
 				barPrev = n;
+				if (!isFull) {
+					barArmed = !Boolean.TRUE.equals(full.get(key));
+				}
 			}
 		}
 		if (now) {
@@ -528,6 +582,36 @@ public class LunarisLinkModule extends Module {
 	}
 
 	/** 잠광 줄이면 true. */
+	// 49-671차(사용자: "벌금은 은행에 입금하는 걸로 자동 인식하면 돼, 금액을"): 섬 은행 입금
+	//   "입금 되었습니다." 다음 줄 "└ 입금액: 16,000,000원" → {"ev":"bank_dep","won":16000000,"k":시각}
+	private static final Pattern BANK_AMOUNT = Pattern.compile("└\\s*입금액\\s*:\\s*([\\d,]+)\\s*원");
+	private long bankDepAt;
+
+	private boolean bankChat(String line) {
+		if (line.contains("[전체]") || line.contains("[귓속말]") || line.contains("[확성기]") || line.contains("명)")) {
+			return false;   // 남이 쓴 글
+		}
+		String t = line.replace(" ", "");
+		if (t.endsWith("입금되었습니다.") || t.endsWith("입금되었습니다")) {
+			bankDepAt = System.currentTimeMillis();
+			return true;
+		}
+		Matcher m = BANK_AMOUNT.matcher(line);
+		if (m.find() && System.currentTimeMillis() - bankDepAt < 5000) {
+			bankDepAt = 0;
+			long won = lnum(m.group(1));
+			if (won > 0) {
+				JsonObject e = new JsonObject();
+				e.addProperty("ev", "bank_dep");
+				e.addProperty("won", won);
+				e.addProperty("k", System.currentTimeMillis());
+				events.add(e);
+			}
+			return true;
+		}
+		return false;
+	}
+
 	private boolean mineChat(String line) {
 		Matcher f = MINE_FULL.matcher(line);
 		if (f.find()) {
@@ -622,8 +706,10 @@ public class LunarisLinkModule extends Module {
 
 	private void send() {
 		boolean questNew = quest && !sentQuest;
-		boolean fillsNew = fills > 0 && fills != sentFills;
-		boolean curNew = max > 0 && cur != sentCur;
+		boolean fillsNew = (fills > 0 && fills != sentFills) || potions != sentPotions;
+		// 49-670차: 소지금, 도토리가 바뀐 것도 진행처럼 3분에 한 번
+		long wNow = kr.lunaslight.mod.util.NeogulWallet.money, aNow = kr.lunaslight.mod.util.NeogulWallet.acorn;
+		boolean curNew = (max > 0 && cur != sentCur) || (wNow >= 0 && (wNow != sentMoney || aNow != sentAcorn));
 		long t = System.currentTimeMillis();
 		if (!questNew && !fillsNew) {
 			if (!curNew) {
@@ -649,6 +735,13 @@ public class LunarisLinkModule extends Module {
 		p.addProperty("d", day);
 		p.addProperty("q", quest);
 		p.addProperty("f", fills);
+		p.addProperty("r", potions);
+		if (wNow >= 0) {
+			p.addProperty("w", wNow);
+		}
+		if (aNow >= 0) {
+			p.addProperty("a", aNow);
+		}
 		p.addProperty("c", cur);
 		p.addProperty("m", max);
 		p.addProperty("u", fills * max + (cur < max ? cur : 0));   // 예전 봇용
@@ -657,6 +750,7 @@ public class LunarisLinkModule extends Module {
 		body.addProperty("username", "Nova 자동 일퀘");
 		final boolean q = quest;
 		final int f = fills;
+		final int rr = potions;
 		final int cc = cur;
 		final String d = day;
 		sending = true;
@@ -672,7 +766,10 @@ public class LunarisLinkModule extends Module {
 			if (err == null && st >= 200 && st < 300) {
 				if (d.equals(day)) {
 					sentQuest = sentQuest || q;
-					sentFills = Math.max(sentFills, f);
+					sentFills = f;
+					sentPotions = rr;
+					sentMoney = wNow;
+					sentAcorn = aNow;
 					sentCur = cc;
 					save();
 					kr.lunaslight.mod.config.LunaClientConfig.save();

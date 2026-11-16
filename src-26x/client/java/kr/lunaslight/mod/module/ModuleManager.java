@@ -196,6 +196,7 @@ public final class ModuleManager {
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NgVoiceSkinModule");   // 49-473차: 너굴 보이스 V 화면 노바 스타일
 			// 49-564차 물뿌리개 연속 뿌리기는 49-572차에 삭제(사용자: "물뿌리개 기능 삭제해 주고")
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulScareRateModule");   // 49-572차: 허수아비 확률
+			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulDropRateModule");   // 49-669차: 작물 드랍 확률
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulQuestionModule");   // 49-589차: 질문 알림, 답변 고르기(관리자)
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulEmberModule");   // 49-606차: 섬에서 창고 잉걸불
 			registerReflectively("kr.lunaslight.mod.module.impl.misc.NeogulMineModule");   // 49-608차: 광산 광물 획득
