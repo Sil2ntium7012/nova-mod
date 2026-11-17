@@ -91,7 +91,7 @@ public final class NeogulScareRate {
 	public static void onBreak(BlockState st) {
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			if (st == null || !NeogulData.onNeogul(mc) || !matureCrop(st)) {
+			if (st == null || !NeogulData.onNeogul(mc) || !(matureCrop(st) || farmLeaf(st))) {
 				return;
 			}
 			synchronized (NeogulScareRate.class) {
@@ -133,6 +133,18 @@ public final class NeogulScareRate {
 			dirty = true;
 			save();
 		}
+	}
+
+	/**
+	 * 49-676차(사용자: "나뭇잎도 이제 허수아비 확률 뜨게/포함하게"): 참나무 잎, 짙은 참나무 잎도 농사 경험치가 나오는
+	 * 수확물(11/15 패치 1.3)이라 허수아비 확률에 같이 센다.
+	 */
+	static boolean farmLeaf(BlockState st) {
+		String s = String.valueOf(st);
+		int a = s.indexOf('{'), b = s.indexOf('}');
+		String id = a >= 0 && b > a ? s.substring(a + 1, b) : s;
+		String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+		return path.equals("oak_leaves") || path.equals("dark_oak_leaves");
 	}
 
 	/** 다 자란 작물인지(블록 상태 글자로 - 버전 무관). */

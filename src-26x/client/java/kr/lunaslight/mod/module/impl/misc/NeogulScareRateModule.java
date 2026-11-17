@@ -37,7 +37,7 @@ public class NeogulScareRateModule extends Module {
 			"reset", "기록 지우기", "지금까지 센 작물과 허수아비 수를 0으로 되돌립니다.", "지우기", NeogulScareRate::reset));
 
 	public NeogulScareRateModule() {
-		super("neogul_scare_rate", "허수아비 확률", ModuleCategory.SERVER, "캔 작물 수로 내 허수아비 확률을 계속 잽니다");
+		super("neogul_scare_rate", "허수아비 확률", ModuleCategory.SERVER, "캔 작물과 나뭇잎 수로 내 허수아비 확률을 계속 잽니다");
 		serverGroup("너굴마을");
 		newFeature("49-572");
 		enableHudStyle();
@@ -57,7 +57,7 @@ public class NeogulScareRateModule extends Module {
 		} else {
 			out.add("허수아비 확률 §7아직 안 나옴");
 		}
-		out.add(String.format(Locale.ROOT, "§7작물 %,d개  허수아비 %,d번", h, s));
+		out.add(String.format(Locale.ROOT, "§7수확 %,d개  허수아비 %,d번", h, s));
 		out.add(String.format(Locale.ROOT, "§7마지막 허수아비 뒤 %,d개", since));
 		return out;
 	}

@@ -398,6 +398,9 @@ public abstract class Module {
 	private ColorSetting hudBgOutlineColor;
 	/** 49-156차(사용자: "모든 설정들 배경 설정 따로"): 기능마다 배경 상자 모양. [HUD 배경 따름]이면 UI 설정의 모양. */
 	private kr.lunaslight.mod.module.setting.EnumSetting<HudShape> hudBgShape;
+	/** 49-677차(사용자: "숫자가 바뀌면 배경 상자 크기가 계속 바뀜 - 크기를 고정하고 넉넉하게 키워 두는 기능, 기본 꺼짐"). */
+	private BooleanSetting hudBgFixed;
+	private int hudFixedW, hudFixedLines;
 	// 49-170차(사용자: "기능들 배경을 직접 픽셀로 그릴 수 있게"): 픽셀 그림 문자열(숨김) + [배경 그리기] 버튼.
 	private kr.lunaslight.mod.module.setting.StringSetting hudBgPixels;
 	/** 49-492차: 배경 그림 슬롯 3칸(그려 둔 것을 따로 보관, 편집기에서 저장/불러오기). */
@@ -442,6 +445,8 @@ public abstract class Module {
 		hudBgOutlineColor = register(new ColorSetting("hud_bg_outline_color", "윤곽선 색", "테두리의 색입니다.", defOutlineColor));
 		hudBgShape = register(new kr.lunaslight.mod.module.setting.EnumSetting<>("hud_bg_shape", "배경 모양",
 			"이 기능의 배경 상자 모양입니다. [HUD 배경 따름]이면 UI 설정의 [HUD 배경] 모양을 씁니다.", defShape, HudShape.class));
+		hudBgFixed = register(new BooleanSetting("hud_bg_fixed", "크기 고정",
+			"글자나 숫자가 바뀌어도 배경 상자 크기가 바뀌지 않게, 지금까지 가장 넓었던 크기보다 넉넉하게 고정합니다.", false));
 		// 49-23차: 색 설정은 스위치 옆 견본으로(설정 화면 1줄 통합)
 		hudBg.withColor(hudBgColor);
 		hudBgOutline.withColor(hudBgOutlineColor);
@@ -867,10 +872,11 @@ public abstract class Module {
 		for (String l : lines) {
 			w = Math.max(w, kr.lunaslight.mod.util.LunaCompat.getTextWidth(client.font, l));
 		}
+		w = hudFixedWidth(w);   // 49-677차
 		float top = kr.lunaslight.mod.util.LunaCompat.textBandTop();
 		float bottom = kr.lunaslight.mod.util.LunaCompat.textBandBottom();
 		int by = y + Math.round(top) - 3;
-		int bh = Math.round(bottom - top) + 6 + (lines.size() - 1) * hudLineH();
+		int bh = Math.round(bottom - top) + 6 + (hudFixedLineCount(lines.size()) - 1) * hudLineH();
 		hudBox(context, x - 4, by, w + 8, bh);
 		noteHud(lines.get(0));
 		for (int i = 0; i < lines.size(); i++) {
@@ -892,22 +898,73 @@ public abstract class Module {
 		for (String l : lines) {
 			w = Math.max(w, kr.lunaslight.mod.util.LunaCompat.getTextWidth(client.font, l));
 		}
-		return w;
+		return hudFixedWidth(w);
 	}
 
 	protected int hudLinesHeight(java.util.List<String> lines) {
-		return client.font.lineHeight + (Math.max(1, lines.size()) - 1) * hudLineH();
+		return client.font.lineHeight + (hudFixedLineCount(lines.size()) - 1) * hudLineH();
 	}
+
+	/** 49-677차: [크기 고정]이 켜져 있으면 지금까지 가장 넓었던 폭보다 넉넉하게(10px 단위로 올림, +12) - 줄어들지 않는다. */
+	protected int hudFixedWidth(int raw) {
+		if (hudBgFixed == null || !hudBgFixed.get() || preview) {
+			if (hudBgFixed != null && !hudBgFixed.get()) {
+				hudFixedW = 0;
+				hudFixedLines = 0;
+			}
+			return raw;
+		}
+		int want = (raw + 12 + 9) / 10 * 10;
+		if (want > hudFixedW) {
+			hudFixedW = want;
+		}
+		return hudFixedW;
+	}
+
+	/** 49-677차: [크기 고정]이면 줄 수도 가장 많았던 만큼(줄이 줄어도 상자 높이 그대로). */
+	protected int hudFixedLineCount(int lines) {
+		int n = Math.max(1, lines);
+		if (hudBgFixed == null || !hudBgFixed.get() || preview) {
+			return n;
+		}
+		hudFixedLines = Math.max(hudFixedLines, n);
+		return hudFixedLines;
+	}
+
+	/**
+	 * 49-677차: 한 줄 HUD는 위치를 글자 폭으로 잡으므로, 고정 상자를 기능의 [위치] 기준에 맞춰 민다 - 오른쪽 기준이면
+	 * 상자 오른쪽 끝을 글자 끝에, 가운데 기준이면 가운데에(왼쪽 기준은 그대로). 그래야 글자가 바뀌어도 상자가 안 흔들린다.
+	 */
+	private int hudFixedShift(int raw, int w) {
+		if (w <= raw) {
+			return 0;
+		}
+		kr.lunaslight.mod.module.setting.PositionSetting ps = positionSetting();
+		kr.lunaslight.mod.module.setting.HudPosition p = ps == null ? null : ps.get();
+		if (p == null || p.anchor == null) {
+			return 0;
+		}
+		String a = p.anchor.name();
+		if (a.endsWith("RIGHT") || a.equals("RIGHT_CENTER")) {
+			return raw - w;
+		}
+		if (a.equals("TOP_CENTER") || a.equals("BOTTOM_CENTER")) {
+			return (raw - w) / 2;
+		}
+		return 0;
+	}
+
 
 	/** 배경 스타일 + 텍스트 한 줄을 그림(단일 줄 HUD 모듈 공용). 상자는 글리프 실측 밴드 기준 균형 패딩. */
 	protected void drawHudLine(GuiGraphicsExtractor context, String text, int x, int y, int color) {
-		int w = kr.lunaslight.mod.util.LunaCompat.getTextWidth(client.font, text);
+		int raw = kr.lunaslight.mod.util.LunaCompat.getTextWidth(client.font, text);
+		int w = hudFixedWidth(raw);   // 49-677차: [크기 고정]이면 고정 폭
 		// 49-13차: 폰트 모드별 실측 밴드 위아래 3px - 어떤 폰트를 골라도 글자가 상자 정중앙에 옴.
 		float top = kr.lunaslight.mod.util.LunaCompat.textBandTop();
 		float bottom = kr.lunaslight.mod.util.LunaCompat.textBandBottom();
 		int by = y + Math.round(top) - 3;
 		int bh = Math.round(bottom - top) + 6;
-		hudBox(context, x - 4, by, w + 8, bh);
+		hudBox(context, x - 4 + hudFixedShift(raw, w), by, w + 8, bh);
 		noteHud(text);
 		kr.lunaslight.mod.util.LunaCompat.drawHudText(context, client.font, text, x, y, color);
 	}

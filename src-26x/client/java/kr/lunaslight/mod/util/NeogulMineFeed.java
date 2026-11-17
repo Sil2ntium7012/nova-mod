@@ -35,6 +35,18 @@ public final class NeogulMineFeed {
 	private static List<Long> births = new ArrayList<>();
 	private static Boolean newestTop;
 	private static long lastSameAt;
+	/**
+	 * 49-678차(사용자: "2개씩 캤는데 3번째 뒤로 갑자기 1개만 찍힘"): 기록을 보면 서버는 알림 줄을 바꿀 때마다 같은 글을 한 번 더 보낸다
+	 * (줄이 덜 찼을 때도 "같은 글 다시 옴"이 바뀐 글 바로 뒤에 늘 따라온다). 그래서
+	 * <ul>
+	 *   <li>줄이 덜 찼거나 줄이 서로 다르면 같은 글이 다시 온 것은 새 줄이 아니다(새 줄이면 줄 수나 순서가 바뀐다).</li>
+	 *   <li>3줄이 꽉 차고 모두 같은 줄(돌 1개 x3)이면 바뀐 걸 볼 수 없다 - 같은 글 두 번(바뀜 + 다시 보냄)을 한 번으로 보고,
+	 *       그 아이템이 한 번에 몇 줄씩 올라왔는지(덜 찼을 때 배운 값, 돌은 2줄) 만큼 센다.</li>
+	 * </ul>
+	 */
+	private static boolean expectEcho;
+	private static final java.util.Map<String, Integer> BATCH = new java.util.HashMap<>();
+	private static final int MAX_ROWS = 3;
 	/** 한 번 새로 올라온 줄이 흐려지기 시작하기까지(실측 약 3초) + 여유. 이보다 오래된 줄이 아직 흐려짐 0이면 새로 고쳐진 것. */
 	private static final long FRESH_MS = 3500;
 
@@ -199,6 +211,21 @@ public final class NeogulMineFeed {
 				}
 			}
 			String why = "";
+			// 49-678차: 꽉 찬 3줄에서는 줄이 잘려 나가 몇 줄이 올라왔는지 가장 작은 값으로만 보인다(돌 2줄 → 1줄) -
+			// 이 아이템이 한 번에 올라오는 줄 수(배운 값)도 맞으면 그 값으로
+			if (k > 0 && c.size() >= MAX_ROWS) {
+				Integer b = BATCH.get(c.get(0).sig());
+				if (b != null && b > k && b <= c.size() && fits(c, o, b)) {
+					boolean one = true;
+					for (int i = 1; i < b; i++) {
+						one &= c.get(i).sig().equals(c.get(0).sig());
+					}
+					if (one) {
+						k = b;
+						why = " batch";
+					}
+				}
+			}
 			// 시간: 남은 줄 중 오래됐는데 아직 흐려짐 0인 줄 = 새로 고쳐짐 → 거기까지 새 줄
 			for (int i = k; i < c.size(); i++) {
 				int oi = i - k;
@@ -208,11 +235,33 @@ public final class NeogulMineFeed {
 					why = " age";
 				}
 			}
-			// 같은 글이 다시 왔다 = 새 줄 하나(같은 것)가 올라옴
-			if (k == 0 && sameText && freshName && !c.isEmpty() && c.get(0).frame() == 0 && now - lastSameAt > 120) {
-				k = 1;
-				why = " same";
-				lastSameAt = now;
+			// 49-678차: 같은 글이 다시 옴 - 꽉 찬 같은 줄일 때만 새 줄(바뀜 + 다시 보냄 두 번을 한 번으로, 한 번에 올라오는 줄 수만큼)
+			if (k == 0 && sameText && freshName && !c.isEmpty()) {
+				boolean allSame = c.size() >= MAX_ROWS;
+				for (var r : c) {
+					allSame &= r.sig().equals(c.get(0).sig()) && r.frame() == 0;
+				}
+				if (!allSame || expectEcho) {
+					expectEcho = false;
+					why = " echo";
+				} else {
+					k = Math.min(c.size(), BATCH.getOrDefault(c.get(0).sig(), 1));
+					why = " same x" + k;
+					lastSameAt = now;
+					expectEcho = true;
+				}
+			} else if (k > 0 || !sameText) {
+				expectEcho = true;   // 바뀐 글 - 곧 같은 글이 한 번 더 온다
+				// 한 번에 올라온 줄 수 배우기: 잘리지 않았을 때(덜 참)만, 새 줄이 모두 같은 것일 때
+				if (k > 0 && cur.size() - k == prev.size() && (cur.size() < MAX_ROWS || cur.size() - k > 0)) {
+					boolean one = true;
+					for (int i = 1; i < k; i++) {
+						one &= c.get(i).sig().equals(c.get(0).sig());
+					}
+					if (one) {
+						BATCH.put(c.get(0).sig(), k);
+					}
+				}
 			}
 			probe(cur, k, topNew, why);
 			List<Long> nb = new ArrayList<>();
@@ -242,7 +291,7 @@ public final class NeogulMineFeed {
 	private static long probeSize = -1;
 
 	private static void probe(List<NeogulDungeonHud.MineRow> cur, int k, boolean top, String why) {
-		probeLine("new=" + k + why + (top ? " top" : " bottom") + " | " + sigs(cur));
+		probeLine("new=" + k + why + (top ? " top" : " bottom") + " | " + sigs(cur));   // 49-678차: 시각은 밀리초까지
 	}
 
 	private static void probeLine(String text) {
@@ -256,7 +305,7 @@ public final class NeogulMineFeed {
 				Files.move(f, f.resolveSibling("neogul-mine-probe.old.txt"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 				probeSize = 0;
 			}
-			String line = java.time.LocalTime.now().withNano(0) + " " + text + "\n";
+			String line = java.time.LocalTime.now().withNano(java.time.LocalTime.now().getNano() / 1_000_000 * 1_000_000) + " " + text + "\n";
 			Files.createDirectories(f.getParent());
 			Files.writeString(f, line, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 			probeSize += line.getBytes(StandardCharsets.UTF_8).length;

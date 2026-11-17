@@ -505,8 +505,8 @@ public class NeogulMineModule extends Module {
 				if (st == null || st.isEmpty()) {
 					continue;
 				}
-				String n = clean(st.getHoverName().getString());
-				if (counts.containsKey(n)) {
+				String n = storeNameOf(st);
+				if (n != null) {
 					out.merge(n, st.getCount(), Integer::sum);
 				}
 			}
@@ -514,6 +514,43 @@ public class NeogulMineModule extends Module {
 			LunaCompat.warnOnce("neogulMine:inv", t);
 		}
 		return out;
+	}
+
+	/**
+	 * 49-678차(사용자: "내가 직접 꺼낸 게 감소가 안 됨, 모두 꺼내기도 다시 열어야 적용"): 인벤토리 아이템이 창고의 어느 광물인지.
+	 * 창고 칸 이름("[재료] 요리용 석탄")과 꺼낸 아이템 이름("요리용 석탄")이 다를 수 있어 이름만 맞추면 못 찾았다 -
+	 * 이름 그대로 → [머리말]을 뺀 이름 → 같은 아이템(종류 + 모델) 순서로 찾는다.
+	 */
+	private String storeNameOf(ItemStack st) {
+		String n = clean(st.getHoverName().getString());
+		if (counts.containsKey(n)) {
+			return n;
+		}
+		String sn = statName(n);
+		for (String k : counts.keySet()) {
+			if (statName(k).equals(sn)) {
+				return k;
+			}
+		}
+		String key = itemKey(st);
+		if (key != null) {
+			for (var e : icons.entrySet()) {
+				if (e.getValue() != null && counts.containsKey(e.getKey()) && key.equals(itemKey(e.getValue()))) {
+					return e.getKey();
+				}
+			}
+		}
+		return null;
+	}
+
+	/** 아이템 종류 + 모델(리소스팩 아이템 구별). */
+	private static String itemKey(ItemStack st) {
+		try {
+			Object model = st.get(net.minecraft.core.component.DataComponents.ITEM_MODEL);
+			return st.getItem() + "|" + (model == null ? "" : model);
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	/** 매 틱: 감시 중이면 인벤토리에 는 광물만큼 창고 개수를 줄인다(창고 화면을 다시 읽으면 그 값으로 덮어씀). */
@@ -681,7 +718,7 @@ public class NeogulMineModule extends Module {
 	}
 
 	/** 49-649차: 보석 한 개당 채광 경험치(11/08 패치 - NeogulLevels 표와 같음). */
-	private static final Map<String, Integer> GEM_EXP = Map.of("ng118", 5, "ng119", 500, "ng120", 550, "ng121", 700, "ng122", 1500, "ng123", 1500);
+	private static final Map<String, Integer> GEM_EXP = Map.of("ng118", 5, "ng119", 400, "ng120", 550, "ng121", 700, "ng122", 1500, "ng123", 1500);
 
 	/** 보석이 나왔다 - 서브타이틀 자리 "N개 나왔다"(2.5초 안 같은 보석은 합침). */
 	private void gemNote(String id, String name, int n) {
