@@ -236,6 +236,7 @@ public class LunarisLinkModule extends Module {
 			}
 			note = "연동했습니다";
 			kr.lunaslight.mod.util.NeogulGear.relink();   // 49-679차: 장비 신호 처음부터
+			kr.lunaslight.mod.util.NeogulPotHistory.relink();
 			resendAll();
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		} catch (Throwable t) {
@@ -318,6 +319,11 @@ public class LunarisLinkModule extends Module {
 		readBar();
 		if (linked() && NeogulData.onNeogul(client)) {
 			kr.lunaslight.mod.util.NeogulGear.tick(client, this::queueGear);   // 49-679차: 장비 신호
+			// 49-682차: 지난 피로회복제(게임 기록에서 센 날짜별 개수)를 코드마다 한 번
+			Matcher cm = CODE.matcher(code.get());
+			if (client.player != null && cm.matches()) {
+				kr.lunaslight.mod.util.NeogulPotHistory.maybeSend(cm.group(3) + "." + cm.group(4), events::add);
+			}
 		}
 		if (++walletTick % 20 == 0) {
 			kr.lunaslight.mod.util.NeogulWallet.read(client);   // 49-670차: 소지금, 도토리(보스바)
