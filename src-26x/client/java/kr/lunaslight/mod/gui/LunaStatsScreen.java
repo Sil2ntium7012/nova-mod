@@ -138,6 +138,8 @@ public class LunaStatsScreen extends LunaScreenBase {
 	private final List<String> catRowKeys = new ArrayList<>();
 	private int itemHeadX;
 	private int[] itemHeadCols = new int[0];
+	/** 49-680차: 머리글이 본문 위에 붙어 있으면 그 아래 끝(분류 줄 클릭이 머리글 자리를 가로채지 않게). */
+	private int itemStickyBottom;
 	/** 49-53차(5-12): 불러오기 = 파일 고르기 + 확인. null이면 창이 닫힌 상태. */
 	private List<Path> importList;
 	private Path importPending;
@@ -2024,14 +2026,9 @@ public class LunaStatsScreen extends LunaScreenBase {
 		itemHeadY = y;
 		itemHeadX = x;
 		itemHeadCols = cols;
-		LunaDraw.text(ctx, font, itemSort == 0 ? "이름 §7(합계순 " + arrow + ")" : "이름", x, y,
-			itemSort == 0 ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
-		for (int i = 0; i < heads.length; i++) {
-			boolean on = itemSort == i + 1;
-			String hd = on ? heads[i] + arrow : heads[i];
-			LunaDraw.text(ctx, font, hd, x + cols[i] + cw[i] - LunaDraw.width(font, hd), y,
-				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
-		}
+		itemStickyBottom = contentTop;
+		int headTop = y;
+		drawItemHead(ctx, x, y, heads, cols, cw, arrow);
 		y += 12;
 		List<Object[]> list = rows;
 		if (posterLimit > 0 && list.size() > posterLimit) {
@@ -2089,7 +2086,39 @@ public class LunaStatsScreen extends LunaScreenBase {
 			LunaDraw.setAlpha(base);
 			y += 12;
 		}
+		// 49-680차(사용자 사진: 블록 목록을 내리면 숫자 열이 무슨 항목인지 모름 - "가운데 선 같은 거 있어서 보기 편하게"):
+		// 열 사이 세로선(이름|사용|버림|제작|캔|획득), 머리글이 위로 올라가 안 보이면 본문 맨 위에 머리글을 붙여 둔다.
+		int line = LunaDraw.applyAlpha((LunaClientScreen.themeLine() & 0x00FFFFFF) | 0x50000000);
+		for (int i = 0; i < cols.length; i++) {
+			int lx = x + cols[i] - colGap / 2 - 1;
+			ctx.fill(lx, headTop - 2, lx + 1, y - 2, line);
+		}
+		if (posterLimit <= 0 && headTop < contentTop && y - 2 > contentTop + 14) {
+			int sy = contentTop + 2;
+			ctx.fill(x - 2, contentTop, x + w + 2, sy + 11, LunaDraw.applyAlpha((LunaClientScreen.themeBg() & 0x00FFFFFF)
+				| (LunaClientScreen.themeLight() ? 0xFA000000 : 0xF5000000)));
+			ctx.fill(x - 2, sy + 11, x + w + 2, sy + 12, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+			drawItemHead(ctx, x, sy, heads, cols, cw, arrow);
+			for (int i = 0; i < cols.length; i++) {
+				int lx = x + cols[i] - colGap / 2 - 1;
+				ctx.fill(lx, contentTop, lx + 1, sy + 11, line);
+			}
+			itemHeadY = sy;
+			itemStickyBottom = sy + 12;
+		}
 		return y - y0 + 10;
+	}
+
+	/** 아이템 탭 머리글 한 줄(이름 + 열 이름, 정렬 중인 열은 강조색과 화살표). */
+	private void drawItemHead(GuiGraphicsExtractor ctx, int x, int y, String[] heads, int[] cols, int[] cw, String arrow) {
+		LunaDraw.text(ctx, font, itemSort == 0 ? "이름 §7(합계순 " + arrow + ")" : "이름", x, y,
+			itemSort == 0 ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
+		for (int i = 0; i < heads.length; i++) {
+			boolean on = itemSort == i + 1;
+			String hd = on ? heads[i] + arrow : heads[i];
+			LunaDraw.text(ctx, font, hd, x + cols[i] + cw[i] - LunaDraw.width(font, hd), y,
+				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
+		}
 	}
 
 	/** 49-568차: 아이템 줄 목록 - 묶음끼리 정렬하고, 묶음 안 이름별 줄도 같은 기준으로 정렬. */
@@ -2902,7 +2931,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 		if (tab == TAB_ITEMS) {
 			for (int i = 0; i < catRowsY.size() && i < catRowKeys.size(); i++) {
 				int ry = catRowsY.get(i)[0];
-				if (mouseY >= contentTop && LunaDraw.in(mouseX, mouseY, cx0 - 2, ry - 2, cw0, 13)) {
+				if (mouseY >= Math.max(contentTop, itemStickyBottom) && LunaDraw.in(mouseX, mouseY, cx0 - 2, ry - 2, cw0, 13)) {
 					String c = catRowKeys.get(i);
 					if (!collapsedCats.remove(c)) {
 						collapsedCats.add(c);

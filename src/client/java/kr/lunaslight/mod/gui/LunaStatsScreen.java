@@ -135,6 +135,8 @@ public class LunaStatsScreen extends LunaScreenBase {
 	private int itemHeadY = Integer.MIN_VALUE;
 	private int itemHeadX;
 	private int[] itemHeadCols = new int[0];
+	/** 49-680차: 머리글이 본문 위에 붙어 있으면 그 아래 끝. */
+	private int itemStickyBottom;
 	/** 49-53차(5-12): 불러오기 = 파일 고르기 + 확인. null이면 창이 닫힌 상태. */
 	private List<Path> importList;
 	private Path importPending;
@@ -1742,14 +1744,10 @@ public class LunaStatsScreen extends LunaScreenBase {
 		itemHeadX = x;
 		itemHeadCols = cols;
 		String arrow = itemSortDesc ? "▾" : "▴";
-		LunaDraw.text(ctx, textRenderer, itemSort == 0 ? "이름 §7(합계순 " + arrow + ")" : "이름", x, y,
-			itemSort == 0 ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
 		String[] heads = {"사용", "버림", "제작", "캔", "획득"};
-		for (int i = 0; i < heads.length; i++) {
-			boolean on = itemSort == i + 1;
-			LunaDraw.text(ctx, textRenderer, on ? heads[i] + arrow : heads[i], x + cols[i], y,
-				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
-		}
+		itemStickyBottom = contentTop;
+		int headTop = y;
+		drawItemHead(ctx, x, y, heads, cols, arrow);
 		y += 12;
 		List<Map.Entry<String, LunaStats.ItemStat>> list = new ArrayList<>(merged.values());
 		Comparator<Map.Entry<String, LunaStats.ItemStat>> cmp = Comparator.comparingLong(
@@ -1783,7 +1781,38 @@ public class LunaStatsScreen extends LunaScreenBase {
 			LunaDraw.setAlpha(base);
 			y += 12;
 		}
+		// 49-680차(사용자 사진: 목록을 내리면 숫자 열이 무슨 항목인지 모름 - "가운데 선 같은 거 있어서 보기 편하게"):
+		// 열 사이 세로선, 머리글이 위로 올라가 안 보이면 본문 맨 위에 머리글을 붙여 둔다.
+		int line = LunaDraw.applyAlpha((LunaClientScreen.themeLine() & 0x00FFFFFF) | 0x50000000);
+		for (int i = 0; i < cols.length; i++) {
+			int lx = x + cols[i] - 7;
+			ctx.fill(lx, headTop - 2, lx + 1, y - 2, line);
+		}
+		if (posterLimit <= 0 && headTop < contentTop && y - 2 > contentTop + 14) {
+			int sy = contentTop + 2;
+			ctx.fill(x - 2, contentTop, x + w + 2, sy + 11, LunaDraw.applyAlpha((LunaClientScreen.themeBg() & 0x00FFFFFF)
+				| (LunaClientScreen.themeLight() ? 0xFA000000 : 0xF5000000)));
+			ctx.fill(x - 2, sy + 11, x + w + 2, sy + 12, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
+			drawItemHead(ctx, x, sy, heads, cols, arrow);
+			for (int i = 0; i < cols.length; i++) {
+				int lx = x + cols[i] - 7;
+				ctx.fill(lx, contentTop, lx + 1, sy + 11, line);
+			}
+			itemHeadY = sy;
+			itemStickyBottom = sy + 12;
+		}
 		return y - y0 + 10;
+	}
+
+	/** 아이템 탭 머리글 한 줄(이름 + 열 이름, 정렬 중인 열은 강조색과 화살표). */
+	private void drawItemHead(DrawContext ctx, int x, int y, String[] heads, int[] cols, String arrow) {
+		LunaDraw.text(ctx, textRenderer, itemSort == 0 ? "이름 §7(합계순 " + arrow + ")" : "이름", x, y,
+			itemSort == 0 ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
+		for (int i = 0; i < heads.length; i++) {
+			boolean on = itemSort == i + 1;
+			LunaDraw.text(ctx, textRenderer, on ? heads[i] + arrow : heads[i], x + cols[i], y,
+				on ? LunaDraw.ACCENT : LunaDraw.TEXT_DIM);
+		}
 	}
 
 	/** 49-67차(5-11): 지금 고른 기준으로 정렬할 때 쓸 값. 0이면 합계(예전 기본값). */

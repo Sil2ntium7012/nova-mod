@@ -37,6 +37,8 @@ public final class NeogulGear {
 
 	private static final Pattern LV = Pattern.compile("\\(\\s*Lv\\.?\\s*(\\d+|Max)\\s*\\)", Pattern.CASE_INSENSITIVE);
 	private static final Pattern TRANS = Pattern.compile("초월[^0-9\\n]{0,12}?(\\d+)\\s*단계");
+	/** 규격 v1.1 lv: 설명 능력치 줄("효율 +9", "행운 +9", "내구성 +9"). */
+	private static final Pattern STAT = Pattern.compile("(효율|행운|내구성)\\s*\\+\\s*(\\d+)");
 
 	// ---- 상태 ----
 	private static Object lastLevel, lastConn;
@@ -100,7 +102,7 @@ public final class NeogulGear {
 		return sb.toString().replaceAll("\\s+", " ").trim();
 	}
 
-	/** 보는 장비면 {n, x, m, c}, 아니면 null. */
+	/** 보는 장비면 {n, x, m, c, lv}, 아니면 null. */
 	static JsonObject item(ItemStack st) {
 		if (st == null || st.isEmpty()) {
 			return null;
@@ -121,7 +123,8 @@ public final class NeogulGear {
 		if (n.startsWith("[치장도구]")) {
 			keep = x >= 1;
 		} else if (n.startsWith("[편의]")) {
-			keep = true;
+			// 규격 1장 NOT_GEAR: 머리표는 [편의]지만 장비가 아닌 것(사용자: "이거 자물쇠 빼주고").
+			keep = !n.replaceAll("\\[[^\\]]*\\]|\\([^)]*\\)|\\s", "").equals("상자자물쇠");
 		} else if (n.startsWith("[채집도구]") || n.startsWith("[낚시]")) {
 			Matcher m = LV.matcher(n);
 			int lv = -1;
@@ -161,14 +164,46 @@ public final class NeogulGear {
 		if (st.getCount() > 1) {
 			o.addProperty("c", st.getCount());
 		}
+		int lv = level(st);
+		if (lv > 0) {
+			o.addProperty("lv", lv);
+		}
 		return o;
+	}
+
+	/**
+	 * 규격 v1.1(사용자: "대박성공 때문에 강화수 말고 LV로 해줘 곡은 효율5가 최대니까 행운이나 다른 거봐야하고"):
+	 * 강화 레벨 = 효율, 행운, 내구성 중 가장 큰 값. 인챈트와 설명 줄 둘 다 보고 큰 쪽. 없으면 0(보내지 않음).
+	 */
+	static int level(ItemStack st) {
+		int best = 0;
+		try {
+			for (var e : st.getEnchantments().entrySet()) {
+				String id = e.getKey().getRegisteredName();
+				if (id.endsWith(":efficiency") || id.endsWith(":fortune") || id.endsWith(":unbreaking")) {
+					best = Math.max(best, e.getIntValue());
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		try {
+			for (String l : LunaCompat.itemLore(st)) {
+				Matcher m = STAT.matcher(clean(l));
+				while (m.find()) {
+					best = Math.max(best, Integer.parseInt(m.group(2)));
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		return best;
 	}
 
 	private static String sigOf(JsonArray a) {
 		List<String> l = new ArrayList<>();
 		for (var e : a) {
 			JsonObject o = e.getAsJsonObject();
-			l.add(o.get("n").getAsString() + "|" + (o.has("x") ? o.get("x").getAsInt() : 0) + "|" + (o.has("c") ? o.get("c").getAsInt() : 1));
+			l.add(o.get("n").getAsString() + "|" + (o.has("x") ? o.get("x").getAsInt() : 0) + "|" + (o.has("c") ? o.get("c").getAsInt() : 1)
+					+ "|" + (o.has("lv") ? o.get("lv").getAsInt() : 0));
 		}
 		java.util.Collections.sort(l);
 		return String.join(";", l);
