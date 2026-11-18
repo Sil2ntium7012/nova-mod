@@ -154,6 +154,7 @@ public class LunarisLinkModule extends Module {
 			fills = 0;
 			unnamed = 0;
 			potions = 0;
+			cur = 0;   // 49-679차(규격 10장): 자정에 지금 값도 0
 			sentPotions = 0;
 			sentQuest = false;
 			sentFills = -1;
@@ -234,6 +235,7 @@ public class LunarisLinkModule extends Module {
 				setEnabled(true);
 			}
 			note = "연동했습니다";
+			kr.lunaslight.mod.util.NeogulGear.relink();   // 49-679차: 장비 신호 처음부터
 			resendAll();
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		} catch (Throwable t) {
@@ -268,7 +270,9 @@ public class LunarisLinkModule extends Module {
 		}
 		// 회복제: "해양섬 피로도가 회복되었습니다. (0/125)" → 그 섬은 다시 채우면 또 1회
 		Matcher r = RECOVER.matcher(line);
-		if (r.find()) {
+		// 49-679차(규격 10장: 피로도 채운 횟수와 회복제 수가 안 맞음): 회복제 줄은 "(0/최대)"가 붙은 시스템 줄만 - 남이 쓴 채팅은 안 셈
+		boolean chatLine = line.contains("[전체]") || line.contains("[귓속말]") || line.contains("[확성기]") || line.contains("명)");
+		if (!chatLine && r.find() && line.matches(".*\\(\\s*0\\s*/\\s*[\\d,]+\\s*\\).*")) {
 			String key = r.group(1) == null ? "" : r.group(1);
 			if (!skipKey(key)) {
 				if (!key.isEmpty()) {
@@ -312,6 +316,9 @@ public class LunarisLinkModule extends Module {
 			scanLogs();
 		}
 		readBar();
+		if (linked() && NeogulData.onNeogul(client)) {
+			kr.lunaslight.mod.util.NeogulGear.tick(client, this::queueGear);   // 49-679차: 장비 신호
+		}
 		if (++walletTick % 20 == 0) {
 			kr.lunaslight.mod.util.NeogulWallet.read(client);   // 49-670차: 소지금, 도토리(보스바)
 			if (kr.lunaslight.mod.util.NeogulWallet.money >= 0 && (kr.lunaslight.mod.util.NeogulWallet.money != sentMoney
@@ -559,7 +566,7 @@ public class LunarisLinkModule extends Module {
 	//   정리(판매 줄은 판 사람에게만 뜸): "섬 광물창고의 광물 7종 277,401개를 판매해 섬 은행에 7,986,084원을 입금했습니다." → {"ev":"mine_clear", 종류, 개수, 금액}
 	//   멈춤: 꽉 참 줄이 오던 같은 월드에서 90초 넘게 안 오면(계속 캐는 중인데 이제 캐짐 = 누가 비움) → {"ev":"mine_resume"}
 	//   봇이 정리 줄이 없으면 "누군가 정리"로 올린다.
-	private static final Pattern MINE_FULL = Pattern.compile("섬\\s*광물\\s*창고의\\s*(.*?)\\s*보관\\s*한도가\\s*가득");
+	private static final Pattern MINE_FULL = Pattern.compile("섬\\s*광물\\s*창고의\\s*(.*?)\\s*보관\\s*한도가\\s*가득\\s*차서\\s*캘\\s*수\\s*없");
 	private static final Pattern MINE_SOLD = Pattern.compile("섬\\s*광물\\s*창고의\\s*광물\\s*([\\d,]+)\\s*종\\s*([\\d,]+)\\s*개를\\s*판매해\\s*섬\\s*은행에\\s*([\\d,]+)\\s*원");
 	private long mineFullAt;
 	private long mineFullSentAt;
@@ -612,13 +619,48 @@ public class LunarisLinkModule extends Module {
 		return false;
 	}
 
+	/**
+	 * 49-679차(장비 신호 규격 6장): 장비는 최신 상태만 뜻이 있으니, 아직 안 나간 장비 신호 중 같은 보관함(같은 id, 또는 둘 다 없음)은
+	 * 새 것으로 바꿔치기한다(지금 보내는 중인 맨 앞 것은 그대로).
+	 */
+	private void queueGear(java.util.List<JsonObject> pages, String boxKey) {
+		for (int i = events.size() - 1; i >= 0; i--) {
+			if (i == 0 && sending) {
+				continue;
+			}
+			JsonObject e = events.get(i);
+			if (e.has("ev") && "gear".equals(e.get("ev").getAsString()) && e.has("_bk") && boxKey.equals(e.get("_bk").getAsString())) {
+				events.remove(i);
+			}
+		}
+		for (JsonObject p : pages) {
+			p.addProperty("_bk", boxKey);
+			events.add(p);
+		}
+		while (events.size() > 40) {
+			events.remove(sending ? 1 : 0);   // 너무 밀리면 오래된 것부터
+		}
+	}
+
+	/** 49-679차(규격 10장): 꽉 참 줄은 30초 안에 3번 이상 떠야 진짜(한 번 스친 알림은 무시). */
+	private final java.util.ArrayDeque<Long> mineFullHits = new java.util.ArrayDeque<>();
+
 	private boolean mineChat(String line) {
 		Matcher f = MINE_FULL.matcher(line);
 		if (f.find()) {
 			long now = System.currentTimeMillis();
+			if (line.contains("[전체]") || line.contains("[귓속말]") || line.contains("[확성기]") || line.contains("명)")) {
+				return false;   // 남이 쓴 글
+			}
+			mineFullHits.addLast(now);
+			while (!mineFullHits.isEmpty() && now - mineFullHits.peekFirst() > 30_000) {
+				mineFullHits.pollFirst();
+			}
 			mineFullAt = now;
 			mineFullLevel = client.level;
-			if (now - mineFullSentAt > 10 * 60_000) {
+			// 우리 섬이 아니라고 아는 곳(섬 방문 등)에서 뜬 줄은 안 보낸다
+			boolean notOurs = kr.lunaslight.mod.util.NeogulGear.island == kr.lunaslight.mod.util.NeogulGear.Island.NO;
+			if (mineFullHits.size() >= 3 && !notOurs && now - mineFullSentAt > 10 * 60_000) {
 				mineFullSentAt = now;
 				JsonObject e = new JsonObject();
 				e.addProperty("ev", "mine_full");
@@ -671,6 +713,7 @@ public class LunarisLinkModule extends Module {
 			return;
 		}
 		JsonObject p = events.get(0).deepCopy();
+		p.remove("_bk");   // 49-679차: 큐 안에서만 쓰는 표시
 		p.addProperty("lnr", 1);
 		p.addProperty("uid", c.group(3));
 		p.addProperty("g", Integer.parseInt(c.group(4)));

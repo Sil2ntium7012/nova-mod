@@ -82,6 +82,11 @@ public class ItemFinderModule extends Module implements kr.lunaslight.mod.module
 		usedAt = System.currentTimeMillis();
 	}
 
+	/** 49-679차(장비 신호): ms 안에 우클릭한 블록(없으면 null). */
+	public static BlockPos usedPosRecent(long ms) {
+		return usedPos != null && System.currentTimeMillis() - usedAt <= ms ? usedPos : null;
+	}
+
 	public static void noteOpen(BlockPos pos) {
 		noted = pos;
 		notedAt = System.currentTimeMillis();

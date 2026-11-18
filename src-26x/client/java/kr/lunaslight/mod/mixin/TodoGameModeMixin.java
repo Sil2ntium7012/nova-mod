@@ -46,6 +46,7 @@ public abstract class TodoGameModeMixin {
 			TodoList.onBreak(lunaslight$breaking);
 			kr.lunaslight.mod.util.NeogulScareRate.onBreak(lunaslight$breakState);
 			kr.lunaslight.mod.util.NeogulDropRate.onBreak(lunaslight$breakState);   // 49-669차: 작물 드랍 확률
+			kr.lunaslight.mod.util.NeogulGear.onBreak(lunaslight$breakState);   // 49-679차: 장비 신호 - 잠광(사암)
 			kr.lunaslight.mod.util.NeogulMineFeed.onBreak(pos);   // 49-608차: 광산 획득 알림 구별(49-630차: 자리도)
 		}
 		lunaslight$breaking = null;

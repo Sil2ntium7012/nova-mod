@@ -146,13 +146,43 @@ public final class ChatFaces {
 		if (names.isEmpty()) {
 			return null;
 		}
+		// 49-679차(사용자 사진: 얼굴이 채팅 내용 가운데에 뜸 - "채팅이 아니라 채팅 앞 닉네임 부분에 떠야 하는 건데 반대로 됨"):
+		// "머리 닉네임: 내용" 꼴이면 얼굴은 머리(첫 ": " 앞)에만 - 내용 안 이름에는 안 붙인다.
+		int colon = plain.indexOf(": ");
+		int headEnd = colon > 0 && colon < 80 ? colon : -1;
 		java.util.TreeMap<Integer, String> at = new java.util.TreeMap<>();
 		for (String n : names) {
 			String ln = n.toLowerCase(java.util.Locale.ROOT);
 			for (int i = lower.indexOf(ln); i >= 0; i = lower.indexOf(ln, i + 1)) {
+				if (headEnd >= 0 && i >= headEnd) {
+					break;
+				}
 				if (isWordAt(lower, i, ln.length())) {
 					at.putIfAbsent(anchorOf(plain, i), n);
 				}
+			}
+		}
+		// 너굴마을처럼 머리에 한글 닉네임만 보이면: 그 조각의 클릭/마우스 올림 정보에 든 마크 이름으로 닉네임 앞에 붙인다
+		if (at.isEmpty() && headEnd > 0) {
+			int p0 = 0;
+			for (int c = 0; c < texts.size() && p0 < headEnd && at.isEmpty(); c++) {
+				String s0 = texts.get(c);
+				String ev = eventText(styles.get(c));
+				if (ev != null && !s0.isBlank()) {
+					for (String n : names) {
+						String ln = n.toLowerCase(java.util.Locale.ROOT);
+						int j = ev.indexOf(ln);
+						if (j >= 0 && isWordAt(ev, j, ln.length())) {
+							int lead = 0;
+							while (lead < s0.length() && s0.charAt(lead) == ' ') {
+								lead++;
+							}
+							at.put(anchorOf(plain, p0 + lead), n);
+							break;
+						}
+					}
+				}
+				p0 += s0.length();
 			}
 		}
 		if (at.isEmpty()) {
@@ -191,6 +221,23 @@ public final class ChatFaces {
 			pos = end;
 		}
 		return LunaCompat.joinTexts(parts.toArray(new Component[0]));
+	}
+
+	/** 조각 Style의 클릭/마우스 올림 정보 글자(소문자). 없으면 null. */
+	private static String eventText(Object style) {
+		if (style == null) {
+			return null;
+		}
+		try {
+			Object click = LunaCompat.callNoArg(style, "getClickEvent");
+			Object hover = LunaCompat.callNoArg(style, "getHoverEvent");
+			if (click == null && hover == null) {
+				return null;
+			}
+			return (String.valueOf(click) + " " + String.valueOf(hover)).toLowerCase(java.util.Locale.ROOT);
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	private static boolean addPiece(java.util.List<Component> parts, String content, Object style) {
