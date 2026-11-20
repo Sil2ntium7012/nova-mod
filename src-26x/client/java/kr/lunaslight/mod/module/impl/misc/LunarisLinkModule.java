@@ -76,6 +76,9 @@ public class LunarisLinkModule extends Module {
 	private Object lastBar;
 	private Object lastLevel;
 	private int barPrev = -1;   // 이름 없는 액션바: 이 월드에서 마지막으로 본 N
+	private int barRise;   // 49-684차: 1회를 셀 수 있게 된 뒤 같은 섬에서 조금씩 오른 횟수
+	private int barMisses;        // 49-686차: 오늘 가득 찼는데 못 센 횟수(봇 기록용, 저장 안 함)
+	private String barMissNote;   // 마지막으로 못 센 때와 까닭
 	private boolean dirty;
 	private long nextSend;
 	private long lastProgress;
@@ -154,6 +157,8 @@ public class LunarisLinkModule extends Module {
 			fills = 0;
 			unnamed = 0;
 			potions = 0;
+			barMisses = 0;
+			barMissNote = null;
 			cur = 0;   // 49-679차(규격 10장): 자정에 지금 값도 0
 			sentPotions = 0;
 			sentQuest = false;
@@ -281,6 +286,7 @@ public class LunarisLinkModule extends Module {
 				}
 				barPrev = 0;
 				barArmed = true;
+				barRise = 0;
 				potions++;
 				changed();
 			}
@@ -362,6 +368,7 @@ public class LunarisLinkModule extends Module {
 				lastLevel = level;
 				barPrev = -1;   // 섬(월드)이 바뀌면 이름 없는 액션바는 처음부터
 				barArmed = false;
+				barRise = 0;
 			}
 			if (level == null || !isEnabled() || !NeogulData.onNeogul(client)) {
 				return;
@@ -410,14 +417,27 @@ public class LunarisLinkModule extends Module {
 			if (!isFull) {
 				// 다른 섬으로 넘어감(값이 크게 바뀜), 처음 봄, 거의 빔 → 이 섬은 채우면 1회
 				if (barPrev < 0 || n <= low || Math.abs(n - barPrev) > low) {
+					if (!barArmed) {
+						barRise = 0;
+					}
 					barArmed = true;
+				} else if (barArmed && n > barPrev) {
+					barRise++;
 				}
-			} else if (barArmed && barPrev >= 0 && mx - barPrev <= mx / 5 && fills < cap()) {
-				// 같은 섬을 캐서 조금씩 올라 가득 참
+			} else if (barArmed && barPrev >= 0 && (mx - barPrev <= mx / 2 || barRise >= 3) && fills < cap()) {
+				// 같은 섬을 캐서 올라 가득 참.
+				// 49-684차(사용자 사진: 망고 피로회복제 43개인데 피로도 35회): 예전엔 가득 차기 바로 전 값이 최대치의 80% 이상일 때만 셌다.
+				// 액션바가 띄엄띄엄 오면(다른 알림이 덮음) 96 → 125처럼 건너뛰어 놓쳤다. 이제 절반 이상이었거나, 조금씩 3번 이상 올랐으면 센다.
 				fills++;
 				unnamed++;
 				barArmed = false;
 				now = true;
+			} else if (barPrev >= 0 && barPrev < mx) {
+				// 덜 찬 값에서 가득으로 넘어갔는데 못 셈 - 까닭을 기록(49-686차: 봇에도 보냄)
+				String why = (barArmed ? "" : "무장 안 됨 ") + "앞 " + barPrev + "/" + mx + " 오름 " + barRise + " 오늘 " + fills + "회 한도 " + cap();
+				kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 피로도 가득 - 안 셈 (" + why + ")");
+				barMisses++;
+				barMissNote = java.time.LocalTime.now(KST).withNano(0) + " " + why;
 			}
 			barPrev = n;
 		} else {
@@ -794,6 +814,11 @@ public class LunarisLinkModule extends Module {
 		p.addProperty("c", cur);
 		p.addProperty("m", max);
 		p.addProperty("u", fills * max + (cur < max ? cur : 0));   // 예전 봇용
+		// 49-686차(사용자: "Yume_o 다 했는데 1회만 감"): 봇 기록에 남길 모드 판과 못 센 까닭
+		p.addProperty("nv", kr.lunaslight.mod.util.LunaVersion.mod());
+		if (barMisses > 0 && barMissNote != null) {
+			p.addProperty("fx", barMisses + "번, 마지막 " + barMissNote);
+		}
 		JsonObject body = new JsonObject();
 		body.addProperty("content", p.toString());
 		body.addProperty("username", "Nova 자동 일퀘");

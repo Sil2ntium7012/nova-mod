@@ -275,13 +275,16 @@ public class SessionFixModule extends Module {
 	// ==================== 49-672차: 로그인 429(요청이 너무 많음) ====================
 	// 사용자(사진: "다른 서버로 이송되는 중 연결에 실패했습니다 / 로그인에 실패했습니다: Status: 429", "너굴라이언트 맨날 이럼"):
 	// 너굴마을은 서버를 옮길 때(로비 → 섬 등) 마인크래프트 로그인을 처음부터 다시 한다. 짧은 시간에 여러 번 옮기면 모장 로그인 서버가
-	// 잠깐 막는다(429). 노바/너굴라이언트 탓이 아니라 기다리면 풀린다. 너굴마을은 자동 재접속을 막아 두었으므로(49-183차)
-	// 버튼은 직접 누르게 두고, 바로 누르면 또 막히니 몇 초 기다린 뒤에 켜진다(연달아 막히면 10 → 20 → 40초).
+	// 잠깐 막는다(429). 노바/너굴라이언트 탓이 아니라 기다리면 풀린다. 바로 다시 붙으면 또 막히니 기다린 뒤에(연달아 막히면
+	// 10 → 20 → 40 → 80초) 49-685차부터 한 번 자동으로 다시 접속한다. 버튼은 기다림이 끝나면 켜진다.
 	private Object limitButton;
 	private Object limitScreen;
 	private long limitReadyAt;
 	private int limitStreak;
 	private long limitLastAt;
+	private long limitAutoFor;   // 49-685차: 이 429(limitLastAt)로 자동 재접속을 이미 했으면 그 값
+	private int limitTries;      // 5분 안에 연달아 막힌 횟수 - 6번째부터는 자동으로 붙지 않고 버튼만
+	private Object limitSeenScreen;
 
 	private static boolean isRateLimited(Screen s) {
 		String t = AutoReconnectModule.screenText(s);
@@ -295,11 +298,15 @@ public class SessionFixModule extends Module {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		if (now - limitLastAt > 3000) {   // 같은 화면 init이 두 번 와도 한 번만 센다
-			limitStreak = now - limitLastAt < 5 * 60_000 ? Math.min(limitStreak + 1, 3) : 0;
+		if (screen != limitSeenScreen && now - limitLastAt > 3000) {   // 같은 화면 init이 두 번 와도(창 크기 바꿈 등) 한 번만 센다
+			limitSeenScreen = screen;
+			boolean again = now - limitLastAt < 5 * 60_000;
+			limitStreak = again ? Math.min(limitStreak + 1, 3) : 0;
+			limitTries = again ? limitTries + 1 : 0;
 			limitLastAt = now;
 			limitReadyAt = now + (10_000L << limitStreak);
 		}
+		replaceLimitText(s);
 		// 세션 복구의 [재접속] 버튼이 이미 있으면(노바 클라이언트) 버튼은 그걸 쓰고 안내만 쓴다.
 		if (isEnabled()) {
 			return;
@@ -328,12 +335,41 @@ public class SessionFixModule extends Module {
 		int w = Math.max(200, LunaCompat.widgetInt(last, "getWidth", "width"));
 		int h = Math.max(20, LunaCompat.widgetInt(last, "getHeight", "height"));
 		limitButton = LunaCompat.addVanillaButton(screen, x, lastY + h + 4, w, h, "다시 접속", () -> {
-			String a = AutoReconnectModule.lastServerAddress();
-			if (System.currentTimeMillis() >= limitReadyAt && a != null && !a.isBlank()) {
-				AutoReconnectModule.reconnectTo(a);
+			if (System.currentTimeMillis() >= limitReadyAt) {
+				limitReconnect();
 			}
 		});
 		limitScreen = limitButton == null ? null : screen;
+	}
+
+	/**
+	 * 49-685차(너굴라이언트 세션 분석: 로그인 429는 모장 로그인 서버가 이 PC 요청을 잠깐 막은 것 - "429일 때는 10초쯤 기다렸다가 붙고,
+	 * 오류 문구 대신 '잠시 후 자동으로 다시 접속합니다'를 보여 주면 됩니다"): 기다린 뒤 한 번 자동으로 다시 접속한다.
+	 * 튕김(서버가 내보냄) 뒤 자동 재접속을 막은 49-183차 규칙은 그대로 - 이것은 로그인 자체가 안 된 429에만.
+	 */
+	private void limitReconnect() {
+		limitAutoFor = limitLastAt;
+		String a = AutoReconnectModule.lastServerAddress();
+		if (a != null && !a.isBlank()) {
+			AutoReconnectModule.reconnectTo(a);
+		}
+	}
+
+	/** 화면의 "로그인에 실패했습니다: Status: 429 …" 글을 알아듣기 쉬운 안내로 바꾼다. */
+	private static void replaceLimitText(Screen s) {
+		try {
+			for (Object o : s.children()) {
+				if (o instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getMessage() != null) {
+					String t = w.getMessage().getString();
+					if (t.contains("429") || t.toLowerCase(java.util.Locale.ROOT).contains("too many requests")) {
+						w.setMessage(net.minecraft.network.chat.Component.literal(
+								"마인크래프트 로그인 서버가 잠시 막았습니다(요청이 너무 많음).\n잠시 후 자동으로 다시 접속합니다."));
+					}
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("sessionFix:limitText", t);
+		}
 	}
 
 	private void onLimitFrame(Object screen, GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
@@ -341,12 +377,17 @@ public class SessionFixModule extends Module {
 			return;
 		}
 		long left = Math.max(0, (limitReadyAt - System.currentTimeMillis() + 999) / 1000);
+		boolean auto = limitAutoFor != limitLastAt && limitTries < 5;
+		if (left == 0 && auto) {
+			limitReconnect();   // 49-685차: 기다린 뒤 한 번 자동으로
+			return;
+		}
 		if (limitButton != null && limitScreen == screen) {
 			LunaCompat.setButton(limitButton, left > 0 ? "다시 접속 (" + left + "초 뒤)" : "다시 접속", left == 0);
 		}
 		String[] lines = {
-				"마인크래프트 로그인 서버가 잠깐 막았습니다 (요청이 너무 많음).",
-				left > 0 ? "서버를 빠르게 옮기면 생깁니다. " + left + "초 뒤에 다시 접속하십시오." : "이제 다시 접속하실 수 있습니다."
+				"마인크래프트 로그인 서버가 잠시 막았습니다 (요청이 너무 많음).",
+				left > 0 ? left + (limitTries < 5 ? "초 뒤 자동으로 다시 접속합니다." : "초 뒤 다시 접속하실 수 있습니다.") : "다시 접속하실 수 있습니다."
 		};
 		int y = 12;
 		for (String line : lines) {

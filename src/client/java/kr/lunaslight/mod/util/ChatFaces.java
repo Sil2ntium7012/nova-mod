@@ -162,27 +162,50 @@ public final class ChatFaces {
 				}
 			}
 		}
-		// 너굴마을처럼 머리에 한글 닉네임만 보이면: 그 조각의 클릭/마우스 올림 정보에 든 마크 이름으로 닉네임 앞에 붙인다
+		// 너굴마을처럼 머리에 한글 닉네임만 보이면: 닉네임(": " 바로 앞 낱말) 앞에 붙인다.
+		// 49-683차(사용자 사진: "[전체] 생일맛 볼트! 전기도치: …", "[전체] [칭호] 잠시로: …" - "앞에 태그나 칭호 붙으면 인식 안 됨"):
+		// 예전에는 클릭/마우스 올림 정보가 있는 첫 조각 앞에 붙여서 칭호 조각에 걸리거나 못 찾았다.
+		// 누구인지는 머리 조각들의 클릭/마우스 올림 정보(닉네임 쪽부터) → 탭 목록 표시 이름 순으로 찾고, 자리는 늘 닉네임 앞.
 		if (at.isEmpty() && headEnd > 0) {
+			int nick = nickStart(plain, headEnd);
+			String who = null;
+			java.util.List<int[]> heads = new java.util.ArrayList<>();
 			int p0 = 0;
-			for (int c = 0; c < texts.size() && p0 < headEnd && at.isEmpty(); c++) {
-				String s0 = texts.get(c);
-				String ev = eventText(styles.get(c));
-				if (ev != null && !s0.isBlank()) {
-					for (String n : names) {
-						String ln = n.toLowerCase(java.util.Locale.ROOT);
-						int j = ev.indexOf(ln);
-						if (j >= 0 && isWordAt(ev, j, ln.length())) {
-							int lead = 0;
-							while (lead < s0.length() && s0.charAt(lead) == ' ') {
-								lead++;
-							}
-							at.put(anchorOf(plain, p0 + lead), n);
-							break;
-						}
+			for (int c = 0; c < texts.size() && p0 < headEnd; c++) {
+				heads.add(new int[]{c, p0});
+				p0 += texts.get(c).length();
+			}
+			// 닉네임이 든 조각부터, 그다음 콜론에서 가까운 조각부터
+			heads.sort((a, b) -> {
+				boolean ia = a[1] <= nick && nick < a[1] + texts.get(a[0]).length();
+				boolean ib = b[1] <= nick && nick < b[1] + texts.get(b[0]).length();
+				if (ia != ib) {
+					return ia ? -1 : 1;
+				}
+				return Integer.compare(b[1], a[1]);
+			});
+			for (int[] h : heads) {
+				String ev = eventText(styles.get(h[0]));
+				if (ev == null) {
+					continue;
+				}
+				for (String n : names) {
+					String ln = n.toLowerCase(java.util.Locale.ROOT);
+					int j = ev.indexOf(ln);
+					if (j >= 0 && isWordAt(ev, j, ln.length())) {
+						who = n;
+						break;
 					}
 				}
-				p0 += s0.length();
+				if (who != null) {
+					break;
+				}
+			}
+			if (who == null && nick < headEnd) {
+				who = byDisplayName(plain.substring(nick, headEnd).replaceAll("\u00a7.", "").trim());
+			}
+			if (who != null && nick < headEnd) {
+				at.put(nick, who);
 			}
 		}
 		if (at.isEmpty()) {
@@ -221,6 +244,59 @@ public final class ChatFaces {
 			pos = end;
 		}
 		return LunaCompat.joinTexts(parts.toArray(new Text[0]));
+	}
+
+	/** ": " 앞 닉네임 낱말이 시작하는 자리(칭호, 머리표 [..], 서버 그림 글자 뒤). § 코드는 닉네임 쪽에 붙인다. */
+	static int nickStart(String plain, int headEnd) {
+		int j = headEnd;
+		while (j > 0 && plain.charAt(j - 1) == ' ') {
+			j--;
+		}
+		int end = j;
+		while (j > 0) {
+			char c = plain.charAt(j - 1);
+			if (j >= 2 && plain.charAt(j - 2) == '\u00a7') {
+				j -= 2;
+				continue;
+			}
+			if (c == ' ' || c == ']' || c == '>' || c == ')' || c == '|' || (c >= '\uE000' && c <= '\uF8FF')
+					|| (c >= '\uA000' && c <= '\uA4CF') || Character.isSurrogate(c)) {
+				break;
+			}
+			j--;
+		}
+		return j < end ? j : headEnd;
+	}
+
+	/** 탭 목록 표시 이름(한글 닉네임 등)의 낱말 → 마크 이름. 못 찾으면 null. */
+	private static String byDisplayName(String nick) {
+		if (nick == null || nick.length() < 2) {
+			return null;
+		}
+		try {
+			MinecraftClient mc = MinecraftClient.getInstance();
+			Object handler = mc == null ? null : LunaCompat.callNoArg(mc, "getNetworkHandler");
+			Object list = handler == null ? null : LunaCompat.callNoArg(handler, "getPlayerList");
+			if (!(list instanceof java.util.Collection<?> col)) {
+				return null;
+			}
+			for (Object e : col) {
+				Object dn = LunaCompat.callNoArg(e, "getDisplayName");
+				if (!(dn instanceof Text c)) {
+					continue;
+				}
+				String shown = c.getString().replaceAll("\u00a7.", "");
+				for (String w : shown.split("[\\s\\[\\]()<>|:]+")) {
+					if (w.equals(nick)) {
+						Object profile = LunaCompat.callNoArg(e, "getProfile");
+						Object n = profile == null ? null : LunaCompat.callNoArg(profile, "getName");
+						return n instanceof String str && !str.isEmpty() ? str : null;
+					}
+				}
+			}
+		} catch (Throwable ignored) {
+		}
+		return null;
 	}
 
 	/** 조각 Style의 클릭/마우스 올림 정보 글자(소문자). 없으면 null. */
