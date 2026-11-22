@@ -94,6 +94,24 @@ public final class NeogulCalendar {
 		return DAYS.get(date);
 	}
 
+	private static final java.util.regex.Pattern HOT_BOX_DAY = java.util.regex.Pattern.compile("([월화수목금토일])요일\\s*핫타임\\s*상자");
+
+	/**
+	 * 49-695차(사용자: "12시에 안 들어와 있어서 그런가 핫타임 받았다는 할 일이 초기화가 안 돼"): 기록 07:01 "[핫타임] 토요일 핫타임상자에서 …
+	 * 획득"(일요일 아침에 어제 상자를 엶)이 오늘 핫타임을 받은 것으로 세졌다. 상자 줄에 적힌 요일이 오늘이 아니면 true.
+	 */
+	public static boolean staleHotBox(String line) {
+		if (line == null) {
+			return false;
+		}
+		java.util.regex.Matcher m = HOT_BOX_DAY.matcher(line);
+		if (!m.find()) {
+			return false;
+		}
+		String today = "월화수목금토일".substring(LocalDate.now().getDayOfWeek().getValue() - 1, LocalDate.now().getDayOfWeek().getValue());
+		return !today.equals(m.group(1));
+	}
+
 	/** 추천("rec"), 핫타임("hot")을 오늘 날짜에 적는다. */
 	public static synchronized void mark(String field, boolean on) {
 		Day d = day(LocalDate.now().toString());

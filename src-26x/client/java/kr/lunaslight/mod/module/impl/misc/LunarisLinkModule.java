@@ -79,6 +79,13 @@ public class LunarisLinkModule extends Module {
 	private int barRise;   // 49-684차: 1회를 셀 수 있게 된 뒤 같은 섬에서 조금씩 오른 횟수
 	private int barMisses;        // 49-686차: 오늘 가득 찼는데 못 센 횟수(봇 기록용, 저장 안 함)
 	private String barMissNote;   // 마지막으로 못 센 때와 까닭
+	// 49-699차(사용자 사진: 헌디 2번 채웠는데 1회, 카드 마지막 값 124/125): 섬은 피로도가 가득 차면 바로 내보내서
+	// 마지막 125/125 액션바를 못 보거나(내보내기와 같은 틱에 와서 월드가 바뀐 뒤 처음 값으로 읽힘) 아예 못 받는 일이 있다.
+	private int leftPrev = -1;      // 월드가 바뀌기 직전 이름 없는 액션바 값
+	private boolean leftArmed;
+	private int leftRise;
+	private long leftAt;
+	private int nearN = -1;         // 거의 가득에서 나가서 1회로 센 값(같은 섬에 다시 들어와 채우면 두 번 안 셈)
 	private boolean dirty;
 	private long nextSend;
 	private long lastProgress;
@@ -156,6 +163,7 @@ public class LunarisLinkModule extends Module {
 			quest = false;
 			fills = 0;
 			unnamed = 0;
+			nearN = -1;
 			potions = 0;
 			barMisses = 0;
 			barMissNote = null;
@@ -242,6 +250,7 @@ public class LunarisLinkModule extends Module {
 			note = "연동했습니다";
 			kr.lunaslight.mod.util.NeogulGear.relink();   // 49-679차: 장비 신호 처음부터
 			kr.lunaslight.mod.util.NeogulPotHistory.relink();
+			mboxId = null;   // 49-696차: 새 코드면 우편함도 새로
 			resendAll();
 			kr.lunaslight.mod.config.LunaClientConfig.save();
 		} catch (Throwable t) {
@@ -287,6 +296,7 @@ public class LunarisLinkModule extends Module {
 				barPrev = 0;
 				barArmed = true;
 				barRise = 0;
+				nearN = -1;
 				potions++;
 				changed();
 			}
@@ -339,6 +349,7 @@ public class LunarisLinkModule extends Module {
 			}
 		}
 		mineTick();
+		mailboxTick();   // 49-696차
 		if (!events.isEmpty() && linked() && !sending && System.currentTimeMillis() >= nextSend) {
 			sendEvent();
 			return;
@@ -366,6 +377,22 @@ public class LunarisLinkModule extends Module {
 			Object level = client.level;
 			if (level != lastLevel) {
 				lastLevel = level;
+				leftPrev = barPrev;
+				leftArmed = barArmed;
+				leftRise = barRise;
+				leftAt = System.currentTimeMillis();
+				// 거의 가득(125면 122 이상)에서 섬을 나감 = 가득 차서 내보내진 것 → 1회
+				if (barArmed && barPrev >= 0 && max > 0 && max < 500 && barPrev < max
+						&& max - barPrev <= Math.max(1, max / 40) && fills < cap()) {
+					fills++;
+					unnamed++;
+					nearN = barPrev;
+					leftArmed = false;
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 피로도 거의 가득에서 섬을 나감 - 1회로 셈 (앞 " + barPrev + "/" + max + ")");
+					cur = max;
+					changed();
+					kr.lunaslight.mod.config.LunaClientConfig.save();
+				}
 				barPrev = -1;   // 섬(월드)이 바뀌면 이름 없는 액션바는 처음부터
 				barArmed = false;
 				barRise = 0;
@@ -414,6 +441,19 @@ public class LunarisLinkModule extends Module {
 		// 섬을 오가며 다른 섬 값이 보이거나 피로도가 조금 내려갔다 오르면 또 1회가 돼서 부풀었다.
 		// 이제는 "새로 채울 수 있게 됨" = 피로회복제 메시지, 거의 빈 값(최대치의 10% 이하), 처음 보는 덜 찬 섬일 때만.
 		if (key.isEmpty()) {
+			// 49-699차: 월드가 바뀐 바로 뒤 처음 본 값이 가득이면 바뀌기 전 섬 값으로 판단(내보내기와 같은 틱에 온 125/125)
+			if (barPrev < 0 && isFull && leftArmed && leftPrev >= 0 && System.currentTimeMillis() - leftAt < 5_000) {
+				barPrev = leftPrev;
+				barArmed = true;
+				barRise = leftRise;
+				leftArmed = false;
+			}
+			// 거의 가득에서 나가 이미 센 섬에 다시 들어와 그 값을 보면 이 섬은 안 셈
+			if (barPrev < 0 && !isFull && nearN >= 0 && n == nearN) {
+				barPrev = n;
+				barArmed = false;
+				nearN = -1;
+			}
 			if (!isFull) {
 				// 다른 섬으로 넘어감(값이 크게 바뀜), 처음 봄, 거의 빔 → 이 섬은 채우면 1회
 				if (barPrev < 0 || n <= low || Math.abs(n - barPrev) > low) {
@@ -730,6 +770,143 @@ public class LunarisLinkModule extends Module {
 			mineFullAt = 0;
 			mineFullSentAt = 0;
 		}
+	}
+
+	// ==================== 49-696차: 우편함(루나리스 → 내 게임 화면) ====================
+	// 사용자: "잠광 정리했을 때 연동된 사람들에게 채팅으로 됐다고 보내기 되나?" → 봇 토큰 없이, 이미 가진 웹후크로.
+	// 접속하면 숨은 연동 채널에 웹후크 글 하나를 올리고(ev "mbox", ?wait=true로 글 번호를 받음) 30초마다 그 글을 읽는다.
+	// 봇이 그 글을 {"mb":1,"n":번호,"e":[…]}로 고쳐 두면, 처음 읽은 번호보다 큰 일만 내 화면에 띄운다(알림 + 채팅 줄, 나만 보임).
+	private String mboxId;
+	private long mboxNext;
+	private int mboxSeq = -1;
+	private boolean mboxBusy;
+
+	private void mailboxTick() {
+		if (mboxBusy || !linked() || client.player == null || !NeogulData.onNeogul(client)) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now < mboxNext) {
+			return;
+		}
+		Matcher c = CODE.matcher(code.get());
+		if (!c.matches()) {
+			return;
+		}
+		String base = "https://discord.com/api/webhooks/" + c.group(1) + "/" + c.group(2);
+		mboxBusy = true;
+		mboxNext = now + 30_000;
+		if (mboxId == null) {
+			JsonObject p = new JsonObject();
+			p.addProperty("ev", "mbox");
+			p.addProperty("lnr", 1);
+			p.addProperty("uid", c.group(3));
+			p.addProperty("g", Integer.parseInt(c.group(4)));
+			p.addProperty("s", c.group(5));
+			p.addProperty("mc", LunaCompat.sessionName(client));
+			p.addProperty("d", day);
+			JsonObject body = new JsonObject();
+			body.addProperty("content", p.toString());
+			body.addProperty("username", "Nova 자동 일퀘");
+			HttpRequest req = HttpRequest.newBuilder(URI.create(base + "?wait=true"))
+					.timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json").header("User-Agent", "NovaMod-Lunaris/2")
+					.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
+			HTTP.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((r, err) -> client.execute(() -> {
+				mboxBusy = false;
+				try {
+					if (err == null && r.statusCode() >= 200 && r.statusCode() < 300) {
+						mboxId = JsonParser.parseString(r.body()).getAsJsonObject().get("id").getAsString();
+						mboxSeq = -1;
+						mboxNext = System.currentTimeMillis() + 5_000;   // 봇이 우편함으로 고칠 시간
+					} else {
+						mboxNext = System.currentTimeMillis() + 5 * 60_000;
+					}
+				} catch (Throwable t) {
+					mboxNext = System.currentTimeMillis() + 5 * 60_000;
+				}
+			}));
+			return;
+		}
+		HttpRequest req = HttpRequest.newBuilder(URI.create(base + "/messages/" + mboxId))
+				.timeout(Duration.ofSeconds(10)).header("User-Agent", "NovaMod-Lunaris/2").GET().build();
+		HTTP.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((r, err) -> client.execute(() -> {
+			mboxBusy = false;
+			try {
+				if (err != null || r == null) {
+					return;
+				}
+				int st = r.statusCode();
+				if (st == 404) {
+					mboxId = null;   // 봇이 지웠음(하루 지남 등) - 다시 연다
+					mboxNext = System.currentTimeMillis() + 60_000;
+					return;
+				}
+				if (st == 429) {
+					mboxNext = System.currentTimeMillis() + 90_000;
+					return;
+				}
+				if (st < 200 || st >= 300) {
+					return;
+				}
+				String content = JsonParser.parseString(r.body()).getAsJsonObject().get("content").getAsString();
+				if (!content.startsWith("{\"mb\":")) {
+					return;   // 봇이 아직 우편함으로 안 고침
+				}
+				JsonObject mb = JsonParser.parseString(content).getAsJsonObject();
+				int n = mb.has("n") ? mb.get("n").getAsInt() : 0;
+				if (mboxSeq < 0) {
+					mboxSeq = n;   // 처음 읽은 것 = 기준(지난 일은 안 띄움)
+					return;
+				}
+				if (n <= mboxSeq) {
+					return;
+				}
+				String me = c.group(3);
+				if (mb.has("e")) {
+					for (var e : mb.getAsJsonArray("e")) {
+						JsonObject o = e.getAsJsonObject();
+						if (o.has("n") && o.get("n").getAsInt() > mboxSeq) {
+							showMail(o, me);
+						}
+					}
+				}
+				mboxSeq = n;
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("lunaris:mbox", t);
+			}
+		}));
+	}
+
+	/** 우편함 일 하나를 내 화면에(알림 + 채팅 줄). 내가 한 일이면 안 띄운다. */
+	private void showMail(JsonObject o, String me) {
+		String k = o.has("k") ? o.get("k").getAsString() : "";
+		if (!"mine_clear".equals(k) || (o.has("u") && me.equals(o.get("u").getAsString()))) {
+			return;
+		}
+		String who = o.has("who") ? o.get("who").getAsString() : "";
+		long kinds = o.has("kinds") ? o.get("kinds").getAsLong() : 0;
+		long cnt = o.has("cnt") ? o.get("cnt").getAsLong() : 0;
+		long won = o.has("won") ? o.get("won").getAsLong() : 0;
+		String head = who.isEmpty() ? "누군가 섬 광물창고를 정리했습니다." : who + "님이 섬 광물창고를 정리했습니다.";
+		String tail = cnt > 0 ? String.format(java.util.Locale.ROOT, " %,d종 %,d개, %,d원", kinds, cnt, won) : "";
+		try {
+			client.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a[Nova] §f" + head + "§7" + tail));
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("lunaris:mboxChat", t);
+		}
+		try {
+			Object tm = LunaCompat.callNoArg(client, "getToastManager");
+			if (tm == null) {
+				tm = LunaCompat.callNoArg(client.gui, "toastManager");
+			}
+			if (tm instanceof net.minecraft.client.gui.components.toasts.ToastManager m) {
+				net.minecraft.client.gui.components.toasts.SystemToast.add(m, net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+						net.minecraft.network.chat.Component.literal("잠광 정리됨"), net.minecraft.network.chat.Component.literal(head + tail));
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("lunaris:mboxToast", t);
+		}
+		LunaCompat.playUiSound(client, "EXPERIENCE_ORB_PICKUP", 1.4f);
 	}
 
 	/** 잠광 신호 하나 보내기(일퀘 신호와 같은 웹후크, 같은 서명). */

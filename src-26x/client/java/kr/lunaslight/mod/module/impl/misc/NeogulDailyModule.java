@@ -56,7 +56,7 @@ public class NeogulDailyModule extends Module {
 	/** 플레이어 채팅 줄("(64명) 이름: 글", "[질문] 이름: 글") - 이런 줄은 감지에서 뺀다. */
 	private static final java.util.regex.Pattern PLAYER_CHAT = java.util.regex.Pattern.compile("[A-Za-z0-9_]{3,16}\\s*:\\s");
 	/** 핫타임 받음으로 보는 채팅 낱말. */
-	private static final List<String> HOT_WORDS = List.of("핫타임 보상", "핫타임 지급");
+	private static final List<String> HOT_WORDS = List.of("핫타임 보상", "핫타임 지급", "핫타임상자 ");   // 49-639차: 우편함에서 핫타임상자를 받거나 열어도(기록: "[핫타임] 화요일 핫타임상자에서 … 획득")
 	/** 핫타임 시각부터 이 분 동안은 "지금"(받을 수 있는 때). 그 뒤에도 못 받았으면 그날은 X. */
 	private static final int HOT_WINDOW_MIN = 10;
 
@@ -145,7 +145,7 @@ public class NeogulDailyModule extends Module {
 			set(1, true);
 			LunaCompat.playUiSound(client, "BLOCK_NOTE_BLOCK_CHIME", 1.4f);
 		}
-		if (!flag(2) && !playerChat && matches(l, HOT_WORDS)) {
+		if (!flag(2) && !playerChat && matches(l, HOT_WORDS) && !kr.lunaslight.mod.util.NeogulCalendar.staleHotBox(line)) {
 			set(2, true);
 			LunaCompat.playUiSound(client, "BLOCK_NOTE_BLOCK_CHIME", 1.6f);
 		}

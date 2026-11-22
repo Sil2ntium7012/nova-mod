@@ -399,7 +399,8 @@ public final class TodoList {
 		if (onNeogul && line.replace(" ", "").contains("토벌피로도를모두소진")) {
 			setFatigue(Integer.MAX_VALUE);   // 49-647차: 다 씀
 		}
-		count(CHAT, line, 1);
+		// 49-695차: 지난 요일 핫타임 상자를 연 줄은 "핫타임 받기"로 세지 않는다
+		count(CHAT, NeogulCalendar.staleHotBox(line) ? line.replaceAll("핫타임\\s*상자", "상자").replace("[핫타임]", "") : line, 1);
 		if (onNeogul) {
 			String n = line.replace(" ", "");
 			// 49-567차(사용자: "허수아비 할 일이 제대로 안 차는 거 같고"): 너굴 허수아비는 내가 때린 생물이 죽는 걸로는 안 잡혔다(바닐라 생물이 아님).

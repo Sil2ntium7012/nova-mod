@@ -908,7 +908,10 @@ public class NeogulQuestionModule extends Module {
 			String num = Integer.toString(i + 1);
 			LunaDraw.roundRect(g, rx + 6, cy + 4, 12, 11, 3, rec ? (accent & 0x00FFFFFF) | 0x40000000 : 0x26FFFFFF);
 			LunaDraw.text(g, font, num, rx + 12 - LunaDraw.width(font, num) / 2, cy + 6, rec ? accent : 0xFFB8C2CF);
-			LunaDraw.text(g, font, LunaDraw.ellipsize(font, a[0].replace("/", ", "), rw - 30), rx + 23, cy + 6, 0xFF7D8794);
+			// 49-697차(사용자: "답변에 아직도 (내용) 이런 게 너무 많던데, 설명 필요 없어"): 명령어 줄 머리도 괄호 설명 없이 [/명령어]만
+			String keyLine = "c".equals(a[2]) ? "[" + noParen(a[0]).replaceAll("[<>\\[\\]]", "").replaceAll("\\s{2,}", " ").trim() + "]"
+					: a[0].replace("/", ", ");
+			LunaDraw.text(g, font, LunaDraw.ellipsize(font, keyLine, rw - 30), rx + 23, cy + 6, 0xFF7D8794);
 			List<String> al = wrap(font, noParen(noLink(a[1])), rw - 26, 2);   // 49-632차: 링크 대신 /위키
 			for (int k = 0; k < al.size(); k++) {
 				LunaDraw.text(g, font, al.get(k), rx + 23, cy + 17 + k * LH, 0xFFF2F4F7);
@@ -994,10 +997,10 @@ public class NeogulQuestionModule extends Module {
 
 	/** "( … )" 설명을 뺀다([/명령어]는 그대로). */
 	static String noParen(String ans) {
-		if (ans == null || ans.indexOf('(') < 0) {
+		if (ans == null || (ans.indexOf('(') < 0 && ans.indexOf('（') < 0)) {
 			return ans;
 		}
-		return ans.replaceAll("\\s*\\([^()]*\\)", "").replaceAll("\\s{2,}", " ").trim();
+		return ans.replaceAll("\\s*[(（][^()（）]*[)）]", "").replaceAll("\\s{2,}", " ").trim();
 	}
 
 	// ==================== 새 기능 창 미리보기 ====================
