@@ -33,11 +33,14 @@ public class NeogulScareRateModule extends Module {
 			"position", "위치", "표시 위치입니다.", HudPosition.of(HudPosition.Anchor.TOP_LEFT, 4, 60)));
 	private final ColorSetting textColor = register(new ColorSetting(
 			"text_color", "글자 색", "글자의 색입니다.", 0xFFFFFFFF));
+	// 49-707차(사용자: "그래도 작물 캔 거 통합은 남아 있으면 좋겠는데"): 맨 아래에 모든 작물 합계 한 줄
+	private final kr.lunaslight.mod.module.setting.BooleanSetting showTotal = register(new kr.lunaslight.mod.module.setting.BooleanSetting(
+			"show_total", "전체 합계", "모든 작물을 합친 수확 수, 허수아비 수, 확률을 맨 아래에 같이 보여 줍니다.", true));
 	private final ActionSetting reset = register(new ActionSetting(
-			"reset", "기록 지우기", "지금까지 센 작물과 허수아비 수를 0으로 되돌립니다.", "지우기", NeogulScareRate::reset));
+			"reset", "기록 지우기", "작물마다 센 수확과 허수아비 수를 모두 0으로 되돌립니다.", "지우기", NeogulScareRate::reset));
 
 	public NeogulScareRateModule() {
-		super("neogul_scare_rate", "허수아비 확률", ModuleCategory.SERVER, "캔 작물과 나뭇잎 수로 내 허수아비 확률을 계속 잽니다");
+		super("neogul_scare_rate", "허수아비 확률", ModuleCategory.SERVER, "지금 캐는 작물의 허수아비 확률을 작물마다 따로 잽니다");
 		serverGroup("너굴마을");
 		newFeature("49-572");
 		enableHudStyle();
@@ -45,21 +48,27 @@ public class NeogulScareRateModule extends Module {
 	}
 
 	private List<String> lines(boolean sample) {
-		long h = sample ? 15234 : NeogulScareRate.harvests;
-		long s = sample ? 3 : NeogulScareRate.scares;
-		long since = sample ? 1203 : NeogulScareRate.sinceLast;
-		// 49-579차(사용자: "확률 정리가 안 된 글만 보이는 느낌"): 흔들림 폭 줄을 빼고, 맨 위에 확률만 크게 보이게(금색), 아래는 흐린 글씨로 짧게.
-		List<String> out = new ArrayList<>();
-		if (s > 0 && h > 0) {
-			double r = s / (double) h;
-			out.add(String.format(Locale.ROOT, "허수아비 확률 §e%.4f%%", r * 100));
-			out.add(String.format(Locale.ROOT, "§7%,d번 캘 때 1번 꼴", Math.round(1 / r)));
-		} else {
-			out.add("허수아비 확률 §7아직 안 나옴");
+		// 49-706차(사용자: "캐고 있는 작물마다 허수아비 확률 다르게 하고 내가 캐고 있는 작물만 보이게"): 지금 캐는 작물(마지막으로 캔 것)의 것만.
+		String key = sample ? "wheat" : NeogulScareRate.currentKey;
+		long[] c = sample ? new long[] {15234, 3, 1203} : NeogulScareRate.crop(key);
+		if (key == null || c == null) {
+			return null;
 		}
-		out.add(String.format(Locale.ROOT, "§7수확 %,d개  허수아비 %,d번", h, s));
-		out.add(String.format(Locale.ROOT, "§7마지막 허수아비 뒤 %,d개", since));
+		long h = c[0], s = c[1];
+		String name = NeogulScareRate.label(key);
+		// 49-709차(사용자: "마지막 뒤 말고 최대한 괄호로 적게"): 두 줄 - "밀 허수아비 0.0197% (3/15,234)", "전체 0.0215% (9/41,870)".
+		List<String> out = new ArrayList<>();
+		out.add(name + " 허수아비 " + pct(s, h) + String.format(Locale.ROOT, " §7(%,d/%,d)", s, h));
+		if (showTotal.get()) {
+			long th = sample ? 41870 : NeogulScareRate.harvests;
+			long ts = sample ? 9 : NeogulScareRate.scares;
+			out.add("§7전체 " + pct(ts, th) + String.format(Locale.ROOT, " §7(%,d/%,d)", ts, th));
+		}
 		return out;
+	}
+
+	private static String pct(long s, long h) {
+		return s > 0 && h > 0 ? String.format(Locale.ROOT, "§e%.4f%%", s * 100.0 / h) : "§7아직 없음";
 	}
 
 	@Override
@@ -77,6 +86,9 @@ public class NeogulScareRateModule extends Module {
 			NeogulScareRate.load();
 		}
 		List<String> ls = lines(sample);
+		if (ls == null) {
+			return;   // 49-706차: 아직 캔 작물이 없음
+		}
 		int w = hudLinesWidth(ls), h = hudLinesHeight(ls);
 		int x = position.get().resolveX(client.getWindow().getGuiScaledWidth(), w);
 		int y = position.get().resolveY(client.getWindow().getGuiScaledHeight(), h);

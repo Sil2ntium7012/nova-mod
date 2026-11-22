@@ -293,11 +293,19 @@ public class LunarisLinkModule extends Module {
 				if (!key.isEmpty()) {
 					full.put(key, false);
 				}
+				potions++;
+				// 49-704차(사용자: 이브 - 티켓 2번, 피로회복제 10개인데 피로도 10회. 로그: 회복제만 있고 그 앞 가득이 안 세진 때가 2번,
+				// 같은 섬에서 계속 캐며 회복제를 마심): 가득을 못 본 채(125/125 액션바가 안 왔거나 거의 다 찼을 때 마심) 회복제를 쓰면
+				// 지금 채우던 섬은 다 쓴 것 - 절반 넘게 찼으면 1회로 센다. 이미 센 섬(무장 안 됨)은 안 셈.
+				if (barArmed && barPrev >= 0 && max > 0 && max < 500 && barPrev < max && max - barPrev <= max / 2 && fills < cap()) {
+					fills++;
+					unnamed++;
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 피로도 가득을 못 보고 피로회복제를 씀 - 1회로 셈 (앞 " + barPrev + "/" + max + ")");
+				}
 				barPrev = 0;
 				barArmed = true;
 				barRise = 0;
 				nearN = -1;
-				potions++;
 				changed();
 			}
 			return;
@@ -799,6 +807,7 @@ public class LunarisLinkModule extends Module {
 		if (mboxId == null) {
 			JsonObject p = new JsonObject();
 			p.addProperty("ev", "mbox");
+			p.addProperty("mv", 2);   // 49-701차: 같이 쓰는 우편함 글 하나를 읽음(봇이 그 글 번호를 알려 줌)
 			p.addProperty("lnr", 1);
 			p.addProperty("uid", c.group(3));
 			p.addProperty("g", Integer.parseInt(c.group(4)));
@@ -849,10 +858,19 @@ public class LunarisLinkModule extends Module {
 					return;
 				}
 				String content = JsonParser.parseString(r.body()).getAsJsonObject().get("content").getAsString();
-				if (!content.startsWith("{\"mb\":")) {
+				// 49-701차: 같이 쓰는 우편함 글은 "📬 머리 줄 … ||{"mb":…}||" - 값은 가림 안의 {"mb": … }
+				int a = content.indexOf("{\"mb\":");
+				int b = content.lastIndexOf('}');
+				if (a < 0 || b < a) {
 					return;   // 봇이 아직 우편함으로 안 고침
 				}
-				JsonObject mb = JsonParser.parseString(content).getAsJsonObject();
+				JsonObject mb = JsonParser.parseString(content.substring(a, b + 1)).getAsJsonObject();
+				if (mb.has("ref")) {
+					mboxId = mb.get("ref").getAsString();   // 이제부터 같이 쓰는 우편함 글을 읽음(내가 올린 글은 봇이 곧 지움)
+					mboxSeq = -1;
+					mboxNext = System.currentTimeMillis() + 1_000;
+					return;
+				}
 				int n = mb.has("n") ? mb.get("n").getAsInt() : 0;
 				if (mboxSeq < 0) {
 					mboxSeq = n;   // 처음 읽은 것 = 기준(지난 일은 안 띄움)

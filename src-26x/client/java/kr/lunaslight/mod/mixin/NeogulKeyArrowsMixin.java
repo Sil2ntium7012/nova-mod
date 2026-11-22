@@ -24,15 +24,14 @@ public abstract class NeogulKeyArrowsMixin {
 		}
 		java.util.Map<Identifier, Resource> copy = null;
 		for (java.util.Map.Entry<Identifier, Resource> e : m.entrySet()) {
-			byte[] png = kr.lunaslight.mod.util.NeogulTextures.replacement(e.getKey().getNamespace(), e.getKey().getPath());
-			if (png == null) {
+			Resource sub = lunaslight$substitute(e.getKey(), e.getValue());
+			if (sub == null) {
 				continue;
 			}
 			if (copy == null) {
 				copy = new java.util.HashMap<>(m);
 			}
-			Resource orig = e.getValue();
-			copy.put(e.getKey(), new Resource(orig.source(), () -> new java.io.ByteArrayInputStream(png)));
+			copy.put(e.getKey(), sub);
 		}
 		if (copy != null) {
 			cir.setReturnValue(copy);
@@ -45,11 +44,13 @@ public abstract class NeogulKeyArrowsMixin {
 			return;
 		}
 		// 49-533차: 너굴 아이템 그림 바꾸기(요리용 석탄)
-		byte[] png = kr.lunaslight.mod.util.NeogulTextures.replacement(id.getNamespace(), id.getPath());
-		if (png != null) {
+		if (kr.lunaslight.mod.util.NeogulTextures.replacement(id.getNamespace(), id.getPath()) != null) {
 			Optional<Resource> r0 = cir.getReturnValue();
 			if (r0 != null && r0.isPresent()) {
-				cir.setReturnValue(Optional.of(new Resource(r0.get().source(), () -> new java.io.ByteArrayInputStream(png))));
+				Resource sub = lunaslight$substitute(id, r0.get());
+				if (sub != null) {
+					cir.setReturnValue(Optional.of(sub));
+				}
 			}
 			return;
 		}
@@ -68,5 +69,25 @@ public abstract class NeogulKeyArrowsMixin {
 				return new java.io.ByteArrayInputStream(NeogulKeyArrows.convert(key, in, dir));
 			}
 		})));
+	}
+
+	/** 49-700차: 바꿀 그림이면 지금 리소스팩의 바닐라 그림(요리용 석탄 → 숯)을 여는 Resource. 팩 출처는 원래 것 그대로. */
+	@org.spongepowered.asm.mixin.Unique
+	private Resource lunaslight$substitute(Identifier id, Resource orig) {
+		String path = kr.lunaslight.mod.util.NeogulTextures.replacement(id.getNamespace(), id.getPath());
+		if (path == null || orig == null) {
+			return null;
+		}
+		try {
+			Optional<Resource> v = ((MultiPackResourceManager) (Object) this).getResource(Identifier.withDefaultNamespace(path));
+			if (v == null || v.isEmpty()) {
+				return null;
+			}
+			Resource van = v.get();
+			return new Resource(orig.source(), van::open);
+		} catch (Throwable t) {
+			kr.lunaslight.mod.util.LunaCompat.warnOnce("neogulTextures", t);
+			return null;
+		}
 	}
 }

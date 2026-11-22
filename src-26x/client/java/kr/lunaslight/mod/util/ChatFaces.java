@@ -49,6 +49,36 @@ public final class ChatFaces {
 	public static final int FACE = 8;
 	public static final int ADVANCE = 10;
 
+	/** 49-705차: 바닐라 글 안 머리(26.x ObjectContents + PlayerSprite) + 뒤 한 칸. 탭 목록에 있으면 그 프로필(스킨 그대로). */
+	private static Component headObject(String name) {
+		try {
+			com.mojang.authlib.GameProfile gp = null;
+			net.minecraft.client.multiplayer.ClientPacketListener conn = net.minecraft.client.Minecraft.getInstance().getConnection();
+			if (conn != null) {
+				net.minecraft.client.multiplayer.PlayerInfo info = conn.getPlayerInfo(name);
+				if (info == null) {
+					info = conn.getPlayerInfoIgnoreCase(name);
+				}
+				if (info != null) {
+					gp = info.getProfile();
+				}
+			}
+			net.minecraft.world.item.component.ResolvableProfile rp = gp != null
+					? net.minecraft.world.item.component.ResolvableProfile.createResolved(gp)
+					: net.minecraft.world.item.component.ResolvableProfile.createUnresolved(name);
+			net.minecraft.network.chat.MutableComponent obj = Component.object(
+					new net.minecraft.network.chat.contents.objects.PlayerSprite(rp, true), Component.literal(""));
+			obj.setStyle(net.minecraft.network.chat.Style.EMPTY.withColor(net.minecraft.ChatFormatting.WHITE).withInsertion(TAG + name));
+			net.minecraft.network.chat.MutableComponent out = Component.empty();
+			out.append(obj);
+			out.append(Component.literal(" "));
+			return out;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("chatFace:head", t);
+			return null;
+		}
+	}
+
 	/** 모듈이 켜져 있고 이 버전에서 되는가. 모듈이 세팅한다 - 꺼져 있으면 채팅 한 줄당 비용 0. */
 	public static volatile boolean enabled;
 
@@ -113,6 +143,14 @@ public final class ChatFaces {
 	}
 
 	private static Component spacerFor(String name) {
+		// 49-705차(사용자 사진: 섬 채팅 "(11명) [칭호 그림] 콩유신: … 저 [얼굴]씨앗 심는중" - 얼굴이 글 가운데에 뜸):
+		// 띄우개 자리에 얼굴을 따로 그리면 앞 글자 폭(Font#width)을 재서 옮기는데, 서버 그림 글자(칭호 등)가 있으면 잰 폭과
+		// 실제 그린 폭이 달라 엉뚱한 자리에 그려졌다(띄우개 폭도 안 보임). 26.x는 바닐라 "글 안 플레이어 머리"(PlayerSprite)를
+		// 넣어 마크가 글자처럼 직접 그리게 한다 - 자리 계산이 필요 없다. 못 만들면 예전 띄우개.
+		Component head = headObject(name);
+		if (head != null) {
+			return head;
+		}
 		Object style = LunaCompat.styleWithInsertion(spacerStyleBase, TAG + name);
 		return LunaCompat.styledText(new String(Character.toChars(SPACER)), style);
 	}
