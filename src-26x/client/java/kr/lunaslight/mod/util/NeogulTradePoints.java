@@ -29,6 +29,14 @@ public final class NeogulTradePoints {
 	 */
 	private static final String MARKET_API = "https://mcng.kr/api/v1/public/market/prices";
 	private static final Map<String, long[]> MARKET = new ConcurrentHashMap<>();   // 이름(띄어쓰기 없앰) → {min, max}
+	/** 49-689차: 시세 규칙 key(fish_coin_a 등) → {min, max}(시세 파괴 알림용). 처음엔 2026-11-21 API 값. */
+	public static final Map<String, long[]> RULES = new ConcurrentHashMap<>(Map.ofEntries(
+			Map.entry("a_fish", new long[]{105000, 220000}), Map.entry("extract_golden", new long[]{60000, 100000}),
+			Map.entry("fish_coin_a", new long[]{630000, 1320000}), Map.entry("fishing_bait_b", new long[]{155000, 330000}),
+			Map.entry("potion_dungeon", new long[]{2500000, 5000000}), Map.entry("potion_gather", new long[]{800000, 1500000}),
+			Map.entry("potion_meat", new long[]{800000, 1500000}), Map.entry("potion_mud", new long[]{800000, 1500000}),
+			Map.entry("potion_sea", new long[]{800000, 1500000}), Map.entry("s_fish", new long[]{1000000, 1500000}),
+			Map.entry("vending_machine", new long[]{1000000, 2000000})));
 	private static final Map<String, long[]> POINTS = new ConcurrentHashMap<>();   // 이름(띄어쓰기 없앰) → {포인트, tenths}
 	private static volatile String date = "";
 	private static volatile long fetchedDay = -1;
@@ -121,6 +129,9 @@ public final class NeogulTradePoints {
 			}
 			long[] v = {r.get("min").getAsLong(), r.get("max").getAsLong()};
 			String key = r.has("key") ? r.get("key").getAsString() : "";
+			if (!key.isEmpty()) {
+				RULES.put(key, v);
+			}
 			String grade = "s_fish".equals(key) ? "S급" : "a_fish".equals(key) ? "A급" : null;
 			if (grade != null) {
 				for (NeogulData.Entry it : NeogulData.items()) {

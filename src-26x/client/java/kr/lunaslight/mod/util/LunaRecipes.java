@@ -1073,7 +1073,7 @@ public final class LunaRecipes {
 					continue;
 				}
 				ItemStack st = handler.getSlot(i).getItem();
-				if (st != null && !st.isEmpty()) {
+				if (st != null && !st.isEmpty() && vanillaOk(st)) {
 					have.merge(st.getItem(), st.getCount(), Integer::sum);
 				}
 			}
@@ -1202,6 +1202,26 @@ public final class LunaRecipes {
 	}
 
 	/** item이 든 가장 큰 보관 칸(item == null이면 빈 칸). 없으면 -1. */
+	/**
+	 * 49-693차(사용자: "용광로 빠른 제작할 때 화로만 만들어진대"): 너굴마을 서버 아이템(은 주괴 등)은 바닐라 철/금/구리 주괴를
+	 * 바탕으로 만들어져 같은 아이템으로 세졌다. 서버는 그것으로 바닐라 조합을 해 주지 않으므로 화로까지만 만들고 용광로에서 멈췄다.
+	 * 서버 모델(마크가 아닌 item_model)이나 nexo 표시가 있는 것은 바닐라 조합 재료로 세지 않는다.
+	 */
+	static boolean vanillaOk(ItemStack st) {
+		try {
+			Object model = st.get(net.minecraft.core.component.DataComponents.ITEM_MODEL);
+			if (model != null && !model.toString().startsWith("minecraft:")) {
+				return false;
+			}
+			Object cd = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+			if (cd != null && cd.toString().contains("nexo")) {
+				return false;
+			}
+		} catch (Throwable ignored) {
+		}
+		return true;
+	}
+
 	private static int findSource(net.minecraft.world.inventory.AbstractContainerMenu handler, boolean playerHandler, int gridN, Item item) {
 		int best = -1, bestN = 0;
 		int size = handler.slots.size();
@@ -1216,7 +1236,7 @@ public final class LunaRecipes {
 				}
 				continue;
 			}
-			if (st != null && !st.isEmpty() && st.getItem() == item && st.getCount() > bestN) {
+			if (st != null && !st.isEmpty() && st.getItem() == item && st.getCount() > bestN && vanillaOk(st)) {
 				best = i;
 				bestN = st.getCount();
 			}
@@ -1314,7 +1334,7 @@ public final class LunaRecipes {
 			int size = sizeObj instanceof Number n ? n.intValue() : 41;
 			for (int i = 0; i < size; i++) {
 				Object st = LunaCompat.call1(inv, "getStack", i);
-				if (st instanceof ItemStack s && !s.isEmpty()) {
+				if (st instanceof ItemStack s && !s.isEmpty() && vanillaOk(s)) {
 					out.merge(s.getItem(), s.getCount(), Integer::sum);
 				}
 			}

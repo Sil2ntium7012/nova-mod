@@ -667,6 +667,17 @@ public class NeogulMineModule extends Module {
 			}
 			ensureLoaded();
 			String name = nameFor(id);
+			// 49-694차(사용자 사진: 섬에서 잠광, 사암 1개 + - "섬에서 잠광하는데 광창에 쌓임"): 섬(광물 생성기)에서 캔 것은
+			// 섬 광물창고로 간다 - 내 광물창고 개수에 더하지 않고, 획득 줄만 보유 개수 없이 띄운다.
+			if (kr.lunaslight.mod.util.NeogulDungeonHud.onIsland()) {
+				boolean gem = GEMS.contains(id);
+				ItemPickupToastModule.addExternal(iconFor(id, name), name, n, -1, gem);
+				kr.lunaslight.mod.util.LunaStats.addOre(statName(name), n);
+				if (gem) {
+					gemNote(id, name, n);
+				}
+				return;
+			}
 			if (opened && !store.isEmpty() && !isStore(name)) {
 				// 49-635차: 창고에 칸이 없는 것(사암 등) - 인벤토리로 들어가니 아이템 획득이 따로 띄운다(보석이면 몇 개 나왔다는 알림만)
 				if (GEMS.contains(id)) {

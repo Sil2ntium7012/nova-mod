@@ -8,6 +8,7 @@ import kr.lunaslight.mod.module.setting.StringSetting;
 import kr.lunaslight.mod.util.ChatState;
 import kr.lunaslight.mod.util.LunaCompat;
 import kr.lunaslight.mod.util.NeogulData;
+import kr.lunaslight.mod.util.NeogulPriceGuard;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -40,19 +41,25 @@ public class NeogulQuestionModule extends Module {
 			"alert", "질문 알림", "새 질문이 올라오면 화면 위 가운데에 띄웁니다.", true));
 	private final BooleanSetting sound = register(new BooleanSetting(
 			"sound", "알림 소리", "새 질문이 올라오면 소리를 냅니다.", true));
+	// 49-689차(사용자: "가이드 기능에 이런 시세 파괴도 넣어 줘"): 확성기, 전체 채팅의 사고팔기 값이 시세표를 벗어나면 알림 + 안내 글 붙이기
+	// 49-690차(사용자 사진: "[전체] Labe_u: 채집섬 티켓 어디서얻나요??"에 가이드들이 전체 채팅으로 답함 - "이런 식인 전챗 질문도 되게"): 전체 채팅 질문도
+	private final BooleanSetting chatQuestions = register(new BooleanSetting(
+			"chat_questions", "전체 채팅 질문", "전체 채팅에 올라온 질문도 알리고, 채팅창을 열면 답변 고르기를 띄웁니다.", true));
+	private final BooleanSetting priceAlert = register(new BooleanSetting(
+			"price_alert", "시세 파괴 알림", "확성기, 전체 채팅에서 시세표를 벗어난 값으로 사고팔면 알리고, 채팅창에 안내 글을 붙일 수 있게 합니다.", true));
 	// 49-590차(사용자가 준 자주 묻는 질문 30개, 초월은 위키 기준으로 자세히): 목록 칸이 쉼표로 줄을 나눠서 답변 안 쉼표는 전각 쉼표(，)로 적고,
 	// 붙여 넣을 때 보통 쉼표로 되돌린다. 기본값을 바꿀 때마다 설정 이름도 바꾼다(49-591차 answers_v3: 미끼 추가, 도토리 문구 / 49-592차 answers_v4: 곡괭이 획득처, 강화 장비 제작 장소 / 49-593차 answers_v5: 도토리 판매, 유저상점 4개 / 49-594차 answers_v6: 청크로더 범위 / answers_v7: 토벌 피로도 / 49-595차 answers_v8: 룰렛 / 49-600차 answers_v9: 내 정보 / 49-607차 answers_v10: 물고기 확률 / 49-632차 answers_v11: 초월, 자동줍기, 인챈트, 일퀘, 엘리베이터 답변 길게 + 링크 대신 /위키, 대장간 줄에서 초월 키워드 뺌 / 49-633차 answers_v12: 유저상점 판매 길게, "올리" "어떻게 쓰" 키워드 뺌(다른 질문에 잘못 걸림), 강화 복구 줄, 채집티켓 / 49-634차 answers_v13: 높이 -64 ~ 320(사용자), Y 몇 / 몇까지 / 농사땅 키워드 / 49-644차 answers_v14: 11/09~11/12 패치 - 도토리 거래소 1300~1800, 광물창고 쉬프트 클릭, 도박 규정, 시세 규정, 거래, 가구상점, 바이옴, 줄기보호 / 49-650차 answers_v15: 광물창고 한도(채광 스킬 광물창고 I~X, 멤버십 3배) / 49-661차 answers_v16: 높이 답변에서 "농사" 뺌(사용자: 투머치) / 49-666차 answers_v17: 격식체 / 49-674차 answers_v18(사용자: "답변 너무 긴 게 많아, 쓸데없는 거 빼고 명령어는 [] 괄호로, 내가 답변하는 것처럼 위키 이딴 거 빼고"): 전부 짧게, 명령어 [/…], 위키 언급 없앰, 11/12~11/15 패치(도토리 거래소 1600~2200 구매/판매 등록, 도박 25% 4배, 섬 출금 전액, 고급 미끼 B형 시세, 달콤한 열매)).
 	private final StringSetting answers = register(new StringSetting(
-			"answers_v18", "답변 목록", "키워드/키워드 = 답변 형식으로 한 줄씩 넣습니다. 답변 안 쉼표는 ，(전각)로 써 주십시오.",
-			"기반암/제거기 = 상점 2층 캐시상점에서 기반암 제거기를 사시면 됩니다." + ", "
+			"answers_v20", "답변 목록", "키워드/키워드 = 답변 형식으로 한 줄씩 넣습니다. 답변 안 쉼표는 ，(전각)로 써 주십시오.",
+			"기반암/제거기/베드락 = 도토리상점 성장의 도구에서 기반암 제거기를 사시면 됩니다." + ", "
 					+ "미끼/진주 = 낚시하다 나오는 진주에서 나옵니다." + ", "
 					+ "물고기 확률/물고기확률/낚시 확률/낚시확률/물고기 등급/등급 확률/등급별 = S급 0.78%， A급 8%， B급 57.5%， C급 33.72%입니다." + ", "
-					+ "S급/범고래/상어/소라고동 = S급(범고래， 상어， 소라고동)은 0.78%입니다." + ", "
-					+ "A급/연어/장어/해파리/랍스터/참치 = A급(연어， 장어， 해파리， 랍스터， 참치)은 8%입니다." + ", "
+					+ "S급/범고래/상어/소라고동 = S급은 0.78%입니다." + ", "
+					+ "A급/연어/장어/해파리/랍스터/참치 = A급은 8%입니다." + ", "
 					+ "B급/열대어/메기/베스/개복치/불가사리/멸치/해마/금붕어/쭈꾸미/개불 = B급은 57.5%입니다." + ", "
 					+ "C급/송사리/청개구리/콜라 캔/빈 깡통/쓰레기 봉투/쓰레기 = C급은 33.72%입니다." + ", "
 					+ "곡괭이/곡/도구 어디/도구 획득 = 제작하시거나 상점 2층 캐시상점， 유저상점에서 구하시면 됩니다." + ", "
-					+ "강화/장비 제작/장비제작/대장간 = 메뉴(Shift+F) 워프 2페이지 대장간의 탱구에게 하시면 됩니다." + ", "
+					+ "강화/장비 제작/장비제작/대장간 = Shift+F 메뉴 워프 2페이지 대장간의 탱구에게 하시면 됩니다." + ", "
 					+ "도토리 판매/도토리판매/도토리 팔/도토리를 팔/도토리 거래/거래소 = [/도토리거래소 도토리판매 수량 비율]로 올리시면 됩니다. 비율은 1600~2200입니다." + ", "
 					+ "도토리 구매/도토리구매/도토리 사/도토리를 사 = [/도토리거래소 도토리구매 수량 비율]로 올리시면 됩니다. 비율은 1600~2200입니다." + ", "
 					+ "거래소 취소/도토리 취소/구매취소/판매취소 = [/도토리거래소 도토리판매취소]， 구매는 [/도토리거래소 도토리구매취소]입니다." + ", "
@@ -64,7 +71,7 @@ public class NeogulQuestionModule extends Module {
 					+ "룰렛/룰렛쿠폰/룰렛 쿠폰 = 스폰 오른쪽에서 쓰시면 됩니다." + ", "
 					+ "내 정보/내정보/정보/프로필/스탯 = [/프로필]입니다." + ", "
 					+ "시세/얼마 = 손에 들고 [/시세]입니다." + ", "
-					+ "고급 미끼/B형 = 고급 미끼(B형) 시세는 15만 5천 원~33만 원입니다." + ", "
+					+ "고급 미끼/B형 = 고급 미끼 B형 시세는 15만 5천 원~33만 원입니다." + ", "
 					+ "셋홈/스폰 위치/스폰위치/스폰설정/스폰 설정 = [/섬 스폰설정]입니다." + ", "
 					+ "하트/멤버십 = 멤버십 표시입니다. [/멤버십 혜택]" + ", "
 					+ "고추 = 영혼모래에 심으시면 됩니다. 고추가 씨앗입니다." + ", "
@@ -86,8 +93,8 @@ public class NeogulQuestionModule extends Module {
 					+ "주문의 흔적/주문의흔적/주흔/흔적 = 던전， 유저거래， 도토리상점， 추천상점， 핫타임상점에서 구하시면 됩니다." + ", "
 					+ "일퀘 작물/일일퀘스트 작물/퀘스트 작물/일퀘 = [/퀘스트]로 보실 수 있고 매일 자정에 바뀝니다." + ", "
 					+ "채집섬/도구를 안/도구 안/도구를 놓/보내기 = [/보내기 닉네임]으로 도구를 받으시면 됩니다." + ", "
-					+ "엘리베이터/엘베 = 도토리상점， 추천코인， 핫타임코인으로 사실 수 있습니다. 고급은 무역순위 보상입니다." + ", "
-					+ "엘리베이터 사용/엘베 사용/엘리베이터 설치/엘베 설치 = 같은 좌표 위아래로 2개 이상 두고 점프로 올라가고 쉬프트로 내려갑니다." + ", "
+					+ "엘리베이터/엘베/엘레베이터 = 도토리상점， 추천코인， 핫타임코인으로 사실 수 있습니다. 고급은 무역순위 보상입니다." + ", "
+					+ "엘리베이터 사용/엘베 사용/엘리베이터 설치/엘베 설치/엘레베이터 사용/엘레베이터 설치/엘레베이터 어떻게/엘베 어떻게/엘리베이터 어떻게 = 같은 좌표 위아래로 2개 이상 두고 점프로 올라가고 쉬프트로 내려갑니다. 옮길 때는 그냥 캐시면 됩니다." + ", "
 					+ "요리용 석탄/석탄/울타리 = 아니요， 광산에서만 나옵니다." + ", "
 					+ "청크/청크로딩 = 플레이어 기준 9x9 청크입니다." + ", "
 					+ "강화복구/강화 복구/복구 가능/복구가능/복구 주문서/복구주문서/복구 횟수 = 실패한 횟수만큼 복구 주문서를 장비 위로 끌어다 놓으시면 됩니다." + ", "
@@ -102,7 +109,37 @@ public class NeogulQuestionModule extends Module {
 					+ "달콤한 열매/달콤한열매/스윗베리 = 우클릭 수확에도 괭이 초월 효과가 붙습니다." + ", "
 					+ "높이/건축/y 몇/y좌표/y 좌표/몇까지/농사땅/최대 높이/최소 높이 = Y -64 ~ 320입니다." + ", "
 					+ "자라/성장 = 네， 사람이 있거나 청크로더를 두셔야 합니다." + ", "
-					+ "잠광/잠수 광질/잠수광질 = 섬에서 캐는 중에 F3+T 누르고 마우스를 떼면 계속 캐집니다. F3+P를 켜면 창을 바꿔도 됩니다.").list());
+					+ "잠광/잠수 광질/잠수광질 = 섬에서 캐는 중에 F3+T 누르고 마우스를 떼면 계속 캐집니다. F3+P를 켜면 창을 바꿔도 됩니다." + ", "
+					+ "한글닉/한글 닉/닉변/닉네임 변경/닉네임 한글/한글 닉네임 = 도토리상점 치장의 한글 닉네임 변경권을 사신 뒤 [/한글 닉네임]입니다." + ", "
+					+ "섬 이름/섬이름 = [/섬 이름변경 이름]입니다." + ", "
+					+ "왕관/인기도 = 인기도입니다. 상대를 쉬프트 우클릭하거나 [/프로필 닉네임]에서 올리실 수 있습니다." + ", "
+					+ "야간투시/야투/어두워 = [/스킬] 권한스킬에 있습니다." + ", "
+					+ "수리/내구도/수선 = [/스킬] 권한스킬에서 수리를 배우신 뒤 [/수리]입니다. 비용 없이 쿨타임만 있습니다." + ", "
+					+ "호퍼 = 섬마다 64개까지 쓰실 수 있습니다." + ", "
+					+ "알바/알바고용 = [/섬 알바고용 닉네임]입니다. 상자 권한은 [/섬 권한]에서 주시면 됩니다." + ", "
+					+ "자동심기/자심 = [/자동심기]로 켜고 끕니다. 씨앗을 가진 채로 캐면 자동으로 심어집니다." + ", "
+					+ "낚싯대/낚시대 = 낚시터 NPC 도토에게 낚시 코인으로 강화합니다. 10레벨까지 있습니다." + ", "
+					+ "행운 적용/행운 영향/행운이 적용/행운 효과 = 밀， 벼， 호박， 수박， 사과 모두 행운이 적용됩니다." + ", "
+					+ "경험치 쿠폰/경험치쿠폰/경쿠 = 시간과 퍼센트 모두 중첩되지 않고 리붓하면 사라집니다." + ", "
+					+ "사탕수수 = 사탕수수는 경험치가 없습니다." + ", "
+					+ "농사 뭐/농사 추천/작물 추천/어떤 작물/농작물 어떤/농사는 뭐/농사는 어떤 = 벼， 호박， 사과를 추천드립니다. 경험치는 밀과 벼가 잘 오릅니다." + ", "
+					+ "돈 벌/돈벌/돈을 벌/잘 벌/잘벌/돈 많이 = 처음에는 낚시가 가장 효율이 좋습니다." + ", "
+					+ "광산 초기화/광산초기화/광산 몇시/광산은 몇시 = 오전 3시， 9시와 오후 3시， 9시입니다." + ", "
+					+ "피로도 초기화/피로도 언제/퀘스트 초기화 = 매일 0시에 초기화됩니다." + ", "
+					+ "섬 방문/다른 섬/구경/놀러 = [/섬 방문 섬이름]입니다." + ", "
+					+ "섬 크기/섬크기/섬 확장/섬 업그레이드/섬업글 = [/섬 업그레이드]로 늘리고 땅은 직접 블럭으로 채우시면 됩니다. 최대 501x501입니다." + ", "
+					+ "던전 레벨/던전 입장/입장 레벨/던전 몇렙 = [/레벨]의 토벌 레벨 기준입니다." + ", "
+					+ "던전 무기/던전무기/던전 칼/토벌 무기/무기 어디 = 대장간에서 장비 제작으로 만드실 수 있습니다." + ", "
+					+ "스킬 키/스킬키/스킬 조작/조작키 = [/스킬키세팅]입니다. 스킬 키 모드가 필요합니다." + ", "
+					+ "이속/신속/이동속도 = [/신속]으로 켜고 끕니다." + ", "
+					+ "무역/출항 티켓/출항티켓/무역 티켓 = 12월 1일 열리는 무역에서 씁니다." + ", "
+					+ "가챠/치장 뽑기/가챠쿠폰/가챠 쿠폰 = 스폰 중앙에 있습니다. 가챠 쿠폰은 치장상점 요미에게 사실 수 있고 천장은 개인입니다." + ", "
+					+ "사과/사과 농사 = 참나무나 짙은 참나무 잎을 괭이로 캐면 나옵니다. 묘목은 다시 심으셔야 합니다." + ", "
+					+ "나무/원목/묘목 = 상점 왼쪽 농사상점 다음 페이지에 있습니다." + ", "
+					+ "오팔/문스톤/보석 = 광산에서 채광하다 보면 낮은 확률로 나옵니다." + ", "
+					+ "요리 추천/요리 뭐/요리 퀘스트/요리 8회 = 호박죽과 채집 요리를 추천드립니다." + ", "
+					+ "갑옷 안 보이/갑옷 숨기/갑옷 안보이/투명 치장/옷 안 보이 = 상점 2층 투명 치장을 쓰시면 됩니다." + ", "
+					+ "레벨 효과/레벨 올리면/레벨업 하면/레벨 이점 = 레벨 자체 효과는 없고 스킬을 찍으셔야 합니다.").list());
 
 	private static final Pattern Q = Pattern.compile("\\[질문\\]\\s*([^:\\[\\]\\n]{1,24}?)\\s*:\\s*(.+)", Pattern.DOTALL);
 	private static final long DUP_MS = 30 * 60_000L;
@@ -110,10 +147,16 @@ public class NeogulQuestionModule extends Module {
 	private static NeogulQuestionModule instance;
 	private final Map<String, Long> seen = new LinkedHashMap<>();
 	private String alertName = "", alertText = "";
+	private String alertLabel = "질문";
 	private long alertAt;
+	// 49-689차: 시세 파괴
+	private NeogulPriceGuard.Hit priceHit;
+	private long priceAt;
+	private final Map<String, Long> priceSeen = new LinkedHashMap<>();
 	/** 지금 답하려는 질문(누른 것, 없으면 마지막 새 질문). */
 	private String focusText = "";
 	private long clickedAt, lastQuestionAt;
+	private boolean focusChat;   // 49-690차: 지금 고르는 질문이 전체 채팅 질문(채널 바꿈 안내에 닫지 않음)
 	/** 49-605차: 답을 낸 질문(이름|내용) - 서버가 같은 질문을 또 보여도 답변 고르기를 다시 띄우지 않는다. */
 	private final java.util.Set<String> answered = new java.util.HashSet<>();
 	private String focusKey = "", pendingKey = "", pendingText = "";
@@ -193,6 +236,9 @@ public class NeogulQuestionModule extends Module {
 				}
 				return;
 			}
+			if (priceAlert.get() && !line.contains("[질문]")) {
+				checkPrice(line);
+			}
 			// 49-600차(사용자 사진: 질문을 누르면 "└ 채팅으로 답변을 입력하세요. (60초…)"): 그 안내가 오면 그때부터 60초 동안 답변 고르기를 띄운다
 			if (line.contains("채팅으로 답변을 입력")) {
 				long now = System.currentTimeMillis();
@@ -200,6 +246,7 @@ public class NeogulQuestionModule extends Module {
 				if (now - pendingAt < 5000 && !pendingKey.isEmpty()) {
 					// 방금 다시 온 질문이 누른 질문(답한 적 있어도 또 누르면 다시 답할 수 있게)
 					focusKey = pendingKey;
+					focusChat = false;
 					focusText = pendingText;
 					synchronized (seen) {
 						answered.remove(pendingKey);
@@ -208,10 +255,16 @@ public class NeogulQuestionModule extends Module {
 				return;
 			}
 			// 49-605차(사용자 사진: 답을 내고 "답변을 제출하였습니다" 뒤에 같은 질문이 또 와서 고르기 창이 다시 떴다): 답을 내면 닫고 그 질문은 기억
+			if (!line.contains("[질문]") && chatQuestions.get() && chatQuestion(line)) {
+				return;
+			}
 			if (!line.contains("[질문]")) {
 				// 49-607차(사용자 사진: 다른 사람이 먼저 답해 "[답변] nmiao: …" 뒤 "해당 질문을 찾을 수 없습니다", 채널이 전체채팅으로 바뀜 - 창이 그대로):
 				// 답변 줄(누구 것이든), 질문 없음, 채널 바뀜에도 닫는다
 				String pl = plain(line);
+				if (focusChat && line.contains("채팅 채널을")) {
+					return;   // 49-690차: 전체 채팅 질문에 답하려고 채널을 바꾼 것 - 고르기는 그대로
+				}
 				if (line.contains("답변을 제출") || pl.contains("[답변]") || line.contains("질문을 찾을 수 없") || line.contains("채팅 채널을")) {
 					clickedAt = 0;
 					synchronized (seen) {
@@ -258,6 +311,7 @@ public class NeogulQuestionModule extends Module {
 					pendingAt = now;
 					if (!answered.contains(key)) {
 						focusKey = key;
+						focusChat = false;
 						focusText = text;
 						clickedAt = now;
 					}
@@ -271,11 +325,13 @@ public class NeogulQuestionModule extends Module {
 			}
 			focusKey = key;
 			focusText = text;
+			focusChat = false;
 			lastQuestionAt = now;
 			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 질문 알림: {} - {}", name, text);   // 49-610차: 알림이 안 보일 때 확인용
 			if (alert.get()) {
 				alertName = name;
 				alertText = text;
+				alertLabel = "질문";
 				alertAt = now;
 			}
 			if (sound.get()) {
@@ -283,6 +339,87 @@ public class NeogulQuestionModule extends Module {
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulQuestion:chat", t);
+		}
+	}
+
+	private static final Pattern ASK = Pattern.compile("[?？]|나요|까요|가요|니요|는지|어디|어떻게|어케|얼마|뭔가요|뭐에요|뭐예요|뭐임|있음\\?|됨\\?");
+
+	/**
+	 * 49-690차: "[전체] (칭호) 이름: 내용"이 질문처럼 보이면 [질문]과 같이 알리고 답변 고르기를 연다(답은 전체 채팅으로 직접).
+	 * 가이드가 쓴 글, 내 글, 명령어 안내, 사고팔기 글은 뺀다. 질문으로 다뤘으면 true.
+	 */
+	private boolean chatQuestion(String line) {
+		String p = plain(line).replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", "");
+		int tag = p.indexOf("[전체]");
+		if (tag < 0 || tag > 12) {
+			return false;
+		}
+		int colon = p.indexOf(": ", tag);
+		if (colon < 0) {
+			return false;
+		}
+		String head = p.substring(tag + 4, colon).trim();
+		String text = p.substring(colon + 2).replace("\r", "").replaceAll("\\s*\\n\\s*", " ").trim();
+		String[] words = head.split("\\s+");
+		String name = words.length == 0 ? "" : words[words.length - 1];
+		if (name.isEmpty() || head.contains("가이드") || name.equalsIgnoreCase(LunaCompat.sessionName(client))
+				|| text.length() < 4 || text.length() > 90 || text.contains("[/") || !ASK.matcher(text).find()
+				|| text.matches(".*(사요|삽니다|팝니다|팔아요|구매합니다|판매합니다).*")) {
+			return false;
+		}
+		String key = name + "|" + text;
+		long now = System.currentTimeMillis();
+		synchronized (seen) {
+			seen.values().removeIf(t -> now - t > DUP_MS);
+			if (seen.containsKey(key)) {
+				return true;
+			}
+			seen.put(key, now);
+		}
+		focusKey = key;
+		focusText = text;
+		focusChat = true;
+		clickedAt = now;   // 1분 안에 채팅창을 열면 답변 고르기(답은 입력칸 커서 자리에)
+		lastQuestionAt = now;
+		kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 전체 채팅 질문: {} - {}", name, text);
+		if (alert.get()) {
+			alertName = name;
+			alertText = text;
+			alertLabel = "전체 질문";
+			alertAt = now;
+		}
+		if (sound.get()) {
+			LunaCompat.playUiSound(client, "EXPERIENCE_ORB_PICKUP", 1.6f);
+		}
+		return true;
+	}
+
+	/** 49-689차: 시세표를 벗어난 사고팔기 글이면 알림(같은 사람, 같은 아이템은 10분에 한 번). */
+	private void checkPrice(String line) {
+		NeogulPriceGuard.Hit h = NeogulPriceGuard.check(plain(line).replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", ""));
+		if (h == null || h.who().equalsIgnoreCase(LunaCompat.sessionName(client))) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		String key = h.who() + "|" + h.item();
+		synchronized (priceSeen) {
+			priceSeen.values().removeIf(t -> now - t > 10 * 60_000L);
+			if (priceSeen.containsKey(key)) {
+				return;
+			}
+			priceSeen.put(key, now);
+		}
+		priceHit = h;
+		priceAt = now;
+		kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 시세 파괴: {} - {} {}원", h.who(), h.item(), h.price());
+		if (alert.get()) {
+			alertName = h.who();
+			alertText = h.item() + " " + NeogulPriceGuard.won(h.price()) + "  " + (h.over() ? "최대 " : "최소 ") + NeogulPriceGuard.won(h.limit());
+			alertLabel = "시세 파괴";
+			alertAt = now;
+		}
+		if (sound.get()) {
+			LunaCompat.playUiSound(client, "EXPERIENCE_ORB_PICKUP", 1.2f);
 		}
 	}
 
@@ -299,7 +436,7 @@ public class NeogulQuestionModule extends Module {
 		String text = preview ? "룰렛 쿠폰은 어디서 쓰나요?" : alertText;
 		float a = age < 180 ? age / 180f : age > 5400 ? Math.max(0f, (6000 - age) / 600f) : 1f;
 		if (preview) {
-			drawAlert(ctx, previewCenterX(), previewCenterY() - 14, name, text, 1f);
+			drawAlert(ctx, previewCenterX(), previewCenterY() - 14, "질문", name, text, 1f);
 			return;
 		}
 		// 49-610차(사용자: "질문 올라올 때 알림이 안 와, 화면에"): 서버 HUD, 보스바보다 위 층에, 위쪽 HUD 줄 아래(화면 높이 18%)로 내리고 6초
@@ -308,10 +445,10 @@ public class NeogulQuestionModule extends Module {
 		} catch (Throwable ignored) {
 		}
 		int sh = client.getWindow().getGuiScaledHeight();
-		drawAlert(ctx, client.getWindow().getGuiScaledWidth() / 2, Math.max(40, Math.round(sh * 0.18f)) - Math.round(6 * (1 - Math.min(1f, age / 180f))), name, text, a);
+		drawAlert(ctx, client.getWindow().getGuiScaledWidth() / 2, Math.max(40, Math.round(sh * 0.18f)) - Math.round(6 * (1 - Math.min(1f, age / 180f))), alertLabel, name, text, a);
 	}
 
-	private void drawAlert(GuiGraphicsExtractor ctx, int cx, int y, String name, String text, float alpha) {
+	private void drawAlert(GuiGraphicsExtractor ctx, int cx, int y, String label, String name, String text, float alpha) {
 		var font = client.font;
 		int maxW = Math.min(260, client.getWindow().getGuiScaledWidth() - 40);
 		List<String> ls = wrap(font, text, maxW - 16, 2);
@@ -319,17 +456,18 @@ public class NeogulQuestionModule extends Module {
 		for (String l : ls) {
 			tw = Math.max(tw, LunaDraw.width(font, l));
 		}
-		tw = Math.max(tw, LunaDraw.width(font, "질문  " + name) + 4);
+		tw = Math.max(tw, LunaDraw.width(font, label + "  " + name) + 4);
+		int col = label.endsWith("질문") ? 0xFFFFD36A : 0xFFFF8A65;
 		int w = tw + 16, h = 15 + ls.size() * LH + 5;
 		int x = cx - w / 2;
 		float base = LunaDraw.alpha();
 		LunaDraw.setAlpha(base * alpha);
 		try {
 			LunaDraw.shadow(ctx, x, y, w, h, 6);
-			LunaDraw.roundRectBordered(ctx, x, y, w, h, 6, 0xE8121820, 0x66FFD36A);
-			LunaDraw.roundRect(ctx, x + 6, y + 5, 3, 8, 1, 0xFFFFD36A);
-			LunaDraw.text(ctx, font, "질문", x + 12, y + 5, 0xFFFFD36A);
-			LunaDraw.text(ctx, font, name, x + 12 + LunaDraw.width(font, "질문  "), y + 5, 0xFFB8C2CF);
+			LunaDraw.roundRectBordered(ctx, x, y, w, h, 6, 0xE8121820, (col & 0x00FFFFFF) | 0x66000000);
+			LunaDraw.roundRect(ctx, x + 6, y + 5, 3, 8, 1, col);
+			LunaDraw.text(ctx, font, label, x + 12, y + 5, col);
+			LunaDraw.text(ctx, font, name, x + 12 + LunaDraw.width(font, label + "  "), y + 5, 0xFFB8C2CF);
 			for (int i = 0; i < ls.size(); i++) {
 				LunaDraw.text(ctx, font, ls.get(i), x + 8, y + 17 + i * LH, 0xFFFFFFFF);
 			}
@@ -575,33 +713,17 @@ public class NeogulQuestionModule extends Module {
 	 * 인자가 없으면 "/칭호 를 입력하시면 됩니다! (…)".
 	 */
 	private static String commandAnswer(kr.lunaslight.mod.util.NeogulCommands.Command c) {
+		// 49-689차(사용자: "괄호 열어서 쓸데없는 설명 적힌 것들 좀 빼 줘", 49-674차: 명령어는 [ ]로): "[/돈 보내기 닉네임 금액]입니다."
 		String u = c.usage();
-		String base = c.prefill().trim();
-		List<String> need = new ArrayList<>(), opt = new ArrayList<>();
+		StringBuilder sb = new StringBuilder(c.prefill().trim());
 		Matcher m = ARG.matcher(u);
 		while (m.find()) {
 			String a = m.group(2).trim();
-			if (a.isEmpty()) {
-				continue;
-			}
-			if ("[".equals(m.group(1))) {
-				opt.add(a);
-			} else {
-				need.add(a);
+			if (!a.isEmpty()) {
+				sb.append(' ').append(a);
 			}
 		}
-		String desc = c.desc().replaceAll("\\.$", "");
-		if (need.isEmpty() && opt.isEmpty()) {
-			return base + " 를 입력하시면 됩니다! (" + desc + ")";
-		}
-		List<String> all = new ArrayList<>(need);
-		all.addAll(opt);
-		String list = String.join(", ", all);
-		String out = base + " 뒤에 " + list + josa(all.get(all.size() - 1), "을", "를") + " 쓰시면 됩니다!";
-		if (!opt.isEmpty() && !need.isEmpty()) {
-			out += " (" + String.join(", ", opt) + josa(opt.get(opt.size() - 1), "은", "는") + " 빼도 됩니다)";
-		}
-		return out + " (" + desc + ")";
+		return "[" + sb + "]입니다.";
 	}
 
 	private static final Pattern ARG = Pattern.compile("([<(\\[])([^>)\\]]*)[>)\\]]");
@@ -651,6 +773,7 @@ public class NeogulQuestionModule extends Module {
 		pickerBox = null;
 		try {
 			if (!pickerWanted(screen)) {
+				drawPricePicker(g, mx, my);
 				return;
 			}
 			var font = client.font;
@@ -707,10 +830,37 @@ public class NeogulQuestionModule extends Module {
 			int h = used;
 			int y = Math.max(4, sh - 16 - h - 2);
 			pickerBox = new int[]{x, y, w, h, total, vis.size()};
-			drawBox(g, x, y, w, h, q, vis, pickerScroll, hit, total, mx, my, true);
+			drawBox(g, x, y, w, h, q, vis, pickerScroll, hit, total, mx, my, true, "답변 고르기");
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("neogulQuestion:picker", t);
 		}
+	}
+
+	/** 49-689차: 시세 파괴 알림 뒤 1분 안에 채팅창을 열면 안내 글 한 줄을 붙일 수 있게. */
+	private void drawPricePicker(GuiGraphicsExtractor g, int mx, int my) {
+		NeogulPriceGuard.Hit h = priceHit;
+		if (h == null || !active() || !priceAlert.get() || System.currentTimeMillis() - priceAt > 60_000L) {
+			return;
+		}
+		var font = client.font;
+		int sw = client.getWindow().getGuiScaledWidth(), sh = client.getWindow().getGuiScaledHeight();
+		int chatRight = 330;
+		try {
+			var o = client.options;
+			chatRight = 4 + (int) Math.ceil(net.minecraft.client.gui.components.ChatComponent.getWidth(o.chatWidth().get()) * o.chatScale().get()) + 10;
+		} catch (Throwable ignored) {
+			// 기본값
+		}
+		int avail = sw - chatRight - 6;
+		int w = avail >= 200 ? Math.min(300, avail) : Math.min(300, sw - 12);
+		int x = avail >= 200 ? chatRight : sw - w - 6;
+		String q = h.who() + ": " + h.item() + " " + NeogulPriceGuard.won(h.price());
+		List<String[]> items = new ArrayList<>();
+		items.add(new String[]{"시세 " + (h.over() ? "최대 " : "최소 ") + NeogulPriceGuard.won(h.limit()), h.reply(), ""});
+		int hh = headH(font, w, q) + 14 + rowH(font, w, h.reply()) + 3;
+		int y = Math.max(4, sh - 16 - hh - 2);
+		pickerBox = new int[]{x, y, w, hh, 1, 1};
+		drawBox(g, x, y, w, hh, q, items, 0, 1, 1, mx, my, true, "시세 안내");
 	}
 
 	private int headH(net.minecraft.client.gui.Font font, int w, String q) {
@@ -723,12 +873,12 @@ public class NeogulQuestionModule extends Module {
 
 	/** 답변 고르기 상자. items = {키워드, 답변, "c"면 명령어 답변}. record면 클릭 자리를 남긴다. */
 	private void drawBox(GuiGraphicsExtractor g, int x, int y, int w, int h, String q, List<String[]> items, int first, int hit, int total,
-			int mx, int my, boolean record) {
+			int mx, int my, boolean record, String title) {
 		var font = client.font;
 		LunaDraw.shadow(g, x, y, w, h, 6);
 		LunaDraw.roundRectBordered(g, x, y, w, h, 6, 0xF0141A22, 0x40FFFFFF);
 		LunaDraw.roundRect(g, x + 7, y + 6, 3, 9, 1, 0xFFFFD36A);
-		LunaDraw.text(g, font, "답변 고르기", x + 14, y + 7, 0xFFFFD36A);
+		LunaDraw.text(g, font, title, x + 14, y + 7, 0xFFFFD36A);
 		if (total > items.size()) {
 			String pg = (first + 1) + "-" + (first + items.size()) + " / " + total;
 			LunaDraw.text(g, font, pg, x + w - 8 - LunaDraw.width(font, pg), y + 7, 0xFF7D8794);
@@ -759,7 +909,7 @@ public class NeogulQuestionModule extends Module {
 			LunaDraw.roundRect(g, rx + 6, cy + 4, 12, 11, 3, rec ? (accent & 0x00FFFFFF) | 0x40000000 : 0x26FFFFFF);
 			LunaDraw.text(g, font, num, rx + 12 - LunaDraw.width(font, num) / 2, cy + 6, rec ? accent : 0xFFB8C2CF);
 			LunaDraw.text(g, font, LunaDraw.ellipsize(font, a[0].replace("/", ", "), rw - 30), rx + 23, cy + 6, 0xFF7D8794);
-			List<String> al = wrap(font, noLink(a[1]), rw - 26, 2);   // 49-632차: 링크 대신 /위키
+			List<String> al = wrap(font, noParen(noLink(a[1])), rw - 26, 2);   // 49-632차: 링크 대신 /위키
 			for (int k = 0; k < al.size(); k++) {
 				LunaDraw.text(g, font, al.get(k), rx + 23, cy + 17 + k * LH, 0xFFF2F4F7);
 			}
@@ -828,7 +978,8 @@ public class NeogulQuestionModule extends Module {
 		EditBox box = input(screen);
 		if (box != null) {
 			String v = box.getValue();
-			String ans = noLink(rowAnswers.get(i));
+			// 49-689차(사용자: "괄호 열어서 쓸데없는 설명 적힌 것들 좀 빼 줘"): ( … ) 설명은 빼고 붙인다
+			String ans = noParen(noLink(rowAnswers.get(i)));
 			if (v.startsWith("/답변")) {
 				box.setValue(v.endsWith(" ") ? v + ans : v + " " + ans);
 			} else {
@@ -837,7 +988,16 @@ public class NeogulQuestionModule extends Module {
 			box.moveCursorToEnd(false);
 		}
 		clickedAt = 0;
+		priceAt = 0;
 		LunaCompat.playUiSound(client, "UI_BUTTON_CLICK", 1.2f);
+	}
+
+	/** "( … )" 설명을 뺀다([/명령어]는 그대로). */
+	static String noParen(String ans) {
+		if (ans == null || ans.indexOf('(') < 0) {
+			return ans;
+		}
+		return ans.replaceAll("\\s*\\([^()]*\\)", "").replaceAll("\\s{2,}", " ").trim();
 	}
 
 	// ==================== 새 기능 창 미리보기 ====================
@@ -849,16 +1009,16 @@ public class NeogulQuestionModule extends Module {
 
 	@Override
 	public void drawNewFeaturePreview(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-		drawAlert(ctx, x + w / 2, y + 4, "cowin0301", "룰렛 쿠폰은 어디서 쓰나요?", 1f);
+		drawAlert(ctx, x + w / 2, y + 4, "질문", "cowin0301", "룰렛 쿠폰은 어디서 쓰나요?", 1f);
 		var font = client.font;
 		int bw = Math.min(260, w - 16), bx = x + (w - bw) / 2;
-		List<String[]> items = List.of(new String[]{"룰렛/룰렛쿠폰", "스폰 우측에서 사용가능합니다", ""},
-				new String[]{"/룰렛", "/룰렛 을 입력하시면 됩니다!", "c"});
+		List<String[]> items = List.of(new String[]{"룰렛/룰렛쿠폰", "스폰 오른쪽에서 쓰시면 됩니다.", ""},
+				new String[]{"/룰렛", "[/룰렛]입니다.", "c"});
 		String q = "룰렛 쿠폰은 어디서 쓰나요?";
 		int bh = headH(font, bw, q) + 14;
 		for (String[] a : items) {
 			bh += rowH(font, bw, a[1]) + 3;
 		}
-		drawBox(ctx, bx, Math.max(y + 34, y + h - bh - 4), bw, bh, q, items, 0, 2, 2, -1, -1, false);
+		drawBox(ctx, bx, Math.max(y + 34, y + h - bh - 4), bw, bh, q, items, 0, 2, 2, -1, -1, false, "답변 고르기");
 	}
 }

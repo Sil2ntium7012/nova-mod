@@ -1807,6 +1807,52 @@ public final class LunaCompat {
 			warnOnce("titleSwapHook", t);
 		}
 		registerScreenAfterInit(LunaCompat::addMenuButton);   // 49-652차
+		registerScreenAfterInit(LunaCompat::hideServerPauseLogo);   // 49-687차
+	}
+
+	/**
+	 * 49-687차(사용자 사진: 마크 기본 일시정지 메뉴 위 너굴마을 로고 - "기본 화면에서는 너굴마을 로고 삭제해 줘"):
+	 * 너굴마을 리소스팩이 "게임 메뉴" 글(menu.game)을 로고 글자 하나(ꓭ)로 바꿔 둔다. 바닐라 일시정지 화면에서 그 제목이
+	 * 서버 그림 글자로만 되어 있으면 숨긴다(보통 글 "게임 메뉴"는 그대로).
+	 */
+	private static void hideServerPauseLogo(Object screen) {
+		try {
+			if (gameMenuScreenClass == null) {
+				gameMenuScreenClass = classForName("net.minecraft.client.gui.screens.PauseScreen");
+			}
+			if (!(screen instanceof net.minecraft.client.gui.screens.Screen s) || screen.getClass() != gameMenuScreenClass) {
+				return;
+			}
+			String title = s.getTitle() == null ? "" : s.getTitle().getString();
+			if (!glyphOnly(title)) {
+				return;
+			}
+			for (Object o : s.children()) {
+				if (o instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getMessage() != null
+						&& title.equals(w.getMessage().getString())) {
+					w.visible = false;
+				}
+			}
+		} catch (Throwable t) {
+			warnOnce("hidePauseLogo", t);
+		}
+	}
+
+	/** 빈칸을 뺀 모든 글자가 서버 그림 글자(사용자 영역, ꀀ~꓏)면 true. */
+	private static boolean glyphOnly(String s) {
+		boolean any = false;
+		for (int i = 0; i < s.length(); ) {
+			int cp = s.codePointAt(i);
+			i += Character.charCount(cp);
+			if (Character.isWhitespace(cp)) {
+				continue;
+			}
+			if (!((cp >= 0xE000 && cp <= 0xF8FF) || cp >= 0xF0000 || (cp >= 0xA000 && cp <= 0xA4FF))) {
+				return false;
+			}
+			any = true;
+		}
+		return any;
 	}
 
 	// ==================== 49-652차: 마크 기본 메뉴(메인, ESC) + 기능 창 버튼 ====================

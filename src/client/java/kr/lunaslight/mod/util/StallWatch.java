@@ -43,12 +43,25 @@ public final class StallWatch {
 		t.start();
 	}
 
+	/**
+	 * 49-688차(사용자: "화면 넘길 때마다 엄청난 렉" - 기록에 10초 넘는 멈춤은 없었다): 짧게 끊기는 것도 남긴다.
+	 * 신호가 0.4초 끊기면 그 순간 렌더 스레드 위치를 한 번 떠 두고, 풀렸을 때 0.7초 이상이었으면 시간, 메모리와 함께 기록.
+	 * 실행 한 번에 40번까지, 5초에 한 번까지.
+	 */
+	private static final long SHORT_SAMPLE_MS = 400L;
+	private static final long SHORT_LOG_MS = 700L;
+	private static final int SHORT_MAX = 40;
+
 	private static void loop() {
 		int reported = 0;
 		long stallStart = 0L;
+		long shortBeat = 0L;      // 짧은 멈춤을 잰 신호 시각(같은 멈춤이면 그대로)
+		String shortStack = null;
+		int shortLogged = 0;
+		long shortLastLog = 0L;
 		while (true) {
 			try {
-				Thread.sleep(2000L);
+				Thread.sleep(100L);
 			} catch (InterruptedException e) {
 				return;
 			}
@@ -57,7 +70,23 @@ public final class StallWatch {
 				return;
 			}
 			long now = System.nanoTime();
-			long sinceMs = (now - lastBeat) / 1_000_000L;
+			long beat = lastBeat;
+			long sinceMs = (now - beat) / 1_000_000L;
+			// 짧은 멈춤
+			if (shortStack != null && beat != shortBeat) {
+				long dur = (beat - shortBeat) / 1_000_000L;
+				if (dur >= SHORT_LOG_MS && reported == 0 && shortLogged < SHORT_MAX && now - shortLastLog > 5_000_000_000L) {
+					shortLogged++;
+					shortLastLog = now;
+					log("[Nova] 짧은 멈춤 " + String.format(java.util.Locale.ROOT, "%.1f", dur / 1000.0) + "초 (" + shortLogged + "/" + SHORT_MAX + ", "
+							+ memory() + ") - 그때 렌더 스레드 위치:\n" + shortStack);
+				}
+				shortStack = null;
+			}
+			if (shortStack == null && sinceMs >= SHORT_SAMPLE_MS && sinceMs < REPORT_AT_MS[0] && shortLogged < SHORT_MAX) {
+				shortBeat = beat;
+				shortStack = stackOf(render, 25);
+			}
 			if (sinceMs < REPORT_AT_MS[0]) {
 				if (reported > 0) {
 					long total = (now - stallStart) / 1_000_000L;
@@ -67,20 +96,31 @@ public final class StallWatch {
 				continue;
 			}
 			if (reported == 0) {
-				stallStart = lastBeat;
+				stallStart = beat;
 			}
 			if (reported < REPORT_AT_MS.length && sinceMs >= REPORT_AT_MS[reported]) {
 				reported++;
-				log("[Nova] 화면 멈춤 " + (sinceMs / 1000L) + "초째 - 렌더 스레드 위치(" + reported + "/"
+				log("[Nova] 화면 멈춤 " + (sinceMs / 1000L) + "초째 (" + memory() + ") - 렌더 스레드 위치(" + reported + "/"
 						+ REPORT_AT_MS.length + "):\n" + stackOf(render));
 			}
 		}
 	}
 
+	/** "메모리 사용 1,234 / 최대 4,096MB". */
+	private static String memory() {
+		Runtime r = Runtime.getRuntime();
+		long used = (r.totalMemory() - r.freeMemory()) >> 20;
+		return String.format(java.util.Locale.ROOT, "메모리 %,d / 최대 %,dMB", used, r.maxMemory() >> 20);
+	}
+
 	private static String stackOf(Thread t) {
+		return stackOf(t, MAX_FRAMES);
+	}
+
+	private static String stackOf(Thread t, int max) {
 		StringBuilder sb = new StringBuilder();
 		StackTraceElement[] st = t.getStackTrace();
-		int n = Math.min(st.length, MAX_FRAMES);
+		int n = Math.min(st.length, max);
 		for (int i = 0; i < n; i++) {
 			sb.append("\tat ").append(st[i]).append('\n');
 		}

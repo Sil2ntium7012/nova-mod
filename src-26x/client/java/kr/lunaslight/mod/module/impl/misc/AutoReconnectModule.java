@@ -270,8 +270,23 @@ public class AutoReconnectModule extends Module {
 				return;
 			}
 			Minecraft mc = Minecraft.getInstance();
+			// 49-687차(사용자: "너굴라이언트 세션 새로고침만 되고 재접속이 안 눌린다"): 26.x는 이름이 바뀌지 않은 마크라
+			// 예전 Yarn 이름(gui.screen.ConnectScreen)으로는 클래스를 못 찾아 조용히 실패했다(재접속, 세션 새로고침 후 재접속, 429 자동 재접속 모두).
+			// 26.x 진짜 진입점을 바로 부른다.
+			try {
+				net.minecraft.client.gui.screens.Screen parent = new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(
+						new net.minecraft.client.gui.screens.TitleScreen());
+				net.minecraft.client.gui.screens.ConnectScreen.startConnecting(parent, mc,
+						net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(address), serverInfo, false, null);
+				return;
+			} catch (Throwable t) {
+				kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 재접속(26.x 진입점) 실패 - 예전 방식으로 다시 시도: " + t);
+			}
 
-			Class<?> connectScreenClass = kr.lunaslight.mod.util.LunaCompat.classForName("net.minecraft.client.gui.screen.ConnectScreen"); // 46차: 프로덕션 이름 대응
+			Class<?> connectScreenClass = kr.lunaslight.mod.util.LunaCompat.classOrNull("net.minecraft.client.gui.screens.ConnectScreen");
+			if (connectScreenClass == null) {
+				connectScreenClass = kr.lunaslight.mod.util.LunaCompat.classForName("net.minecraft.client.gui.screen.ConnectScreen"); // 46차: 프로덕션 이름 대응
+			}
 			boolean invoked = false;
 			for (java.lang.reflect.Method m : connectScreenClass.getMethods()) {
 				if (!kr.lunaslight.mod.util.LunaCompat.nameMatches(connectScreenClass, "connect", m.getName()) || !java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
@@ -293,7 +308,7 @@ public class AutoReconnectModule extends Module {
 				kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] ConnectScreen.connect 오버로드를 찾지 못해 자동 재접속 실패");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] 재접속 실패: " + e);
 		}
 	}
 

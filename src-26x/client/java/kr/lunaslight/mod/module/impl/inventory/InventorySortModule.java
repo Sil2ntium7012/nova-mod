@@ -136,6 +136,7 @@ public class InventorySortModule extends Module {
 
 	/** 마우스가 올라간 칸이 속한 쪽을 정렬 대상으로 잡는다(실제 정렬은 매 틱 sortStep이 이어서 한다). */
 	private void beginSort() {
+		fixTries = 0;
 		Slot hovered = focusedSlot(kr.lunaslight.mod.util.LunaCompat.screenOf(client));
 		if (hovered == null) {
 			return;
@@ -290,9 +291,53 @@ public class InventorySortModule extends Module {
 				break;
 			}
 		}
-		if (done) {
+		if (done && (++fixTries > 4 || fixPartialOrder(region, sync, budget) == 0)) {
 			pendingRegion = null;
+			fixTries = 0;
 		}
+	}
+
+	/**
+	 * 49-691차(사용자 사진: 60 64 64 64 64 - "개수가 앞으로 정리되게"): 같은 아이템끼리 모인 뒤 덜 찬 묶음이 앞에 있으면
+	 * 뒤쪽의 더 많은 묶음을 집어 앞 칸에 채우고 남은 것을 그 자리에 놓는다(64 60 → 앞이 꽉 차고 뒤가 덜 참). 같은 아이템은 집어 놓으면
+	 * 합쳐지므로 바꿔 놓기 대신 이렇게 한다. 한 번이라도 움직였으면 그 수(다음 틱에 다시 확인).
+	 */
+	private int fixTries;   // 서버가 되돌리면 끝없이 누르지 않게(정리 한 번에 4번까지)
+
+	private int fixPartialOrder(List<Slot> region, int sync, int[] budget) {
+		int n = region.size();
+		int clicks = 0;
+		for (int k = 0; k < n && budget[0] > 3; k++) {
+			ItemStack a = live(region, k);
+			if (a.isEmpty() || a.getCount() >= a.getMaxStackSize()) {
+				continue;
+			}
+			int m = -1;
+			for (int j = n - 1; j > k; j--) {
+				ItemStack b = live(region, j);
+				if (!b.isEmpty() && eq(a, b) && b.getCount() > a.getCount()) {
+					m = j;
+					break;
+				}
+			}
+			if (m < 0) {
+				continue;
+			}
+			click(sync, region.get(m));   // 많은 묶음을 든다
+			click(sync, region.get(k));   // 앞 칸에 채운다(남은 것은 손에)
+			click(sync, region.get(m));   // 남은 것을 뒤 칸에
+			clicks += 3;
+			budget[0] -= 3;
+			if (!cursorEmpty()) {
+				for (int q = 0; q < n && !cursorEmpty(); q++) {
+					if (live(region, q).isEmpty()) {
+						click(sync, region.get(q));
+					}
+				}
+				break;
+			}
+		}
+		return clicks;
 	}
 
 	/** 같은 아이템의 덜 찬 묶음 합치기: 뒤쪽 묶음을 집어 앞쪽 묶음에 놓는다(넘치면 남은 걸 도로 놓음). */
@@ -375,7 +420,11 @@ public class InventorySortModule extends Module {
 		if (c == 0 && !ItemStack.isSameItemSameComponents(a, b)) {
 			c = idOf(a).compareTo(idOf(b));   // 이름이 같아도 다른 아이템이면 id로 갈라 같은 것끼리 붙게
 		}
-		return desc ? -c : c;
+		if (c != 0) {
+			return desc ? -c : c;
+		}
+		// 49-691차(사용자 사진: 60 64 64 64 64 - "개수가 앞으로 정리되게"): 같은 아이템이면 꽉 찬 묶음이 앞, 덜 찬 묶음이 뒤
+		return Integer.compare(b.getCount(), a.getCount());
 	}
 
 	private static String nameOf(ItemStack s) {
