@@ -45,8 +45,54 @@ public final class NeogulMineFeed {
 	 * </ul>
 	 */
 	private static boolean expectEcho;
-	private static final java.util.Map<String, Integer> BATCH = new java.util.HashMap<>();
+	/**
+	 * 49-715차(사용자 사진: 2칸씩 캐는데 광물 창고에 1개씩 쌓임, 기록: 돌만 3줄 꽉 찬 동안 "same x1"): 한 번에 올라오는 줄 수를 마지막 값 하나로,
+	 * 그것도 거의 못 배워서(새 줄이 모두 같은 개수일 때만) 1로 셌다. 이제 줄 수가 하나로 정해질 때마다 최근 16번을 적어 두고
+	 * 가장 많이 나온 값을 쓴다(같으면 큰 값). 곡괭이를 바꾸면 최근 값을 따라간다.
+	 */
+	private static final java.util.Map<String, java.util.ArrayDeque<Integer>> BATCH = new java.util.HashMap<>();
+	private static final java.util.ArrayDeque<Integer> BATCH_ALL = new java.util.ArrayDeque<>();
+	private static final int BATCH_KEEP = 16;
 	private static final int MAX_ROWS = 3;
+
+	private static void learnBatch(String item, int k, boolean sameItem) {
+		push(BATCH_ALL, k);
+		if (sameItem) {
+			push(BATCH.computeIfAbsent(item, x -> new java.util.ArrayDeque<>()), k);
+		}
+	}
+
+	private static void push(java.util.ArrayDeque<Integer> q, int k) {
+		q.addLast(k);
+		while (q.size() > BATCH_KEEP) {
+			q.pollFirst();
+		}
+	}
+
+	/** 이 아이템이 한 번에 보통 몇 줄씩 올라오는지(배운 게 3번 미만이면 모든 아이템 기준, 그것도 없으면 null). */
+	private static Integer batchOf(String item) {
+		// 줄 수는 곡괭이(한 번에 몇 칸 캐는지)가 정한다 - 아이템마다 따로 보면 광맥 가장자리(옆 칸이 빔)에서 배운 1이 많아 틀렸다(기록 재생 실측).
+		// 그래서 모든 아이템의 최근 값으로 본다. 아이템 값은 모든 아이템 기록이 아직 없을 때만.
+		java.util.ArrayDeque<Integer> q = BATCH_ALL;
+		if (q.size() < 3) {
+			java.util.ArrayDeque<Integer> own = BATCH.get(item);
+			if (own != null && own.size() > q.size()) {
+				q = own;
+			}
+		}
+		int[] n = new int[4];
+		for (int k : q) {
+			n[Math.min(3, Math.max(1, k))]++;
+		}
+		int best = 0;
+		for (int k = 1; k <= 3; k++) {
+			if (n[k] > 0 && n[k] >= n[best]) {
+				best = k;   // 같은 횟수면 큰 값
+			}
+		}
+		return best == 0 ? null : best;
+	}
+
 	/** 한 번 새로 올라온 줄이 흐려지기 시작하기까지(실측 약 3초) + 여유. 이보다 오래된 줄이 아직 흐려짐 0이면 새로 고쳐진 것. */
 	private static final long FRESH_MS = 3500;
 
@@ -214,7 +260,7 @@ public final class NeogulMineFeed {
 			// 49-678차: 꽉 찬 3줄에서는 줄이 잘려 나가 몇 줄이 올라왔는지 가장 작은 값으로만 보인다(돌 2줄 → 1줄) -
 			// 이 아이템이 한 번에 올라오는 줄 수(배운 값)도 맞으면 그 값으로
 			if (k > 0 && c.size() >= MAX_ROWS) {
-				Integer b = BATCH.get(c.get(0).sig());
+				Integer b = batchOf(c.get(0).item());
 				if (b != null && b > k && b <= c.size() && fits(c, o, b)) {
 					boolean one = true;
 					for (int i = 1; i < b; i++) {
@@ -245,22 +291,26 @@ public final class NeogulMineFeed {
 					expectEcho = false;
 					why = " echo";
 				} else {
-					k = Math.min(c.size(), BATCH.getOrDefault(c.get(0).sig(), 1));
+					Integer b = batchOf(c.get(0).item());
+					k = Math.min(c.size(), b == null ? 1 : b);
 					why = " same x" + k;
 					lastSameAt = now;
 					expectEcho = true;
 				}
 			} else if (k > 0 || !sameText) {
 				expectEcho = true;   // 바뀐 글 - 곧 같은 글이 한 번 더 온다
-				// 한 번에 올라온 줄 수 배우기: 잘리지 않았을 때(덜 참)만, 새 줄이 모두 같은 것일 때
-				if (k > 0 && cur.size() - k == prev.size() && (cur.size() < MAX_ROWS || cur.size() - k > 0)) {
+				// 한 번에 올라온 줄 수 배우기(49-715차): 몇 줄이 새로 왔는지 하나로 정해질 때만 -
+				//  (가) 덜 찬 목록이 잘리지 않고 늘었거나 (나) 남은 지난 줄이 있고 한 줄 더 새로 봐서는 안 맞을 때(돌 2개, 철 1 + 돌 1 등).
+				// 아이템마다(이름 기준 - 개수가 다른 구리 21개, 15개도 같은 구리)와 모든 아이템 합쳐 센다.
+				boolean grew = cur.size() < MAX_ROWS && cur.size() - k == prev.size();
+				// 남은 지난 줄이 하나라도 맞았고, 한 줄 더 새로 봐도 남는 줄이 있는데 안 맞을 때(전부 새 줄로 보는 경우는 늘 맞으니 빼고 본다)
+				boolean unique = k < c.size() && why.isEmpty() && (k + 1 >= c.size() || !fits(c, o, k + 1));
+				if (k > 0 && (grew || unique)) {
 					boolean one = true;
 					for (int i = 1; i < k; i++) {
-						one &= c.get(i).sig().equals(c.get(0).sig());
+						one &= c.get(i).item().equals(c.get(0).item());
 					}
-					if (one) {
-						BATCH.put(c.get(0).sig(), k);
-					}
+					learnBatch(c.get(0).item(), Math.min(k, MAX_ROWS), one);
 				}
 			}
 			probe(cur, k, topNew, why);

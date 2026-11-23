@@ -130,8 +130,18 @@ public final class OcclusionCull {
 						|| e instanceof net.minecraft.world.entity.player.Player || e.isCurrentlyGlowing()) {
 					continue;
 				}
+				// 49-716차(사용자: "치장 가까이 가면 안 보임 - 서버 치장이 왜 이러냐"): 서버 치장(가구, 장식)은 표시 엔티티(Display)로 그린다.
+				// 표시 엔티티는 크기가 0인 점 하나라서 그 점만 보고 가려졌다고 판단하면, 바닥이나 벽에 박힌 기준점 때문에 큰 모델이 통째로 사라졌다.
+				// 보이는 모양이 히트박스와 다른 것(표시 엔티티, 액자, 갑옷 거치대, 상호작용 엔티티, 크기 거의 0)은 가려짐 판정에서 뺀다.
+				if (e instanceof net.minecraft.world.entity.Display || e instanceof net.minecraft.world.entity.decoration.HangingEntity
+						|| e instanceof net.minecraft.world.entity.decoration.ArmorStand || e instanceof net.minecraft.world.entity.Interaction) {
+					continue;
+				}
 				double w = e.getBbWidth();
 				double h = e.getBbHeight();
+				if (w < 0.1 || h < 0.1) {
+					continue;
+				}
 				double x = e.getX(), y = e.getY(), z = e.getZ();
 				job.entities.add(e);
 				job.boxes.add(new double[]{x - w / 2, y, z - w / 2, x + w / 2, y + h, z + w / 2});

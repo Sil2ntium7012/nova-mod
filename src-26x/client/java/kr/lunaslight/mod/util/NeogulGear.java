@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
  * 창고에 넣고 뺀 것, 지금 하는 일(잠광, 낚시, 자리 비움)을 봇에 보낸다. 신호는 {@code {"ev":"gear",...}} 한 줄(길면 pg로 나눔).
  *
  * <p>보는 장비: [치장도구] 초월 1단계 이상, [편의] 전부, [채집도구] (Lv.8) 이상, [낚시] (Lv.7) 이상 또는 (Lv.Max).
+ * 49-714차: 그 밖에도 초월 1단계 이상이면 모두(일반 다이아몬드 곡괭이 등).
  * <p>우리 섬 판단(규격 9장): 채팅창으로 "/섬"(자기 섬으로 이동)을 친 뒤 월드가 바뀌면 우리 섬, "/섬 방문", "/스폰", "/워프" 등을 친 뒤면
  * 우리 섬 아님, 그 밖에 월드가 바뀌면 모름. 섬 상자(box isl)는 우리 섬일 때만 보낸다(모르면 안 보냄).
  */
@@ -36,6 +37,7 @@ public final class NeogulGear {
 	public static volatile Island island = Island.UNKNOWN;
 
 	private static final Pattern LV = Pattern.compile("\\(\\s*Lv\\.?\\s*(\\d+|Max)\\s*\\)", Pattern.CASE_INSENSITIVE);
+	private static final Pattern ENGRAVE = Pattern.compile("^[-\\s]*각인\\s*[:：]\\s*(\\S.*)$");
 	private static final Pattern TRANS = Pattern.compile("초월[^0-9\\n]{0,12}?(\\d+)\\s*단계");
 	/** 규격 v1.1 lv: 설명 능력치 줄("효율 +9", "행운 +9", "내구성 +9"). */
 	private static final Pattern STAT = Pattern.compile("(효율|행운|내구성)\\s*\\+\\s*(\\d+)");
@@ -114,12 +116,21 @@ public final class NeogulGear {
 		}
 		String n = clean(st.getHoverName().getString());
 		int x = 0;
+		String engr = null;
 		try {
 			for (String l : LunaCompat.itemLore(st)) {
-				Matcher m = TRANS.matcher(clean(l));
-				if (m.find()) {
+				String cl = clean(l);
+				Matcher m = TRANS.matcher(cl);
+				if (x == 0 && m.find()) {
 					x = Integer.parseInt(m.group(1));
-					break;
+				}
+				// 49-717차(사용자 사진 "- 각인: 망고(LNR_Sil2ntium)" - "각인 붙은 도구들 디코에 뜨게")
+				Matcher g = ENGRAVE.matcher(cl);
+				if (engr == null && g.find()) {
+					engr = g.group(1).trim();
+					if (engr.length() > 32) {
+						engr = engr.substring(0, 32);
+					}
 				}
 			}
 		} catch (Throwable ignored) {
@@ -140,6 +151,8 @@ public final class NeogulGear {
 		} else {
 			keep = false;
 		}
+		// 49-714차(사용자: "일반 다야곡이어도 초월돼 있으면 떠야 한다"): 초월 1단계 이상이면 머리표, 레벨과 상관없이 보낸다
+		keep = keep || x >= 1 || (engr != null && !engr.isEmpty());   // 49-717차: 각인이 있으면 무엇이든
 		if (!keep) {
 			return null;
 		}
@@ -147,6 +160,9 @@ public final class NeogulGear {
 		o.addProperty("n", n);
 		if (x > 0) {
 			o.addProperty("x", x);
+		}
+		if (engr != null && !engr.isEmpty()) {
+			o.addProperty("g", engr);
 		}
 		String m = null;
 		try {
@@ -208,7 +224,7 @@ public final class NeogulGear {
 		for (var e : a) {
 			JsonObject o = e.getAsJsonObject();
 			l.add(o.get("n").getAsString() + "|" + (o.has("x") ? o.get("x").getAsInt() : 0) + "|" + (o.has("c") ? o.get("c").getAsInt() : 1)
-					+ "|" + (o.has("lv") ? o.get("lv").getAsInt() : 0));
+					+ "|" + (o.has("lv") ? o.get("lv").getAsInt() : 0) + "|" + (o.has("g") ? o.get("g").getAsString() : ""));
 		}
 		java.util.Collections.sort(l);
 		return String.join(";", l);

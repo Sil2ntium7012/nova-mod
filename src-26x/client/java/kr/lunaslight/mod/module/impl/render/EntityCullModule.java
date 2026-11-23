@@ -91,6 +91,10 @@ public class EntityCullModule extends Module {
 				if (e == null || e instanceof net.minecraft.world.entity.player.Player) {
 					continue;
 				}
+				// 49-716차: 서버 치장(가구)은 한 칸에 표시 엔티티 여러 개로 만든다 - 겹침 감소 대상에서 뺀다(조각이 빠져 보임)
+				if (e instanceof net.minecraft.world.entity.Display || e instanceof net.minecraft.world.entity.Interaction) {
+					continue;
+				}
 				int[] c = counts.computeIfAbsent(cellKey(e), k -> new int[1]);
 				if (++c[0] > max) {
 					out.add(e);
