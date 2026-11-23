@@ -73,6 +73,11 @@ public final class NeogulGear {
 	private static Object boxScreen;
 	private static long boxOpenedAt;
 	private static String boxSentSig;
+	// 49-710차(사용자: "같은 장비 2개를 들고 있다고 함"): 창고에서 꺼내고 0.4초 안에 닫으면 바뀐 창고 내용을 못 보내서
+	// 봇에는 창고(예전 내용)와 몸에 같은 장비가 둘로 남았다. 닫을 때 마지막으로 본 창고 내용이 보낸 것과 다르면 한 번 더 보낸다.
+	private static JsonObject lastBox;
+	private static String lastBoxContent;
+	private static String sentBoxContent;
 
 	/** TodoGameModeMixin: 블록을 캤다 - 사암이면 잠광. */
 	public static void onBreak(BlockState st) {
@@ -258,9 +263,29 @@ public final class NeogulGear {
 			}
 			// ---- 보관함 ----
 			JsonObject box = box(mc, now);
-			String sig = sigOf(invArr) + "#" + (box == null ? "" : box.get("id").getAsString() + ":" + sigOf(box.getAsJsonArray("it")));
+			String boxContent = box == null ? null : box.get("id").getAsString() + ":" + sigOf(box.getAsJsonArray("it"));
+			String sig = sigOf(invArr) + "#" + (box == null ? "" : boxContent);
 			JsonObject act = actJson();
 			String actSig = act.get("k").getAsString() + "|" + (afk ? 1 : 0);
+			if (box != null) {
+				lastBox = box;
+				lastBoxContent = boxContent;
+			} else if (lastBox != null) {
+				JsonObject closed = lastBox;
+				String closedContent = lastBoxContent;
+				lastBox = null;
+				lastBoxContent = null;
+				if (!initPending && !closedContent.equals(sentBoxContent)) {
+					send(sink, invArr, h, act, closed, false, now);   // 닫기 직전 창고 내용 + 지금 몸
+					sentBoxContent = closedContent;
+					sentSig = sigOf(invArr) + "#";
+					sentH = h;
+					sentAct = actSig;
+					pendSig = null;
+					emptySent = invArr.size() == 0;
+					return;
+				}
+			}
 
 			if (initPending) {
 				if (now < joinAt) {
@@ -268,6 +293,7 @@ public final class NeogulGear {
 				}
 				initPending = false;
 				send(sink, invArr, h, act, box, true, now);
+				sentBoxContent = boxContent;
 				sentSig = sig;
 				sentH = h;
 				sentAct = actSig;
@@ -321,6 +347,7 @@ public final class NeogulGear {
 			emptySent = invArr.size() == 0;
 			if (box != null) {
 				boxSentSig = sig;
+				sentBoxContent = boxContent;
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("gear:tick", t);

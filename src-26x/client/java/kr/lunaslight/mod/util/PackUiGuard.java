@@ -233,6 +233,11 @@ public final class PackUiGuard {
 			if (fontPath(id.getPath())) {
 				return false;
 			}
+			// 49-713차(사용자: 요리용 석탄 그림 - "마크 숯 리팩으로 하면 어케"): 요리용 석탄은 숯 그림을 그대로 쓰므로(NeogulTextures)
+			// [글꼴만]이어도 내 팩의 숯 그림은 숨기지 않는다 - 숯 리소스팩을 끼우면 숯과 요리용 석탄이 그 그림으로 보인다.
+			if ("minecraft".equals(id.getNamespace()) && id.getPath().startsWith("textures/item/charcoal.png")) {
+				return false;
+			}
 			String k = id.toString();
 			Set<String> fr = fontRefs;
 			return !(fr.contains(k) || (k.endsWith(".mcmeta") && fr.contains(k.substring(0, k.length() - 7))));

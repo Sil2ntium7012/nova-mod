@@ -239,8 +239,20 @@ public final class ChatFaces {
 					break;
 				}
 			}
+			String nickWord = nick < headEnd ? plain.substring(nick, headEnd).replaceAll("\u00a7.", "").trim() : "";
+			if (who != null) {
+				learnNick(nickWord, who);   // 49-712차: 클릭/마우스 올림 정보로 안 한글 닉네임 → 마크 이름을 기억
+			}
 			if (who == null && nick < headEnd) {
-				who = byDisplayName(plain.substring(nick, headEnd).replaceAll("\u00a7.", "").trim());
+				who = byDisplayName(nickWord);
+			}
+			// 49-712차(사용자 사진: 섬 채팅 "(6명) [야옹] 근태: …" - "앞에 태그 붙으면 안 됨"): 섬 채팅은 닉네임 조각에 클릭/마우스 올림 정보가 없고
+			// 탭 목록에도 한글 닉네임이 안 나오면 누구인지 몰라 얼굴이 안 붙었다. 전체 채팅 등에서 한 번 본 닉네임은 기억해 둔 마크 이름으로.
+			if (who == null && !nickWord.isEmpty()) {
+				who = knownNick(nickWord);
+				if (who == null) {
+					missNick(nickWord);
+				}
 			}
 			if (who != null && nick < headEnd) {
 				at.put(nick, who);
@@ -304,6 +316,91 @@ public final class ChatFaces {
 			j--;
 		}
 		return j < end ? j : headEnd;
+	}
+
+	// ---- 49-712차: 한글 닉네임 → 마크 이름 기억(config/lunaslight/chat-nicks.json) ----
+	private static final java.util.Map<String, String> NICKS = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final java.util.Set<String> MISSED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	private static volatile boolean nicksLoaded;
+	private static volatile long nicksSavedAt;
+	private static volatile boolean nicksDirty;
+
+	private static java.nio.file.Path nicksFile() {
+		return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("chat-nicks.json");
+	}
+
+	private static void loadNicks() {
+		if (nicksLoaded) {
+			return;
+		}
+		nicksLoaded = true;
+		try {
+			java.nio.file.Path p = nicksFile();
+			if (java.nio.file.Files.exists(p)) {
+				com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(p, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+				for (var e : o.entrySet()) {
+					NICKS.put(e.getKey(), e.getValue().getAsString());
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("chatFace:nicksLoad", t);
+		}
+	}
+
+	private static boolean nickLike(String nick) {
+		return nick != null && nick.length() >= 1 && nick.length() <= 16 && !nick.matches("[A-Za-z0-9_]+") && !nick.contains(" ");
+	}
+
+	private static void learnNick(String nick, String mcName) {
+		if (!nickLike(nick) || mcName == null || !mcName.matches("[A-Za-z0-9_]{2,16}")) {
+			return;
+		}
+		loadNicks();
+		if (mcName.equals(NICKS.put(nick, mcName))) {
+			return;
+		}
+		MISSED.remove(nick);
+		nicksDirty = true;
+		long now = System.currentTimeMillis();
+		if (now - nicksSavedAt > 10_000) {
+			nicksSavedAt = now;
+			saveNicks();
+		}
+	}
+
+	private static void saveNicks() {
+		if (!nicksDirty) {
+			return;
+		}
+		nicksDirty = false;
+		try {
+			com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+			NICKS.forEach(o::addProperty);
+			java.nio.file.Path p = nicksFile();
+			java.nio.file.Files.createDirectories(p.getParent());
+			java.nio.file.Files.writeString(p, o.toString(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("chatFace:nicksSave", t);
+		}
+	}
+
+	private static String knownNick(String nick) {
+		if (!nickLike(nick)) {
+			return null;
+		}
+		loadNicks();
+		if (nicksDirty && System.currentTimeMillis() - nicksSavedAt > 10_000) {
+			nicksSavedAt = System.currentTimeMillis();
+			saveNicks();
+		}
+		return NICKS.get(nick);
+	}
+
+	/** 누구인지 몰라 얼굴을 못 붙인 닉네임은 기록에 한 번(원인 확인용). */
+	private static void missNick(String nick) {
+		if (nickLike(nick) && MISSED.size() < 200 && MISSED.add(nick)) {
+			kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 채팅 얼굴: '" + nick + "'이 누구인지 몰라 얼굴을 안 붙임(전체 채팅에서 한 번 보면 기억합니다)");
+		}
 	}
 
 	/** 탭 목록 표시 이름(한글 닉네임 등)의 낱말 → 마크 이름. 못 찾으면 null. */
