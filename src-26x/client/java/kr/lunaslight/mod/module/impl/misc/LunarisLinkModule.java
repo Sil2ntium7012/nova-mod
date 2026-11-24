@@ -67,6 +67,7 @@ public class LunarisLinkModule extends Module {
 	private int sentCur = -1;
 	private int sentPotions;
 	private long sentMoney = -1, sentAcorn = -1;
+	private long sentSand = -1;   // 49-726차
 	private final Map<String, Boolean> full = new HashMap<>();
 	private int unnamed;
 	private int potions;   // 49-667차: 오늘 쓴 피로회복제(회복 메시지 수)
@@ -352,7 +353,7 @@ public class LunarisLinkModule extends Module {
 		if (++walletTick % 20 == 0) {
 			kr.lunaslight.mod.util.NeogulWallet.read(client);   // 49-670차: 소지금, 도토리(보스바)
 			if (kr.lunaslight.mod.util.NeogulWallet.money >= 0 && (kr.lunaslight.mod.util.NeogulWallet.money != sentMoney
-					|| kr.lunaslight.mod.util.NeogulWallet.acorn != sentAcorn)) {
+					|| kr.lunaslight.mod.util.NeogulWallet.acorn != sentAcorn) || (sandNow() > 0 && sandNow() != sentSand)) {
 				dirty = true;   // 보내기는 3분에 한 번으로 묶인다
 			}
 		}
@@ -966,6 +967,23 @@ public class LunarisLinkModule extends Module {
 		}));
 	}
 
+	// ==================== 49-726차: 잠광 등급용 사암 캔 횟수 ====================
+	// 사용자: "잠광 평균 시간 말고 사암이 늘어난 갯수로 … 그래야 모드 없이 했다가 다시 해도 괜찮아지니까"
+	// 서버가 보내 준 바닐라 통계(ESC → 통계 → 블록 → 사암 캔 횟수, LunaStats가 1분마다 다시 받음) 누적을 그대로 보낸다.
+	// 우리 섬이 아니라고 아는 곳에서는 안 보낸다(다른 서버 숫자가 섞이지 않게). 봇이 늘어난 만큼만 센다.
+	private long sandNow() {
+		try {
+			if (client.player == null || !NeogulData.onNeogul(client)
+					|| kr.lunaslight.mod.util.NeogulGear.island == kr.lunaslight.mod.util.NeogulGear.Island.NO) {
+				return -1;
+			}
+			return client.player.getStats().getValue(net.minecraft.stats.Stats.BLOCK_MINED, net.minecraft.world.level.block.Blocks.SANDSTONE);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("lunaris:sand", t);
+			return -1;
+		}
+	}
+
 	// ==================== 보내기 ====================
 
 	private void send() {
@@ -973,7 +991,8 @@ public class LunarisLinkModule extends Module {
 		boolean fillsNew = (fills > 0 && fills != sentFills) || potions != sentPotions;
 		// 49-670차: 소지금, 도토리가 바뀐 것도 진행처럼 3분에 한 번
 		long wNow = kr.lunaslight.mod.util.NeogulWallet.money, aNow = kr.lunaslight.mod.util.NeogulWallet.acorn;
-		boolean curNew = (max > 0 && cur != sentCur) || (wNow >= 0 && (wNow != sentMoney || aNow != sentAcorn));
+		long sNow = sandNow();
+		boolean curNew = (max > 0 && cur != sentCur) || (wNow >= 0 && (wNow != sentMoney || aNow != sentAcorn)) || (sNow > 0 && sNow != sentSand);
 		long t = System.currentTimeMillis();
 		if (!questNew && !fillsNew) {
 			if (!curNew) {
@@ -1006,6 +1025,9 @@ public class LunarisLinkModule extends Module {
 		if (aNow >= 0) {
 			p.addProperty("a", aNow);
 		}
+		if (sNow > 0) {
+			p.addProperty("ss", sNow);   // 49-726차: 서버 통계 사암 캔 횟수(잠광 등급)
+		}
 		p.addProperty("c", cur);
 		p.addProperty("m", max);
 		p.addProperty("u", fills * max + (cur < max ? cur : 0));   // 예전 봇용
@@ -1021,6 +1043,7 @@ public class LunarisLinkModule extends Module {
 		final int f = fills;
 		final int rr = potions;
 		final int cc = cur;
+		final long ss0 = sNow;
 		final String d = day;
 		sending = true;
 		HttpRequest req = HttpRequest.newBuilder(URI.create("https://discord.com/api/webhooks/" + c.group(1) + "/" + c.group(2)))
@@ -1039,6 +1062,9 @@ public class LunarisLinkModule extends Module {
 					sentPotions = rr;
 					sentMoney = wNow;
 					sentAcorn = aNow;
+					if (ss0 > 0) {
+						sentSand = ss0;
+					}
 					sentCur = cc;
 					save();
 					kr.lunaslight.mod.config.LunaClientConfig.save();

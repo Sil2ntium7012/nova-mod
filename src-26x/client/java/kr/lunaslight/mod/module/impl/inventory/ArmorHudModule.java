@@ -39,13 +39,16 @@ public class ArmorHudModule extends Module {
 
 	private final PositionSetting position;
 	private final BooleanSetting showOffhand;
+	private final BooleanSetting showMainhand;
 	private final EnumSetting<Durability> durability;
 
 	public ArmorHudModule() {
-		super("armor_hud", "갑옷", ModuleCategory.HUD, "착용한 갑옷과 보조손 아이템");
+		super("armor_hud", "갑옷", ModuleCategory.HUD, "착용한 갑옷, 손에 든 도구, 보조손 아이템");
 		// 49-22차: 기본 위치 오른쪽 아래 모서리(사용자 요청) - 키스트로크는 그 왼쪽으로 옮김
 		position = register(new PositionSetting("position", "위치", "표시 위치입니다.",
 			HudPosition.of(HudPosition.Anchor.BOTTOM_RIGHT, 6, 6)));
+		// 49-725차(사용자: "갑옷 정보에 메인 손에 들린 도구도 내구도 보이게"): 손에 든 것(내구도가 있는 도구일 때만)
+		showMainhand = register(new BooleanSetting("show_mainhand", "손에 든 도구", "손에 든 도구도 내구도와 함께 표시합니다. 내구도가 없는 것은 안 보입니다.", true));
 		showOffhand = register(new BooleanSetting("show_offhand", "보조손", "보조손 아이템도 표시합니다.", true));
 		durability = register(new EnumSetting<>("durability", "내구도", "내구도를 표시하는 방식입니다.", Durability.NUMBER, Durability.class));
 	}
@@ -79,8 +82,8 @@ public class ArmorHudModule extends Module {
 	private ItemStack[] previewStacks() {
 		if (previewStacks == null) {
 			String[] ids = {"minecraft:diamond_helmet", "minecraft:diamond_chestplate", "minecraft:diamond_leggings",
-				"minecraft:diamond_boots", "minecraft:shield"};
-			int[] damage = {40, 120, 200, 30, 10};
+				"minecraft:diamond_boots", "minecraft:diamond_pickaxe", "minecraft:shield"};
+			int[] damage = {40, 120, 200, 30, 600, 10};
 			previewStacks = new ItemStack[ids.length];
 			for (int i = 0; i < ids.length; i++) {
 				var item = LunaCompat.itemById(ids[i]);
@@ -108,19 +111,30 @@ public class ArmorHudModule extends Module {
 		boolean barMode = durability.get() == Durability.BAR;
 
 		// 표시할 항목 수집(빈 칸은 자리만 차지)
-		ItemStack[] stacks;
+		java.util.List<ItemStack> list = new java.util.ArrayList<>();
 		if (isPreview()) {
 			ItemStack[] pv = previewStacks();
-			stacks = showOffhand.get() ? pv : java.util.Arrays.copyOf(pv, ARMOR_SLOTS.length);
-		} else {
-			stacks = new ItemStack[ARMOR_SLOTS.length + (showOffhand.get() ? 1 : 0)];
-			for (int i = 0; i < ARMOR_SLOTS.length; i++) {
-				stacks[i] = client.player.getItemBySlot(ARMOR_SLOTS[i]);
+			list.addAll(java.util.Arrays.asList(pv).subList(0, ARMOR_SLOTS.length));
+			if (showMainhand.get()) {
+				list.add(pv[ARMOR_SLOTS.length]);
 			}
 			if (showOffhand.get()) {
-				stacks[ARMOR_SLOTS.length] = client.player.getOffhandItem();
+				list.add(pv[ARMOR_SLOTS.length + 1]);
+			}
+		} else {
+			for (EquipmentSlot slot : ARMOR_SLOTS) {
+				list.add(client.player.getItemBySlot(slot));
+			}
+			if (showMainhand.get()) {
+				ItemStack main = client.player.getMainHandItem();
+				// 49-725차: 내구도가 있는 도구만(블록, 음식은 빈 칸 - 자리는 지켜서 다른 칸이 움직이지 않게)
+				list.add(main != null && !main.isEmpty() && main.isDamageableItem() && main.getMaxDamage() > 0 ? main : ItemStack.EMPTY);
+			}
+			if (showOffhand.get()) {
+				list.add(client.player.getOffhandItem());
 			}
 		}
+		ItemStack[] stacks = list.toArray(new ItemStack[0]);
 
 		int textW = 0;
 		if (textMode) {

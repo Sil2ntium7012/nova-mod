@@ -46,6 +46,8 @@ public class AutoReconnectModule extends Module {
 	private final IntSetting maxAttempts;
 
 	private static volatile String lastAddress = null;
+	/** 49-728차: 마지막으로 접속한 서버 항목 그대로(리소스팩 받기 설정이 들어 있다). */
+	private static volatile ServerData lastData = null;
 	private int ticksSinceDisconnect = -1;
 	private int attemptsUsed = 0;
 	/** 차단/화이트리스트 등 다시 들어가 봐야 소용없는 사유일 때 그 문구(화면에 그대로 보여 준다). */
@@ -98,6 +100,7 @@ public class AutoReconnectModule extends Module {
 				ServerData entry = client.getCurrentServer();
 				if (entry != null && entry.ip != null && !entry.ip.isEmpty()) {
 					lastAddress = entry.ip;
+					lastData = entry;
 				}
 			} catch (Throwable ignored) {
 			}
@@ -264,7 +267,22 @@ public class AutoReconnectModule extends Module {
 	/** 49-106차: 세션 복구 등 다른 기능도 같은 재접속 경로를 쓸 수 있게 static 공개. */
 	public static void reconnectTo(String address) {
 		try {
-			ServerData serverInfo = buildServerInfo("Nova Auto-Reconnect", address);
+			// 49-728차(사용자: "세션 새로고침 후 재접할 때 리팩 다운 안 됨"): 새로 만든 항목은 리소스팩 받기가 "묻기"라 서버가 팩을 보내면
+			// 묻는 창이 떴다가 접속 화면에 덮여 답을 못 해 팩을 안 받았다(로그 11-25 04:08 - 재접속 뒤 팩 받기 줄이 없음, 손으로 다시 들어가니 받음).
+			// 이제 서버 목록의 그 서버 항목(받기 설정 그대로)이나 방금 접속했던 항목을 다시 쓴다. 없으면 새 항목을 "받기"로.
+			ServerData serverInfo = knownServerData(address);
+			if (serverInfo == null) {
+				serverInfo = buildServerInfo("Nova Auto-Reconnect", address);
+				if (serverInfo != null) {
+					try {
+						ServerData ld = lastData;
+						ServerData.ServerPackStatus ps = ld != null && ld.getResourcePackStatus() == ServerData.ServerPackStatus.DISABLED
+								? ServerData.ServerPackStatus.DISABLED : ServerData.ServerPackStatus.ENABLED;
+						serverInfo.setResourcePackStatus(ps);
+					} catch (Throwable ignored) {
+					}
+				}
+			}
 			if (serverInfo == null) {
 				kr.lunaslight.mod.LunaClientMod.LOGGER.warn("[Nova] ServerInfo 생성 실패 - 자동 재접속을 건너뜁니다.");
 				return;
@@ -317,6 +335,39 @@ public class AutoReconnectModule extends Module {
 	 * 3번째 이후 파라미터가 enum(ServerType 등, 버전마다 이름/존재 여부 다름)이면 그 안에서
 	 * "OTHER" 상수(없으면 첫 상수)를 채우고, boolean이면 false, 그 외 참조 타입이면 null로 채움.
 	 */
+	/** 49-728차: 이 주소의 서버 목록 항목(없으면 방금 접속했던 항목, 그것도 아니면 null). */
+	private static ServerData knownServerData(String address) {
+		if (address == null) {
+			return null;
+		}
+		try {
+			net.minecraft.client.multiplayer.ServerList list = new net.minecraft.client.multiplayer.ServerList(Minecraft.getInstance());
+			list.load();
+			for (int i = 0; i < list.size(); i++) {
+				ServerData d = list.get(i);
+				if (d != null && address.equalsIgnoreCase(d.ip)) {
+					if (d.getResourcePackStatus() == ServerData.ServerPackStatus.PROMPT) {
+						d.setResourcePackStatus(ServerData.ServerPackStatus.ENABLED);   // 이번 접속만(저장 안 함) - 묻는 창이 가려져 못 받는 일 없게
+					}
+					return d;
+				}
+			}
+		} catch (Throwable t) {
+			kr.lunaslight.mod.util.LunaCompat.warnOnce("autoReconnect:serverList", t);
+		}
+		ServerData ld = lastData;
+		if (ld != null && address.equalsIgnoreCase(ld.ip)) {
+			if (ld.getResourcePackStatus() == ServerData.ServerPackStatus.PROMPT) {
+				try {
+					ld.setResourcePackStatus(ServerData.ServerPackStatus.ENABLED);   // 방금 그 서버 팩을 쓰고 있었다
+				} catch (Throwable ignored) {
+				}
+			}
+			return ld;
+		}
+		return null;
+	}
+
 	private static ServerData buildServerInfo(String name, String address) {
 		for (java.lang.reflect.Constructor<?> c : ServerData.class.getConstructors()) {
 			Class<?>[] params = c.getParameterTypes();

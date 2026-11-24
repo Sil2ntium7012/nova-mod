@@ -230,6 +230,7 @@ public class LunaClientMod implements ClientModInitializer {
 			kr.lunaslight.mod.util.TextCapture.tick();   // 49-215차: 26.3(SDL) 패널 검색창 글자 입력 켜기
 			// 49-27차: 통계 수집 + 내 접속 정보(친구에게 "어느 서버에 있는지") 갱신
 			kr.lunaslight.mod.util.LunaStats.tick(client);
+			kr.lunaslight.mod.util.WorkerPriority.tick();   // 49-728차: 리소스팩 받을 때 PC 렉
 			kr.lunaslight.mod.util.LunaSocial.publishPresence(client);
 			// 49-124차(사용자: "탭 핑 앞에 루나 별 - 페더처럼"): 같은 서버 루나 유저 목록 갱신.
 			kr.lunaslight.mod.util.LunaSocial.pollServerBadges(client);

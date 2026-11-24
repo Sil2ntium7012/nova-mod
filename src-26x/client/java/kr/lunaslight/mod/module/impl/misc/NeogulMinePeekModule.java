@@ -50,14 +50,20 @@ public class NeogulMinePeekModule extends Module {
 			"background", "배경", "목록 뒤에 어두운 판을 깝니다. 끄면 글자만 떠 있습니다.", false));
 	private final IntSetting columns = register(new IntSetting(
 			"columns", "한 줄 칸 수", "한 줄에 놓을 광물 수입니다.", 5, 3, 9, 1));
-
-	private static final int CELL = 18;
+	/** 49-727차(사용자: "광물창고 목록들 바로 옆에 확률 - 광물별로 요리용 석탄이 얼마나 뜨는지"): 목록 모양에서 개수 옆에. */
+	private final BooleanSetting coalRate = register(new BooleanSetting(
+			"cook_coal_rate", "요리용 석탄 확률", "목록에서 광물마다 캘 때 요리용 석탄이 함께 나온 비율을 개수 옆에 보여 줍니다. 10번 넘게 캔 광물부터 나옵니다.", true));
 
 	public NeogulMinePeekModule() {
 		super("neogul_mine_peek", "광물 창고 미리보기", ModuleCategory.SERVER, "광물 창고에 든 광물과 개수를 화면에 (광물 획득이 기억한 개수)");
 		serverGroup("너굴마을");
 		newFeature("49-613");
+		register(new kr.lunaslight.mod.module.setting.ActionSetting("cook_coal_reset", "요리용 석탄 확률 초기화", "광물마다 센 요리용 석탄 확률을 처음부터 다시 셉니다.", "초기화",
+				NeogulMineModule::coalReset));
 	}
+
+	private static final int CELL = 18;
+
 
 	/** 49-614차(사용자: "차면 찰수록 초록에서 빨강으로 그라데이션"): 한도 대비 초록 → 노랑 → 빨강. 한도를 모르면 흰색. */
 	private static int fillColor(int n, int max) {
@@ -110,15 +116,16 @@ public class NeogulMinePeekModule extends Module {
 
 	private static List<Object[]> sample() {
 		List<Object[]> l = new ArrayList<>();
-		l.add(new Object[]{new ItemStack(Items.STONE), "돌", 1452, 200000, new long[]{3, System.currentTimeMillis()}});
-		l.add(new Object[]{new ItemStack(Items.COAL), "석탄", 2209, 20000});
-		l.add(new Object[]{new ItemStack(Items.IRON_INGOT), "철 주괴", 7071, 12000});
-		l.add(new Object[]{new ItemStack(Items.COPPER_INGOT), "구리 주괴", 4300, 4752, new long[]{28, System.currentTimeMillis()}});
-		l.add(new Object[]{new ItemStack(Items.GOLD_INGOT), "금 주괴", 1463, 5000});
-		l.add(new Object[]{new ItemStack(Items.LAPIS_LAZULI), "청금석", 5197, 80000});
-		l.add(new Object[]{new ItemStack(Items.DIAMOND), "다이아몬드", 899, 2000});
-		l.add(new Object[]{ng("cook_coal", Items.CHARCOAL), "요리용 석탄", 293, -1});
-		l.add(new Object[]{ng("ruby", Items.REDSTONE), "루비 수정", 14, -1});
+		long t = System.currentTimeMillis();
+		l.add(new Object[]{new ItemStack(Items.STONE), "돌", 1452, 200000, new long[]{3, t}, "1.8%"});
+		l.add(new Object[]{new ItemStack(Items.COAL), "석탄", 2209, 20000, null, "4.6%"});
+		l.add(new Object[]{new ItemStack(Items.IRON_INGOT), "철 주괴", 7071, 12000, null, "4.1%"});
+		l.add(new Object[]{new ItemStack(Items.COPPER_INGOT), "구리 주괴", 4300, 4752, new long[]{28, t}, "3.9%"});
+		l.add(new Object[]{new ItemStack(Items.GOLD_INGOT), "금 주괴", 1463, 5000, null, "4.4%"});
+		l.add(new Object[]{new ItemStack(Items.LAPIS_LAZULI), "청금석", 5197, 80000, null, "3.7%"});
+		l.add(new Object[]{new ItemStack(Items.DIAMOND), "다이아몬드", 899, 2000, null, "5.2%"});
+		l.add(new Object[]{ng("cook_coal", Items.CHARCOAL), "요리용 석탄", 293, -1, null, null});
+		l.add(new Object[]{ng("ruby", Items.REDSTONE), "루비 수정", 14, -1, null, null});
 		return l;
 	}
 
@@ -172,13 +179,21 @@ public class NeogulMinePeekModule extends Module {
 		return it.length > 4 && it[4] instanceof long[] ga ? ga : NeogulMineModule.recentGain((String) it[1]);
 	}
 
+	/** 49-727차: 이 줄 요리용 석탄 확률(미리보기 예시는 6번째 칸). */
+	private String rateOf(Object[] it) {
+		if (!coalRate.get()) {
+			return null;
+		}
+		return it.length > 5 ? (String) it[5] : NeogulMineModule.coalRate((String) it[1]);
+	}
+
 	private static String shortName(String n) {
 		return n.replaceAll("\\[[^\\]]*\\]", "").trim();
 	}
 
 	/** 목록 크기 {폭, 높이}: 아이콘 12 + 이름(+n) + 간격 + 개수. */
 	private int[] listSize(List<Object[]> items) {
-		int nameW = LunaDraw.width(client.font, "광물 창고"), countW = 0;
+		int nameW = LunaDraw.width(client.font, NeogulMineModule.stale() ? "광물 창고 다시 열어 주십시오" : "광물 창고"), countW = 0, rateW = 0;
 		for (Object[] it : items) {
 			int w = LunaDraw.width(client.font, shortName((String) it[1]));
 			long[] g = gainOf(it);
@@ -187,8 +202,12 @@ public class NeogulMinePeekModule extends Module {
 			}
 			nameW = Math.max(nameW, w);
 			countW = Math.max(countW, LunaDraw.width(client.font, String.format("%,d", (Integer) it[2])));
+			String r = rateOf(it);
+			if (r != null) {
+				rateW = Math.max(rateW, LunaDraw.width(client.font, r));
+			}
 		}
-		return new int[]{14 + nameW + 10 + countW, TITLE + items.size() * ROW};
+		return new int[]{14 + nameW + 10 + countW + (rateW > 0 ? rateW + 6 : 0), TITLE + items.size() * ROW};
 	}
 
 	/**
@@ -202,6 +221,19 @@ public class NeogulMinePeekModule extends Module {
 		String title = "광물 창고";
 		int tw = LunaDraw.width(client.font, title);
 		LunaCompat.drawHudText(ctx, client.font, title, right ? x + w - tw : x, y + 1, 0xFFFFD36A);
+		if (NeogulMineModule.stale()) {
+			// 49-727차: 일부만 꺼낸 줄을 다 못 맞춤 - 창고를 다시 열면 맞춰진다
+			String st = "다시 열어 주십시오";
+			int sw0 = LunaDraw.width(client.font, st);
+			LunaCompat.drawHudText(ctx, client.font, st, right ? x + w - tw - 5 - sw0 : x + tw + 5, y + 1, 0xFFFF9A9C);
+		}
+		int rateW = 0;
+		for (Object[] it0 : items) {
+			String r = rateOf(it0);
+			if (r != null) {
+				rateW = Math.max(rateW, LunaDraw.width(client.font, r));
+			}
+		}
 		long now = System.currentTimeMillis();
 		for (int i = 0; i < items.size(); i++) {
 			Object[] it = items.get(i);
@@ -237,7 +269,14 @@ public class NeogulMinePeekModule extends Module {
 			int n = (Integer) it[2], max = (Integer) it[3];
 			String c = String.format("%,d", n);
 			int cw = LunaDraw.width(client.font, c);
-			LunaCompat.drawHudText(ctx, client.font, c, right ? x : x + w - cw, ty, fillColor(n, max));
+			int cx0 = rateW > 0 ? (right ? x + rateW + 6 : x + w - rateW - 6 - cw) : (right ? x : x + w - cw);
+			LunaCompat.drawHudText(ctx, client.font, c, cx0, ty, fillColor(n, max));
+			// 49-727차: 요리용 석탄 확률(숯 불씨 색) - 개수 바깥쪽 끝에 맞춤
+			String r = rateOf(it);
+			if (r != null) {
+				int rw = LunaDraw.width(client.font, r);
+				LunaCompat.drawHudText(ctx, client.font, r, right ? x + rateW - rw : x + w - rw, ty, 0xFFFF9F43);
+			}
 		}
 	}
 

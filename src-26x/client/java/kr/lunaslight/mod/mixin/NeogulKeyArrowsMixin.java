@@ -79,6 +79,10 @@ public abstract class NeogulKeyArrowsMixin {
 			return null;
 		}
 		try {
+			if (path.startsWith("/")) {   // 49-720차: 노바 안의 그림
+				byte[] png = kr.lunaslight.mod.util.NeogulTextures.bundled(path);
+				return png == null ? null : new Resource(orig.source(), () -> new java.io.ByteArrayInputStream(png));
+			}
 			Optional<Resource> v = ((MultiPackResourceManager) (Object) this).getResource(Identifier.withDefaultNamespace(path));
 			if (v == null || v.isEmpty()) {
 				return null;

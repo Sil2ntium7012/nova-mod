@@ -753,11 +753,13 @@ public final class NeogulDungeonHud {
 			long add = (long) Math.floor(gainFrac);
 			gainFrac -= add;
 			long need = NeogulLevels.REQ[1][tobeolLv];
+			// 49-731차(사용자가 전해 준 제보: "100% 찍은 다음에 더 사냥하면 0%로 되는데 /레벨로 보니 경치가 그대로"): 너굴마을 레벨은 저절로 안 오른다 -
+			// 필요 경험치를 채우면 "토벌 레벨업 조건을 채웠습니다! /레벨에서 레벨을 올릴 수 있습니다"가 뜨고 경험치는 필요량에서 멈춘다
+			// (기록: "토벌 레벨 16 경험치 40970 / 40970"). 예전엔 넘친 만큼 다음 레벨로 넘겨 0%부터 다시 셌다. 이제 100%에서 멈추고,
+			// /레벨에서 올린 뒤 창을 읽으면 새 레벨로 바뀐다. 필요 경험치 표(NeogulLevels.REQ)는 /레벨 값과 같다(15~21레벨 기록 대조).
 			long exp = Math.max(0, tobeolExp) + add;
-			while (need > 0 && exp >= need && tobeolLv < NeogulLevels.MAX_LV - 1) {
-				exp -= need;
-				tobeolLv++;
-				need = NeogulLevels.REQ[1][tobeolLv];
+			if (need > 0 && exp > need) {
+				exp = need;
 			}
 			// 49-575차(사용자: "경험치 오르는 수치가 애초에 숫자로 나오잖아, 그걸 이용하라고"): 알림의 +N(정확한 수)만 더한다 - %로 맞추지 않는다
 			tobeolExp = exp;
@@ -1144,7 +1146,9 @@ public final class NeogulDungeonHud {
 		if (p >= 0) {
 			String right = p + "%";
 			if (tob) {
-				right = String.format("%,d / %,d  (%.1f%%)", tobeolExp, tobeolNeed, tobeolPct);
+				right = tobeolExp >= tobeolNeed
+						? String.format("%,d / %,d  /레벨에서 레벨업", tobeolExp, tobeolNeed)   // 49-731차: 다 채우면 멈춤
+						: String.format("%,d / %,d  (%.1f%%)", tobeolExp, tobeolNeed, tobeolPct);
 			} else if (showLv >= 1 && showLv < NeogulLevels.MAX_LV) {
 				long need = NeogulLevels.REQ[1][showLv];
 				if (need > 0) {

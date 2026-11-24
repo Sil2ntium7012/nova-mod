@@ -13,9 +13,33 @@ public final class NeogulTextures {
 	private NeogulTextures() {
 	}
 
-	/** 팩 경로(네임스페이스:경로) → 대신 쓸 그림 경로(minecraft 네임스페이스). */
+	/**
+	 * 팩 경로(네임스페이스:경로) → 대신 쓸 그림. "/"로 시작하면 노바 안의 그림, 아니면 minecraft 네임스페이스 그림 경로.
+	 * 49-720차(사용자: 비교 사진을 보고 "날카로운 그 숯", "끝자락이 불타는 느낌"): 노바가 새로 그린 각진 숯(끝과 틈이 불타는)으로.
+	 */
 	private static final Map<String, String> REPLACE = Map.of(
-		"ng:textures/item/gem/cook_charcoal.png", "textures/item/charcoal.png");
+		"ng:textures/item/gem/cook_charcoal.png", "/assets/lunaslight/neogul/cook_charcoal_sharp.png");
+
+	private static final Map<String, byte[]> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** 노바 안의 그림 바이트(없으면 null). */
+	public static byte[] bundled(String res) {
+		byte[] hit = CACHE.get(res);
+		if (hit != null) {
+			return hit;
+		}
+		try (java.io.InputStream in = NeogulTextures.class.getResourceAsStream(res)) {
+			if (in == null) {
+				return null;
+			}
+			byte[] b = in.readAllBytes();
+			CACHE.put(res, b);
+			return b;
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulTextures", t);
+			return null;
+		}
+	}
 
 	/** 바꿀 그림이면 대신 쓸 minecraft 그림 경로, 아니면 null. */
 	public static String replacement(String namespace, String path) {

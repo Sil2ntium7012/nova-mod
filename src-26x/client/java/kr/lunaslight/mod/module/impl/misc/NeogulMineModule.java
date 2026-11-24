@@ -134,6 +134,7 @@ public class NeogulMineModule extends Module {
 		newFeature("49-608");
 		instance = this;
 		NeogulMineFeed.listener = this::onGain;
+		kr.lunaslight.mod.util.ChatState.addLoggedListener(this::onChatLine);   // 49-727차
 		NeogulDungeonHud.mineGain = null;   // 49-649차: 보석 경험치는 개당 값으로 계산(서버 경험치 알림과 엮지 않음)
 		NeogulDungeonHud.hideMine = () -> working();
 		ItemPickupToastModule.externalOverflow = (name, n) -> {
@@ -425,6 +426,7 @@ public class NeogulMineModule extends Module {
 			return;
 		}
 		startWithdrawWatch();
+		stale = false;   // 49-727차
 		boolean changed = !opened || !store.containsAll(found.keySet());
 		store.addAll(found.keySet());   // 49-635차
 		opened = true;
@@ -586,6 +588,7 @@ public class NeogulMineModule extends Module {
 			}
 			if (nv != have) {
 				counts.put(k, nv);
+				moves.add(new Object[]{k, have - nv, now});   // 49-727차: 채팅 줄과 겹쳐 두 번 빼지 않게
 				pend.merge(k, have - nv, Integer::sum);   // 설명 값에서 뺄 양(넣었으면 음수)
 				if (mx == null || nv < mx) {
 					full.remove(k);
@@ -599,6 +602,253 @@ public class NeogulMineModule extends Module {
 		if (ch) {
 			markDirty();
 		}
+	}
+
+	// ==================== 49-727차: 채팅 줄로 창고 맞추기 ====================
+	// 사용자: "광물창고 비웠을 때 다른 맵에서 비워서 그런가 새로고침 안 되는 경우도 있는데 조심해라".
+	// 창고 화면(+닫고 1.5초)에서 인벤토리가 는 것만 보고 뺐다 - 화면을 못 읽은 곳에서 비우면 개수가 그대로 남았다.
+	// 이제 서버 줄도 본다(1.5초 뒤, 인벤토리로 이미 뺀 만큼은 빼고):
+	//   "광물창고에서 광물 2종 1620개를 모두 꺼냈습니다." → 전부 0 (", 일부는 창고에 남았습니다"가 붙으면 다 못 셀 때 "다시 열어 주십시오")
+	//   "광물창고에서 돌 1007개를 꺼냈습니다." → 그 광물만 뺌,  "다이아몬드 12개를 광물창고에 넣었습니다." → 더함
+	private static final Pattern CHAT_ALL = Pattern.compile("^광물창고에서 광물 (\\d+)종 ([\\d,]+)개를 모두 꺼냈습니다");
+	private static final Pattern CHAT_ONE = Pattern.compile("^광물창고에서 (.+?) ([\\d,]+)개를 꺼냈습니다");
+	private static final Pattern CHAT_PUT = Pattern.compile("^(.+?) ([\\d,]+)개를 광물창고에 넣었습니다");
+	/** 인벤토리로 본 창고 움직임 {이름, 뺀 수(넣었으면 음수), 시각} - 10초 보관. */
+	private final List<Object[]> moves = new ArrayList<>();
+	/** 기다리는 채팅 줄 {종류 a/o/p, 이름, 개수, 시각, 남음}. */
+	private final List<Object[]> chatPend = new ArrayList<>();
+	private boolean stale;
+
+	/** 미리보기 제목에 "다시 열어 주십시오"를 붙일지(채팅 줄로 다 못 맞춤). */
+	public static boolean stale() {
+		NeogulMineModule m = instance;
+		return m != null && m.stale;
+	}
+
+	private void onChatLine(String line) {
+		try {
+			if (line == null || client.player == null || !NeogulData.onNeogul(client)) {
+				return;
+			}
+			String l = clean(line).replaceFirst("^\\[\\d{1,2}:\\d{2}(:\\d{2})?\\]\\s*", "");
+			if (l.contains("섬 광물창고") || l.contains("[전체]") || l.contains("[귓속말]") || l.contains("[확성기]") || l.contains("명)")
+					|| l.contains("[질문]") || l.contains("[답변]") || l.startsWith("<")) {
+				return;
+			}
+			long now = System.currentTimeMillis();
+			Matcher a = CHAT_ALL.matcher(l);
+			if (a.find()) {
+				chatPend.add(new Object[]{"a", null, num(a.group(2)), now, l.contains("남았습니다")});
+				return;
+			}
+			Matcher o = CHAT_ONE.matcher(l);
+			if (o.find()) {
+				chatPend.add(new Object[]{"o", o.group(1).trim(), num(o.group(2)), now, false});
+				return;
+			}
+			Matcher p = CHAT_PUT.matcher(l);
+			if (p.find()) {
+				chatPend.add(new Object[]{"p", p.group(1).trim(), num(p.group(2)), now, false});
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulMine:chat", t);
+		}
+	}
+
+	private static int num(String s) {
+		try {
+			return Integer.parseInt(s.replace(",", ""));
+		} catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+
+	/** 창고 이름 중 이 이름("돌", "[재료] 요리용 석탄")과 같은 광물. */
+	private String storeKey(String name) {
+		if (counts.containsKey(name)) {
+			return name;
+		}
+		String sn = statName(name);
+		for (String k : counts.keySet()) {
+			if (statName(k).equals(sn)) {
+				return k;
+			}
+		}
+		return null;
+	}
+
+	/** since 뒤로 인벤토리로 본 움직임 합(name이 null이면 모든 광물). out이면 뺀 것, 아니면 넣은 것. */
+	private int moved(String name, long since, boolean out) {
+		int sum = 0;
+		for (Object[] mv : moves) {
+			int d = (Integer) mv[1];
+			if ((Long) mv[2] >= since && (name == null || name.equals(mv[0])) && (out ? d > 0 : d < 0)) {
+				sum += Math.abs(d);
+			}
+		}
+		return sum;
+	}
+
+	private void chatTick() {
+		long now = System.currentTimeMillis();
+		moves.removeIf(mv -> now - (Long) mv[2] > 10_000);
+		if (chatPend.isEmpty()) {
+			return;
+		}
+		ensureLoaded();
+		boolean ch = false;
+		for (var it = chatPend.iterator(); it.hasNext(); ) {
+			Object[] c = it.next();
+			long at = (Long) c[3];
+			if (now - at < 1500) {
+				continue;   // 인벤토리 감시가 먼저 반영할 틈
+			}
+			it.remove();
+			if (!opened) {
+				continue;
+			}
+			String kind = (String) c[0];
+			int n = (Integer) c[2];
+			long since = at - 3000;
+			if ("a".equals(kind)) {
+				if (!(Boolean) c[4]) {
+					for (String k : new ArrayList<>(counts.keySet())) {
+						if (counts.get(k) != 0) {
+							counts.put(k, 0);
+							ch = true;
+						}
+					}
+					full.clear();
+					loreVal.clear();
+					pend.clear();
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 광물 창고: 모두 꺼냄 줄 - 개수를 0으로 맞춤");
+				} else if (moved(null, since, true) < n) {
+					stale = true;   // 일부는 남았는데 무엇이 얼마나 남았는지 모름
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 광물 창고: 일부만 꺼냄 줄 - 다시 열어야 맞춰짐");
+				}
+				continue;
+			}
+			String key = storeKey((String) c[1]);
+			if (key == null) {
+				continue;   // 창고에 칸이 없는 것
+			}
+			int have = counts.getOrDefault(key, 0);
+			if ("o".equals(kind)) {
+				int d = n - moved(key, since, true);
+				if (d > 0) {
+					counts.put(key, Math.max(0, have - d));
+					full.remove(key);
+					ch = true;
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 광물 창고: 꺼냄 줄로 " + statName(key) + " " + d + "개 뺌");
+				}
+			} else {
+				int d = n - moved(key, since, false);
+				if (d > 0) {
+					Integer mx = maxes.get(key);
+					int nv = mx == null ? have + d : Math.min(mx, have + d);
+					counts.put(key, nv);
+					ch = true;
+					kr.lunaslight.mod.LunaClientMod.LOGGER.info("[Nova] 광물 창고: 넣음 줄로 " + statName(key) + " " + d + "개 더함");
+				}
+			}
+		}
+		if (ch) {
+			markDirty();
+		}
+	}
+
+	// ==================== 49-727차: 요리용 석탄 확률 ====================
+	// 사용자: "광물창고 목록들 바로 옆에 확률 - 요리용 석탄 확률, 광물별로 요리용 석탄이 얼마나 뜨는지".
+	// 서버 광산 알림 줄만 본다(짐작 없음): 요리용 석탄 줄(ng118)은 그 블록의 광물 줄보다 먼저 올라온다(기록: ng118 → 돌 → 구리) -
+	// 1.5초 안에 다음에 올라온 광물 줄(보석 줄은 건너뜀)에 1번으로 붙인다. 광물마다 {캔 블록 줄 수, 요리용 석탄이 붙은 수}.
+	// 섬(광물 생성기)에서는 요리용 석탄이 안 나와 안 센다. 저장: config/lunaslight/neogul-cookcoal.json.
+	private static final Map<String, long[]> COAL = new LinkedHashMap<>();
+	private static boolean coalLoaded, coalDirty;
+	private static long coalPendAt, coalSavedAt;
+
+	private static Path coalFile() {
+		return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("lunaslight").resolve("neogul-cookcoal.json");
+	}
+
+	private static void coalLoad() {
+		if (coalLoaded) {
+			return;
+		}
+		coalLoaded = true;
+		try {
+			Path f = coalFile();
+			if (Files.exists(f)) {
+				JsonObject o = JsonParser.parseString(Files.readString(f, StandardCharsets.UTF_8)).getAsJsonObject();
+				for (var e : o.entrySet()) {
+					var a = e.getValue().getAsJsonArray();
+					COAL.put(e.getKey(), new long[]{a.get(0).getAsLong(), a.get(1).getAsLong()});
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulMine:coalLoad", t);
+		}
+	}
+
+	private void coalSaveTick() {
+		if (!coalDirty || System.currentTimeMillis() - coalSavedAt < 10_000) {
+			return;
+		}
+		coalDirty = false;
+		coalSavedAt = System.currentTimeMillis();
+		try {
+			JsonObject o = new JsonObject();
+			for (var e : COAL.entrySet()) {
+				com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+				a.add(e.getValue()[0]);
+				a.add(e.getValue()[1]);
+				o.add(e.getKey(), a);
+			}
+			Files.createDirectories(coalFile().getParent());
+			Files.writeString(coalFile(), GSON.toJson(o), StandardCharsets.UTF_8);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("neogulMine:coalSave", t);
+		}
+	}
+
+	private void coalCount(String id, String name) {
+		if (kr.lunaslight.mod.util.NeogulDungeonHud.onIsland()) {
+			return;
+		}
+		coalLoad();
+		long now = System.currentTimeMillis();
+		if ("ng118".equals(id)) {
+			coalPendAt = now;
+			return;
+		}
+		if (id.startsWith("ng")) {
+			return;   // 보석 줄은 블록 줄이 아니다
+		}
+		long[] r = COAL.computeIfAbsent(statName(name), k -> new long[2]);
+		r[0]++;
+		if (coalPendAt > 0 && now - coalPendAt < 1500) {
+			r[1]++;
+		}
+		coalPendAt = 0;
+		coalDirty = true;
+	}
+
+	/** 이 광물을 캘 때 요리용 석탄이 함께 나온 비율("3.2%"). 10번 넘게 캐기 전이나 요리용 석탄 자신, 보석은 null. */
+	public static String coalRate(String name) {
+		coalLoad();
+		long[] r = COAL.get(statName(name));
+		if (r == null || r[0] < 10) {
+			return null;
+		}
+		double p = r[1] * 100.0 / r[0];
+		return (p < 10 ? String.format("%.1f", p) : String.format("%.0f", p)) + "%";
+	}
+
+	/** 통계 초기화(설정 버튼). */
+	public static void coalReset() {
+		coalLoad();
+		COAL.clear();
+		coalDirty = true;
+		coalSavedAt = 0;
 	}
 
 	// ==================== 얻음 ====================
@@ -667,6 +917,7 @@ public class NeogulMineModule extends Module {
 			}
 			ensureLoaded();
 			String name = nameFor(id);
+			coalCount(id, name);   // 49-727차
 			// 49-694차(사용자 사진: 섬에서 잠광, 사암 1개 + - "섬에서 잠광하는데 광창에 쌓임"): 섬(광물 생성기)에서 캔 것은
 			// 섬 광물창고로 간다 - 내 광물창고 개수에 더하지 않고, 획득 줄만 보유 개수 없이 띄운다.
 			if (kr.lunaslight.mod.util.NeogulDungeonHud.onIsland()) {
@@ -768,6 +1019,8 @@ public class NeogulMineModule extends Module {
 			readStorage(hs);
 		}
 		withdrawTick();   // 49-629차
+		chatTick();       // 49-727차
+		coalSaveTick();
 	}
 
 	/**
@@ -787,6 +1040,7 @@ public class NeogulMineModule extends Module {
 			m.readStorage(hs);
 		}
 		m.withdrawTick();   // 49-629차
+		m.chatTick();       // 49-727차
 	}
 
 	@Override
