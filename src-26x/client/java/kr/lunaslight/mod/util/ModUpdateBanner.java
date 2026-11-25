@@ -62,6 +62,11 @@ public final class ModUpdateBanner {
 		}
 	}
 
+	/** 49-743차: 너굴라이언트도 포함한 진짜 값(루나리스 연동 신호에 실어 봇이 업데이트 안내 DM을 보낸다). */
+	public static boolean outdatedRaw() {
+		return outdated;
+	}
+
 	public static boolean outdated() {
 		return outdated && !LunaSocial.nugulient;   // 49-622차: 너굴라이언트는 런처가 모드를 바꿔 끼움 - 알림 안 띄움
 	}

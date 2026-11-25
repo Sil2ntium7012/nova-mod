@@ -44,6 +44,10 @@ public class NeogulSpendLogModule extends Module {
 	private static final Pattern TRADE = Pattern.compile("([A-Za-z0-9_]{2,16})님과의\\s*거래가\\s*완료되었습니다");
 	private static final Pattern TRADE_MONEY = Pattern.compile("└\\s*([\\d,]+)원\\s*\\(\\s*([+-])\\s*\\)");
 	private static final Pattern TRADE_ITEM = Pattern.compile("└\\s*(.+?)\\s*([\\d,]+)개\\s*\\(\\s*([+-])\\s*\\)");
+	/** 49-739차: 섬 은행 출금 - "섬 은행에서 출금하였습니다." 다음 줄 "└ 출금한 금액: 40,000,000원". */
+	private static final Pattern BANK_OUT = Pattern.compile("섬\\s*은행에서\\s*출금하였습니다");
+	private static final Pattern BANK_OUT_WON = Pattern.compile("출금한\\s*금액\\s*[:：]\\s*([\\d,]+)\\s*원");
+	private long bankOutAt;
 	private static final Pattern PLAYER_CHAT = Pattern.compile("[A-Za-z0-9_]{3,16}\\s*:\\s");
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 
@@ -76,7 +80,7 @@ public class NeogulSpendLogModule extends Module {
 	private static final long BUY_GAP_MS = 5000;
 
 	public NeogulSpendLogModule() {
-		super("neogul_spend_log", "지출 기록 (디스코드)", ModuleCategory.SERVER, "유저 상점에서 산 것, 거래로 낸 돈을 디스코드 채널에 올림");
+		super("neogul_spend_log", "지출 기록 (디스코드)", ModuleCategory.SERVER, "유저 상점에서 산 것, 거래로 낸 돈, 섬 은행 출금을 디스코드 채널에 올림 (관리진: 루나리스 /지출연동 주소)");
 		serverGroup("너굴마을");
 		hook.hidden();
 		state.hidden();
@@ -95,16 +99,8 @@ public class NeogulSpendLogModule extends Module {
 		ChatState.addLoggedListener(this::onChat);
 	}
 
-	/** 49-657차(사용자: "나랑 연동되게만 만들어 두면 돼"): 관리자 계정(섬장)에서만 보이고 돈다. */
-	@Override
-	public boolean isEnabled() {
-		return NeogulData.isAdmin(client) && super.isEnabled();
-	}
-
-	@Override
-	public boolean hiddenInList() {
-		return !NeogulData.isAdmin(client) || super.hiddenInList();
-	}
+	// 49-739차(사용자: "지출목록에 관리진 전체 거래목록 뜨게 하고 은행 출금까지"): 섬장만 보이던 것을 모두에게 보인다.
+	// 주소(웹후크)는 루나리스 /지출연동 을 섬장과 관리진만 받을 수 있어서, 주소를 받은 사람만 올릴 수 있다. 봇이 마크 이름으로 누가 보냈는지 찾는다.
 
 	// ==================== 상태 ====================
 
@@ -264,6 +260,23 @@ public class NeogulSpendLogModule extends Module {
 		}
 		load();
 		long now = System.currentTimeMillis();
+		// 49-739차: 섬 은행 출금(내 돈이 아니라 섬 돈이라 오늘 쓴 돈에는 안 더한다)
+		if (BANK_OUT.matcher(line).find()) {
+			bankOutAt = now;
+			return;
+		}
+		if (bankOutAt > 0 && now - bankOutAt < 3000) {
+			Matcher bo = BANK_OUT_WON.matcher(line);
+			if (bo.find()) {
+				bankOutAt = 0;
+				JsonObject o = new JsonObject();
+				o.addProperty("k", "bank");
+				o.addProperty("t", hhmm());
+				o.addProperty("won", num(bo.group(1)));
+				queue.add(o);
+				return;
+			}
+		}
 		// 거래: 완료 줄 뒤 3초 안의 └ 줄
 		if (tradeWith != null && now - tradeAt < 3000 && line.startsWith("└")) {
 			Matcher mm = TRADE_MONEY.matcher(line);

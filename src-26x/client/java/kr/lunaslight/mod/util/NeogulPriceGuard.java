@@ -48,7 +48,7 @@ public final class NeogulPriceGuard {
 
 	private static final Pattern TRADE = Pattern.compile("사요|삽니다|사겠|구매|구합니다|구해요|구함|매입|팝니다|팔아요|팔게요|팔아용|판매|파요|팝|삼|팜|ㅅㅅ|ㅍㅍ");
 	private static final Pattern NUM = Pattern.compile("(\\d[\\d,]*(?:\\.\\d+)?)(억|만|천)?(원)?");
-	private static final String NOT_PRICE = "개장명셋세쎗%분시배급번칸렙레강단일초층등위px";
+	private static final String NOT_PRICE = "개갯장명셋세쎗%분시배급번칸렙레강단일초층등위px묶통병줄판마대쌍벌";
 
 	/** 채팅 한 줄(서버 그림 글자는 뺀 것)에서 시세를 벗어난 첫 곳. 없으면 null. */
 	public static Hit check(String plain) {
@@ -70,7 +70,10 @@ public final class NeogulPriceGuard {
 		}
 		String[] words = head.trim().split("\\s+");
 		String who = words.length == 0 ? "" : words[words.length - 1];
-		for (String seg : msg.split("[/，|\\n]+|,(?!\\d)")) {
+		// 49-752차(사용자 사진: 확성기 "자판기20(줄 바뀜)0" → "자판기 20만원 최소 100만원", "갯수로 말해도 나오거나 상황에 맞지 않게 뜸"):
+		// 서버가 긴 글을 화면 폭에서 잘라 줄을 바꾼다(숫자 한가운데에서도) - 줄바꿈은 나누는 자리가 아니라 그냥 이어 붙인다.
+		msg = msg.replaceAll("\\s*(\\\\n|\\n)\\s*", "");
+		for (String seg : msg.split("[/，|]+|,(?!\\d{3})")) {
 			Hit h = checkSegment(who, seg, plain);
 			if (h != null) {
 				return h;
@@ -118,14 +121,23 @@ public final class NeogulPriceGuard {
 			String[] it = found.get(f);
 			int from = Integer.parseInt(it[3]);
 			int to = f + 1 < found.size() ? Integer.parseInt(found.get(f + 1)[2]) : t.length();
-			long price = priceIn(t.substring(from, Math.max(from, Math.min(to, from + 24))));
-			if (price <= 0) {
-				continue;
-			}
 			long[] r = NeogulTradePoints.RULES.get(it[0]);
 			if (r == null) {
 				continue;
 			}
+			// 49-752차: 이름 뒤 숫자를 모두 본다 - 그중 하나라도 시세 안이면 그게 값이다(다른 숫자는 개수 등). 모두 벗어날 때만 첫 숫자로 알린다.
+			List<Long> cands = pricesIn(t.substring(from, Math.max(from, Math.min(to, from + 24))));
+			if (cands.isEmpty()) {
+				continue;
+			}
+			boolean fine = false;
+			for (long c : cands) {
+				fine |= c >= r[0] && c <= r[1];
+			}
+			if (fine) {
+				continue;
+			}
+			long price = cands.get(0);
 			if (price > r[1] && price <= r[1] * 20) {
 				return new Hit(who, it[1], price, r[1], true, line);
 			}
@@ -138,9 +150,19 @@ public final class NeogulPriceGuard {
 
 	/** 이름 뒤 글에서 첫 값(원). 개수 같은 것은 건너뛴다. 없으면 0. */
 	static long priceIn(String s) {
+		List<Long> l = pricesIn(s);
+		return l.isEmpty() ? 0 : l.get(0);
+	}
+
+	/** 이름 뒤 글의 값 후보 모두(원). 개수("3개", "10ea", "x5", "2묶음")는 건너뛴다. */
+	static List<Long> pricesIn(String s) {
+		List<Long> out = new ArrayList<>();
 		Matcher m = NUM.matcher(s);
 		while (m.find()) {
 			int e = m.end();
+			if (m.group(2) == null && m.group(3) == null && s.startsWith("ea", e)) {
+				continue;
+			}
 			if (m.group(2) == null && m.group(3) == null && e < s.length() && NOT_PRICE.indexOf(Character.toLowerCase(s.charAt(e))) >= 0) {
 				continue;   // 3개, 2셋, 10% …
 			}
@@ -175,9 +197,9 @@ public final class NeogulPriceGuard {
 					v *= 10_000L;   // "140에 사요" = 140만
 				}
 			}
-			return v;
+			out.add(v);
 		}
-		return 0;
+		return out;
 	}
 
 	/** 1,320,000 → "132만원", 155,000 → "15만 5천원". */

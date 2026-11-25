@@ -56,6 +56,74 @@ public class LunarisLinkModule extends Module {
 	private final StringSetting code = register(new StringSetting("code", "연동 코드", "", ""));
 	/** 저장용(JSON): 날짜, 일퀘, 오늘 가득 찬 횟수, 최대치, 지금 N, 보낸 값들, 섬마다 센 적 있음, 이름 모르는 1회. */
 	private final StringSetting state = register(new StringSetting("state", "상태", "", ""));
+	/**
+	 * 49-746차(사용자: "모드 문제가 있을 때 문제 동안 쌓인 것을 바로바로 전부 해결할 수 있게"): 최근 7일 기록 {날짜: [일퀘 0/1, 가득 횟수, 회복제, 최대치]}.
+	 * 봇이 꺼져 있었거나 신호가 안 갔던 날도, 접속할 때마다(그리고 날이 바뀔 때) 이 기록을 "hist" 신호로 보내면 봇이 빠진 일퀘, 피로도를 채우고 벌금을 되돌린다.
+	 */
+	private final StringSetting hist = register(new StringSetting("hist", "지난 기록", "", ""));
+	private boolean histSent;
+	private long histAt;
+
+	private JsonObject histObj() {
+		try {
+			String v = hist.get();
+			if (v != null && !v.isEmpty()) {
+				return JsonParser.parseString(v).getAsJsonObject();
+			}
+		} catch (Throwable ignored) {
+		}
+		return new JsonObject();
+	}
+
+	/** 오늘 값을 지난 기록에 적는다(7일 넘은 날은 지움). */
+	private void histNote() {
+		if (day == null) {
+			return;
+		}
+		try {
+			JsonObject h = histObj();
+			com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+			a.add(quest ? 1 : 0);
+			a.add(fills);
+			a.add(potions);
+			a.add(max);
+			h.add(day, a);
+			String cut = LocalDate.now(KST).minusDays(7).toString();
+			for (String k : new java.util.ArrayList<>(h.keySet())) {
+				if (k.compareTo(cut) < 0) {
+					h.remove(k);
+				}
+			}
+			hist.setValue(h.toString());
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("lunaris:hist", t);
+		}
+	}
+
+	/** 접속하고 1분 뒤 한 번, 날이 바뀌면 다시: 지난 기록을 봇에 보낸다. */
+	private void histTick() {
+		if (histSent || !linked() || client.player == null || !NeogulData.onNeogul(client)) {
+			histAt = 0;
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (histAt == 0) {
+			histAt = now + 60_000;
+			return;
+		}
+		if (now < histAt) {
+			return;
+		}
+		histSent = true;
+		JsonObject h = histObj();
+		if (h.size() == 0) {
+			return;
+		}
+		JsonObject e = new JsonObject();
+		e.addProperty("ev", "hist");
+		e.add("days", h);
+		events.add(e);
+	}
 
 	private String day;
 	private boolean quest;
@@ -68,6 +136,21 @@ public class LunarisLinkModule extends Module {
 	private int sentPotions;
 	private long sentMoney = -1, sentAcorn = -1;
 	private long sentSand = -1;   // 49-726차
+	/**
+	 * 49-743차(사용자: "디코 쪽 관련 업뎃은 연동한 사람들한테 지속적으로 업데이트 요청 메시지"): 모드 빌드 번호. 신호마다 "b"로 보내고,
+	 * 새 릴리스가 있으면(ModUpdateBanner) "od":true. 봇(modupdate.js REQ)이 이보다 낮거나 od면 업데이트해 달라고 DM. 모드를 올릴 때 둘을 같이 올릴 것.
+	 */
+	public static final int BUILD = 746;
+
+	private static void stamp(JsonObject p) {
+		p.addProperty("b", BUILD);
+		try {
+			if (kr.lunaslight.mod.util.ModUpdateBanner.outdatedRaw()) {
+				p.addProperty("od", true);
+			}
+		} catch (Throwable ignored) {
+		}
+	}
 	private final Map<String, Boolean> full = new HashMap<>();
 	private int unnamed;
 	private int potions;   // 49-667차: 오늘 쓴 피로회복제(회복 메시지 수)
@@ -106,6 +189,7 @@ public class LunarisLinkModule extends Module {
 		serverGroup("너굴마을");
 		code.hidden();
 		state.hidden();
+		hist.hidden();
 		register(new InfoSetting("status", "상태", this::statusText));
 		register(new ActionSetting("paste", "연동 코드", "디스코드에서 /연동 으로 받은 코드를 복사한 뒤 누르십시오.", "붙여 넣기", this::pasteCode));
 		register(new ActionSetting("unlink", "연동 해제", "이 컴퓨터에서 코드를 지웁니다.", "해제", () -> {
@@ -173,6 +257,8 @@ public class LunarisLinkModule extends Module {
 			sentQuest = false;
 			sentFills = -1;
 			sentCur = -1;
+			histSent = false;   // 49-746차: 날이 바뀌면 어제까지 기록을 한 번 더 보낸다
+			histAt = 0;
 			save();   // 섬마다 "센 적 있음"은 남긴다 - 어제 가득 찬 채로 둔 섬을 오늘 또 세지 않게
 		}
 	}
@@ -194,6 +280,7 @@ public class LunarisLinkModule extends Module {
 		full.forEach(f::addProperty);
 		o.add("full", f);
 		state.setValue(o.toString());
+		histNote();   // 49-746차
 	}
 
 	private void changed() {
@@ -233,6 +320,8 @@ public class LunarisLinkModule extends Module {
 		sentPotions = -1;
 		lastProgress = 0;
 		nextSend = 0;
+		histSent = false;   // 49-746차: [지금 보내기]는 지난 7일 기록도 다시
+		histAt = 1;
 		changed();
 	}
 
@@ -358,6 +447,7 @@ public class LunarisLinkModule extends Module {
 			}
 		}
 		mineTick();
+		histTick();      // 49-746차
 		mailboxTick();   // 49-696차
 		if (!events.isEmpty() && linked() && !sending && System.currentTimeMillis() >= nextSend) {
 			sendEvent();
@@ -942,6 +1032,7 @@ public class LunarisLinkModule extends Module {
 		p.addProperty("s", c.group(5));
 		p.addProperty("mc", LunaCompat.sessionName(client));
 		p.addProperty("d", day);
+		stamp(p);   // 49-743차
 		JsonObject body = new JsonObject();
 		body.addProperty("content", p.toString());
 		body.addProperty("username", "Nova 자동 일퀘");
@@ -1033,6 +1124,7 @@ public class LunarisLinkModule extends Module {
 		p.addProperty("u", fills * max + (cur < max ? cur : 0));   // 예전 봇용
 		// 49-686차(사용자: "Yume_o 다 했는데 1회만 감"): 봇 기록에 남길 모드 판과 못 센 까닭
 		p.addProperty("nv", kr.lunaslight.mod.util.LunaVersion.mod());
+		stamp(p);   // 49-743차
 		if (barMisses > 0 && barMissNote != null) {
 			p.addProperty("fx", barMisses + "번, 마지막 " + barMissNote);
 		}
