@@ -103,7 +103,26 @@ public final class RiderCosmetics {
 					|| !mc.options.getCameraType().isFirstPerson() || !cosmeticKind(e)) {
 				return false;
 			}
-			return ownerOf(e) == mc.player;
+			if (ownerOf(e) != mc.player) {
+				return false;
+			}
+			// 49-759차(사용자: "플레이어 치장도 보여야 한다고, 타인 것은"): 타지 않은 치장은 누구 것인지 자리로만 짐작한다.
+			// 다른 사람이 내 곁에 서면 그 사람 치장(등 뒤 가방, 날개 등)이 나와 더 가까워 내 것으로 보고 숨겼다.
+			// 다른 플레이어가 그 치장 1.5칸 안에 있으면 누구 것인지 모르는 것으로 보고 숨기지 않는다(남의 것을 숨기느니 내 것이 잠깐 보이는 쪽).
+			if (e.getRootVehicle() == e) {
+				for (Player p : e.level().players()) {
+					if (p == mc.player || p.isSpectator()) {
+						continue;
+					}
+					double dx = e.getX() - p.getX();
+					double dz = e.getZ() - p.getZ();
+					double dy = e.getY() - p.getY();
+					if (dx * dx + dz * dz < 2.25 && dy > -1.0 && dy < p.getBbHeight() + 1.5) {
+						return false;
+					}
+				}
+			}
+			return true;
 		} catch (Throwable t) {
 			return false;
 		}

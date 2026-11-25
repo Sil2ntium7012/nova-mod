@@ -79,9 +79,33 @@ public class NeogulSpendLogModule extends Module {
 	private long buyFirst;
 	private static final long BUY_GAP_MS = 5000;
 
+	private static NeogulSpendLogModule instance;
+
+	/** 49-761차: 웹후크 주소가 없으면(섬원) 루나리스 연동으로 개인 지출을 보낸다. */
+	private boolean viaLink() {
+		return !linked() && LunarisLinkModule.canSpend();
+	}
+
+	/** LunarisLinkModule이 틱마다 부른다 - 이 기능이 꺼져 있어도 개인 지출은 모아서 보낸다. */
+	public static void linkTick() {
+		NeogulSpendLogModule m = instance;
+		if (m != null && !m.isEnabled() && m.viaLink()) {
+			m.tick0();
+		}
+	}
+
+	/**
+	 * 49-761차(사용자: "치장, 도구처럼 사진 같은 거 제외하고 뜨게, 우리 지출 채널도 마찬가지로" - 사진: [치장], [가구], [장비], [치장도구]):
+	 * 꾸미기와 장비는 지출로 안 센다.
+	 */
+	private static boolean skipCat(String cat) {
+		return cat != null && (cat.contains("치장") || cat.contains("가구") || cat.contains("장비"));
+	}
+
 	public NeogulSpendLogModule() {
-		super("neogul_spend_log", "지출 기록 (디스코드)", ModuleCategory.SERVER, "유저 상점에서 산 것, 거래로 낸 돈, 섬 은행 출금을 디스코드 채널에 올림 (관리진: 루나리스 /지출연동 주소)");
+		super("neogul_spend_log", "지출 기록 (디스코드)", ModuleCategory.SERVER, "유저 상점에서 산 것, 거래로 낸 돈을 디스코드에 올림 (섬원: /연동 하면 개인지출에 자동, 관리진: /지출연동 주소)");
 		serverGroup("너굴마을");
+		instance = this;
 		hook.hidden();
 		state.hidden();
 		register(new InfoSetting("status", "상태", this::statusText));
@@ -143,7 +167,7 @@ public class NeogulSpendLogModule extends Module {
 
 	private String statusText() {
 		load();
-		String s = (linked() ? "연결됨" : "웹후크 없음") + "  |  오늘 " + count + "건 " + won(total);
+		String s = (linked() ? "지출기록 채널 연결됨" : LunarisLinkModule.canSpend() ? "개인지출 자동 (루나리스 연동)" : "연결 안 됨") + "  |  오늘 " + count + "건 " + won(total);
 		return note == null || note.isEmpty() ? s : s + "  |  " + note;
 	}
 
@@ -251,7 +275,7 @@ public class NeogulSpendLogModule extends Module {
 	}
 
 	private void onChat(String raw) {
-		if (!isEnabled() || raw == null || raw.isEmpty() || !NeogulData.onNeogul(client)) {
+		if ((!isEnabled() && !viaLink()) || raw == null || raw.isEmpty() || !NeogulData.onNeogul(client)) {
 			return;
 		}
 		String line = clean(raw.replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", ""));
@@ -307,6 +331,9 @@ public class NeogulSpendLogModule extends Module {
 		}
 		Matcher b = BUY.matcher(line);
 		if (b.find()) {
+			if (skipCat(catOf(b.group(2)))) {
+				return;   // 49-761차: 치장, 가구, 장비는 지출로 안 센다
+			}
 			long price = num(b.group(4));
 			long n = num(b.group(3));
 			JsonObject row = thing(b.group(2), n);
@@ -368,7 +395,14 @@ public class NeogulSpendLogModule extends Module {
 		if (tradeWith == null) {
 			return;
 		}
-		if (tradePaid > 0) {
+		boolean deco = !tradeGot.isEmpty();
+		for (var g : tradeGot) {
+			JsonObject go = g.getAsJsonObject();
+			if (!go.has("cat") || !skipCat(go.get("cat").getAsString())) {
+				deco = false;
+			}
+		}
+		if (tradePaid > 0 && !deco) {
 			JsonObject o = new JsonObject();
 			o.addProperty("k", "trade");
 			o.addProperty("t", hhmm());
@@ -400,12 +434,34 @@ public class NeogulSpendLogModule extends Module {
 
 	@Override
 	public void onTick() {
+		tick0();
+	}
+
+	private void tick0() {
 		long now = System.currentTimeMillis();
 		if (tradeWith != null && now - tradeAt >= 3000) {
 			endTrade();
 		}
 		if (buyRows != null && (now - buyAt >= BUY_GAP_MS || now - buyFirst >= 60_000)) {
 			endBuys();
+		}
+		if (!queue.isEmpty() && !linked() && LunarisLinkModule.canSpend()) {
+			// 49-761차: 섬원은 연동으로(개인지출). 시험 글과 섬 은행 출금은 개인 지출이 아니라 버린다. 글 길이(2000자)를 넘지 않게 줄을 줄인다.
+			JsonObject c0 = queue.remove(0);
+			String k0 = c0.has("k") ? c0.get("k").getAsString() : "";
+			if ("buy".equals(k0) || "trade".equals(k0)) {
+				for (String key : new String[]{"rows", "got", "gave"}) {
+					JsonArray arr = c0.has(key) ? c0.getAsJsonArray(key) : null;
+					while (arr != null && arr.size() > 1 && c0.toString().length() > 1500) {
+						arr.remove(arr.size() - 1);
+						c0.addProperty("more", (c0.has("more") ? c0.get("more").getAsInt() : 0) + 1);
+					}
+				}
+				if (c0.toString().length() <= 1700) {
+					LunarisLinkModule.addSpend(c0);
+				}
+			}
+			return;
 		}
 		if (queue.isEmpty() || sending || !linked() || now < flushAt || now < retryAt) {
 			return;

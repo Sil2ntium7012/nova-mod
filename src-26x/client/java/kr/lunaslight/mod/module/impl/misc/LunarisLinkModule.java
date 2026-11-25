@@ -140,7 +140,7 @@ public class LunarisLinkModule extends Module {
 	 * 49-743차(사용자: "디코 쪽 관련 업뎃은 연동한 사람들한테 지속적으로 업데이트 요청 메시지"): 모드 빌드 번호. 신호마다 "b"로 보내고,
 	 * 새 릴리스가 있으면(ModUpdateBanner) "od":true. 봇(modupdate.js REQ)이 이보다 낮거나 od면 업데이트해 달라고 DM. 모드를 올릴 때 둘을 같이 올릴 것.
 	 */
-	public static final int BUILD = 746;
+	public static final int BUILD = 747;
 
 	private static void stamp(JsonObject p) {
 		p.addProperty("b", BUILD);
@@ -184,9 +184,35 @@ public class LunarisLinkModule extends Module {
 
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 
+	// ==================== 49-761차: 개인 지출(섬원) ====================
+	// 사용자: "개인지출 채널 만들어서 섬원들도 개인지출 쌓이게". 지출 기록(NeogulSpendLogModule)에 웹후크 주소가 없는 사람(섬원)은
+	// 이 연동(/연동 코드)으로 {"ev":"spend","k":시각,"card":…}를 보낸다. 봇이 개인지출 포럼의 그 사람 게시글에 쌓는다.
+	private static LunarisLinkModule instance;
+
+	/** 지금 연동으로 보낼 수 있는지(켜져 있고 연동 코드가 있음). */
+	public static boolean canSpend() {
+		LunarisLinkModule m = instance;
+		return m != null && m.isEnabled() && m.linked();
+	}
+
+	/** 지출 카드 하나를 보낼 줄에 넣는다. */
+	public static boolean addSpend(JsonObject card) {
+		LunarisLinkModule m = instance;
+		if (m == null || !m.isEnabled() || !m.linked() || card == null) {
+			return false;
+		}
+		JsonObject e = new JsonObject();
+		e.addProperty("ev", "spend");
+		e.addProperty("k", System.currentTimeMillis());
+		e.add("card", card);
+		m.events.add(e);
+		return true;
+	}
+
 	public LunarisLinkModule() {
 		super("lunaris_link", "루나리스 자동 일퀘", ModuleCategory.SERVER, "일퀘 보상, 피로도를 루나리스 봇에 자동으로 알림");
 		serverGroup("너굴마을");
+		instance = this;
 		code.hidden();
 		state.hidden();
 		hist.hidden();
@@ -447,6 +473,7 @@ public class LunarisLinkModule extends Module {
 			}
 		}
 		mineTick();
+		NeogulSpendLogModule.linkTick();   // 49-761차: 지출 기록이 꺼져 있어도(섬원) 개인 지출은 이 연동으로
 		histTick();      // 49-746차
 		mailboxTick();   // 49-696차
 		if (!events.isEmpty() && linked() && !sending && System.currentTimeMillis() >= nextSend) {
