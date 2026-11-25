@@ -43,6 +43,11 @@ public final class RiderCosmetics {
 		if (root != e) {
 			return root instanceof Player p ? p : null;
 		}
+		// 49-754차(사용자: "양배추가 아직도 가까이 가면 안 보임"): 서버 가구/작물(Nexo 가구 = 제자리 표시 엔티티)에 다가서면
+		// 0.8블록 안이라 내 치장으로 잘못 보고 1인칭에서 숨겼다. 타지 않은 것은 한 번이라도 움직인 것(플레이어를 따라다니는 것)만 치장으로 본다.
+		if (!moved(e)) {
+			return null;
+		}
 		Player best = null;
 		double bestD = 0.64;
 		for (Player p : e.level().players()) {
@@ -63,6 +68,26 @@ public final class RiderCosmetics {
 			bestD = d;
 		}
 		return best;
+	}
+
+	/** 처음 본 자리와 움직였는지. 렌더 스레드에서만 쓴다. 엔티티가 사라지면 같이 지워진다. */
+	private static final java.util.Map<Entity, double[]> FIRST = new java.util.WeakHashMap<>();
+
+	private static boolean moved(Entity e) {
+		double[] f = FIRST.get(e);
+		if (f == null) {
+			FIRST.put(e, new double[]{e.getX(), e.getY(), e.getZ(), 0});
+			return false;
+		}
+		if (f[3] != 0) {
+			return true;
+		}
+		double dx = e.getX() - f[0], dy = e.getY() - f[1], dz = e.getZ() - f[2];
+		if (dx * dx + dy * dy + dz * dz > 1.0e-4) {
+			f[3] = 1;
+			return true;
+		}
+		return false;
 	}
 
 	/** 예전 이름(다른 곳에서 부를 수 있어 남김). */

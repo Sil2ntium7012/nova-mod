@@ -591,6 +591,7 @@ public final class NeogulDungeonHud {
 		int hpA = -1, hpB = -1, hun = -1, arm = -1, lv = -1, pc = -1;
 		boolean slash = false, hpDone = false;
 		StringBuilder gn = null;
+		boolean pcFrac = false;
 		boolean inPct = false;
 		gainTrack = 0;
 		gainMineKind = false;
@@ -655,8 +656,13 @@ public final class NeogulDungeonHud {
 				gn.append('.');
 			} else if (f.equals("hud_gain_paren")) {
 				inPct = true;
+				pcFrac = false;
+			} else if (f.startsWith("hud_gain_dot") && inPct) {
+				pcFrac = true;   // 49-755차: % 안의 소수점 뒤 숫자는 버린다(12.5% → 12)
 			} else if (f.equals("hud_gain_digits_g") && inPct) {
-				pc = Math.max(0, pc) * 10 + g.col;
+				if (!pcFrac) {
+					pc = Math.max(0, pc) * 10 + g.col;
+				}
 			} else if (f.equals("hud_gain_pct")) {
 				inPct = false;
 			}
@@ -762,6 +768,17 @@ public final class NeogulDungeonHud {
 				exp = need;
 			}
 			// 49-575차(사용자: "경험치 오르는 수치가 애초에 숫자로 나오잖아, 그걸 이용하라고"): 알림의 +N(정확한 수)만 더한다 - %로 맞추지 않는다
+			// 49-755차(사용자가 전해 준 제보: "경치 조금 밀려요, 표기는 100퍼인데 레벨업 안 찍히는"): 더한 값이 조금씩 앞서 가서 서버는 아직인데 100%로 보였다.
+			// +N은 그대로 더하되, 토벌 알림의 괄호 % (서버 값)에서 1%p 넘게 벗어나면 그 범위 안으로만 당긴다. 서버가 100%라고 하기 전에는 다 찼다고 하지 않는다.
+			if (surelyCombat && need > 0 && pc >= 0 && pc <= 100) {
+				if (pc >= 100) {
+					exp = need;
+				} else {
+					long lo = need * Math.max(0, pc - 1) / 100;
+					long hi = Math.min(need - 1, need * (pc + 1) / 100);
+					exp = Math.max(lo, Math.min(hi, exp));
+				}
+			}
 			tobeolExp = exp;
 			tobeolNeed = need;
 			tobeolPct = need > 0 ? exp * 100f / need : 0f;

@@ -245,6 +245,9 @@ public class BlueprintScreen extends LunaScreenBase {
 	private void renderList(GuiGraphicsExtractor ctx, BlueprintModule m, int px, int top, int mx, int my) {
 		int x = px + PAD, w = PANEL_W - PAD * 2;
 		LunaDraw.text(ctx, font, "불러오면 지금 서 있는 칸이 설계도의 기준 위치가 됩니다", x, LunaDraw.textY(top, ROW), LunaDraw.TEXT_DIM);
+		// 49-757차(사용자: "바로 파일을 복사하거나 폴더 여는 기능"): 목록 위 [폴더 열기], 줄마다 [파일 복사]
+		boolean fh = LunaDraw.in(mx, my, x + w - 70, top, 70, ROW - 4);
+		LunaDraw.button3d(ctx, font, x + w - 70, top, 70, ROW - 4, "폴더 열기", LunaDraw.B_NEUTRAL, fh ? 1f : 0f);
 		int lt = top + ROW, lh = PANEL_H - (lt - py()) - 26;
 		int maxScroll = Math.max(0, files.size() * ROW - lh);
 		listScroll = Math.max(0, Math.min(listScroll, maxScroll));
@@ -260,8 +263,10 @@ public class BlueprintScreen extends LunaScreenBase {
 			String f = files.get(i);
 			boolean loaded = m.bp != null && f.equals(m.bp.name);
 			LunaDraw.roundRectBordered(ctx, x, ry, w, ROW - 3, 4, LunaDraw.CARD, loaded ? LunaDraw.ACCENT : LunaDraw.CARD_BORDER);
-			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, f, w - 170), x + 8, LunaDraw.textY(ry, ROW - 3), LunaDraw.TEXT);
-			int delX = x + w - 64, loadX = delX - 82;
+			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, f, w - 240), x + 8, LunaDraw.textY(ry, ROW - 3), LunaDraw.TEXT);
+			int delX = x + w - 64, loadX = delX - 82, copyX = loadX - 70;
+			boolean ch2 = LunaDraw.in(mx, my, copyX, ry + 1, 64, ROW - 5);
+			LunaDraw.button3d(ctx, font, copyX, ry + 1, 64, ROW - 5, "파일 복사", LunaDraw.B_NEUTRAL, ch2 ? 1f : 0f);
 			boolean lh2 = LunaDraw.in(mx, my, loadX, ry + 1, 76, ROW - 5);
 			LunaDraw.button3d(ctx, font, loadX, ry + 1, 76, ROW - 5, loaded ? "다시 불러오기" : "불러오기", LunaDraw.B_PRIMARY, lh2 ? 1f : 0f);
 			boolean dh = LunaDraw.in(mx, my, delX, ry + 1, 58, ROW - 5);
@@ -475,16 +480,82 @@ public class BlueprintScreen extends LunaScreenBase {
 		}
 	}
 
+	/**
+	 * 49-757차: 설계도 파일을 복사한다. 윈도우는 파일 자체를 클립보드에(탐색기, 디스코드에 Ctrl+V로 붙여 넣기) - 게임은 AWT를 못 써서
+	 * 파워셸 Set-Clipboard를 부른다. 다른 운영체제이거나 실패하면 파일 경로를 글자로 복사한다.
+	 */
+	private void copyFile(String name) {
+		java.nio.file.Path file = Blueprint.folder().resolve(name + ".json").toAbsolutePath();
+		if (!java.nio.file.Files.isRegularFile(file)) {
+			say("§c파일을 찾지 못했습니다");
+			return;
+		}
+		boolean win = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win");
+		if (!win) {
+			copyPath(file);
+			return;
+		}
+		say("§7복사하는 중입니다");
+		Thread t = new Thread(() -> {
+			boolean ok = false;
+			try {
+				String lit = file.toString().replace("'", "''");
+				Process pr = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+						"Set-Clipboard -LiteralPath '" + lit + "'").redirectErrorStream(true).start();
+				pr.getOutputStream().close();
+				pr.getInputStream().readAllBytes();
+				ok = pr.waitFor(8, java.util.concurrent.TimeUnit.SECONDS) && pr.exitValue() == 0;
+				if (!ok) {
+					pr.destroyForcibly();
+				}
+			} catch (Throwable ignored) {
+			}
+			boolean done = ok;
+			net.minecraft.client.Minecraft.getInstance().execute(() -> {
+				if (done) {
+					say("§a파일을 복사했습니다: " + name + ".json (Ctrl+V로 붙여 넣으십시오)");
+				} else {
+					copyPath(file);
+				}
+			});
+		}, "nova-blueprint-copy");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	private void copyPath(java.nio.file.Path file) {
+		try {
+			net.minecraft.client.Minecraft.getInstance().keyboardHandler.setClipboard(file.toString());
+			say("§7파일 경로를 복사했습니다");
+		} catch (Throwable t) {
+			say("§c복사하지 못했습니다");
+		}
+	}
+
 	private boolean clickList(BlueprintModule m, int px, int top, double mx, double my) {
 		int x = px + PAD, w = PANEL_W - PAD * 2;
 		int lt = top + ROW, lh = PANEL_H - (lt - py()) - 26;
+		if (LunaDraw.in(mx, my, x + w - 70, top, 70, ROW - 4)) {
+			try {
+				java.nio.file.Path dir = Blueprint.folder();
+				java.nio.file.Files.createDirectories(dir);
+				kr.lunaslight.mod.util.LunaInput.openPath(dir);
+			} catch (Throwable t) {
+				say("§c폴더를 열지 못했습니다");
+			}
+			return true;
+		}
 		if (!LunaDraw.in(mx, my, x, lt, w, lh)) {
 			return true;
 		}
 		for (int i = 0; i < files.size(); i++) {
 			int ry = lt + i * ROW - (int) listScroll;
 			String f = files.get(i);
-			int delX = x + w - 64, loadX = delX - 82;
+			int delX = x + w - 64, loadX = delX - 82, copyX = loadX - 70;
+			if (LunaDraw.in(mx, my, copyX, ry + 1, 64, ROW - 5)) {
+				copyFile(f);
+				return true;
+			}
 			if (LunaDraw.in(mx, my, loadX, ry + 1, 76, ROW - 5)) {
 				say(m.load(f));
 				if (m.bp != null) {
