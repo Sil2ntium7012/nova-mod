@@ -140,7 +140,7 @@ public class LunarisLinkModule extends Module {
 	 * 49-743차(사용자: "디코 쪽 관련 업뎃은 연동한 사람들한테 지속적으로 업데이트 요청 메시지"): 모드 빌드 번호. 신호마다 "b"로 보내고,
 	 * 새 릴리스가 있으면(ModUpdateBanner) "od":true. 봇(modupdate.js REQ)이 이보다 낮거나 od면 업데이트해 달라고 DM. 모드를 올릴 때 둘을 같이 올릴 것.
 	 */
-	public static final int BUILD = 747;
+	public static final int BUILD = 749;
 
 	private static void stamp(JsonObject p) {
 		p.addProperty("b", BUILD);
@@ -204,6 +204,23 @@ public class LunarisLinkModule extends Module {
 		JsonObject e = new JsonObject();
 		e.addProperty("ev", "spend");
 		e.addProperty("k", System.currentTimeMillis());
+		e.add("card", card);
+		m.events.add(e);
+		return true;
+	}
+
+	/** 49-765차: 지난 지출(게임 기록에서 읽은 것) 카드. hd = 그날, ts = 그때(ms), key = 다시 보내도 같은 값. 보낼 줄이 길면 false. */
+	public static boolean addSpendHist(JsonObject card, String hd, long ts, String key) {
+		LunarisLinkModule m = instance;
+		if (m == null || !m.isEnabled() || !m.linked() || card == null || m.events.size() >= 6) {
+			return false;
+		}
+		JsonObject e = new JsonObject();
+		e.addProperty("ev", "spend");
+		e.addProperty("h", 1);
+		e.addProperty("hd", hd);
+		e.addProperty("ts", ts);
+		e.addProperty("k", key);
 		e.add("card", card);
 		m.events.add(e);
 		return true;
@@ -473,6 +490,13 @@ public class LunarisLinkModule extends Module {
 			}
 		}
 		mineTick();
+		// 49-770차: 튕김, 비정상 종료 알림(SlimLog가 묶어 둔 것)을 연동 신호로
+		if (linked() && events.size() < 6) {
+			JsonObject issue = kr.lunaslight.mod.util.SlimLog.pollReport();
+			if (issue != null) {
+				events.add(issue);
+			}
+		}
 		NeogulSpendLogModule.linkTick();   // 49-761차: 지출 기록이 꺼져 있어도(섬원) 개인 지출은 이 연동으로
 		histTick();      // 49-746차
 		mailboxTick();   // 49-696차
@@ -1024,7 +1048,10 @@ public class LunarisLinkModule extends Module {
 		long cnt = o.has("cnt") ? o.get("cnt").getAsLong() : 0;
 		long won = o.has("won") ? o.get("won").getAsLong() : 0;
 		String head = who.isEmpty() ? "누군가 섬 광물창고를 정리했습니다." : who + "님이 섬 광물창고를 정리했습니다.";
-		String tail = cnt > 0 ? String.format(java.util.Locale.ROOT, " %,d종 %,d개, %,d원", kinds, cnt, won) : "";
+		// 49-767차(사용자: "종 수 말고 이전 정리부터 지금까지 몇 분 경과했는지, 그 자리에"): 봇이 gap(분)을 주면 종 수 자리에 그 시간
+		long gap = o.has("gap") ? o.get("gap").getAsLong() : 0;
+		String first = gap >= 60 ? (gap / 60) + "시간" + (gap % 60 > 0 ? " " + (gap % 60) + "분" : "") + " 만에" : gap > 0 ? gap + "분 만에" : String.format(java.util.Locale.ROOT, "%,d종", kinds);
+		String tail = cnt > 0 ? " " + first + String.format(java.util.Locale.ROOT, " %,d개, %,d원", cnt, won) : "";
 		try {
 			client.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a[Nova] §f" + head + "§7" + tail));
 		} catch (Throwable t) {
@@ -1046,6 +1073,47 @@ public class LunarisLinkModule extends Module {
 	}
 
 	/** 잠광 신호 하나 보내기(일퀘 신호와 같은 웹후크, 같은 서명). */
+	private static final String BOUNDARY = "----NovaLunaris7d9f2c";
+
+	/** 49-770차: 글(payload_json) + 파일 1~2개를 한 번에 올리는 몸통. 파일은 뒤쪽 1.5MB까지만. 못 읽으면 null(글만 보냄). */
+	private static byte[] multipart(String json, String file1, String file2) {
+		try {
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			java.nio.charset.Charset u = java.nio.charset.StandardCharsets.UTF_8;
+			out.write(("--" + BOUNDARY + "\r\nContent-Disposition: form-data; name=\"payload_json\"\r\nContent-Type: application/json\r\n\r\n").getBytes(u));
+			out.write(json.getBytes(u));
+			out.write("\r\n".getBytes(u));
+			int n = 0;
+			for (String f : new String[]{file1, file2}) {
+				if (f == null) {
+					continue;
+				}
+				java.nio.file.Path path = java.nio.file.Path.of(f);
+				if (!java.nio.file.Files.isRegularFile(path)) {
+					continue;
+				}
+				byte[] data = java.nio.file.Files.readAllBytes(path);
+				int max = 1536 * 1024;
+				if (data.length > max) {
+					data = java.util.Arrays.copyOfRange(data, data.length - max, data.length);
+				}
+				String name = n == 0 ? "issue.log" : "crash-report.txt";
+				out.write(("--" + BOUNDARY + "\r\nContent-Disposition: form-data; name=\"files[" + n + "]\"; filename=\"" + name
+						+ "\"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n").getBytes(u));
+				out.write(data);
+				out.write("\r\n".getBytes(u));
+				n++;
+			}
+			if (n == 0) {
+				return null;
+			}
+			out.write(("--" + BOUNDARY + "--\r\n").getBytes(u));
+			return out.toByteArray();
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
 	private void sendEvent() {
 		Matcher c = CODE.matcher(code.get());
 		if (!c.matches() || events.isEmpty()) {
@@ -1053,6 +1121,9 @@ public class LunarisLinkModule extends Module {
 		}
 		JsonObject p = events.get(0).deepCopy();
 		p.remove("_bk");   // 49-679차: 큐 안에서만 쓰는 표시
+		// 49-770차: 튕김 알림에 붙일 파일(문제 기록, 충돌 보고서) - 글에는 안 넣고 첨부로 올린다
+		String file1 = p.has("_file") ? p.remove("_file").getAsString() : null;
+		String file2 = p.has("_file2") ? p.remove("_file2").getAsString() : null;
 		p.addProperty("lnr", 1);
 		p.addProperty("uid", c.group(3));
 		p.addProperty("g", Integer.parseInt(c.group(4)));
@@ -1065,12 +1136,13 @@ public class LunarisLinkModule extends Module {
 		body.addProperty("username", "Nova 자동 일퀘");
 		final JsonObject first = events.get(0);
 		sending = true;
-		HttpRequest req = HttpRequest.newBuilder(URI.create("https://discord.com/api/webhooks/" + c.group(1) + "/" + c.group(2)))
-				.timeout(Duration.ofSeconds(10))
-				.header("Content-Type", "application/json")
-				.header("User-Agent", "NovaMod-Lunaris/2")
-				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-				.build();
+		HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create("https://discord.com/api/webhooks/" + c.group(1) + "/" + c.group(2)))
+				.timeout(Duration.ofSeconds(file1 == null ? 10 : 40))
+				.header("User-Agent", "NovaMod-Lunaris/2");
+		byte[] multi = file1 == null ? null : multipart(body.toString(), file1, file2);
+		HttpRequest req = multi == null
+				? rb.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body.toString())).build()
+				: rb.header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY).POST(HttpRequest.BodyPublishers.ofByteArray(multi)).build();
 		HTTP.sendAsync(req, HttpResponse.BodyHandlers.discarding()).whenComplete((r, err) -> client.execute(() -> {
 			sending = false;
 			int st = r == null ? 0 : r.statusCode();
@@ -1080,6 +1152,10 @@ public class LunarisLinkModule extends Module {
 			} else if (st == 401 || st == 404) {
 				events.clear();
 			} else {
+				// 49-770차: 튕김 알림(파일 첨부)은 실패해도 다시 보내지 않는다 - 뒤의 일퀘 신호를 막지 않게
+				if (first.has("ev") && "issue".equals(first.get("ev").getAsString())) {
+					events.remove(first);
+				}
 				nextSend = System.currentTimeMillis() + 60_000;
 			}
 		}));

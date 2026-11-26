@@ -81,15 +81,278 @@ public class NeogulSpendLogModule extends Module {
 
 	private static NeogulSpendLogModule instance;
 
+	// ==================== 49-765차: 지난 지출(11/22부터) ====================
+	// 사용자: "이전 지출도 다 포함해 줘, 22일 이후 로그 확인해서". 게임 기록(logs/날짜-N.log.gz, 이번 실행의 latest.log는 빼고)에서
+	// 구매, 거래 줄을 읽어 하루치 구매는 카드 몇 장으로 묶고 거래는 한 장씩, 루나리스 연동으로 천천히 보낸다(한 번만).
+	// 봇은 같은 키를 두 번 세지 않고, 실시간으로 세기 시작한 때 뒤의 것은 버린다.
+	private static final java.time.LocalDate HIST_FROM = java.time.LocalDate.of(2026, 11, 22);
+	private static final Pattern LOG_TIME = Pattern.compile("^\\[(\\d{2}):(\\d{2}):(\\d{2})\\]");
+	private static final Pattern LOG_GZ = Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log\\.gz");
+	private final StringSetting histDone = register(new StringSetting("hist22", "지난 지출", "", ""));
+	private volatile boolean histRunning;
+	private volatile java.util.List<Object[]> histPending;   // {card, hd, ts, key}
+	private long histAt;
+
+	private void histTick(long now) {
+		if (client.player == null || !NeogulData.onNeogul(client) || !LunarisLinkModule.canSpend() || "1".equals(histDone.get())) {
+			return;
+		}
+		if (histAt == 0) {
+			histAt = now + 60_000;
+			return;
+		}
+		if (now < histAt) {
+			return;
+		}
+		java.util.List<Object[]> pend = histPending;
+		if (pend != null) {
+			if (pend.isEmpty()) {
+				histDone.setValue("1");
+				histPending = null;
+				kr.lunaslight.mod.config.LunaClientConfig.save();
+				return;
+			}
+			Object[] o = pend.get(0);
+			if (LunarisLinkModule.addSpendHist((JsonObject) o[0], (String) o[1], (Long) o[2], (String) o[3])) {
+				pend.remove(0);
+			}
+			histAt = now + 2000;
+			return;
+		}
+		if (histRunning) {
+			return;
+		}
+		histRunning = true;
+		Thread th = new Thread(() -> {
+			java.util.List<Object[]> out = new ArrayList<>();
+			try {
+				out = histScan();
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("spendhist:scan", t);
+			}
+			java.util.List<Object[]> res = out;
+			client.execute(() -> {
+				histPending = res;
+				histRunning = false;
+			});
+		}, "Nova-SpendHistory");
+		th.setDaemon(true);
+		th.start();
+	}
+
+	/** 기록 파일 하나에서 읽은 지출 한 건. */
+	private static final class Hit {
+		int wrap, sec;
+		boolean trade;
+		String who, raw;
+		long n, won;
+		final JsonArray got = new JsonArray(), gave = new JsonArray();
+	}
+
+	private java.util.List<Object[]> histScan() throws java.io.IOException {
+		java.util.List<Object[]> out = new ArrayList<>();
+		java.nio.file.Path dir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("logs");
+		if (!java.nio.file.Files.isDirectory(dir)) {
+			return out;
+		}
+		ZoneId zone = ZoneId.systemDefault();
+		java.util.List<java.nio.file.Path> files = new ArrayList<>();
+		try (var ls = java.nio.file.Files.list(dir)) {
+			ls.filter(f -> LOG_GZ.matcher(f.getFileName().toString()).matches()).forEach(files::add);
+		}
+		// 날짜 → 구매 줄, 거래
+		java.util.TreeMap<String, java.util.List<Object[]>> days = new java.util.TreeMap<>();   // {ts, Hit}
+		for (java.nio.file.Path f : files) {
+			try {
+				long mtime = java.nio.file.Files.getLastModifiedTime(f).toMillis();
+				java.time.LocalDate end = java.time.Instant.ofEpochMilli(mtime - 120_000).atZone(zone).toLocalDate();
+				if (end.isBefore(HIST_FROM) || java.nio.file.Files.size(f) > 300L * 1024 * 1024) {
+					continue;
+				}
+				java.util.List<Hit> hits = new ArrayList<>();
+				int wraps = 0, prev = -1, sec = 0;
+				Hit trade = null;
+				try (java.io.InputStream in0 = java.nio.file.Files.newInputStream(f);
+						java.io.InputStream in = new java.util.zip.GZIPInputStream(in0);
+						java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8))) {
+					String line;
+					while ((line = r.readLine()) != null) {
+						Matcher tm = LOG_TIME.matcher(line);
+						String text;
+						if (tm.find()) {
+							sec = Integer.parseInt(tm.group(1)) * 3600 + Integer.parseInt(tm.group(2)) * 60 + Integer.parseInt(tm.group(3));
+							if (prev >= 0 && sec < prev - 3600) {
+								wraps++;
+							}
+							prev = sec;
+							int c = line.indexOf("[CHAT]");
+							if (c < 0) {
+								trade = null;
+								continue;
+							}
+							text = line.substring(c + 6);
+						} else {
+							text = line;   // 여러 줄 글의 이어지는 줄
+						}
+						text = clean(text.replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", ""));
+						if (trade != null && text.startsWith("└")) {
+							Matcher mm = TRADE_MONEY.matcher(text);
+							if (mm.find()) {
+								if ("-".equals(mm.group(2))) {
+									trade.won += num(mm.group(1));
+								} else {
+									JsonObject o = new JsonObject();
+									o.addProperty("name", "돈");
+									o.addProperty("won", num(mm.group(1)));
+									trade.got.add(o);
+								}
+								continue;
+							}
+							Matcher mi = TRADE_ITEM.matcher(text);
+							if (mi.find()) {
+								("+".equals(mi.group(3)) ? trade.got : trade.gave).add(thing(mi.group(1), num(mi.group(2))));
+							}
+							continue;
+						}
+						trade = null;
+						if (text.startsWith("<") || PLAYER_CHAT.matcher(text).find()) {
+							continue;
+						}
+						Matcher t = TRADE.matcher(text);
+						if (t.find()) {
+							trade = new Hit();
+							trade.trade = true;
+							trade.wrap = wraps;
+							trade.sec = sec;
+							trade.who = t.group(1);
+							hits.add(trade);
+							continue;
+						}
+						Matcher b = BUY.matcher(text);
+						if (b.find() && !skipCat(catOf(b.group(2)))) {
+							Hit h = new Hit();
+							h.wrap = wraps;
+							h.sec = sec;
+							h.who = b.group(1);
+							h.raw = b.group(2);
+							h.n = num(b.group(3));
+							h.won = num(b.group(4));
+							hits.add(h);
+						}
+					}
+				}
+				java.time.LocalDate start = end.minusDays(wraps);
+				for (Hit h : hits) {
+					java.time.LocalDate d = start.plusDays(h.wrap);
+					if (d.isBefore(HIST_FROM) || h.won <= 0) {
+						continue;
+					}
+					long ts = d.atStartOfDay(zone).toInstant().toEpochMilli() + h.sec * 1000L;
+					days.computeIfAbsent(d.toString(), k -> new ArrayList<>()).add(new Object[]{ts, h});
+				}
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("spendhist:file", t);
+			}
+		}
+		for (var en : days.entrySet()) {
+			String day = en.getKey();
+			java.util.List<Object[]> list = en.getValue();
+			list.sort((a, b) -> Long.compare((Long) a[0], (Long) b[0]));
+			JsonArray rows = new JsonArray();
+			long firstTs = 0, lastTs = 0;
+			int part = 0, tr = 0;
+			for (Object[] o : list) {
+				Hit h = (Hit) o[1];
+				long ts = (Long) o[0];
+				if (h.trade) {
+					boolean deco = !h.got.isEmpty();
+					for (var g : h.got) {
+						JsonObject go = g.getAsJsonObject();
+						if (!go.has("cat") || !skipCat(go.get("cat").getAsString())) {
+							deco = false;
+						}
+					}
+					if (deco) {
+						continue;
+					}
+					JsonObject c = new JsonObject();
+					c.addProperty("k", "trade");
+					c.addProperty("t", hm(h.sec));
+					c.addProperty("who", h.who);
+					c.addProperty("won", h.won);
+					while (h.got.size() > 6) {
+						h.got.remove(h.got.size() - 1);
+					}
+					while (h.gave.size() > 6) {
+						h.gave.remove(h.gave.size() - 1);
+					}
+					c.add("got", h.got);
+					c.add("gave", h.gave);
+					out.add(new Object[]{c, day, ts, "h|" + day + "|t" + (tr++)});
+					continue;
+				}
+				JsonObject row = thing(h.raw, h.n);
+				row.addProperty("who", h.who);
+				row.addProperty("won", h.won);
+				row.addProperty("times", 1);
+				boolean merged = false;
+				for (var e : rows) {
+					JsonObject r0 = e.getAsJsonObject();
+					if (r0.get("name").getAsString().equals(row.get("name").getAsString()) && r0.get("who").getAsString().equals(h.who)) {
+						r0.addProperty("n", r0.get("n").getAsLong() + h.n);
+						r0.addProperty("won", r0.get("won").getAsLong() + h.won);
+						r0.addProperty("times", r0.get("times").getAsInt() + 1);
+						merged = true;
+						break;
+					}
+				}
+				if (!merged) {
+					if (rows.isEmpty()) {
+						firstTs = ts;
+					}
+					rows.add(row);
+				}
+				lastTs = ts;
+				if (rows.toString().length() > 1100) {
+					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h|" + day + "|b" + (part++)});
+					rows = new JsonArray();
+				}
+			}
+			if (!rows.isEmpty()) {
+				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h|" + day + "|b" + part});
+			}
+		}
+		return out;
+	}
+
+	private static String hm(int sec) {
+		return String.format("%02d:%02d", sec / 3600, sec / 60 % 60);
+	}
+
+	private static JsonObject buyCard(JsonArray rows, long firstTs, ZoneId zone) {
+		JsonObject c = new JsonObject();
+		c.addProperty("k", "buy");
+		java.time.LocalTime lt = java.time.Instant.ofEpochMilli(firstTs).atZone(zone).toLocalTime();
+		c.addProperty("t", String.format("%02d:%02d", lt.getHour(), lt.getMinute()));
+		long sum = 0;
+		for (var e : rows) {
+			sum += e.getAsJsonObject().get("won").getAsLong();
+		}
+		c.addProperty("won", sum);
+		c.add("rows", rows);
+		return c;
+	}
+
 	/** 49-761차: 웹후크 주소가 없으면(섬원) 루나리스 연동으로 개인 지출을 보낸다. */
 	private boolean viaLink() {
-		return !linked() && LunarisLinkModule.canSpend();
+		// 49-771차(사용자: "지출 채널 없애고 기능들을 개인지출에 몰빵"): 루나리스 연동이 되어 있으면 주소가 있어도 늘 연동으로(개인지출)
+		return LunarisLinkModule.canSpend();
 	}
 
 	/** LunarisLinkModule이 틱마다 부른다 - 이 기능이 꺼져 있어도 개인 지출은 모아서 보낸다. */
 	public static void linkTick() {
 		NeogulSpendLogModule m = instance;
-		if (m != null && !m.isEnabled() && m.viaLink()) {
+		if (m != null && !m.isEnabled() && m.viaLink()) {   // 켜져 있으면 자기 onTick이 돈다
 			m.tick0();
 		}
 	}
@@ -106,6 +369,7 @@ public class NeogulSpendLogModule extends Module {
 		super("neogul_spend_log", "지출 기록 (디스코드)", ModuleCategory.SERVER, "유저 상점에서 산 것, 거래로 낸 돈을 디스코드에 올림 (섬원: /연동 하면 개인지출에 자동, 관리진: /지출연동 주소)");
 		serverGroup("너굴마을");
 		instance = this;
+		histDone.hidden();
 		hook.hidden();
 		state.hidden();
 		register(new InfoSetting("status", "상태", this::statusText));
@@ -167,7 +431,7 @@ public class NeogulSpendLogModule extends Module {
 
 	private String statusText() {
 		load();
-		String s = (linked() ? "지출기록 채널 연결됨" : LunarisLinkModule.canSpend() ? "개인지출 자동 (루나리스 연동)" : "연결 안 됨") + "  |  오늘 " + count + "건 " + won(total);
+		String s = (LunarisLinkModule.canSpend() ? "개인지출 자동 (루나리스 연동)" : linked() ? "예전 주소로 보냄 (루나리스 /연동 을 하면 개인지출로)" : "연결 안 됨 (루나리스 /연동 을 하십시오)") + "  |  오늘 " + count + "건 " + won(total);
 		return note == null || note.isEmpty() ? s : s + "  |  " + note;
 	}
 
@@ -439,17 +703,18 @@ public class NeogulSpendLogModule extends Module {
 
 	private void tick0() {
 		long now = System.currentTimeMillis();
+		histTick(now);
 		if (tradeWith != null && now - tradeAt >= 3000) {
 			endTrade();
 		}
 		if (buyRows != null && (now - buyAt >= BUY_GAP_MS || now - buyFirst >= 60_000)) {
 			endBuys();
 		}
-		if (!queue.isEmpty() && !linked() && LunarisLinkModule.canSpend()) {
+		if (!queue.isEmpty() && LunarisLinkModule.canSpend()) {
 			// 49-761차: 섬원은 연동으로(개인지출). 시험 글과 섬 은행 출금은 개인 지출이 아니라 버린다. 글 길이(2000자)를 넘지 않게 줄을 줄인다.
 			JsonObject c0 = queue.remove(0);
 			String k0 = c0.has("k") ? c0.get("k").getAsString() : "";
-			if ("buy".equals(k0) || "trade".equals(k0)) {
+			if ("buy".equals(k0) || "trade".equals(k0) || "bank".equals(k0)) {   // 49-771차: 섬 은행 출금도 개인지출로
 				for (String key : new String[]{"rows", "got", "gave"}) {
 					JsonArray arr = c0.has(key) ? c0.getAsJsonArray(key) : null;
 					while (arr != null && arr.size() > 1 && c0.toString().length() > 1500) {

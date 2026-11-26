@@ -170,6 +170,7 @@ public class LunaClientMod implements ClientModInitializer {
 		}
 
 		LOGGER.info("[Nova] Nova Client 내장 모드 초기화 시작");
+		kr.lunaslight.mod.util.SlimLog.start();   // 49-768차: 간추린 기록(logs/nova-slim/날짜.log)
 
 		// 49-23차: 런처가 실어 보낸 소셜 정보(계정 토큰 포함)를 지금 메모리로 읽고, 파일(.luna-launch.json)은
 		// 바로 지운다 - 토큰이 게임 폴더에 남지 않게(사용자 요청). 위 검증은 이미 끝났고 런처가 다음 실행 때 다시 씀.

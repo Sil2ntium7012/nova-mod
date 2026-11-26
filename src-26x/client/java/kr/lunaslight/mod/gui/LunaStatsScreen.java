@@ -208,13 +208,28 @@ public class LunaStatsScreen extends LunaScreenBase {
 		return s != null && s.parent != null && !s.parent.isEmpty();
 	}
 
+	// 49-775차(사용자: "아이템에 검색 기능도 좀"): 아이템 탭 제목 줄 오른쪽 검색 칸. 이름(묶음 이름, 안의 이름)에 그 글자가 든 것만 보인다.
+	private String itemQuery = "";
+	private boolean itemSearchFocus;
+	private int[] itemSearchBox = new int[4];
+
+	private static String squash(String t) {
+		return t == null ? "" : t.toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+	}
+
 	@Override
 	protected boolean lunaWantsText() {
-		return renaming != null;
+		return renaming != null || (itemSearchFocus && tab == TAB_ITEMS);
 	}
 
 	@Override
 	protected boolean lunaCharTyped(char chr) {
+		if (renaming == null && itemSearchFocus && tab == TAB_ITEMS && chr >= 32) {
+			if (itemQuery.length() < 30) {
+				itemQuery += chr;
+			}
+			return true;
+		}
 		if (renaming == null || chr < 32) {
 			return false;
 		}
@@ -1994,7 +2009,30 @@ public class LunaStatsScreen extends LunaScreenBase {
 		for (Map.Entry<String, LunaStats.ItemStat> e : merged.values()) {
 			groups.computeIfAbsent(baseOf(e.getKey(), e.getValue()), k -> new ArrayList<>()).add(e);
 		}
-		sectionTitle(ctx, x, y, w, "아이템 " + groups.size() + "종");
+		int allGroups = groups.size();
+		String q = squash(itemQuery);
+		if (!q.isEmpty()) {
+			groups.entrySet().removeIf(g -> {
+				if (squash(itemName(g.getKey())).contains(q)) {
+					return false;
+				}
+				for (Map.Entry<String, LunaStats.ItemStat> m : g.getValue()) {
+					if (squash(itemLabel(m.getKey(), m.getValue())).contains(q)) {
+						return false;
+					}
+				}
+				return true;
+			});
+		}
+		sectionTitle(ctx, x, y, w, q.isEmpty() ? "아이템 " + allGroups + "종" : "아이템 " + groups.size() + "종 (전체 " + allGroups + "종)");
+		if (posterLimit <= 0) {
+			int bw = 120, bx = x + w - bw - 2, by = y - 3;
+			itemSearchBox = new int[]{bx, by, bw, 13};
+			boolean on = itemSearchFocus;
+			LunaDraw.roundRectBordered(ctx, bx, by, bw, 13, 3, LunaDraw.CARD, on ? LunaDraw.ACCENT : LunaDraw.CARD_BORDER);
+			String shown = itemQuery.isEmpty() && !on ? "검색" : itemQuery + (on && System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "");
+			LunaDraw.text(ctx, font, LunaDraw.ellipsize(font, shown, bw - 10), bx + 5, by + 3, itemQuery.isEmpty() && !on ? LunaDraw.TEXT_DIM : LunaDraw.TEXT);
+		}
 		y += 16;
 		// 머리글 - 49-67차(5-11): [획득] 열을 더하고, 머리글을 누르면 그 열로 정렬한다.
 		// (누를 수 있다는 걸 알리려고 지금 정렬 중인 열에 ▾를 붙이고 강조색으로 그린다)
@@ -2040,6 +2078,8 @@ public class LunaStatsScreen extends LunaScreenBase {
 		}
 		catRowsY.clear();
 		catRowKeys.clear();
+		// 49-774차(사용자 사진: 이름과 숫자 사이가 비어 "뭐가 뭔지 모르겠다"): 한 줄 걸러 옅은 띠, 마우스를 올린 줄은 강조색 띠
+		int rowN = 0;
 		for (Object[] r : list) {
 			LunaStats.ItemStat it = (LunaStats.ItemStat) r[1];
 			String name = (String) r[0];
@@ -2063,6 +2103,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 				}
 				catRowsY.get(catRowsY.size() - 1)[0] = y;
 				y += 13;
+				rowN = 0;
 				continue;
 			}
 			int indent = (kind == 2 ? 10 : 0) + 6;
@@ -2073,6 +2114,12 @@ public class LunaStatsScreen extends LunaScreenBase {
 			}
 			float base = LunaDraw.alpha();
 			LunaDraw.setAlpha(base * p);
+			if (posterLimit <= 0 && LunaDraw.in(mouseX, mouseY, x - 2, y - 2, w, 12)) {
+				ctx.fill(x - 2, y - 2, x + w - 2, y + 10, LunaDraw.applyAlpha(LunaDraw.withAlpha(LunaDraw.ACCENT, 0x38)));
+			} else if ((rowN & 1) == 1) {
+				ctx.fill(x - 2, y - 2, x + w - 2, y + 10, LunaDraw.applyAlpha((LunaClientScreen.themeLine() & 0x00FFFFFF) | 0x30000000));
+			}
+			rowN++;
 			if (kind == 2) {
 				ctx.fill(x + 9, y - 2, x + 10, y + 8, LunaDraw.applyAlpha(LunaClientScreen.themeLine()));
 			}
@@ -2163,7 +2210,7 @@ public class LunaStatsScreen extends LunaScreenBase {
 		for (String cat : catOrder) {
 			List<Object[]> hs = cats.get(cat);
 			rows.add(new Object[]{cat + " (" + hs.size() + "종)", catSum.get(cat), 3, cat});
-			if (collapsedCats.contains(cat)) {
+			if (collapsedCats.contains(cat) && itemQuery.isEmpty()) {   // 49-775차: 검색 중에는 접힌 분류도 펴서 보여 준다
 				continue;
 			}
 			addGroupRows(rows, hs);
@@ -2220,7 +2267,17 @@ public class LunaStatsScreen extends LunaScreenBase {
 			rows.add(new Object[]{itemName(base) + " (전체 " + members.size() + "종)", h[1], 1});
 			// 49-582차(사용자: "아이템 부분에서 하위 카테고리는 이름순으로"): 묶음 안 줄은 늘 이름 가나다순(묶음끼리는 머리글 기준 그대로)
 			java.text.Collator col = java.text.Collator.getInstance(java.util.Locale.KOREAN);
-			members.sort((m1, m2) -> col.compare(itemLabel(m1.getKey(), m1.getValue()), itemLabel(m2.getKey(), m2.getValue())));
+			// 49-776차(사용자 사진: [사용] 열을 눌렀는데 "큰 카테고리만 조절되고 세부가 안 됨"): 열을 골라 정렬할 때는 묶음 안 줄도 그 열 순서로
+			// (값이 같으면 이름순). 합계순(기본)일 때만 예전처럼 이름순.
+			members.sort((m1, m2) -> {
+				if (itemSort != 0) {
+					int c = Long.compare(sortValue(m1.getValue()), sortValue(m2.getValue()));
+					if (c != 0) {
+						return itemSortDesc ? -c : c;
+					}
+				}
+				return col.compare(itemLabel(m1.getKey(), m1.getValue()), itemLabel(m2.getKey(), m2.getValue()));
+			});
 			for (Map.Entry<String, LunaStats.ItemStat> m : members) {
 				rows.add(new Object[]{itemLabel(m.getKey(), m.getValue()), m.getValue(), 2});
 			}
@@ -2927,6 +2984,14 @@ public class LunaStatsScreen extends LunaScreenBase {
 				}
 			}
 		}
+		// 49-775차: 아이템 검색 칸 - 누르면 글자를 받고, 다른 곳을 누르면 그만 받는다
+		if (tab == TAB_ITEMS) {
+			boolean inBox = mouseY >= contentTop && LunaDraw.in(mouseX, mouseY, itemSearchBox[0], itemSearchBox[1], itemSearchBox[2], itemSearchBox[3]);
+			itemSearchFocus = inBox;
+			if (inBox) {
+				return true;
+			}
+		}
 		// 49-582차: 아이템 탭 분류 줄 - 접기/펴기
 		if (tab == TAB_ITEMS) {
 			for (int i = 0; i < catRowsY.size() && i < catRowKeys.size(); i++) {
@@ -2993,6 +3058,20 @@ public class LunaStatsScreen extends LunaScreenBase {
 				commitRename();
 			} else if (keyCode == InputConstants.KEY_BACKSPACE && !renameBuf.isEmpty()) {
 				renameBuf = renameBuf.substring(0, renameBuf.length() - 1);
+			}
+			return true;
+		}
+		if (itemSearchFocus && tab == TAB_ITEMS) {
+			if (keyCode == InputConstants.KEY_ESCAPE) {
+				if (itemQuery.isEmpty()) {
+					itemSearchFocus = false;
+				} else {
+					itemQuery = "";
+				}
+			} else if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
+				itemSearchFocus = false;
+			} else if (keyCode == InputConstants.KEY_BACKSPACE && !itemQuery.isEmpty()) {
+				itemQuery = itemQuery.substring(0, itemQuery.length() - 1);
 			}
 			return true;
 		}

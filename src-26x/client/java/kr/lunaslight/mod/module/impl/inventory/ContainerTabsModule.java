@@ -562,6 +562,11 @@ public class ContainerTabsModule extends Module {
 				}
 				i += Character.charCount(cp);
 			}
+			// 49-766차(사용자 사진: 너굴마을 "7번 창고" 옆에 상자 칸 - "창고에서 탭리스트 안 뜨게"): 너굴마을 창고(N번 창고, 던전 창고, 귀속 보관함 등)는
+			// 서버 명령으로 여는 창이라 상자 칸을 안 띄운다.
+			if (!customWas && (t.contains("창고") || t.contains("보관함")) && kr.lunaslight.mod.util.NeogulData.onNeogul(client)) {
+				customWas = true;
+			}
 		} catch (Throwable ignored) {
 		}
 		return customWas;
