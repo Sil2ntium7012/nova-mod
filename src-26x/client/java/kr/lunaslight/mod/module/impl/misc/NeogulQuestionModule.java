@@ -463,9 +463,9 @@ public class NeogulQuestionModule extends Module {
 		float base = LunaDraw.alpha();
 		LunaDraw.setAlpha(base * alpha);
 		try {
-			LunaDraw.shadow(ctx, x, y, w, h, 6);
-			LunaDraw.roundRectBordered(ctx, x, y, w, h, 6, 0xE8121820, (col & 0x00FFFFFF) | 0x66000000);
-			LunaDraw.roundRect(ctx, x + 6, y + 5, 3, 8, 1, col);
+			// 49-782차: 그림자 + 테두리 판 + 속 판 겹침 → 판 한 장, 왼쪽 색 띠는 네모로
+			LunaDraw.floatCard(ctx, x, y, w, h, 0xFF171C26);
+			ctx.fill(x + 6, y + 5, x + 8, y + 13, LunaDraw.applyAlpha(col));
 			LunaDraw.text(ctx, font, label, x + 12, y + 5, col);
 			LunaDraw.text(ctx, font, name, x + 12 + LunaDraw.width(font, label + "  "), y + 5, 0xFFB8C2CF);
 			for (int i = 0; i < ls.size(); i++) {
@@ -875,9 +875,8 @@ public class NeogulQuestionModule extends Module {
 	private void drawBox(GuiGraphicsExtractor g, int x, int y, int w, int h, String q, List<String[]> items, int first, int hit, int total,
 			int mx, int my, boolean record, String title) {
 		var font = client.font;
-		LunaDraw.shadow(g, x, y, w, h, 6);
-		LunaDraw.roundRectBordered(g, x, y, w, h, 6, 0xF0141A22, 0x40FFFFFF);
-		LunaDraw.roundRect(g, x + 7, y + 6, 3, 9, 1, 0xFFFFD36A);
+		LunaDraw.floatCard(g, x, y, w, h, 0xFF171C26);   // 49-782차
+		g.fill(x + 7, y + 6, x + 9, y + 15, LunaDraw.applyAlpha(0xFFFFD36A));
 		LunaDraw.text(g, font, title, x + 14, y + 7, 0xFFFFD36A);
 		if (total > items.size()) {
 			String pg = (first + 1) + "-" + (first + items.size()) + " / " + total;
@@ -886,7 +885,7 @@ public class NeogulQuestionModule extends Module {
 		int cy = y + 19;
 		if (!q.isEmpty()) {
 			List<String> ql = wrap(font, q, w - 16, 2);
-			LunaDraw.roundRect(g, x + 6, cy - 1, w - 12, ql.size() * LH + 3, 3, 0x1AFFD36A);
+			LunaDraw.roundRect(g, x + 6, cy - 1, w - 12, ql.size() * LH + 3, 4, 0x1AFFD36A);
 			for (int i = 0; i < ql.size(); i++) {
 				LunaDraw.text(g, font, ql.get(i), x + 9, cy + 1 + i * LH, 0xFFE6D3A3);
 			}
@@ -906,7 +905,7 @@ public class NeogulQuestionModule extends Module {
 				LunaDraw.roundRect(g, rx, cy + 3, 2, rh - 6, 1, accent);
 			}
 			String num = Integer.toString(i + 1);
-			LunaDraw.roundRect(g, rx + 6, cy + 4, 12, 11, 3, rec ? (accent & 0x00FFFFFF) | 0x40000000 : 0x26FFFFFF);
+			LunaDraw.roundRect(g, rx + 6, cy + 4, 12, 11, 2, rec ? (accent & 0x00FFFFFF) | 0x40000000 : 0x26FFFFFF);
 			LunaDraw.text(g, font, num, rx + 12 - LunaDraw.width(font, num) / 2, cy + 6, rec ? accent : 0xFFB8C2CF);
 			// 49-697차(사용자: "답변에 아직도 (내용) 이런 게 너무 많던데, 설명 필요 없어"): 명령어 줄 머리도 괄호 설명 없이 [/명령어]만
 			String keyLine = "c".equals(a[2]) ? "[" + noParen(a[0]).replaceAll("[<>\\[\\]]", "").replaceAll("\\s{2,}", " ").trim() + "]"

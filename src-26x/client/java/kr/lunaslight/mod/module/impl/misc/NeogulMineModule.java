@@ -843,10 +843,68 @@ public class NeogulMineModule extends Module {
 		return (p < 10 ? String.format("%.1f", p) : String.format("%.0f", p)) + "%";
 	}
 
+	// ==================== 49-783차: 여태 얻은 광물(누적) ====================
+	// 사용자 사진(광물 창고 목록): "광창에 있는 거 말고 그냥 여태 얻었던 건 전체로 띄워 주고, 너무너무 오래 안 뜨면 지금처럼 안 보이게,
+	// 확률은 무조건 누적으로 하고 최대한". 광산 알림 줄을 볼 때마다 이름별로 {얻은 개수, 마지막 시각}("T|이름")과 줄 수("L|이름"),
+	// 광물 줄(보석, 요리용 석탄이 아닌 줄 = 캔 블록) 수("B|")를 같은 파일(neogul-cookcoal.json)에 쌓는다. 지우지 않는다(확률 초기화 버튼은 확률만).
+	private static final long TOTAL_HIDE_MS = 7L * 24 * 3600_000;
+
+	private void totalCount(String id, String name, int n) {
+		coalLoad();
+		long now = System.currentTimeMillis();
+		long[] t = COAL.computeIfAbsent("T|" + name, k -> new long[2]);
+		t[0] += Math.max(0, n);
+		t[1] = now;
+		if (id.startsWith("ng")) {
+			COAL.computeIfAbsent("L|" + name, k -> new long[2])[0]++;
+		} else {
+			COAL.computeIfAbsent("B|", k -> new long[2])[0]++;
+		}
+		coalDirty = true;
+	}
+
+	/** 여태 얻은 광물 {아이콘, 이름, 개수, -1} - 마지막으로 얻은 지 7일이 넘은 것은 뺀다. 하나도 없으면 빈 목록. */
+	public static List<Object[]> totals() {
+		NeogulMineModule m = instance;
+		List<Object[]> out = new ArrayList<>();
+		if (m == null) {
+			return out;
+		}
+		coalLoad();
+		long now = System.currentTimeMillis();
+		for (var e : COAL.entrySet()) {
+			if (!e.getKey().startsWith("T|") || e.getValue()[0] <= 0 || now - e.getValue()[1] > TOTAL_HIDE_MS) {
+				continue;
+			}
+			String name = e.getKey().substring(2);
+			ItemStack ic = m.icon(name);
+			out.add(new Object[]{ic == null ? new ItemStack(Items.STONE) : ic, name, (int) Math.min(Integer.MAX_VALUE, e.getValue()[0]), -1});
+		}
+		return out;
+	}
+
+	/**
+	 * 누적 확률. 광물은 캘 때 요리용 석탄이 함께 나온 비율({@link #coalRate}), 요리용 석탄과 보석은 캔 블록 수 대비 나온 횟수.
+	 * 아직 덜 셌으면 null.
+	 */
+	public static String totalRate(String name) {
+		coalLoad();
+		long[] l = COAL.get("L|" + name);
+		if (l == null) {
+			return coalRate(name);
+		}
+		long[] b = COAL.get("B|");
+		if (b == null || b[0] < 50) {
+			return null;
+		}
+		double p = l[0] * 100.0 / b[0];
+		return (p < 1 ? String.format("%.2f", p) : p < 10 ? String.format("%.1f", p) : String.format("%.0f", p)) + "%";
+	}
+
 	/** 통계 초기화(설정 버튼). */
 	public static void coalReset() {
 		coalLoad();
-		COAL.clear();
+		COAL.keySet().removeIf(k -> !(k.startsWith("T|") || k.startsWith("L|") || k.startsWith("B|")));   // 49-783차: 누적 개수는 남긴다
 		coalDirty = true;
 		coalSavedAt = 0;
 	}
@@ -918,6 +976,7 @@ public class NeogulMineModule extends Module {
 			ensureLoaded();
 			String name = nameFor(id);
 			coalCount(id, name);   // 49-727차
+			totalCount(id, name, n);   // 49-783차
 			// 49-694차(사용자 사진: 섬에서 잠광, 사암 1개 + - "섬에서 잠광하는데 광창에 쌓임"): 섬(광물 생성기)에서 캔 것은
 			// 섬 광물창고로 간다 - 내 광물창고 개수에 더하지 않고, 획득 줄만 보유 개수 없이 띄운다.
 			if (kr.lunaslight.mod.util.NeogulDungeonHud.onIsland()) {

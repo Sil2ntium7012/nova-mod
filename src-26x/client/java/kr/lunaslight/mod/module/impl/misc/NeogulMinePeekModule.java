@@ -141,7 +141,12 @@ public class NeogulMinePeekModule extends Module {
 			if (onlyMine.get() && !"mine".equals(NeogulDungeonHud.location)) {
 				return;
 			}
-			items = NeogulMineModule.storage();
+			// 49-783차(사용자: "광창에 있는 거 말고 여태 얻었던 건 전체로"): 여태 얻은 광물(누적, 7일 넘게 안 나온 것은 뺌). 아직 하나도 안 셌으면 예전처럼 창고 내용.
+			items = NeogulMineModule.totals();
+			totalsMode = !items.isEmpty();
+			if (!totalsMode) {
+				items = NeogulMineModule.storage();
+			}
 			if (items == null) {
 				// 49-615차(사용자: "광물 창고 미리보기도 광창 한 번 열어 보라 해야 해"): 아직 창고를 안 열어 개수를 모름 - 판 자리에 안내
 				drawHint(ctx);
@@ -173,6 +178,16 @@ public class NeogulMinePeekModule extends Module {
 	}
 
 	private static final int ROW = 12, TITLE = 12;
+	/** 49-783차: 지금 누적 목록을 그리는 중인지(제목 "얻은 광물", 창고 다시 열기 안내 없음). */
+	private boolean totalsMode;
+
+	private boolean staleShown() {
+		return !totalsMode && NeogulMineModule.stale();
+	}
+
+	private String titleText() {
+		return totalsMode ? "얻은 광물" : "광물 창고";
+	}
 
 	/** 이 줄의 최근 "+n"(미리보기 예시는 5번째 칸). */
 	private static long[] gainOf(Object[] it) {
@@ -184,7 +199,7 @@ public class NeogulMinePeekModule extends Module {
 		if (!coalRate.get()) {
 			return null;
 		}
-		return it.length > 5 ? (String) it[5] : NeogulMineModule.coalRate((String) it[1]);
+		return it.length > 5 ? (String) it[5] : totalsMode ? NeogulMineModule.totalRate((String) it[1]) : NeogulMineModule.coalRate((String) it[1]);
 	}
 
 	private static String shortName(String n) {
@@ -193,7 +208,7 @@ public class NeogulMinePeekModule extends Module {
 
 	/** 목록 크기 {폭, 높이}: 아이콘 12 + 이름(+n) + 간격 + 개수. */
 	private int[] listSize(List<Object[]> items) {
-		int nameW = LunaDraw.width(client.font, NeogulMineModule.stale() ? "광물 창고 다시 열어 주십시오" : "광물 창고"), countW = 0, rateW = 0;
+		int nameW = LunaDraw.width(client.font, staleShown() ? "광물 창고 다시 열어 주십시오" : titleText()), countW = 0, rateW = 0;
 		for (Object[] it : items) {
 			int w = LunaDraw.width(client.font, shortName((String) it[1]));
 			long[] g = gainOf(it);
@@ -218,10 +233,10 @@ public class NeogulMinePeekModule extends Module {
 		if (bg) {
 			drawHudPanel(ctx, x, y, w, h);
 		}
-		String title = "광물 창고";
+		String title = titleText();
 		int tw = LunaDraw.width(client.font, title);
 		LunaCompat.drawHudText(ctx, client.font, title, right ? x + w - tw : x, y + 1, 0xFFFFD36A);
-		if (NeogulMineModule.stale()) {
+		if (staleShown()) {
 			// 49-727차: 일부만 꺼낸 줄을 다 못 맞춤 - 창고를 다시 열면 맞춰진다
 			String st = "다시 열어 주십시오";
 			int sw0 = LunaDraw.width(client.font, st);

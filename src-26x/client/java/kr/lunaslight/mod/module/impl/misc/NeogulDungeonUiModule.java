@@ -28,6 +28,12 @@ public class NeogulDungeonUiModule extends Module {
 	private boolean asking;
 	private boolean migrated;
 
+	/** 49-780차(사용자 사진: 던전에서 F3을 누르면 핫바가 사라짐): 던전 UI는 F3 화면에서도 그린다(서버 HUD와 바닐라 핫바를 이 기능이 대신 그리므로). */
+	@Override
+	public boolean rendersOnDebugHud() {
+		return true;
+	}
+
 	public NeogulDungeonUiModule() {
 		super("neogul_dungeon_ui", "너굴 던전 UI", ModuleCategory.SERVER, "던전 핫바 | 하트 | 스킬 카드 | 경험치 바");
 		serverGroup("너굴마을");

@@ -298,11 +298,11 @@ public class ChestPeekModule extends Module {
 			float pa = Math.min(1f, panelK * 1.6f);
 			// 49-622차(사용자: "상자 정보창 테두리 마감 좀 더 깨끗하게"): 반투명 판 위에 반투명 그림자, 계단 외곽선이 겹쳐 모서리가 지저분했다 -
 			// 아래로만 떨어지는 그림자, 꽉 찬 테두리 판, 그 안 1px 안쪽에 불투명 속과 머리(같은 둥글기 한 단계 작게)로 겹침 없이.
-			LunaDraw.roundRect(ctx, px, py + 2, pw, ph, 3, alpha(0x2A000000, pa));
-			LunaDraw.roundRect(ctx, px, py, pw, ph, 3, alpha(C_EDGE, pa));
-			LunaDraw.roundRect(ctx, px + 1, py + 1, pw - 2, ph - 2, 2, alpha(C_BODY, pa));
-			LunaDraw.roundRectTop(ctx, px + 1, py + 1, pw - 2, HEADER - 1, 2, alpha(C_HEAD, pa));
-			ctx.fill(px + 1, py + HEADER, px + pw - 1, py + HEADER + 1, alpha(C_SEP, pa));
+			// 49-782차(사용자 사진: "너무 삐죽삐죽 튀어나와 있어, 겹치는 곳 색도 다르고"): 테두리 판 + 속 판 + 아래 띠 겹침을 없애고
+			// 몸통 한 장(둥글기 4) + 옅은 그림자, 머리 줄은 같은 둥글기로 덮는다.
+			LunaDraw.floatCard(ctx, px, py, pw, ph, alpha(C_BODY, pa));
+			LunaDraw.roundRectTop(ctx, px, py, pw, HEADER, 4, alpha(C_HEAD, pa));
+			ctx.fill(px, py + HEADER, px + pw, py + HEADER + 1, alpha(C_SEP, pa));
 			// 창 쪽 연결점(테두리 안쪽에 딱 붙게)
 			ctx.fill(s > 0 ? px : px + pw - 2, (int) Math.round(ey) - 2, s > 0 ? px + 2 : px + pw, (int) Math.round(ey) + 2, alpha(C_ACCENT, pa));
 			// 제목줄

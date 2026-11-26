@@ -85,10 +85,13 @@ public class NeogulSpendLogModule extends Module {
 	// 사용자: "이전 지출도 다 포함해 줘, 22일 이후 로그 확인해서". 게임 기록(logs/날짜-N.log.gz, 이번 실행의 latest.log는 빼고)에서
 	// 구매, 거래 줄을 읽어 하루치 구매는 카드 몇 장으로 묶고 거래는 한 장씩, 루나리스 연동으로 천천히 보낸다(한 번만).
 	// 봇은 같은 키를 두 번 세지 않고, 실시간으로 세기 시작한 때 뒤의 것은 버린다.
-	private static final java.time.LocalDate HIST_FROM = java.time.LocalDate.of(2026, 11, 22);
+	private static final java.time.LocalDate HIST_FROM = java.time.LocalDate.of(2026, 10, 31);   // 49-778차(사용자: "10월 31일 이후로 바꿔 줘 기록을")
 	private static final Pattern LOG_TIME = Pattern.compile("^\\[(\\d{2}):(\\d{2}):(\\d{2})\\]");
+	private static final Pattern HIST_BANK_IN = Pattern.compile("입금액\\s*[:：]\\s*([\\d,]+)\\s*원");
+	/** 49-780차(사용자: "누적 후원 금액도 확인 가능해?"): "/후원"을 치면 뜨는 "- 닉네임님의 누적 후원금액은 350,000원입니다." */
+	private static final Pattern DONATE = Pattern.compile("([A-Za-z0-9_]{2,16})님의\\s*누적\\s*후원금액은\\s*([\\d,]+)\\s*원");
 	private static final Pattern LOG_GZ = Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log\\.gz");
-	private final StringSetting histDone = register(new StringSetting("hist22", "지난 지출", "", ""));
+	private final StringSetting histDone = register(new StringSetting("hist1031", "지난 지출", "", ""));
 	private volatile boolean histRunning;
 	private volatile java.util.List<Object[]> histPending;   // {card, hd, ts, key}
 	private long histAt;
@@ -144,6 +147,7 @@ public class NeogulSpendLogModule extends Module {
 	private static final class Hit {
 		int wrap, sec;
 		boolean trade;
+		int bank;   // 49-778차: 2 = 섬 은행 출금, 3 = 섬 은행 입금
 		String who, raw;
 		long n, won;
 		final JsonArray got = new JsonArray(), gave = new JsonArray();
@@ -151,6 +155,8 @@ public class NeogulSpendLogModule extends Module {
 
 	private java.util.List<Object[]> histScan() throws java.io.IOException {
 		java.util.List<Object[]> out = new ArrayList<>();
+		final String me = String.valueOf(LunaCompat.sessionName(client));
+		long donateTs = 0, donateWon = -1;
 		java.nio.file.Path dir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("logs");
 		if (!java.nio.file.Files.isDirectory(dir)) {
 			return out;
@@ -158,7 +164,8 @@ public class NeogulSpendLogModule extends Module {
 		ZoneId zone = ZoneId.systemDefault();
 		java.util.List<java.nio.file.Path> files = new ArrayList<>();
 		try (var ls = java.nio.file.Files.list(dir)) {
-			ls.filter(f -> LOG_GZ.matcher(f.getFileName().toString()).matches()).forEach(files::add);
+			// 49-778차: 이번 실행의 latest.log도 읽는다(봇이 기록을 비운 때보다 앞의 것만 받으므로 실시간 것과 겹치지 않는다)
+			ls.filter(f -> LOG_GZ.matcher(f.getFileName().toString()).matches() || f.getFileName().toString().equals("latest.log")).forEach(files::add);
 		}
 		// 날짜 → 구매 줄, 거래
 		java.util.TreeMap<String, java.util.List<Object[]>> days = new java.util.TreeMap<>();   // {ts, Hit}
@@ -172,8 +179,10 @@ public class NeogulSpendLogModule extends Module {
 				java.util.List<Hit> hits = new ArrayList<>();
 				int wraps = 0, prev = -1, sec = 0;
 				Hit trade = null;
+				boolean pendOut = false, pendIn = false;
+				boolean gz = f.getFileName().toString().endsWith(".gz");
 				try (java.io.InputStream in0 = java.nio.file.Files.newInputStream(f);
-						java.io.InputStream in = new java.util.zip.GZIPInputStream(in0);
+						java.io.InputStream in = gz ? new java.util.zip.GZIPInputStream(in0) : in0;
 						java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8))) {
 					String line;
 					while ((line = r.readLine()) != null) {
@@ -195,6 +204,39 @@ public class NeogulSpendLogModule extends Module {
 							text = line;   // 여러 줄 글의 이어지는 줄
 						}
 						text = clean(text.replaceFirst("^\\s*\\[\\d{1,2}:\\d{2}\\]\\s*", ""));
+						// 49-778차(사용자: "은행 입금, 은행 출금 넣어야 하고"): "섬 은행에서 출금하였습니다." → "└ 출금한 금액: N원",
+						// "…입금되었습니다." → "└ 입금액: N원"
+						if (text.startsWith("└")) {
+							if (pendOut) {
+								Matcher bo = BANK_OUT_WON.matcher(text);
+								if (bo.find()) {
+									pendOut = false;
+									Hit h = new Hit();
+									h.bank = 2;
+									h.wrap = wraps;
+									h.sec = sec;
+									h.won = num(bo.group(1));
+									hits.add(h);
+									continue;
+								}
+							}
+							if (pendIn) {
+								Matcher bi = HIST_BANK_IN.matcher(text);
+								if (bi.find()) {
+									pendIn = false;
+									Hit h = new Hit();
+									h.bank = 3;
+									h.wrap = wraps;
+									h.sec = sec;
+									h.won = num(bi.group(1));
+									hits.add(h);
+									continue;
+								}
+							}
+						} else {
+							pendOut = false;
+							pendIn = false;
+						}
 						if (trade != null && text.startsWith("└")) {
 							Matcher mm = TRADE_MONEY.matcher(text);
 							if (mm.find()) {
@@ -216,6 +258,26 @@ public class NeogulSpendLogModule extends Module {
 						}
 						trade = null;
 						if (text.startsWith("<") || PLAYER_CHAT.matcher(text).find()) {
+							continue;
+						}
+						Matcher dn = DONATE.matcher(text);
+						if (dn.find()) {
+							if (dn.group(1).equalsIgnoreCase(me)) {
+								Hit h = new Hit();
+								h.bank = 4;   // 누적 후원금액(마지막 값만 쓴다)
+								h.wrap = wraps;
+								h.sec = sec;
+								h.won = num(dn.group(2));
+								hits.add(h);
+							}
+							continue;
+						}
+						if (BANK_OUT.matcher(text).find()) {
+							pendOut = true;
+							continue;
+						}
+						if (text.endsWith("입금되었습니다.") || text.endsWith("입금되었습니다")) {
+							pendIn = true;
 							continue;
 						}
 						Matcher t = TRADE.matcher(text);
@@ -244,10 +306,18 @@ public class NeogulSpendLogModule extends Module {
 				java.time.LocalDate start = end.minusDays(wraps);
 				for (Hit h : hits) {
 					java.time.LocalDate d = start.plusDays(h.wrap);
-					if (d.isBefore(HIST_FROM) || h.won <= 0) {
+					boolean barter = h.trade && !h.got.isEmpty() && !h.gave.isEmpty();   // 49-779차: 물물교환
+					if (d.isBefore(HIST_FROM) || (h.won <= 0 && !barter)) {
 						continue;
 					}
 					long ts = d.atStartOfDay(zone).toInstant().toEpochMilli() + h.sec * 1000L;
+					if (h.bank == 4) {
+						if (ts >= donateTs) {
+							donateTs = ts;
+							donateWon = h.won;
+						}
+						continue;
+					}
 					days.computeIfAbsent(d.toString(), k -> new ArrayList<>()).add(new Object[]{ts, h});
 				}
 			} catch (Throwable t) {
@@ -260,10 +330,18 @@ public class NeogulSpendLogModule extends Module {
 			list.sort((a, b) -> Long.compare((Long) a[0], (Long) b[0]));
 			JsonArray rows = new JsonArray();
 			long firstTs = 0, lastTs = 0;
-			int part = 0, tr = 0;
+			int part = 0, tr = 0, bk = 0;
 			for (Object[] o : list) {
 				Hit h = (Hit) o[1];
 				long ts = (Long) o[0];
+				if (h.bank != 0) {
+					JsonObject c = new JsonObject();
+					c.addProperty("k", h.bank == 2 ? "bank" : "bankin");
+					c.addProperty("t", hm(h.sec));
+					c.addProperty("won", h.won);
+					out.add(new Object[]{c, day, ts, "h2|" + day + "|k" + (bk++)});
+					continue;
+				}
 				if (h.trade) {
 					boolean deco = !h.got.isEmpty();
 					for (var g : h.got) {
@@ -288,7 +366,7 @@ public class NeogulSpendLogModule extends Module {
 					}
 					c.add("got", h.got);
 					c.add("gave", h.gave);
-					out.add(new Object[]{c, day, ts, "h|" + day + "|t" + (tr++)});
+					out.add(new Object[]{c, day, ts, "h2|" + day + "|t" + (tr++)});
 					continue;
 				}
 				JsonObject row = thing(h.raw, h.n);
@@ -314,13 +392,19 @@ public class NeogulSpendLogModule extends Module {
 				}
 				lastTs = ts;
 				if (rows.toString().length() > 1100) {
-					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h|" + day + "|b" + (part++)});
+					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h2|" + day + "|b" + (part++)});
 					rows = new JsonArray();
 				}
 			}
 			if (!rows.isEmpty()) {
-				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h|" + day + "|b" + part});
+				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h2|" + day + "|b" + part});
 			}
+		}
+		if (donateWon >= 0) {
+			JsonObject c = new JsonObject();
+			c.addProperty("k", "donate");
+			c.addProperty("won", donateWon);
+			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h2|donate"});
 		}
 		return out;
 	}
@@ -548,6 +632,25 @@ public class NeogulSpendLogModule extends Module {
 		}
 		load();
 		long now = System.currentTimeMillis();
+		// 49-781차(사용자: "누적후원보상 명령어를 치게 만들던가 메시지 띄워서"): 후원하면 뜨는 줄 뒤에 /후원 을 치라고 알려 준다
+		// (서버가 알려 주는 누적 후원금액 줄을 읽어야 정확해서, 받은 캐시로 셈하지 않는다 - 후원 사이트가 얹어 주는 캐시가 섞여 있다)
+		if (line.contains("후원해 주셔서 감사합니다") && viaLink()) {
+			try {
+				client.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+						"§a[Nova] §f/후원 을 한 번 입력하시면 누적 후원금액이 루나리스 개인지출에 반영됩니다."));
+			} catch (Throwable t) {
+				LunaCompat.warnOnce("spend:donateHint", t);
+			}
+		}
+		Matcher dn = DONATE.matcher(line);
+		if (dn.find() && dn.group(1).equalsIgnoreCase(LunaCompat.sessionName(client))) {
+			JsonObject o = new JsonObject();
+			o.addProperty("k", "donate");
+			o.addProperty("t", hhmm());
+			o.addProperty("won", num(dn.group(2)));
+			queue.add(o);
+			return;
+		}
 		// 49-739차: 섬 은행 출금(내 돈이 아니라 섬 돈이라 오늘 쓴 돈에는 안 더한다)
 		if (BANK_OUT.matcher(line).find()) {
 			bankOutAt = now;
@@ -666,7 +769,8 @@ public class NeogulSpendLogModule extends Module {
 				deco = false;
 			}
 		}
-		if (tradePaid > 0 && !deco) {
+		// 49-779차(사용자: "거래를 돈 말고 내가 물물교환한 것도"): 돈을 안 냈어도 물건을 주고 받았으면 올린다
+		if ((tradePaid > 0 || (!tradeGave.isEmpty() && !tradeGot.isEmpty())) && !deco) {
 			JsonObject o = new JsonObject();
 			o.addProperty("k", "trade");
 			o.addProperty("t", hhmm());
@@ -674,7 +778,9 @@ public class NeogulSpendLogModule extends Module {
 			o.addProperty("won", tradePaid);
 			o.add("got", tradeGot.deepCopy());
 			o.add("gave", tradeGave.deepCopy());
-			spent(tradePaid);
+			if (tradePaid > 0) {
+				spent(tradePaid);
+			}
 			queue.add(o);
 		}
 		tradeWith = null;
@@ -714,7 +820,7 @@ public class NeogulSpendLogModule extends Module {
 			// 49-761차: 섬원은 연동으로(개인지출). 시험 글과 섬 은행 출금은 개인 지출이 아니라 버린다. 글 길이(2000자)를 넘지 않게 줄을 줄인다.
 			JsonObject c0 = queue.remove(0);
 			String k0 = c0.has("k") ? c0.get("k").getAsString() : "";
-			if ("buy".equals(k0) || "trade".equals(k0) || "bank".equals(k0)) {   // 49-771차: 섬 은행 출금도 개인지출로
+			if ("buy".equals(k0) || "trade".equals(k0) || "bank".equals(k0) || "donate".equals(k0)) {   // 49-771차: 섬 은행 출금도 개인지출로
 				for (String key : new String[]{"rows", "got", "gave"}) {
 					JsonArray arr = c0.has(key) ? c0.getAsJsonArray(key) : null;
 					while (arr != null && arr.size() > 1 && c0.toString().length() > 1500) {

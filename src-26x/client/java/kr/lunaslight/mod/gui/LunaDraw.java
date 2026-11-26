@@ -289,6 +289,22 @@ public final class LunaDraw {
 		}
 	}
 
+	/**
+	 * 49-782차(사용자 사진: 상자 미리보기 카드 - "업데이트 알림, 질문 답변, 상자 미리보기가 너무 삐죽삐죽 튀어나와 있고 겹치는 곳 색도 다름,
+	 * 모던하면서 깔끔하게"): 떠 있는 카드(알림, 말풍선, 고르기 상자)용 한 장짜리 판.
+	 *
+	 * <p>예전엔 테두리 판(둥글기 r) 위에 1칸 들인 속 판(둥글기 r-1)을 덮고 아래에 2칸 띠를 깔았다. 둥근 모서리 그림은 정해진 크기만 있어서
+	 * r과 r-1이 화면 배율(특히 3배)에서 서로 다른 그림을 줄여 쓰게 되고, 그래서 모서리에서 테두리가 삐져나오고 겹친 자리 색이 달라졌다.
+	 * 여기서는 <b>테두리 없이</b> 몸통 한 장(둥글기 4 - 배율 2, 3, 4에서 모두 그림 크기가 딱 맞는 값)과 아주 옅은 그림자 두 겹만 그린다.
+	 * 머리 줄이 필요하면 같은 자리, 같은 둥글기 4로 {@link #roundRectTop}을 덮는다.
+	 */
+	public static void floatCard(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int body) {
+		int a = (body >>> 24) & 0xFF;
+		roundRect(ctx, x - 2, y - 1, w + 4, h + 5, 4, Math.round(0x12 * a / 255f) << 24);
+		roundRect(ctx, x - 1, y, w + 2, h + 3, 4, Math.round(0x20 * a / 255f) << 24);
+		roundRect(ctx, x, y, w, h, 4, body);
+	}
+
 	/** 패널 뒤 부드러운 그림자(아래로 살짝 번짐) - 패널을 그리기 직전에 호출. */
 	public static void shadow(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius) {
 		roundRect(ctx, x - 3, y - 1, w + 6, h + 7, radius + 2, 0x1F000000);
