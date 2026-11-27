@@ -141,12 +141,26 @@ public class NeogulMinePeekModule extends Module {
 			if (onlyMine.get() && !"mine".equals(NeogulDungeonHud.location)) {
 				return;
 			}
-			// 49-783차(사용자: "광창에 있는 거 말고 여태 얻었던 건 전체로"): 여태 얻은 광물(누적, 7일 넘게 안 나온 것은 뺌). 아직 하나도 안 셌으면 예전처럼 창고 내용.
-			items = NeogulMineModule.totals();
-			totalsMode = !items.isEmpty();
-			if (!totalsMode) {
-				items = NeogulMineModule.storage();
+			// 49-793차(사용자 사진: 누적 개수가 뜸 - "이 수치를 누적하라는 게 아니라 옆에 % 계산할 때만 말한 건데"):
+			// 개수는 지금 광물 창고에 든 개수 그대로. 여태 얻은 적이 있는 종류(7일 안)는 창고에 없어도 0개로 줄을 남기고, 확률만 누적으로 셈한다.
+			items = NeogulMineModule.storage();
+			if (items != null) {
+				List<Object[]> all = new java.util.ArrayList<>(items);
+				for (Object[] t : NeogulMineModule.totals()) {
+					boolean has = false;
+					for (Object[] it : items) {
+						if (String.valueOf(it[1]).equals(String.valueOf(t[1]))) {
+							has = true;
+							break;
+						}
+					}
+					if (!has) {
+						all.add(new Object[]{t[0], t[1], 0, -1});
+					}
+				}
+				items = all;
 			}
+			totalsMode = false;
 			if (items == null) {
 				// 49-615차(사용자: "광물 창고 미리보기도 광창 한 번 열어 보라 해야 해"): 아직 창고를 안 열어 개수를 모름 - 판 자리에 안내
 				drawHint(ctx);
@@ -199,7 +213,7 @@ public class NeogulMinePeekModule extends Module {
 		if (!coalRate.get()) {
 			return null;
 		}
-		return it.length > 5 ? (String) it[5] : totalsMode ? NeogulMineModule.totalRate((String) it[1]) : NeogulMineModule.coalRate((String) it[1]);
+		return it.length > 5 ? (String) it[5] : NeogulMineModule.coalRate((String) it[1]);   // 49-794차: 광물 줄만(요리용 석탄, 보석 줄에는 안 띄움). 값은 누적
 	}
 
 	private static String shortName(String n) {

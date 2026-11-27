@@ -77,7 +77,10 @@ public class NeogulSpendLogModule extends Module {
 	private JsonArray buyRows;
 	private long buyAt;
 	private long buyFirst;
-	private static final long BUY_GAP_MS = 5000;
+	// 49-792차(사용자 사진: 같은 상점에서 1분 사이 산 두 가지가 카드 두 장 - "하나로 묶는 시간을 대폭 늘려 줘야"): 5초 → 3분.
+	// 마지막 구매 뒤 3분 동안 더 안 사면 한 장으로 올린다. 계속 사도 15분이 되거나 줄이 많아지면(글 길이) 끊고, 서버에서 나가면 바로 올린다.
+	private static final long BUY_GAP_MS = 180_000;
+	private static final long BUY_MAX_MS = 900_000;
 
 	private static NeogulSpendLogModule instance;
 
@@ -91,7 +94,7 @@ public class NeogulSpendLogModule extends Module {
 	/** 49-780차(사용자: "누적 후원 금액도 확인 가능해?"): "/후원"을 치면 뜨는 "- 닉네임님의 누적 후원금액은 350,000원입니다." */
 	private static final Pattern DONATE = Pattern.compile("([A-Za-z0-9_]{2,16})님의\\s*누적\\s*후원금액은\\s*([\\d,]+)\\s*원");
 	private static final Pattern LOG_GZ = Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log\\.gz");
-	private final StringSetting histDone = register(new StringSetting("hist1031b", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h3|")
+	private final StringSetting histDone = register(new StringSetting("hist1031c", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h4|")
 	private volatile boolean histRunning;
 	private volatile java.util.List<Object[]> histPending;   // {card, hd, ts, key}
 	private long histAt;
@@ -339,7 +342,7 @@ public class NeogulSpendLogModule extends Module {
 					c.addProperty("k", h.bank == 2 ? "bank" : "bankin");
 					c.addProperty("t", hm(h.sec));
 					c.addProperty("won", h.won);
-					out.add(new Object[]{c, day, ts, "h3|" + day + "|k" + (bk++)});
+					out.add(new Object[]{c, day, ts, "h4|" + day + "|k" + (bk++)});
 					continue;
 				}
 				if (h.trade) {
@@ -366,7 +369,7 @@ public class NeogulSpendLogModule extends Module {
 					}
 					c.add("got", h.got);
 					c.add("gave", h.gave);
-					out.add(new Object[]{c, day, ts, "h3|" + day + "|t" + (tr++)});
+					out.add(new Object[]{c, day, ts, "h4|" + day + "|t" + (tr++)});
 					continue;
 				}
 				JsonObject row = thing(h.raw, h.n);
@@ -392,19 +395,19 @@ public class NeogulSpendLogModule extends Module {
 				}
 				lastTs = ts;
 				if (rows.toString().length() > 1100) {
-					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h3|" + day + "|b" + (part++)});
+					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h4|" + day + "|b" + (part++)});
 					rows = new JsonArray();
 				}
 			}
 			if (!rows.isEmpty()) {
-				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h3|" + day + "|b" + part});
+				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h4|" + day + "|b" + part});
 			}
 		}
 		if (donateWon >= 0) {
 			JsonObject c = new JsonObject();
 			c.addProperty("k", "donate");
 			c.addProperty("won", donateWon);
-			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h3|donate"});
+			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h4|donate"});
 		}
 		return out;
 	}
@@ -746,7 +749,9 @@ public class NeogulSpendLogModule extends Module {
 		}
 		JsonObject card = new JsonObject();
 		card.addProperty("k", "buy");
-		card.addProperty("t", hhmm());
+		// 49-792차: 올리는 때가 아니라 처음 산 때를 적는다(묶는 시간이 길어져서)
+		java.time.LocalTime bt = buyFirst > 0 ? java.time.Instant.ofEpochMilli(buyFirst).atZone(KST).toLocalTime() : LocalTime.now(KST);
+		card.addProperty("t", String.format("%02d:%02d", bt.getHour(), bt.getMinute()));
 		long sum = 0;
 		for (var e : buyRows) {
 			sum += e.getAsJsonObject().get("won").getAsLong();
@@ -868,7 +873,8 @@ public class NeogulSpendLogModule extends Module {
 		if (tradeWith != null && now - tradeAt >= 3000) {
 			endTrade();
 		}
-		if (buyRows != null && (now - buyAt >= BUY_GAP_MS || now - buyFirst >= 60_000)) {
+		if (buyRows != null && (now - buyAt >= BUY_GAP_MS || now - buyFirst >= BUY_MAX_MS || client.player == null
+				|| buyRows.toString().length() > 1100)) {
 			endBuys();
 		}
 		if (!queue.isEmpty() && LunarisLinkModule.canSpend()) {

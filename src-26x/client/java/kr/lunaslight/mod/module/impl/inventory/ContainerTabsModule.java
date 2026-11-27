@@ -274,6 +274,10 @@ public class ContainerTabsModule extends Module {
 						if (!seenFromEye(eye, pos, partnerOf(state, pos))) {
 							continue;
 						}
+						// 49-790차(사용자: "블록에 감싸져 있거나 못 여는 곳에 있는 거 못 열게, 핵 같은 능력이면 안 돼"): 손으로 눌러도 안 열리는 상자는 뺀다
+						if (lidBlocked(kind, pos, partnerOf(state, pos))) {
+							continue;
+						}
 						ItemStack icon = new ItemStack(state.getBlock());
 						String name;
 						try {
@@ -436,6 +440,24 @@ public class ContainerTabsModule extends Module {
 		return false;
 	}
 
+	/** 49-790차: 상자, 엔더 상자는 위(큰 상자면 두 칸 중 하나라도)에 꽉 찬 블록이 있으면 바닐라에서 안 열린다. */
+	private boolean lidBlocked(String kind, BlockPos pos, BlockPos partner) {
+		if (!"chest".equals(kind) && !"ender".equals(kind)) {
+			return false;
+		}
+		try {
+			for (BlockPos c : partner == null ? new BlockPos[]{pos} : new BlockPos[]{pos, partner}) {
+				BlockPos up = c.above();
+				if (client.level.getBlockState(up).isRedstoneConductor(client.level, up)) {
+					return true;
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("tabs:lid", t);
+		}
+		return false;
+	}
+
 	private final BlockPos.MutableBlockPos rayCell = new BlockPos.MutableBlockPos();
 
 	/** 눈에서 그 점까지(격자 따라가기) 지나는 칸에 막는 블록이 없나. 보관함 자신과 그 반쪽 칸은 안 막는다. */
@@ -480,6 +502,15 @@ public class ContainerTabsModule extends Module {
 				BlockState st = client.level.getBlockState(rayCell);
 				if (st != null && st.canOcclude()) {
 					return false;
+				}
+				// 49-790차: 유리, 반 블록, 울타리, 문, 표지판처럼 꽉 차지 않은 블록도 그 모양에 시선이 닿으면 막힌 것으로 본다
+				// (손으로 눌러도 그 블록이 눌리는 자리). 예전에는 꽉 찬 불투명 블록만 막아서 유리 너머 상자도 열렸다.
+				if (st != null && !st.isAir()) {
+					net.minecraft.world.phys.shapes.VoxelShape sh = st.getShape(client.level, rayCell,
+							net.minecraft.world.phys.shapes.CollisionContext.of(client.player));
+					if (!sh.isEmpty() && sh.clip(eye, new Vec3(ex, ey, ez), rayCell.immutable()) != null) {
+						return false;
+					}
 				}
 				Object rbe = client.level.getBlockEntity(rayCell);
 				if (rbe instanceof Container) {
@@ -1414,6 +1445,18 @@ public class ContainerTabsModule extends Module {
 	private void open(Tab t) {
 		if (client.player == null) {
 			return;
+		}
+		// 49-790차: 누르는 순간에도 다시 확인한다(목록을 만든 뒤에 블록이 놓였을 수 있다)
+		try {
+			Vec3 eye = LunaCompat.getEyePos(client.player);
+			BlockState st = client.level.getBlockState(t.pos());
+			BlockPos partner = partnerOf(st, t.pos());
+			if (eye == null || !seenFromEye(eye, t.pos(), partner) || lidBlocked(kindOf(st), t.pos(), partner)) {
+				LunaCompat.sendActionBar(client, "§7가려져 있거나 막혀 있어 열 수 없습니다");
+				return;
+			}
+		} catch (Throwable th) {
+			LunaCompat.warnOnce("tabs:recheck", th);
 		}
 		pendingOpen = t.pos();
 		pendingSince = System.currentTimeMillis();
