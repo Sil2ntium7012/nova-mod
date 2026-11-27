@@ -91,6 +91,10 @@ public final class SlimLog {
 			Runtime rt = Runtime.getRuntime();
 			e.addProperty("mem", ((rt.totalMemory() - rt.freeMemory()) >> 20) + "/" + (rt.maxMemory() >> 20));
 			e.addProperty("txt", text);
+			if (sureNext) {
+				e.addProperty("sure", 1);   // 49-789차: 지난 실행의 게임 기록 전체에 정상 종료 줄이 없음을 확인함
+				sureNext = false;
+			}
 			// 49-770차(사용자: "사진 + 파일 업로드 해라"): 문제 기록 파일(과 충돌 보고서)을 신호에 붙여 올린다. "_"로 시작하는 것은 보낼 때 떼어 낸다.
 			Path f = issueFile;
 			if (f != null) {
@@ -103,6 +107,72 @@ public final class SlimLog {
 			}
 			REPORTS.add(e);
 		} catch (Throwable ignored) {
+		}
+	}
+
+	private static volatile boolean sureNext;
+
+	/**
+	 * 49-789차(LUNARIS 세션: 창을 X로 닫으면 게임은 "Stopping!"을 남기는데, 이 기록은 2초마다 읽는 터라 그 줄을 못 읽고 꺼져 비정상 종료로 올라감):
+	 * 지난 실행의 게임 기록 전체(게임이 켜질 때 latest.log를 날짜-번호.log.gz로 묶어 둔 것)에서 정상 종료 줄을 직접 찾는다.
+	 * 1 = 있음(정상 종료), 0 = 끝까지 읽었는데 없음, -1 = 그 파일을 못 찾았거나 못 읽음.
+	 */
+	private static int prevLogClean(Path logs, long lastWrite) {
+		try {
+			long now = System.currentTimeMillis();
+			Path newest = null;
+			for (int wait = 0; wait < 60; wait++) {
+				newest = null;
+				long nt = 0;
+				boolean packing = false;
+				try (var ls = Files.list(logs)) {
+					for (Path f : ls.toList()) {
+						String n = f.getFileName().toString();
+						if (n.startsWith("debug") || !Files.isRegularFile(f)) {
+							continue;
+						}
+						if (n.matches("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log")) {
+							packing = true;   // 아직 묶는 중(묶기 전 이름)
+						}
+						long t = Files.getLastModifiedTime(f).toMillis();
+						if (n.endsWith(".log.gz") && t > nt) {
+							nt = t;
+							newest = f;
+						}
+					}
+				}
+				// 이번에 켜지면서 묶인 것이어야 한다: 지난 실행의 마지막 기록보다 뒤, 지금부터 15분 안
+				if (newest != null && (nt < lastWrite - 60_000 || now - nt > 15 * 60_000)) {
+					newest = null;
+				}
+				if (newest != null && !packing) {
+					long a = Files.size(newest);
+					Thread.sleep(1500);
+					if (a == Files.size(newest)) {
+						break;
+					}
+				} else {
+					if (wait >= 10 && !packing) {
+						break;   // 10초를 기다려도 없으면 묶는 설정이 아닌 런처
+					}
+					Thread.sleep(1000);
+				}
+			}
+			if (newest == null) {
+				return -1;
+			}
+			try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
+					new java.util.zip.GZIPInputStream(Files.newInputStream(newest), 65536), StandardCharsets.UTF_8))) {
+				String line;
+				while ((line = r.readLine()) != null) {
+					if (line.contains("Stopping!")) {
+						return 1;
+					}
+				}
+			}
+			return 0;
+		} catch (Throwable t) {
+			return -1;
 		}
 	}
 
@@ -135,6 +205,10 @@ public final class SlimLog {
 			String block = all.substring(at);
 			issueFile = newest;
 			if (block.contains("Stopping!") || !block.contains("mcng")) {
+				return;
+			}
+			int full = prevLogClean(dir.getParent(), nt);   // 49-789차: 게임 기록 전체에서 다시 확인
+			if (full == 1) {
 				return;
 			}
 			List<String> lines = new ArrayList<>(java.util.Arrays.asList(block.split("\n")));
@@ -172,6 +246,7 @@ public final class SlimLog {
 			}
 			host = "mcng";
 			String t = tail(lines, crash.isEmpty() ? 1100 : 500);
+			sureNext = full == 0;
 			report("crash", "지난 실행이 정상 종료 줄 없이 끝남", crash.isEmpty() ? t : crash + t);
 		} catch (Throwable ignored) {
 		}

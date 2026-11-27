@@ -87,6 +87,8 @@ public class LunarisLinkModule extends Module {
 			a.add(fills);
 			a.add(potions);
 			a.add(max);
+			a.add(ptT);   // 49-789차: 플레이타임(접속 ms, 그중 잠수 ms)
+			a.add(ptA);
 			h.add(day, a);
 			String cut = LocalDate.now(KST).minusDays(7).toString();
 			for (String k : new java.util.ArrayList<>(h.keySet())) {
@@ -136,11 +138,37 @@ public class LunarisLinkModule extends Module {
 	private int sentPotions;
 	private long sentMoney = -1, sentAcorn = -1;
 	private long sentSand = -1;   // 49-726차
+	// 49-789차(LUNARIS 세션 요청, playtime.js: 평소 신호 "pt":[t,a], 지난 기록 날짜 배열 5, 6번째): 오늘 너굴마을에 접속해 있던 시간(ms, 잠수 포함)과
+	// 그중 자리 비움 시간(ms). 그날 누적값(껐다 켜도 이어서, 자정에 0부터). 틱 사이가 5초를 넘으면(멈춤, 화면 전환) 그 사이는 안 센다.
+	private long ptT, ptA, ptLast, sentPt, ptSaved;
+
+	private void playTick() {
+		long now = System.currentTimeMillis();
+		if (client.player == null || !NeogulData.onNeogul(client)) {
+			ptLast = 0;
+			return;
+		}
+		if (ptLast > 0 && now > ptLast && now - ptLast < 5000) {
+			long d = now - ptLast;
+			ptT += d;
+			if (kr.lunaslight.mod.module.impl.render.AfkModule.isAfkNow()) {
+				ptA += d;
+			}
+		}
+		ptLast = now;
+		if (ptT - ptSaved >= 60_000) {   // 1분마다 적어 둔다(튕겨도 1분 넘게 잃지 않게)
+			ptSaved = ptT;
+			save();
+		}
+		if (ptT - sentPt >= PROGRESS_MS) {
+			dirty = true;   // 3분마다 평소 신호에 실어 보낸다
+		}
+	}
 	/**
 	 * 49-743차(사용자: "디코 쪽 관련 업뎃은 연동한 사람들한테 지속적으로 업데이트 요청 메시지"): 모드 빌드 번호. 신호마다 "b"로 보내고,
 	 * 새 릴리스가 있으면(ModUpdateBanner) "od":true. 봇(modupdate.js REQ)이 이보다 낮거나 od면 업데이트해 달라고 DM. 모드를 올릴 때 둘을 같이 올릴 것.
 	 */
-	public static final int BUILD = 750;
+	public static final int BUILD = 752;
 
 	private static void stamp(JsonObject p) {
 		p.addProperty("b", BUILD);
@@ -272,6 +300,9 @@ public class LunarisLinkModule extends Module {
 					sentCur = num(o, "sc", -1);
 					unnamed = num(o, "un", 0);
 					potions = num(o, "r", 0);
+					ptT = o.has("pt") ? o.get("pt").getAsLong() : 0;
+					ptA = o.has("pa") ? o.get("pa").getAsLong() : 0;
+					ptSaved = ptT;
 					// 49-667차: 예전 판은 섬을 오가거나 피로도가 조금 내려갔다 오르면 또 세서 8회까지 부풀었다 - 오늘 값은 섬 4개로 줄인다
 					if (num(o, "v", 1) < 2 && fills > ISLANDS) {
 						fills = ISLANDS;
@@ -296,6 +327,10 @@ public class LunarisLinkModule extends Module {
 			barMisses = 0;
 			barMissNote = null;
 			cur = 0;   // 49-679차(규격 10장): 자정에 지금 값도 0
+			ptT = 0;   // 49-789차
+			ptA = 0;
+			sentPt = 0;
+			ptSaved = 0;
 			sentPotions = 0;
 			sentQuest = false;
 			sentFills = -1;
@@ -318,6 +353,8 @@ public class LunarisLinkModule extends Module {
 		o.addProperty("sc", sentCur);
 		o.addProperty("un", unnamed);
 		o.addProperty("r", potions);
+		o.addProperty("pt", ptT);
+		o.addProperty("pa", ptA);
 		o.addProperty("v", 2);
 		JsonObject f = new JsonObject();
 		full.forEach(f::addProperty);
@@ -490,6 +527,7 @@ public class LunarisLinkModule extends Module {
 			}
 		}
 		mineTick();
+		playTick();   // 49-789차
 		// 49-770차: 튕김, 비정상 종료 알림(SlimLog가 묶어 둔 것)을 연동 신호로
 		if (linked() && events.size() < 6) {
 			JsonObject issue = kr.lunaslight.mod.util.SlimLog.pollReport();
@@ -1064,7 +1102,8 @@ public class LunarisLinkModule extends Module {
 			}
 			if (tm instanceof net.minecraft.client.gui.components.toasts.ToastManager m) {
 				net.minecraft.client.gui.components.toasts.SystemToast.add(m, net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-						net.minecraft.network.chat.Component.literal("잠광 정리됨"), net.minecraft.network.chat.Component.literal(head + tail));
+						// 49-784차(사용자 사진: "느낌표가 너무 붙어 있어"): 알림 그림 왼쪽의 느낌표와 글 사이를 띄운다
+						net.minecraft.network.chat.Component.literal("   잠광 정리됨"), net.minecraft.network.chat.Component.literal("   " + head + tail));
 			}
 		} catch (Throwable t) {
 			LunaCompat.warnOnce("lunaris:mboxToast", t);
@@ -1186,7 +1225,8 @@ public class LunarisLinkModule extends Module {
 		// 49-670차: 소지금, 도토리가 바뀐 것도 진행처럼 3분에 한 번
 		long wNow = kr.lunaslight.mod.util.NeogulWallet.money, aNow = kr.lunaslight.mod.util.NeogulWallet.acorn;
 		long sNow = sandNow();
-		boolean curNew = (max > 0 && cur != sentCur) || (wNow >= 0 && (wNow != sentMoney || aNow != sentAcorn)) || (sNow > 0 && sNow != sentSand);
+		boolean curNew = (max > 0 && cur != sentCur) || (wNow >= 0 && (wNow != sentMoney || aNow != sentAcorn)) || (sNow > 0 && sNow != sentSand)
+				|| ptT - sentPt >= PROGRESS_MS;   // 49-789차
 		long t = System.currentTimeMillis();
 		if (!questNew && !fillsNew) {
 			if (!curNew) {
@@ -1221,6 +1261,13 @@ public class LunarisLinkModule extends Module {
 		}
 		if (sNow > 0) {
 			p.addProperty("ss", sNow);   // 49-726차: 서버 통계 사암 캔 횟수(잠광 등급)
+		}
+		if (ptT > 0) {
+			com.google.gson.JsonArray pt = new com.google.gson.JsonArray();
+			pt.add(ptT);
+			pt.add(Math.min(ptA, ptT));
+			p.add("pt", pt);
+			sentPt = ptT;
 		}
 		p.addProperty("c", cur);
 		p.addProperty("m", max);

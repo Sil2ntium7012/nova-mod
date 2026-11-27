@@ -91,7 +91,7 @@ public class NeogulSpendLogModule extends Module {
 	/** 49-780차(사용자: "누적 후원 금액도 확인 가능해?"): "/후원"을 치면 뜨는 "- 닉네임님의 누적 후원금액은 350,000원입니다." */
 	private static final Pattern DONATE = Pattern.compile("([A-Za-z0-9_]{2,16})님의\\s*누적\\s*후원금액은\\s*([\\d,]+)\\s*원");
 	private static final Pattern LOG_GZ = Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log\\.gz");
-	private final StringSetting histDone = register(new StringSetting("hist1031", "지난 지출", "", ""));
+	private final StringSetting histDone = register(new StringSetting("hist1031b", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h3|")
 	private volatile boolean histRunning;
 	private volatile java.util.List<Object[]> histPending;   // {card, hd, ts, key}
 	private long histAt;
@@ -339,7 +339,7 @@ public class NeogulSpendLogModule extends Module {
 					c.addProperty("k", h.bank == 2 ? "bank" : "bankin");
 					c.addProperty("t", hm(h.sec));
 					c.addProperty("won", h.won);
-					out.add(new Object[]{c, day, ts, "h2|" + day + "|k" + (bk++)});
+					out.add(new Object[]{c, day, ts, "h3|" + day + "|k" + (bk++)});
 					continue;
 				}
 				if (h.trade) {
@@ -366,7 +366,7 @@ public class NeogulSpendLogModule extends Module {
 					}
 					c.add("got", h.got);
 					c.add("gave", h.gave);
-					out.add(new Object[]{c, day, ts, "h2|" + day + "|t" + (tr++)});
+					out.add(new Object[]{c, day, ts, "h3|" + day + "|t" + (tr++)});
 					continue;
 				}
 				JsonObject row = thing(h.raw, h.n);
@@ -392,19 +392,19 @@ public class NeogulSpendLogModule extends Module {
 				}
 				lastTs = ts;
 				if (rows.toString().length() > 1100) {
-					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h2|" + day + "|b" + (part++)});
+					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h3|" + day + "|b" + (part++)});
 					rows = new JsonArray();
 				}
 			}
 			if (!rows.isEmpty()) {
-				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h2|" + day + "|b" + part});
+				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h3|" + day + "|b" + part});
 			}
 		}
 		if (donateWon >= 0) {
 			JsonObject c = new JsonObject();
 			c.addProperty("k", "donate");
 			c.addProperty("won", donateWon);
-			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h2|donate"});
+			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h3|donate"});
 		}
 		return out;
 	}
@@ -637,7 +637,7 @@ public class NeogulSpendLogModule extends Module {
 		if (line.contains("후원해 주셔서 감사합니다") && viaLink()) {
 			try {
 				client.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-						"§a[Nova] §f/후원 을 한 번 입력하시면 누적 후원금액이 루나리스 개인지출에 반영됩니다."));
+						"§a[Nova] §f/누적후원보상 을 한 번 여시면 누적 후원금액이 루나리스 개인지출에 반영됩니다."));
 			} catch (Throwable t) {
 				LunaCompat.warnOnce("spend:donateHint", t);
 			}
@@ -807,9 +807,64 @@ public class NeogulSpendLogModule extends Module {
 		tick0();
 	}
 
+	// 49-787차(사용자 사진: /누적후원보상 창 "LNR_Sil2ntium님의 누적 후원금액은 500,000원입니다." - "이걸로 확인하면 되겠다"):
+	// 그 글은 채팅이 아니라 창 안 글이라, 열린 창의 글(제목 + 글 위젯)을 읽는다. 같은 금액은 한 번만 보낸다.
+	private long donateSeen = -1;
+	private int donateTick;
+
+	private void donateScreenTick() {
+		if (++donateTick % 10 != 0 || !viaLink() || !NeogulData.onNeogul(client)) {
+			return;
+		}
+		try {
+			net.minecraft.client.gui.screens.Screen sc = LunaCompat.screenOf(client);
+			if (sc == null) {
+				return;
+			}
+			StringBuilder sb = new StringBuilder();
+			if (sc.getTitle() != null) {
+				sb.append(sc.getTitle().getString()).append('\n');
+			}
+			donateTexts(sc, 0, new int[1], sb);
+			Matcher dn = DONATE.matcher(clean(sb.toString()));
+			if (!dn.find() || !dn.group(1).equalsIgnoreCase(String.valueOf(LunaCompat.sessionName(client)))) {
+				return;
+			}
+			long won = num(dn.group(2));
+			if (won == donateSeen) {
+				return;
+			}
+			donateSeen = won;
+			JsonObject o = new JsonObject();
+			o.addProperty("k", "donate");
+			o.addProperty("t", hhmm());
+			o.addProperty("won", won);
+			queue.add(o);
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("spend:donateScreen", t);
+		}
+	}
+
+	/** 창 안 글 위젯의 글을 모은다(깊이 6, 300개까지). */
+	private static void donateTexts(Object o, int depth, int[] n, StringBuilder sb) {
+		if (!(o instanceof net.minecraft.client.gui.components.events.ContainerEventHandler c) || depth > 6) {
+			return;
+		}
+		for (Object child : c.children()) {
+			if (++n[0] > 300) {
+				return;
+			}
+			if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getMessage() != null) {
+				sb.append(w.getMessage().getString()).append('\n');
+			}
+			donateTexts(child, depth + 1, n, sb);
+		}
+	}
+
 	private void tick0() {
 		long now = System.currentTimeMillis();
 		histTick(now);
+		donateScreenTick();
 		if (tradeWith != null && now - tradeAt >= 3000) {
 			endTrade();
 		}
