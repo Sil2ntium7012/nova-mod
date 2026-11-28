@@ -165,7 +165,7 @@ public class NeogulSpendLogModule extends Module {
 	/** 49-780차(사용자: "누적 후원 금액도 확인 가능해?"): "/후원"을 치면 뜨는 "- 닉네임님의 누적 후원금액은 350,000원입니다." */
 	private static final Pattern DONATE = Pattern.compile("([A-Za-z0-9_]{2,16})님의\\s*누적\\s*후원금액은\\s*([\\d,]+)\\s*원");
 	private static final Pattern LOG_GZ = Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log\\.gz");
-	private final StringSetting histDone = register(new StringSetting("hist1031d", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h5|")
+	private final StringSetting histDone = register(new StringSetting("hist1031e", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h6|")
 	private volatile boolean histRunning;
 	private volatile java.util.List<Object[]> histPending;   // {card, hd, ts, key}
 	private long histAt;
@@ -242,6 +242,37 @@ public class NeogulSpendLogModule extends Module {
 			// 49-778차: 이번 실행의 latest.log도 읽는다(봇이 기록을 비운 때보다 앞의 것만 받으므로 실시간 것과 겹치지 않는다)
 			ls.filter(f -> LOG_GZ.matcher(f.getFileName().toString()).matches() || f.getFileName().toString().equals("latest.log")).forEach(files::add);
 		}
+		// 49-812차(사용자: "노바 클라이언트, 너굴라이언트 옮겨 다녀서 지금 너굴라이언트 집계만 된다, 노바 것 너굴로 로그 옮길 수 있나?"):
+		// 다른 런처로 한 기록도 같이 읽는다 - %APPDATA%\Nugulient\minecraft\logs, %APPDATA%\NovaClient\profiles\*\logs 중 지금 폴더가 아닌 것.
+		// 그쪽 파일은 너굴마을에 접속한 기록("mcng"가 보이는 파일)만 쓴다(다른 서버 프로필이 섞이지 않게).
+		final java.util.Set<java.nio.file.Path> foreign = new java.util.HashSet<>();
+		try {
+			String ad = System.getenv("APPDATA");
+			if (ad != null && !ad.isEmpty()) {
+				java.util.List<java.nio.file.Path> dirs = new ArrayList<>();
+				dirs.add(java.nio.file.Path.of(ad, "Nugulient", "minecraft", "logs"));
+				java.nio.file.Path profs = java.nio.file.Path.of(ad, "NovaClient", "profiles");
+				if (java.nio.file.Files.isDirectory(profs)) {
+					try (var ps = java.nio.file.Files.list(profs)) {
+						ps.filter(java.nio.file.Files::isDirectory).forEach(x -> dirs.add(x.resolve("logs")));
+					}
+				}
+				java.nio.file.Path here = dir.toRealPath();
+				for (java.nio.file.Path od : dirs) {
+					if (!java.nio.file.Files.isDirectory(od) || od.toRealPath().equals(here)) {
+						continue;
+					}
+					try (var ls = java.nio.file.Files.list(od)) {
+						ls.filter(f -> LOG_GZ.matcher(f.getFileName().toString()).matches() || f.getFileName().toString().equals("latest.log")).forEach(f -> {
+							files.add(f);
+							foreign.add(f);
+						});
+					}
+				}
+			}
+		} catch (Throwable t) {
+			LunaCompat.warnOnce("spendhist:others", t);
+		}
 		// 날짜 → 구매 줄, 거래
 		java.util.TreeMap<String, java.util.List<Object[]>> days = new java.util.TreeMap<>();   // {ts, Hit}
 		for (java.nio.file.Path f : files) {
@@ -252,6 +283,7 @@ public class NeogulSpendLogModule extends Module {
 					continue;
 				}
 				java.util.List<Hit> hits = new ArrayList<>();
+				boolean sawNeogul = !foreign.contains(f);
 				int wraps = 0, prev = -1, sec = 0;
 				Hit trade = null;
 				boolean pendOut = false, pendIn = false;
@@ -261,6 +293,9 @@ public class NeogulSpendLogModule extends Module {
 						java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8))) {
 					String line;
 					while ((line = r.readLine()) != null) {
+						if (!sawNeogul && line.contains("mcng")) {
+							sawNeogul = true;
+						}
 						Matcher tm = LOG_TIME.matcher(line);
 						String text;
 						if (tm.find()) {
@@ -387,6 +422,9 @@ public class NeogulSpendLogModule extends Module {
 						}
 					}
 				}
+				if (!sawNeogul) {
+					continue;   // 다른 서버 프로필의 기록
+				}
 				java.time.LocalDate start = end.minusDays(wraps);
 				for (Hit h : hits) {
 					java.time.LocalDate d = start.plusDays(h.wrap);
@@ -429,7 +467,7 @@ public class NeogulSpendLogModule extends Module {
 						blkN++;
 						blkTs = ts;
 					} else {
-						out.add(new Object[]{h.misc, day, ts, "h5|" + day + "|m" + (mi++)});
+						out.add(new Object[]{h.misc, day, ts, "h6|" + day + "|m" + (mi++)});
 					}
 					continue;
 				}
@@ -438,7 +476,7 @@ public class NeogulSpendLogModule extends Module {
 					c.addProperty("k", h.bank == 2 ? "bank" : "bankin");
 					c.addProperty("t", hm(h.sec));
 					c.addProperty("won", h.won);
-					out.add(new Object[]{c, day, ts, "h5|" + day + "|k" + (bk++)});
+					out.add(new Object[]{c, day, ts, "h6|" + day + "|k" + (bk++)});
 					continue;
 				}
 				if (h.trade) {
@@ -455,7 +493,7 @@ public class NeogulSpendLogModule extends Module {
 					}
 					c.add("got", h.got);
 					c.add("gave", h.gave);
-					out.add(new Object[]{c, day, ts, "h5|" + day + "|t" + (tr++)});
+					out.add(new Object[]{c, day, ts, "h6|" + day + "|t" + (tr++)});
 					continue;
 				}
 				JsonObject row = thing(h.raw, h.n);
@@ -481,25 +519,25 @@ public class NeogulSpendLogModule extends Module {
 				}
 				lastTs = ts;
 				if (rows.toString().length() > 1100) {
-					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h5|" + day + "|b" + (part++)});
+					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h6|" + day + "|b" + (part++)});
 					rows = new JsonArray();
 				}
 			}
 			if (!rows.isEmpty()) {
-				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h5|" + day + "|b" + part});
+				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h6|" + day + "|b" + part});
 			}
 			if (blkN > 0) {
 				JsonObject c = miscCard("block", hm(blkSec));
 				c.addProperty("won", blkWon);
 				c.addProperty("n", blkN);
-				out.add(new Object[]{c, day, blkTs, "h5|" + day + "|blk"});
+				out.add(new Object[]{c, day, blkTs, "h6|" + day + "|blk"});
 			}
 		}
 		if (donateWon >= 0) {
 			JsonObject c = new JsonObject();
 			c.addProperty("k", "donate");
 			c.addProperty("won", donateWon);
-			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h5|donate"});
+			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h6|donate"});
 		}
 		return out;
 	}
