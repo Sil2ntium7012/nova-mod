@@ -46,6 +46,16 @@ public final class NeogulMineFeed {
 	 */
 	private static boolean expectEcho;
 	/**
+	 * 49-815차(기록 재생으로 확인한 두 가지 겹쳐 세기):
+	 * <ul>
+	 *   <li>시간 규칙("오래됐는데 아직 흐려짐 0이면 새 줄")은 줄이 흐려지는 곳(광산)에서만 맞다. 섬에서는 줄이 전혀 흐려지지 않아
+	 *       3.5초 넘게 쉬었다 캐면 남아 있던 줄을 또 셌다(사암 27% 더 셈). 최근 5분 안에 흐려진 줄을 본 적이 있을 때만 쓴다.</li>
+	 *   <li>요리용 석탄, 보석 줄은 먼저 맨 위에 올라왔다가(2개) 0.6초 안에 같은 줄이 더 큰 개수(3개)로 다시 온다 - 따로 2 + 3으로 세지 않고 늘어난 1만 센다.</li>
+	 * </ul>
+	 */
+	private static long fadeSeenAt;
+	private static final java.util.Map<String, long[]> LAST_NG = new java.util.HashMap<>();   // 아이템 → {개수, 때}
+	/**
 	 * 49-715차(사용자 사진: 2칸씩 캐는데 광물 창고에 1개씩 쌓임, 기록: 돌만 3줄 꽉 찬 동안 "same x1"): 한 번에 올라오는 줄 수를 마지막 값 하나로,
 	 * 그것도 거의 못 배워서(새 줄이 모두 같은 개수일 때만) 1로 셌다. 이제 줄 수가 하나로 정해질 때마다 최근 16번을 적어 두고
 	 * 가장 많이 나온 값을 쓴다(같으면 큰 값). 곡괭이를 바꾸면 최근 값을 따라간다.
@@ -272,8 +282,13 @@ public final class NeogulMineFeed {
 					}
 				}
 			}
-			// 시간: 남은 줄 중 오래됐는데 아직 흐려짐 0인 줄 = 새로 고쳐짐 → 거기까지 새 줄
-			for (int i = k; i < c.size(); i++) {
+			for (var r : c) {
+				if (r.frame() > 0) {
+					fadeSeenAt = now;
+				}
+			}
+			// 시간: 남은 줄 중 오래됐는데 아직 흐려짐 0인 줄 = 새로 고쳐짐 → 거기까지 새 줄(줄이 흐려지는 곳에서만 - 49-815차)
+			for (int i = k; i < c.size() && now - fadeSeenAt < 300_000; i++) {
 				int oi = i - k;
 				long born = oi < births.size() ? births.get(oi) : now;
 				if (c.get(i).frame() == 0 && now - born > FRESH_MS) {
@@ -324,7 +339,17 @@ public final class NeogulMineFeed {
 			BiConsumer<String, Integer> l = listener;
 			if (l != null) {
 				for (int i = k - 1; i >= 0; i--) {   // 오래된 것부터
-					l.accept(c.get(i).item(), Math.max(1, c.get(i).count()));
+					String item = c.get(i).item();
+					int n = Math.max(1, c.get(i).count());
+					if (item != null && item.startsWith("ng")) {
+						long[] last = LAST_NG.get(item);
+						int full = n;
+						if (last != null && now - last[1] < 600 && n > last[0]) {
+							n -= (int) last[0];   // 같은 줄이 더 큰 개수로 다시 옴 - 늘어난 만큼만
+						}
+						LAST_NG.put(item, new long[]{full, now});
+					}
+					l.accept(item, n);
 				}
 			}
 		} catch (Throwable t) {
@@ -336,6 +361,8 @@ public final class NeogulMineFeed {
 	public static void reset() {
 		prev = null;
 		births = new ArrayList<>();
+		fadeSeenAt = 0;
+		LAST_NG.clear();
 	}
 
 	private static long probeSize = -1;

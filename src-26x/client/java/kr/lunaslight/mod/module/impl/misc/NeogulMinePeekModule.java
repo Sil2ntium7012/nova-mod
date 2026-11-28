@@ -201,7 +201,9 @@ public class NeogulMinePeekModule extends Module {
 	}
 
 	private String titleText() {
-		return totalsMode ? "얻은 광물" : "광물 창고";
+		// 49-815차: 창고를 직접 읽은 지 오래됐으면 알린다(그 사이 개수는 알림 줄로 센 값이라 실제와 다를 수 있다)
+		String note = NeogulMineModule.syncNote();
+		return totalsMode ? "얻은 광물" : note.isEmpty() ? "광물 창고" : "광물 창고 · " + note;
 	}
 
 	/** 이 줄의 최근 "+n"(미리보기 예시는 5번째 칸). */

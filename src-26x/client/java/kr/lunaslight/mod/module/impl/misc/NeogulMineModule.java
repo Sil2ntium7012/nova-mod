@@ -99,6 +99,24 @@ public class NeogulMineModule extends Module {
 	private final java.util.Set<String> store = new java.util.LinkedHashSet<>();
 	private boolean opened, loaded, dirty;
 	private long dirtyAt;
+	/**
+	 * 49-815차(카롱: 미리보기에 요리용 석탄 1,100개로 보였는데 서버 기록은 770개 - "노바 클라이언트에서 개수를 표기하는 데에서 오류"):
+	 * 미리보기 개수는 창고 화면을 읽은 값에 알림 줄로 본 획득을 더한 "셈"이다. 창고를 마지막으로 읽은 때를 적어 두고 오래됐으면 제목에 알린다.
+	 */
+	private long syncAt;
+
+	/** 창고를 마지막으로 직접 읽은 지 얼마나 됐는지("35분 전 확인", "3시간 전 확인"). 10분 안이거나 모르면 빈 글. */
+	public static String syncNote() {
+		NeogulMineModule m = instance;
+		if (m == null || m.syncAt <= 0) {
+			return "";
+		}
+		long min = (System.currentTimeMillis() - m.syncAt) / 60_000;
+		if (min < 10) {
+			return "";
+		}
+		return min < 60 ? min + "분 전 확인" : min < 48 * 60 ? (min / 60) + "시간 전 확인" : (min / 1440) + "일 전 확인";
+	}
 	private Object lastConn;
 	private int readTick;
 	// 49-629차(사용자: "아이템 모두 꺼내기나 따로 꺼내기 했을 때 광창 미리보기가 안 바뀜"): 창고에서 꺼낼 때.
@@ -177,6 +195,7 @@ public class NeogulMineModule extends Module {
 			}
 			JsonObject o = JsonParser.parseString(Files.readString(f, StandardCharsets.UTF_8)).getAsJsonObject();
 			opened = o.has("opened") && o.get("opened").getAsBoolean();
+			syncAt = o.has("syncAt") ? o.get("syncAt").getAsLong() : 0;
 			if (o.has("counts")) {
 				for (var e : o.getAsJsonObject("counts").entrySet()) {
 					counts.put(e.getKey(), e.getValue().getAsInt());
@@ -212,6 +231,7 @@ public class NeogulMineModule extends Module {
 		try {
 			JsonObject o = new JsonObject();
 			o.addProperty("opened", opened);
+			o.addProperty("syncAt", syncAt);
 			JsonObject c = new JsonObject();
 			for (var e : counts.entrySet()) {
 				c.addProperty(e.getKey(), e.getValue());
@@ -427,6 +447,11 @@ public class NeogulMineModule extends Module {
 		}
 		startWithdrawWatch();
 		stale = false;   // 49-727차
+		if (System.currentTimeMillis() - syncAt > 30_000) {
+			dirty = true;   // 확인한 때를 저장
+			dirtyAt = System.currentTimeMillis();
+		}
+		syncAt = System.currentTimeMillis();   // 49-815차
 		boolean changed = !opened || !store.containsAll(found.keySet());
 		store.addAll(found.keySet());   // 49-635차
 		opened = true;
