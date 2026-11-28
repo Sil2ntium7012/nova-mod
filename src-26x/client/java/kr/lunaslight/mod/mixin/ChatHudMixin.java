@@ -67,6 +67,17 @@ public abstract class ChatHudMixin {
 
 	// 49-425차: 26.x는 기록 목록 자르기가 addMessage가 아니라 addMessageToQueue에 있다 - 예전엔 화면 줄만 풀려서 창 크기를 바꾸면 100줄로 돌아갔다
 	/** 49-633차: 채팅창에 실제로 들어간 줄(너굴 질문 도우미 - ChatState.observeLogged). */
+	/**
+	 * 49-813차(사용자: "채팅 기능 가능하면 나갔다 와도 유지되는 걸로"): 서버에서 나가면 게임이 clearMessages(true)로 채팅과 보낸 글 기록을 지운다.
+	 * 채팅 기능의 "나가도 채팅 유지"가 켜져 있으면 그 지움만 막는다(F3+D로 직접 지우는 것은 clearMessages(false)라 그대로 된다).
+	 */
+	@Inject(method = "clearMessages(Z)V", at = @At("HEAD"), cancellable = true, require = 0)
+	private void lunaslight$keepOnLeave(boolean clearSent, CallbackInfo ci) {
+		if (clearSent && ChatState.keepOnLeave) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "logChatMessage", at = @At("HEAD"), require = 0)
 	private void lunaslight$logged(net.minecraft.client.multiplayer.chat.GuiMessage message, CallbackInfo ci) {
 		try {

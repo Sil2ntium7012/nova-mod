@@ -81,7 +81,7 @@ public class ChatSearchScreen extends LunaScreenBase {
 		var opt = ModuleManager.get().find("chat_enhancements");
 		if (opt.isPresent() && opt.get() instanceof ChatEnhancementsModule chat) {
 			for (ChatEnhancementsModule.TimestampedMessage m : chat.getHistory()) {
-				pool.add(m.toDisplayString());
+				pool.add(m.toDisplayString().replace("\r", "").replace('\n', ' '));
 				poolText.add(withTime(m.timeLabel(), m.text()));
 			}
 		}
@@ -89,7 +89,7 @@ public class ChatSearchScreen extends LunaScreenBase {
 			List<String> vanilla = LunaCompat.chatHudMessages(minecraft);
 			List<net.minecraft.network.chat.Component> vt = LunaCompat.chatHudComponents(minecraft);
 			for (int i = vanilla.size() - 1; i >= 0; i--) {   // 오래된 것부터
-				pool.add(vanilla.get(i));
+				pool.add(String.valueOf(vanilla.get(i)).replace("\r", "").replace('\n', ' '));
 				poolText.add(vt.size() == vanilla.size() ? vt.get(i) : null);
 			}
 		}
@@ -172,13 +172,33 @@ public class ChatSearchScreen extends LunaScreenBase {
 	 * 49-581차: 원래 Component를 바닐라 채팅처럼(조각마다 글꼴, 색 그대로, 그림자) 그린다. 폭이 넘치면 잘라 "..."를 붙인다.
 	 * 노바 글꼴로 바꾸지 않는다 - 서버 리소스팩의 아이콘 글꼴 글자가 그대로 나오게. 못 그리면 false(글자로 대신).
 	 */
+	/**
+	 * 49-813차(사용자 사진: 검색 창 줄 가운데 네모난 "LF" 글자): 확성기처럼 글 안에 줄바꿈이 든 채팅은 채팅창에서는 줄이 나뉘지만,
+	 * 여기서는 한 줄로 그리다 보니 줄바꿈 글자가 그대로(글꼴의 "LF" 그림) 나왔다. 그리기 전에 줄바꿈을 빈칸으로 바꾼다(색, 글꼴은 그대로).
+	 */
+	private static net.minecraft.network.chat.Component oneLine(net.minecraft.network.chat.Component c) {
+		if (c == null) {
+			return null;
+		}
+		String plain = c.getString();
+		if (plain.indexOf('\n') < 0 && plain.indexOf('\r') < 0) {
+			return c;
+		}
+		net.minecraft.network.chat.MutableComponent out = net.minecraft.network.chat.Component.empty();
+		c.visit((net.minecraft.network.chat.FormattedText.StyledContentConsumer<Object>) (style, str) -> {
+			out.append(net.minecraft.network.chat.Component.literal(str.replace("\r", "").replace('\n', ' ')).setStyle(style));
+			return java.util.Optional.empty();
+		}, net.minecraft.network.chat.Style.EMPTY);
+		return out;
+	}
+
 	private boolean drawStyled(GuiGraphicsExtractor ctx, net.minecraft.network.chat.Component comp, boolean copied, int x, int y, int maxW) {
 		try {
 			net.minecraft.network.chat.MutableComponent full = net.minecraft.network.chat.Component.empty();
 			if (copied) {
 				full.append(net.minecraft.network.chat.Component.literal("복사됨  ").withStyle(net.minecraft.ChatFormatting.GREEN));
 			}
-			full.append(comp);
+			full.append(oneLine(comp));
 			net.minecraft.network.chat.FormattedText ft = full;
 			if (font.width(full) > maxW) {
 				int dots = font.width("...");

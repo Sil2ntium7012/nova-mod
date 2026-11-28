@@ -65,6 +65,8 @@ public class ChatEnhancementsModule extends Module {
 	private final ColorSetting timestampColor = register(new ColorSetting(
 			"timestamp_color", "시각 색", "시각 글자의 색입니다.", 0xFFAAAAAA));
 	// 49-388차: 무제한 채팅은 따로 기능(UnlimitedChatModule)으로 뺐다 - [채팅]을 안 켜도 되게
+	private final BooleanSetting keepChat = register(new BooleanSetting(
+		"keep_on_leave", "나가도 채팅 유지", "서버에서 나갔다 다시 들어와도 채팅을 지우지 않습니다", true));
 	private final BooleanSetting search = register(new BooleanSetting(
 			"search", "채팅 검색", "채팅창에서 Ctrl+F로 지난 채팅을 검색합니다.", true));
 	// 49-387차(사용자: "채팅 GUI 비율 줄일수록 글씨가 잘 안 보이는데 GUI 비율 2~1이어도 잘 보이게")
@@ -203,6 +205,7 @@ public class ChatEnhancementsModule extends Module {
 	@Override
 	protected void onDisable() {
 		ChatState.timestamps = false;
+		ChatState.keepOnLeave = false;
 		ChatState.boostSmallGui = false;
 		kr.lunaslight.mod.util.ChatAnim.enabled = false;
 		ChatState.highlighter = null;
@@ -251,6 +254,7 @@ public class ChatEnhancementsModule extends Module {
 		// 49-340차(사용자: "시간 뜨는 거는 mc.novaclient.kr 서버에서는 안 뜨게"): 노바 서버는 서버가 시각을 붙여 주므로 끈다
 		ChatState.timestamps = showTimestamps.get() && !onNovaServer();
 		ChatState.neogulServer = onNeogul();
+		ChatState.keepOnLeave = keepChat.get();   // 49-813차
 		ChatState.boostSmallGui = smallGuiChat.get();
 		kr.lunaslight.mod.util.ChatAnim.enabled = chatAnim.get();
 		ChatState.timestampColor = timestampColor.getArgb() & 0x00FFFFFF;

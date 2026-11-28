@@ -484,6 +484,8 @@ public final class ChatState {
 	public static volatile boolean unlimitedHistory = false;
 	/** 채팅 줄 앞에 [HH:mm] 시각 표시. */
 	public static volatile boolean timestamps = false;
+	/** 49-813차(사용자: "채팅 기능 가능하면 나갔다 와도 유지되는 걸로"): 서버에서 나갈 때 게임이 채팅을 지우지 못하게 한다(ChatHudMixin). */
+	public static volatile boolean keepOnLeave = false;
 	/** 49-387차: GUI 배율 1에서 채팅 키우기(ChatBoostMixin). */
 	public static volatile boolean boostSmallGui = false;
 
