@@ -31,6 +31,24 @@ public final class SlimLog {
 	}
 
 	private static final Pattern HEAD = Pattern.compile("^\\[(\\d{2}:\\d{2}:\\d{2})\\] \\[[^\\]]*/(INFO|WARN|ERROR|FATAL|DEBUG|TRACE)\\]");
+	/**
+	 * 49-816차(11/28 티모 튕김 기록: 7,843줄 가운데 7,059줄이 "Ignoring player info update for unknown player"): 문제 기록에서 빼는 줄.
+	 * 서버가 탭 목록을 고칠 때마다 뜨는 경고와 리소스팩 그림, 모델이 없다는 경고는 튕김과 상관이 없고 기록만 키운다(원본 기록에는 그대로 남는다).
+	 */
+	private static final String[] NOISE = {
+		"Ignoring player info update for unknown player", "Missing textures in model", "Missing texture references in model", "Missing block model",
+		"Missing resource ", "Received passengers for unknown entity", "Non [a-z0-9_.-] character in namespace",
+	};
+
+	private static boolean noise(String line) {
+		for (String k : NOISE) {
+			if (line.contains(k)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static final String[] KEEP = {
 		"[Nova]", "Connecting to", "onnect", "Stopping!", "Stopping ", "timed out", "Timed out", "Kicked", "kicked",
 		"resource pack", "Resource pack", "server pack", "Reloading ResourceManager", "OutOfMemory", "Out of memory",
@@ -349,7 +367,7 @@ public final class SlimLog {
 							}
 							if (head) {
 								String lv = h.group(2);
-								keep = !line.contains("[CHAT]") && (lv.equals("WARN") || lv.equals("ERROR") || lv.equals("FATAL") || wanted(line));
+								keep = !line.contains("[CHAT]") && !noise(line) && (lv.equals("WARN") || lv.equals("ERROR") || lv.equals("FATAL") || wanted(line));
 								keeping = keep;
 								extra = 0;
 							} else {
