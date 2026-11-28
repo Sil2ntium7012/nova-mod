@@ -107,25 +107,68 @@ public final class RiderCosmetics {
 				return false;
 			}
 			// 49-759차(사용자: "플레이어 치장도 보여야 한다고, 타인 것은"): 타지 않은 치장은 누구 것인지 자리로만 짐작한다.
-			// 다른 사람이 내 곁에 서면 그 사람 치장(등 뒤 가방, 날개 등)이 나와 더 가까워 내 것으로 보고 숨겼다.
-			// 다른 플레이어가 그 치장 1.5칸 안에 있으면 누구 것인지 모르는 것으로 보고 숨기지 않는다(남의 것을 숨기느니 내 것이 잠깐 보이는 쪽).
+			// 49-804차(사용자 사진: 잠광 자리에서 치장이 화면을 가림 - "치장은 아직도 이런데?"): 예전에는 다른 사람이 1.5칸 안에 있으면 무조건 안 숨겨서,
+			// 여럿이 붙어 서는 잠광 자리에서는 내 치장이 계속 보였다. 이제 누구 것인지 확실할 때 주인을 기억해 두고(stickyOwner), 헷갈릴 때는 기억한 주인을 쓴다.
 			if (e.getRootVehicle() == e) {
-				for (Player p : e.level().players()) {
-					if (p == mc.player || p.isSpectator()) {
-						continue;
-					}
-					double dx = e.getX() - p.getX();
-					double dz = e.getZ() - p.getZ();
-					double dy = e.getY() - p.getY();
-					if (dx * dx + dz * dz < 2.25 && dy > -1.0 && dy < p.getBbHeight() + 1.5) {
-						return false;
-					}
-				}
+				return stickyOwner(e, mc.player) == mc.player;
 			}
 			return true;
 		} catch (Throwable t) {
 			return false;
 		}
+	}
+
+	/** 타지 않은 치장 → 확실했을 때 정한 주인(엔티티 번호). 렌더 스레드에서만 쓴다. */
+	private static final java.util.Map<Entity, Integer> OWNER = new java.util.WeakHashMap<>();
+
+	/**
+	 * 타지 않고 따라다니는 치장의 주인. 치장은 주인 자리에 그대로 겹쳐 있으므로(가로 거리 거의 0), 가장 가까운 플레이어가
+	 * 둘째로 가까운 플레이어보다 뚜렷이 가깝거나(가로 0.14칸 안이고 둘째와 제곱 거리 차 0.05 넘음) 둘레 1.5칸에 그 사람뿐이면 확실한 것으로 보고 기억한다.
+	 * 확실하지 않으면 기억해 둔 주인을, 기억도 없으면 null(숨기지 않음 - 남의 것을 숨기느니 내 것이 잠깐 보이는 쪽).
+	 */
+	private static Player stickyOwner(Entity e, Player me) {
+		Player best = null;
+		double bestD = Double.MAX_VALUE, secondD = Double.MAX_VALUE;
+		Player remembered = null;
+		Integer rid = OWNER.get(e);
+		for (Player p : e.level().players()) {
+			if (p.isSpectator()) {
+				continue;
+			}
+			if (rid != null && p.getId() == rid) {
+				remembered = p;
+			}
+			double dy = e.getY() - p.getY();
+			if (dy < -1.0 || dy > p.getBbHeight() + 1.5) {
+				continue;
+			}
+			double dx = e.getX() - p.getX();
+			double dz = e.getZ() - p.getZ();
+			double d = dx * dx + dz * dz;
+			if (d < bestD) {
+				secondD = bestD;
+				bestD = d;
+				best = p;
+			} else if (d < secondD) {
+				secondD = d;
+			}
+		}
+		if (best != null && bestD <= 0.64) {
+			boolean alone = secondD >= 2.25;
+			boolean clear = bestD < 0.02 && secondD > bestD + 0.05;
+			if (alone || clear) {
+				OWNER.put(e, best.getId());
+				return best;
+			}
+		}
+		if (remembered != null) {
+			double dx = e.getX() - remembered.getX(), dz = e.getZ() - remembered.getZ();
+			if (dx * dx + dz * dz <= 2.25) {
+				return remembered;   // 아직 그 사람 곁에 있다
+			}
+			OWNER.remove(e);
+		}
+		return null;
 	}
 
 	/** 플레이어 치장 디스플레이면 그 플레이어 자리의 밝기(-1 = 바닐라대로). 글자 디스플레이는 그대로(읽기 쉽게). */

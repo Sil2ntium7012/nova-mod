@@ -1155,6 +1155,16 @@ public final class LunaRecipes {
 							}
 						}
 						click(client, syncId, -999, 2, net.minecraft.world.inventory.ContainerInput.QUICK_CRAFT);
+						// 49-806차(사용자 사진: 다이아몬드 블록을 만든 뒤 칸마다 1개씩 남음 - "제작 도우미 쓰면 1개씩 남고 그럼"):
+						// 64개를 9칸에 끌어 나누면 7개씩 들어가고 1개가 손에 남는다. 그 나머지를 제자리에 돌려놓아서 재료 칸마다 1개씩 남았다.
+						// 이제 손에 남은 나머지는 아직 모자란 격자 칸에 한 개씩 더 놓는다(우클릭). 그래도 남을 때만 제자리로.
+						for (int i = 0; i < targets.size() && !handler.getCarried().isEmpty(); i++) {
+							ItemStack in0 = handler.getSlot(targets.get(i)).getItem();
+							int c0 = in0 == null || in0.isEmpty() ? 0 : in0.getCount();
+							if (c0 < n && c0 < stackMax.getOrDefault(item, 64)) {
+								click(client, syncId, targets.get(i), 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+							}
+						}
 						for (int i = 0; i < targets.size(); i++) {
 							ItemStack in = handler.getSlot(targets.get(i)).getItem();
 							need[i] = Math.max(0, n - (in == null ? 0 : in.getCount()));

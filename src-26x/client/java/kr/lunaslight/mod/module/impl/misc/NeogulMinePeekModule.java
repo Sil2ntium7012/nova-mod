@@ -154,7 +154,8 @@ public class NeogulMinePeekModule extends Module {
 							break;
 						}
 					}
-					if (!has) {
+					// 49-803차(사용자 사진: "사암 0" 줄 - "광창에 사암이 왜 쌓이냐"): 사암은 캐는 블록이지 광물 창고에 들어가는 것이 아니다
+					if (!has && !"사암".equals(String.valueOf(t[1]))) {
 						all.add(new Object[]{t[0], t[1], 0, -1});
 					}
 				}
