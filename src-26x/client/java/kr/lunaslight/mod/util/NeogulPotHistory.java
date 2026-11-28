@@ -42,6 +42,8 @@ public final class NeogulPotHistory {
 	private static final int MAX_DAYS = 180;
 
 	private static volatile boolean running;
+	/** 49-814차: 여러 폴더에 복사돼 있는 같은 기록 파일(이름과 크기가 같음)은 한 번만 센다. 세기 시작할 때 비운다. */
+	private static final java.util.Set<String> SEEN_FILES = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private static volatile String doneKey;
 
 	/** 연동 코드를 새로 붙여 넣었을 때(다른 사람 코드일 수 있음). */
@@ -50,7 +52,10 @@ public final class NeogulPotHistory {
 	}
 
 	/** 아직 이 코드로 안 보냈으면 뒤에서 세고, 다 세면 sink에 신호를 넘긴다(게임 스레드에서 부름). */
-	public static void maybeSend(String key, Consumer<JsonObject> sink) {
+	public static void maybeSend(String key0, Consumer<JsonObject> sink) {
+		// 49-814차(사용자: "이전 로그에서 피로회복제 이런 건 왜 안 가지고 와" - 노바 클라이언트로 하던 때의 기록이 빠짐): 다른 런처의 기록까지 합쳐
+		// 한 번 더 보내도록 표시를 바꾼다("|v2"). 봇은 날짜마다 더 큰 값만 받아들여 겹쳐 세지 않는다.
+		final String key = key0 == null ? null : key0 + "|v2";
 		if (running || key == null || key.equals(doneKey)) {
 			return;
 		}
@@ -67,7 +72,33 @@ public final class NeogulPotHistory {
 			try {
 				Path dir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("logs");
 				int[] files = new int[1];
+				SEEN_FILES.clear();
 				Map<String, Integer> days = scan(dir, LocalDate.now(), files);
+				// 다른 런처로 한 기록(%APPDATA%\Nugulient\minecraft\logs, %APPDATA%\NovaClient\profiles\*\logs 중 지금 폴더가 아닌 것)
+				try {
+					String ad = System.getenv("APPDATA");
+					if (ad != null && !ad.isEmpty()) {
+						List<Path> dirs = new ArrayList<>();
+						dirs.add(Path.of(ad, "Nugulient", "minecraft", "logs"));
+						Path profs = Path.of(ad, "NovaClient", "profiles");
+						if (Files.isDirectory(profs)) {
+							try (var ps = Files.list(profs)) {
+								ps.filter(Files::isDirectory).forEach(x -> dirs.add(x.resolve("logs")));
+							}
+						}
+						Path here = Files.isDirectory(dir) ? dir.toRealPath() : dir;
+						for (Path od : dirs) {
+							if (!Files.isDirectory(od) || od.toRealPath().equals(here) || Files.isSameFile(od, dir)) {
+								continue;
+							}
+							for (Map.Entry<String, Integer> en : scan(od, LocalDate.now(), files).entrySet()) {
+								days.merge(en.getKey(), en.getValue(), Integer::sum);
+							}
+						}
+					}
+				} catch (Throwable t) {
+					LunaCompat.warnOnce("pothist:others", t);
+				}
 				JsonObject days0 = new JsonObject();
 				days.forEach(days0::addProperty);
 				JsonObject e = new JsonObject();
@@ -124,6 +155,9 @@ public final class NeogulPotHistory {
 				continue;
 			}
 			if (Files.size(f) > 300L * 1024 * 1024) {
+				continue;
+			}
+			if (gz && !SEEN_FILES.add(name + "|" + Files.size(f))) {
 				continue;
 			}
 			try {

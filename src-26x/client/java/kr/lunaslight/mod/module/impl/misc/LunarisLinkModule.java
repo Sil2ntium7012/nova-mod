@@ -168,7 +168,7 @@ public class LunarisLinkModule extends Module {
 	 * 49-743차(사용자: "디코 쪽 관련 업뎃은 연동한 사람들한테 지속적으로 업데이트 요청 메시지"): 모드 빌드 번호. 신호마다 "b"로 보내고,
 	 * 새 릴리스가 있으면(ModUpdateBanner) "od":true. 봇(modupdate.js REQ)이 이보다 낮거나 od면 업데이트해 달라고 DM. 모드를 올릴 때 둘을 같이 올릴 것.
 	 */
-	public static final int BUILD = 755;
+	public static final int BUILD = 756;
 
 	private static void stamp(JsonObject p) {
 		p.addProperty("b", BUILD);

@@ -165,7 +165,7 @@ public class NeogulSpendLogModule extends Module {
 	/** 49-780차(사용자: "누적 후원 금액도 확인 가능해?"): "/후원"을 치면 뜨는 "- 닉네임님의 누적 후원금액은 350,000원입니다." */
 	private static final Pattern DONATE = Pattern.compile("([A-Za-z0-9_]{2,16})님의\\s*누적\\s*후원금액은\\s*([\\d,]+)\\s*원");
 	private static final Pattern LOG_GZ = Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d+\\.log\\.gz");
-	private final StringSetting histDone = register(new StringSetting("hist1031e", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h6|")
+	private final StringSetting histDone = register(new StringSetting("hist1031f", "지난 지출", "", ""));   // 49-788차: 봇의 빼는 규칙(도구 낀 거래, 섬원끼리 거래)이 바뀌어 한 번 더 읽어 보낸다(id와 키 "h7|")
 	private volatile boolean histRunning;
 	private volatile java.util.List<Object[]> histPending;   // {card, hd, ts, key}
 	private long histAt;
@@ -259,7 +259,7 @@ public class NeogulSpendLogModule extends Module {
 				}
 				java.nio.file.Path here = dir.toRealPath();
 				for (java.nio.file.Path od : dirs) {
-					if (!java.nio.file.Files.isDirectory(od) || od.toRealPath().equals(here)) {
+					if (!java.nio.file.Files.isDirectory(od) || od.toRealPath().equals(here) || java.nio.file.Files.isSameFile(od, dir)) {
 						continue;
 					}
 					try (var ls = java.nio.file.Files.list(od)) {
@@ -275,8 +275,17 @@ public class NeogulSpendLogModule extends Module {
 		}
 		// 날짜 → 구매 줄, 거래
 		java.util.TreeMap<String, java.util.List<Object[]>> days = new java.util.TreeMap<>();   // {ts, Hit}
+		// 49-814차(11/28 봇 기록: 755로 다시 쌓을 때 모든 지출이 두 번씩 들어옴): 런처를 옮기거나 프로필을 복사하면서 같은 기록 파일이 여러 폴더에 있다.
+		// 이름과 크기가 같은 파일은 한 번만 읽고, 다른 파일에서 같은 때(초)에 같은 내용이 또 나오면 겹친 것으로 보고 버린다.
+		final java.util.Set<String> seenFiles = new java.util.HashSet<>();
+		final java.util.Map<String, Integer> seenSig = new java.util.HashMap<>();
+		int fileNo = 0;
 		for (java.nio.file.Path f : files) {
+			fileNo++;
 			try {
+				if (!f.getFileName().toString().equals("latest.log") && !seenFiles.add(f.getFileName() + "|" + java.nio.file.Files.size(f))) {
+					continue;
+				}
 				long mtime = java.nio.file.Files.getLastModifiedTime(f).toMillis();
 				java.time.LocalDate end = java.time.Instant.ofEpochMilli(mtime - 120_000).atZone(zone).toLocalDate();
 				if (end.isBefore(HIST_FROM) || java.nio.file.Files.size(f) > 300L * 1024 * 1024) {
@@ -440,6 +449,12 @@ public class NeogulSpendLogModule extends Module {
 						}
 						continue;
 					}
+					String sig = ts + "|" + (h.misc != null ? h.misc.toString() : h.trade ? "t" + h.who + "|" + h.won + "|" + h.got + "|" + h.gave
+							: h.bank != 0 ? "k" + h.bank + "|" + h.won : "b" + h.who + "|" + h.raw + "|" + h.n + "|" + h.won);
+					Integer from = seenSig.putIfAbsent(sig, fileNo);
+					if (from != null && from != fileNo) {
+						continue;   // 다른 파일에 든 같은 기록
+					}
 					days.computeIfAbsent(d.toString(), k -> new ArrayList<>()).add(new Object[]{ts, h});
 				}
 			} catch (Throwable t) {
@@ -467,7 +482,7 @@ public class NeogulSpendLogModule extends Module {
 						blkN++;
 						blkTs = ts;
 					} else {
-						out.add(new Object[]{h.misc, day, ts, "h6|" + day + "|m" + (mi++)});
+						out.add(new Object[]{h.misc, day, ts, "h7|" + day + "|m" + (mi++)});
 					}
 					continue;
 				}
@@ -476,7 +491,7 @@ public class NeogulSpendLogModule extends Module {
 					c.addProperty("k", h.bank == 2 ? "bank" : "bankin");
 					c.addProperty("t", hm(h.sec));
 					c.addProperty("won", h.won);
-					out.add(new Object[]{c, day, ts, "h6|" + day + "|k" + (bk++)});
+					out.add(new Object[]{c, day, ts, "h7|" + day + "|k" + (bk++)});
 					continue;
 				}
 				if (h.trade) {
@@ -493,7 +508,7 @@ public class NeogulSpendLogModule extends Module {
 					}
 					c.add("got", h.got);
 					c.add("gave", h.gave);
-					out.add(new Object[]{c, day, ts, "h6|" + day + "|t" + (tr++)});
+					out.add(new Object[]{c, day, ts, "h7|" + day + "|t" + (tr++)});
 					continue;
 				}
 				JsonObject row = thing(h.raw, h.n);
@@ -519,25 +534,25 @@ public class NeogulSpendLogModule extends Module {
 				}
 				lastTs = ts;
 				if (rows.toString().length() > 1100) {
-					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h6|" + day + "|b" + (part++)});
+					out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h7|" + day + "|b" + (part++)});
 					rows = new JsonArray();
 				}
 			}
 			if (!rows.isEmpty()) {
-				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h6|" + day + "|b" + part});
+				out.add(new Object[]{buyCard(rows, firstTs, zone), day, lastTs, "h7|" + day + "|b" + part});
 			}
 			if (blkN > 0) {
 				JsonObject c = miscCard("block", hm(blkSec));
 				c.addProperty("won", blkWon);
 				c.addProperty("n", blkN);
-				out.add(new Object[]{c, day, blkTs, "h6|" + day + "|blk"});
+				out.add(new Object[]{c, day, blkTs, "h7|" + day + "|blk"});
 			}
 		}
 		if (donateWon >= 0) {
 			JsonObject c = new JsonObject();
 			c.addProperty("k", "donate");
 			c.addProperty("won", donateWon);
-			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h6|donate"});
+			out.add(new Object[]{c, LocalDate.now(KST).toString(), donateTs, "h7|donate"});
 		}
 		return out;
 	}
